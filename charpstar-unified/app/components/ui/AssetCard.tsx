@@ -14,8 +14,23 @@ import {
   TooltipTrigger,
 } from "@/components/ui/display";
 import { motion } from "framer-motion";
-import { useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useState, useEffect, useCallback } from "react";
+import { useUser } from "@/contexts/useUser";
+import { useToast } from "@/components/ui/utilities/use-toast";
+
+// Global cache to prevent multiple API calls for the same client
+const remainingChangesCache = new Map<
+  string,
+  { count: number; timestamp: number }
+>();
+const CACHE_DURATION = 10000; // 10 seconds
+
+// Track ongoing requests to prevent duplicate calls
+const ongoingRequests = new Set<string>();
+
+// Callbacks to notify all components when data is fetched
+const dataCallbacks = new Map<string, Set<(count: number) => void>>();
 
 interface Asset {
   id: string;
@@ -50,9 +65,13 @@ export default function AssetCard({
   canDownloadGLB = false,
 }: AssetCardProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [imgLoaded, setImgLoaded] = useState(false);
   const [isActive, setIsActive] = useState(asset.active ?? true);
   const [isTogglingActive, setIsTogglingActive] = useState(false);
+  const [remainingChanges, setRemainingChanges] = useState<number | null>(null);
+  const user = useUser();
+  const { toast } = useToast();
 
   const isCompactMode = viewMode === "compactGrid";
 
@@ -69,11 +88,108 @@ export default function AssetCard({
 
   const previewImageUrl: string = getPreviewImage(asset.preview_image);
 
+  // Fetch remaining changes for client users with caching
+  const fetchRemainingChanges = useCallback(
+    async (force = false) => {
+      if (!user?.metadata?.client || user?.metadata?.role === "admin") return;
+
+      const clientName = asset.client || "";
+      const now = Date.now();
+
+      // Check cache first
+      if (!force) {
+        const cached = remainingChangesCache.get(clientName);
+        if (cached && now - cached.timestamp < CACHE_DURATION) {
+          setRemainingChanges(cached.count);
+          return;
+        }
+      }
+
+      // Check if there's already an ongoing request for this client
+      if (ongoingRequests.has(clientName)) {
+        return;
+      }
+
+      // Mark request as ongoing
+      ongoingRequests.add(clientName);
+
+      try {
+        const response = await fetch(
+          `/api/assets/remaining-changes?client=${encodeURIComponent(clientName)}`
+        );
+        if (response.ok) {
+          const data = await response.json();
+          const count = data.remainingChanges;
+          setRemainingChanges(count);
+          // Update cache
+          remainingChangesCache.set(clientName, { count, timestamp: now });
+
+          // Notify all components for this client
+          const callbacks = dataCallbacks.get(clientName);
+          if (callbacks) {
+            callbacks.forEach((callback) => callback(count));
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching remaining changes:", error);
+      } finally {
+        // Remove from ongoing requests
+        ongoingRequests.delete(clientName);
+      }
+    },
+    [user?.metadata?.client, user?.metadata?.role, asset.client]
+  );
+
+  useEffect(() => {
+    if (user?.metadata?.role !== "admin" && asset.client) {
+      const clientName = asset.client;
+
+      // Check if we already have cached data
+      const cached = remainingChangesCache.get(clientName);
+      if (cached) {
+        setRemainingChanges(cached.count);
+        return;
+      }
+
+      // Register callback to get notified when data is fetched
+      const callback = (count: number) => {
+        setRemainingChanges(count);
+      };
+
+      if (!dataCallbacks.has(clientName)) {
+        dataCallbacks.set(clientName, new Set());
+      }
+      dataCallbacks.get(clientName)!.add(callback);
+
+      // Fetch remaining changes with a shorter delay
+      const timeoutId = setTimeout(() => {
+        fetchRemainingChanges();
+      }, 500); // Reduced delay to 500ms
+
+      return () => {
+        clearTimeout(timeoutId);
+        // Clean up callback
+        const callbacks = dataCallbacks.get(clientName);
+        if (callbacks) {
+          callbacks.delete(callback);
+          if (callbacks.size === 0) {
+            dataCallbacks.delete(clientName);
+          }
+        }
+      };
+    }
+  }, [user?.metadata?.role, asset.client, fetchRemainingChanges]);
+
   const handleToggleActive = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
 
     setIsTogglingActive(true);
+
+    // Store original values for potential rollback
+    const originalIsActive = isActive;
+    const originalRemainingChanges = remainingChanges;
+
     try {
       const response = await fetch(`/api/assets/${asset.id}/toggle-active`, {
         method: "PATCH",
@@ -84,17 +200,64 @@ export default function AssetCard({
       });
 
       if (!response.ok) {
-        throw new Error("Failed to toggle active status");
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to toggle active status");
       }
 
       setIsActive(!isActive);
+
+      // Refresh remaining changes for both deactivation and reactivation
+      if (user?.metadata?.role !== "admin") {
+        // Optimistically update the remaining changes count
+        if (remainingChanges !== null) {
+          let newCount = remainingChanges;
+          if (!isActive) {
+            // Deactivating: decrease remaining changes
+            newCount = Math.max(0, remainingChanges - 1);
+          } else {
+            // Reactivating: increase remaining changes
+            newCount = remainingChanges + 1;
+          }
+          setRemainingChanges(newCount);
+          // Update cache
+          const clientName = asset.client || "";
+          remainingChangesCache.set(clientName, {
+            count: newCount,
+            timestamp: Date.now(),
+          });
+        }
+        // Also fetch from server to ensure accuracy (force fetch)
+        fetchRemainingChanges(true);
+      }
 
       // Trigger refetch to update the list
       if (onStatusChange) {
         onStatusChange();
       }
+
+      // Show success message
+      toast({
+        title: "Success",
+        description: `Asset ${!isActive ? "deactivated" : "activated"} successfully`,
+      });
     } catch (error) {
       console.error("Error toggling active status:", error);
+
+      // Rollback optimistic updates on error
+      setIsActive(originalIsActive);
+      if (originalRemainingChanges !== null) {
+        setRemainingChanges(originalRemainingChanges);
+      }
+
+      // Show error message to user
+      toast({
+        title: "Error",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Failed to toggle active status",
+        variant: "destructive",
+      });
     } finally {
       setIsTogglingActive(false);
     }
@@ -110,7 +273,10 @@ export default function AssetCard({
   }, [previewImageUrl]);
 
   const handleViewAsset = () => {
-    router.push(`/asset-library/${asset.id}`);
+    // Preserve current URL parameters (including page number) when navigating to asset detail
+    const currentParams = new URLSearchParams(searchParams.toString());
+    const assetUrl = `/asset-library/${asset.id}${currentParams.toString() ? `?${currentParams.toString()}` : ""}`;
+    router.push(assetUrl);
   };
 
   return (
@@ -125,10 +291,14 @@ export default function AssetCard({
       className="group"
     >
       <Card
-        className={`relative overflow-hidden border border-border/50 transition-all duration-300 bg-white dark:bg-black/90 shadow-sm ${
+        className={`relative overflow-hidden border border-border/50 transition-all duration-300 shadow-sm ${
           isCompactMode
             ? "flex flex-row h-76 min-w-full"
             : "flex flex-col min-h-[220px] min-w-[220px]"
+        } ${
+          !isActive
+            ? "bg-gray-50 dark:bg-gray-800/50 opacity-75"
+            : "bg-white dark:bg-black/90"
         }`}
       >
         {/* Selection checkbox */}
@@ -155,6 +325,22 @@ export default function AssetCard({
                 className={`${isCompactMode ? "h-4 w-4" : "h-5 w-5"} ${isSelected ? "opacity-100" : "opacity-0"}`}
               />
             </button>
+          </div>
+        )}
+
+        {/* Deactivated badge */}
+        {!isActive && (
+          <div
+            className={`absolute z-20 ${
+              isCompactMode ? "top-4 right-4" : "top-3 right-3"
+            }`}
+          >
+            <Badge
+              variant="secondary"
+              className="bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+            >
+              Deactivated
+            </Badge>
           </div>
         )}
 
@@ -349,7 +535,12 @@ export default function AssetCard({
                               : "bg-red-100 hover:bg-red-200 text-red-700 dark:bg-red-900/30 dark:hover:bg-red-900/50 dark:text-red-400"
                           }`}
                           onClick={handleToggleActive}
-                          disabled={isTogglingActive}
+                          disabled={
+                            isTogglingActive ||
+                            (user?.metadata?.role !== "admin" &&
+                              isActive &&
+                              remainingChanges === 0)
+                          }
                         >
                           {isActive ? (
                             <CheckCircle2 className="h-4 w-4" />
@@ -360,7 +551,11 @@ export default function AssetCard({
                       </TooltipTrigger>
                       <TooltipContent>
                         {isActive
-                          ? "Active - Click to deactivate"
+                          ? remainingChanges === 0
+                            ? "Active - No changes remaining this year"
+                            : remainingChanges !== null
+                              ? `Active - Click to deactivate (${remainingChanges} changes remaining)`
+                              : "Active - Click to deactivate"
                           : "Inactive - Click to activate"}
                       </TooltipContent>
                     </Tooltip>
@@ -494,7 +689,12 @@ export default function AssetCard({
                           : "bg-red-100 hover:bg-red-200 text-red-700 dark:bg-red-900/30 dark:hover:bg-red-900/50 dark:text-red-400"
                       }`}
                       onClick={handleToggleActive}
-                      disabled={isTogglingActive}
+                      disabled={
+                        isTogglingActive ||
+                        (user?.metadata?.role !== "admin" &&
+                          isActive &&
+                          remainingChanges === 0)
+                      }
                     >
                       {isActive ? (
                         <CheckCircle2 className="h-4 w-4" />
@@ -505,7 +705,11 @@ export default function AssetCard({
                   </TooltipTrigger>
                   <TooltipContent>
                     {isActive
-                      ? "Active - Click to deactivate"
+                      ? remainingChanges === 0
+                        ? "Active - No changes remaining this year"
+                        : remainingChanges !== null
+                          ? `Active - Click to deactivate (${remainingChanges} changes remaining)`
+                          : "Active - Click to deactivate"
                       : "Inactive - Click to activate"}
                   </TooltipContent>
                 </Tooltip>

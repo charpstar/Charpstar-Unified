@@ -23,6 +23,7 @@ const LazyActivityWidget = lazy(() =>
 import {
   StatusPieChartWidget,
   ClientActionCenterWidget,
+  ClientAssetCountWidget,
   AdminPipelineWidget,
   AdminQueuesWidget,
   QAStatisticsWidget,
@@ -114,19 +115,13 @@ export function FixedDashboard({ profileContent }: FixedDashboardProps) {
   // Client Dashboard Layout
   if (isClient) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 h-full">
         {/* Row 1 */}
-        <div
-          className="p-6 rounded-2xl bg-white dark:bg-background border border-border   dark:bg-muted/50"
-          data-tour="profile"
-        >
+        <div className="p-6 rounded-2xl bg-card" data-tour="profile">
           {profileContent}
         </div>
 
-        <div
-          className="p-6 rounded-2xl bg-white dark:bg-background border border-border   dark:bg-muted/50"
-          data-tour="quick-actions"
-        >
+        <div className=" rounded-3xl bg-background " data-tour="quick-actions">
           <Suspense
             fallback={
               <div className="h-32 bg-gray-100 dark:bg-gray-800 animate-pulse rounded-xl" />
@@ -137,15 +132,22 @@ export function FixedDashboard({ profileContent }: FixedDashboardProps) {
         </div>
 
         {/* Row 2 */}
-        <div className="p-6 rounded-2xl bg-white dark:bg-background border border-border   dark:bg-muted/50">
+        <div className=" rounded-2xl bg-background">
           <ErrorBoundary>
             <ClientActionCenterWidget />
           </ErrorBoundary>
         </div>
 
-        <div className="p-6 rounded-2xl bg-white dark:bg-background border border-border   dark:bg-muted/50">
+        <div className=" rounded-2xl bg-background">
           <ErrorBoundary>
             <StatusPieChartWidget />
+          </ErrorBoundary>
+        </div>
+
+        {/* Row 3 - Asset Usage Widget */}
+        <div className="md:col-span-2">
+          <ErrorBoundary>
+            <ClientAssetCountWidget />
           </ErrorBoundary>
         </div>
       </div>

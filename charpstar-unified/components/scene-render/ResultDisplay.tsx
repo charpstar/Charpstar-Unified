@@ -6,15 +6,25 @@ import { toast } from "sonner";
 
 interface ResultDisplayProps {
   images: string[];
+  upscaledImages?: string[];
+  showComparison?: boolean;
   onReset: () => void;
 }
 
-const ResultDisplay: React.FC<ResultDisplayProps> = ({ images, onReset }) => {
+const ResultDisplay: React.FC<ResultDisplayProps> = ({
+  images,
+  upscaledImages,
+  showComparison,
+  onReset,
+}) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isUpscaling, setIsUpscaling] = useState(false);
+  const [isImageLoading, setIsImageLoading] = useState(true);
 
-  const imageBase64 = images[0]; // Single image
-  const imageUrl = `data:image/png;base64,${imageBase64}`;
+  const imageData = images[0]; // Single image
+  // Check if it's already a URL or base64 data
+  const imageUrl = imageData.startsWith("http")
+    ? imageData
+    : `data:image/png;base64,${imageData}`;
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -30,112 +40,238 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ images, onReset }) => {
     };
   }, [isModalOpen]);
 
-  const handleDownloadHD = async () => {
-    setIsUpscaling(true);
+  const handleDownloadOriginal = async () => {
     try {
-      // Call upscale API
-      const response = await fetch("/api/scene-render/upscale", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          base64Image: imageBase64,
-        }),
-      });
-
+      // Fetch the image as a blob and create a download
+      const response = await fetch(imageUrl);
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to upscale image");
+        throw new Error("Failed to fetch image");
       }
 
-      const data = await response.json();
-      const upscaledImageUrl = `data:image/png;base64,${data.upscaledImage}`;
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
 
-      // Create download link
       const link = document.createElement("a");
-      link.href = upscaledImageUrl;
-      link.download = `product-scene-hd-${Date.now()}.png`;
+      link.href = url;
+      link.download = `product-scene-original-${Date.now()}.png`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
 
-      toast.success("HD image downloaded successfully!");
+      // Clean up the object URL
+      window.URL.revokeObjectURL(url);
+
+      toast.success("Original image downloaded successfully!");
     } catch (error) {
-      console.error("Error upscaling image:", error);
-      toast.error(
-        error instanceof Error ? error.message : "Failed to upscale image"
-      );
-    } finally {
-      setIsUpscaling(false);
+      console.error("Error downloading original image:", error);
+      toast.error("Failed to download original image");
     }
+  };
+
+  const handleDownloadUpscaled = async () => {
+    try {
+      if (upscaledImageUrl) {
+        // Fetch the image as a blob and create a download
+        const response = await fetch(upscaledImageUrl);
+        if (!response.ok) {
+          throw new Error("Failed to fetch image");
+        }
+
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `product-scene-upscaled-${Date.now()}.png`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        // Clean up the object URL
+        window.URL.revokeObjectURL(url);
+
+        toast.success("Upscaled image downloaded successfully!");
+      } else {
+        toast.error("No upscaled image available");
+      }
+    } catch (error) {
+      console.error("Error downloading upscaled image:", error);
+      toast.error("Failed to download upscaled image");
+    }
+  };
+
+  const upscaledImageData = upscaledImages?.[0];
+  const upscaledImageUrl = upscaledImageData
+    ? upscaledImageData.startsWith("http")
+      ? upscaledImageData
+      : `data:image/png;base64,${upscaledImageData}`
+    : null;
+
+  // Reset loading state when upscaled image changes
+  useEffect(() => {
+    if (showComparison && upscaledImageUrl) {
+      setIsImageLoading(true);
+    }
+  }, [showComparison, upscaledImageUrl]);
+
+  const handleImageLoad = () => {
+    setIsImageLoading(false);
+  };
+
+  const handleImageError = () => {
+    setIsImageLoading(false);
   };
 
   return (
     <>
-      <div className="w-full max-w-4xl flex flex-col items-center glass-card p-6 rounded-2xl shadow-2xl animate-fade-in">
+      <div className="w-full max-w-6xl flex flex-col items-center glass-card p-6 rounded-2xl shadow-2xl animate-fade-in">
         <h2 className="text-2xl sm:text-3xl font-bold text-foreground mb-2">
-          Your Premium Scene is Ready!
+          {showComparison
+            ? "Your AI-Upscaled Scene is Ready!"
+            : "Your Premium Scene is Ready!"}
         </h2>
         <p className="text-sm text-muted-foreground mb-6">
-          High-quality product scene generated and ready for download
+          {showComparison
+            ? "High-quality AI-upscaled scene (4096x2048) generated and ready for download"
+            : "High-quality product scene generated and ready for download"}
         </p>
 
-        <div
-          className="w-full max-w-2xl aspect-square rounded-lg overflow-hidden border-2 border-border mb-6 shadow-lg cursor-zoom-in group relative"
-          onClick={() => setIsModalOpen(true)}
-          title="Click to view fullscreen"
-          role="button"
-          aria-label="View image fullscreen"
-        >
-          <Image
-            src={imageUrl}
-            alt="Generated product scene"
-            className="w-full h-full object-contain bg-muted transition-transform duration-300 group-hover:scale-105"
-            width={1024}
-            height={1024}
-            unoptimized
-          />
-          <div className="absolute top-2 right-2 bg-black/50 text-white px-2 py-1 rounded-md text-xs backdrop-blur-sm">
-            <Maximize2 className="h-3 w-3 inline mr-1" />
-            Click to enlarge
-          </div>
-        </div>
+        {showComparison && upscaledImageUrl ? (
+          // Show only the upscaled image
+          <div className="w-full max-w-4xl mb-6 ">
+            <div className="text-center mb-4">
+              <span className="inline-flex items-center gap-2 px-3 py-1 bg-primary/10 text-primary rounded-full text-sm font-medium">
+                <div className="w-2 h-2 rounded-full bg-primary"></div>
+                AI Upscaled (4096x2048)
+              </span>
+            </div>
 
-        <div className="flex flex-col sm:flex-row gap-3 w-full max-w-md">
-          <Button
-            onClick={handleDownloadHD}
-            disabled={isUpscaling}
-            className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground"
-            size="lg"
+            <div
+              className="w-full aspect-ratio-1/2 rounded-lg overflow-hidden border-2 border-border shadow-lg cursor-zoom-in group relative"
+              onClick={() => setIsModalOpen(true)}
+              title="Click to view fullscreen"
+              role="button"
+              aria-label="View upscaled image fullscreen"
+            >
+              {/* Loading overlay */}
+              {isImageLoading && (
+                <div className="absolute inset-0 bg-muted/50 flex items-center justify-center z-10">
+                  <div className="flex flex-col items-center gap-3">
+                    <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+                    <span className="text-sm text-muted-foreground">
+                      Processing image...
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              <Image
+                src={upscaledImageUrl}
+                alt="AI upscaled product scene"
+                className={`w-full h-full object-contain bg-muted transition-all duration-300 h-auto  ${
+                  isImageLoading
+                    ? "opacity-0"
+                    : "opacity-100 group-hover:scale-105"
+                }`}
+                width={1024}
+                height={1024}
+                unoptimized
+                onLoad={handleImageLoad}
+                onError={handleImageError}
+              />
+
+              {!isImageLoading && (
+                <div className="absolute top-2 right-2 bg-black/50 text-white px-2 py-1 rounded-md text-xs backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Maximize2 className="h-3 w-3 inline mr-1" />
+                  Click to enlarge
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          // Single image display
+          <div
+            className="w-full max-w-2xl aspect-square rounded-lg overflow-hidden border-2 border-border mb-6 shadow-lg cursor-zoom-in group relative"
+            onClick={() => setIsModalOpen(true)}
+            title="Click to view fullscreen"
+            role="button"
+            aria-label="View image fullscreen"
           >
-            {isUpscaling ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Upscaling...
-              </>
-            ) : (
-              <>
-                <Download className="h-4 w-4 mr-2" />
-                Download HD Image
-              </>
-            )}
-          </Button>
+            <Image
+              src={imageUrl}
+              alt="Generated product scene"
+              className="w-full h-full object-contain bg-muted transition-transform duration-300 group-hover:scale-105"
+              width={1024}
+              height={1024}
+              unoptimized
+            />
+            <div className="absolute top-2 right-2 bg-black/50 text-white px-2 py-1 rounded-md text-xs backdrop-blur-sm">
+              <Maximize2 className="h-3 w-3 inline mr-1" />
+              Click to enlarge
+            </div>
+          </div>
+        )}
+
+        <div className="flex flex-col gap-3 w-full max-w-2xl">
+          {showComparison && upscaledImageUrl ? (
+            // Single download button for upscaled image
+            <Button
+              onClick={handleDownloadUpscaled}
+              className="bg-primary hover:bg-primary/90 text-primary-foreground"
+              size="lg"
+              disabled={isImageLoading}
+            >
+              {isImageLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                <>
+                  <Download className="h-4 w-4 mr-2" />
+                  Download HD Image (4096x2048)
+                </>
+              )}
+            </Button>
+          ) : (
+            // Single download button for single image mode
+            <Button
+              onClick={handleDownloadOriginal}
+              className="bg-primary hover:bg-primary/90 text-primary-foreground"
+              size="lg"
+              disabled={isImageLoading}
+            >
+              {isImageLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                <>
+                  <Download className="h-4 w-4 mr-2" />
+                  Download Image
+                </>
+              )}
+            </Button>
+          )}
+
           <Button
             onClick={onReset}
             variant="outline"
             size="lg"
-            className="flex-1"
+            className="w-full"
           >
             Create Another Scene
           </Button>
-        </div>
 
-        {isUpscaling && (
-          <p className="text-xs text-muted-foreground mt-3 animate-pulse">
-            Enhancing image quality for download...
-          </p>
-        )}
+          {isImageLoading && (
+            <div className="text-center mt-2">
+              <p className="text-xs text-muted-foreground animate-pulse">
+                Cloudinary is processing your image to 4096x2048 resolution...
+              </p>
+            </div>
+          )}
+        </div>
       </div>
 
       {isModalOpen && (
@@ -154,31 +290,31 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ images, onReset }) => {
           </button>
           <div className="relative" onClick={(e) => e.stopPropagation()}>
             <Image
-              src={imageUrl}
-              alt="Generated product scene in fullscreen"
+              src={upscaledImageUrl || imageUrl}
+              alt="AI upscaled product scene in fullscreen"
               className="max-h-[90vh] max-w-[90vw] object-contain rounded-lg shadow-2xl"
               width={1920}
               height={1920}
               unoptimized
             />
             <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex gap-2">
-              <Button
-                onClick={handleDownloadHD}
-                disabled={isUpscaling}
-                className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg"
-              >
-                {isUpscaling ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Upscaling...
-                  </>
-                ) : (
-                  <>
-                    <Download className="h-4 w-4 mr-2" />
-                    Download HD
-                  </>
-                )}
-              </Button>
+              {showComparison && upscaledImageUrl ? (
+                <Button
+                  onClick={handleDownloadUpscaled}
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Download HD (4096x2048)
+                </Button>
+              ) : (
+                <Button
+                  onClick={handleDownloadOriginal}
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Download
+                </Button>
+              )}
             </div>
           </div>
         </div>

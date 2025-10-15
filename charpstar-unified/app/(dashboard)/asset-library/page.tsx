@@ -27,6 +27,7 @@ import { Search } from "lucide-react";
 import { CategorySidebarSkeleton } from "@/components/ui/skeletons/CategorySidebarSkeleton";
 import React from "react";
 import { Card, CardContent } from "@/components/ui/containers/card";
+import { AssetLibraryIntroPopup } from "@/components/asset-library/AssetLibraryIntroPopup";
 
 // Lazy load heavy components
 const LazyAssetCard = React.lazy(() => import("@/app/components/ui/AssetCard"));
@@ -58,6 +59,7 @@ const calculateSearchRelevance = (searchTerm: string, asset: any): number => {
 
   const searchLower = translateSwedishToEnglish(searchTerm.toLowerCase());
   const productName = asset.product_name?.toLowerCase() || "";
+  const articleId = asset.article_id?.toLowerCase() || "";
   const materials = asset.materials?.map((m: string) => m.toLowerCase()) || [];
   const colors = asset.colors?.map((c: string) => c.toLowerCase()) || [];
   const tags = asset.tags?.map((t: string) => t.toLowerCase()) || [];
@@ -69,6 +71,13 @@ const calculateSearchRelevance = (searchTerm: string, asset: any): number => {
     score += 100;
     // Bonus for exact product name match
     if (productName === searchLower) score += 50;
+  }
+
+  // Article ID matches (high priority for exact matches)
+  if (articleId.includes(searchLower)) {
+    score += 90;
+    // Bonus for exact article ID match
+    if (articleId === searchLower) score += 60;
   }
 
   // Material matches
@@ -102,6 +111,7 @@ const calculateSearchRelevance = (searchTerm: string, asset: any): number => {
       // Check if word appears at word boundaries
       const wordBoundaryRegex = new RegExp(`\\b${word}\\b`, "i");
       if (wordBoundaryRegex.test(productName)) score += 40;
+      if (wordBoundaryRegex.test(articleId)) score += 35;
       if (wordBoundaryRegex.test(materials.join(" "))) score += 25;
       if (wordBoundaryRegex.test(colors.join(" "))) score += 20;
       if (wordBoundaryRegex.test(tags.join(" "))) score += 15;
@@ -149,6 +159,8 @@ export default function AssetLibraryPage() {
   const [selectedColors, setSelectedColors] = useState<string[]>([]);
   const [selectedCompanies, setSelectedCompanies] = useState<string[]>([]);
   const [showInactiveOnly, setShowInactiveOnly] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
+  const [showIntroPopup, setShowIntroPopup] = useState(false);
 
   // Debounced search function
   const debouncedSearch = useCallback((value: string) => {
@@ -173,11 +185,13 @@ export default function AssetLibraryPage() {
         .split(/,|\s+/)
         .filter((term) => term.trim());
       const productName = asset.product_name?.toLowerCase() || "";
+      const articleId = asset.article_id?.toLowerCase() || "";
 
       // Check if any of the translated search terms match
       return searchTerms.some((searchTerm) => {
         // Quick exact match check first
         if (productName.includes(searchTerm)) return true;
+        if (articleId.includes(searchTerm)) return true;
 
         // Then check other fields
         return (
@@ -239,6 +253,18 @@ export default function AssetLibraryPage() {
     };
     fetchUserRole();
   }, [user]);
+
+  // Check for first visit and show intro popup
+  useEffect(() => {
+    const hasSeenIntro = localStorage.getItem("asset-library-intro-seen");
+    if (!hasSeenIntro && user?.metadata?.role !== "admin") {
+      // Only show for client users, and only after a short delay to let the page load
+      const timer = setTimeout(() => {
+        setShowIntroPopup(true);
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [user?.metadata?.role]);
 
   const ITEMS_PER_PAGE = 60;
 
@@ -378,10 +404,12 @@ export default function AssetLibraryPage() {
     };
   }, [hookFilteredAssets]);
 
-  // Reset to page 1 when filters change
+  // Reset to page 1 when filters change (but not when coming from URL)
   useEffect(() => {
-    setCurrentPage(1);
-  }, [selectedMaterials, selectedColors, selectedCompanies]);
+    if (isInitialized) {
+      setCurrentPage(1);
+    }
+  }, [selectedMaterials, selectedColors, selectedCompanies, isInitialized]);
 
   const handleFilterChange = (key: keyof typeof filters, value: any) => {
     if (key === "category") {
@@ -391,12 +419,18 @@ export default function AssetLibraryPage() {
       } else {
         setFilters({ ...filters, category: value, subcategory: null });
       }
-      setCurrentPage(1); // Reset to first page
+      // Reset to first page when category changes (user interaction)
+      if (isInitialized) {
+        setCurrentPage(1);
+      }
     } else if (key === "subcategory") {
       // Only allow subcategory change if a category is selected
       if (filters.category) {
         setFilters({ ...filters, [key]: value });
-        setCurrentPage(1);
+        // Reset to first page when subcategory changes (user interaction)
+        if (isInitialized) {
+          setCurrentPage(1);
+        }
       }
     } else {
       setFilters({ ...filters, [key]: value });
@@ -424,6 +458,8 @@ export default function AssetLibraryPage() {
 
   // Update URL when filters change
   useEffect(() => {
+    if (!isInitialized) return; // ⛔ Skip until filters loaded from URL
+
     const params = new URLSearchParams();
 
     // Include all filters in the actual URL
@@ -437,6 +473,7 @@ export default function AssetLibraryPage() {
       params.set("companies", selectedCompanies.join(","));
     if (filters.sort !== "name-asc") params.set("sort", filters.sort);
     if (activeSearchValue) params.set("search", activeSearchValue);
+    if (currentPage > 1) params.set("page", currentPage.toString());
 
     const newUrl = `${pathname}${params.toString() ? `?${params.toString()}` : ""}`;
     router.push(newUrl, { scroll: false });
@@ -446,8 +483,10 @@ export default function AssetLibraryPage() {
     selectedColors,
     selectedCompanies,
     activeSearchValue,
+    currentPage,
     pathname,
     router,
+    isInitialized, // ✅ Added
   ]);
 
   // Initialize filters from URL on mount
@@ -473,7 +512,64 @@ export default function AssetLibraryPage() {
 
     setSearchValue(searchParams.get("search") || "");
     setActiveSearchValue(searchParams.get("search") || "");
-  }, [searchParams, setFilters]);
+
+    // Initialize page from URL
+    const pageParam = searchParams.get("page");
+    if (pageParam) {
+      const pageNumber = parseInt(pageParam, 10);
+      if (pageNumber > 0) {
+        setCurrentPage(pageNumber);
+      }
+    }
+
+    setIsInitialized(true); // ✅ Mark initialization complete
+  }, []); // 👈 Only run once on mount, not every time URL changes
+
+  // Handle URL changes when navigating back from other pages (like categories do)
+  useEffect(() => {
+    if (!isInitialized) return; // Skip until initialized
+
+    // Helper to parse comma-separated params
+    const parseList = (param: string | null): string[] =>
+      param ? param.split(",") : [];
+
+    // Check if URL parameters have changed and update state accordingly
+    const urlCategory = searchParams.get("category");
+    const urlSubcategory = searchParams.get("subcategory");
+    const urlMaterials = parseList(searchParams.get("materials"));
+    const urlColors = parseList(searchParams.get("colors"));
+    const urlCompanies = parseList(searchParams.get("companies"));
+    const urlSearch = searchParams.get("search") || "";
+    const urlSort = (searchParams.get("sort") as SortOption) || "name-asc";
+    const urlPage = parseInt(searchParams.get("page") || "1", 10);
+
+    // Update filters if they've changed
+    if (urlCategory !== filters.category) {
+      setFilters((prev) => ({ ...prev, category: urlCategory }));
+    }
+    if (urlSubcategory !== filters.subcategory) {
+      setFilters((prev) => ({ ...prev, subcategory: urlSubcategory }));
+    }
+    if (JSON.stringify(urlMaterials) !== JSON.stringify(selectedMaterials)) {
+      setSelectedMaterials(urlMaterials);
+    }
+    if (JSON.stringify(urlColors) !== JSON.stringify(selectedColors)) {
+      setSelectedColors(urlColors);
+    }
+    if (JSON.stringify(urlCompanies) !== JSON.stringify(selectedCompanies)) {
+      setSelectedCompanies(urlCompanies);
+    }
+    if (urlSearch !== activeSearchValue) {
+      setSearchValue(urlSearch);
+      setActiveSearchValue(urlSearch);
+    }
+    if (urlSort !== filters.sort) {
+      setFilters((prev) => ({ ...prev, sort: urlSort }));
+    }
+    if (urlPage !== currentPage && urlPage > 0) {
+      setCurrentPage(urlPage);
+    }
+  }, [searchParams.toString(), isInitialized]); // Run when URL changes
 
   // Handler functions for the new control panel
   const handleClearSearch = () => {
@@ -552,6 +648,11 @@ export default function AssetLibraryPage() {
     handleFilterChange("subcategory", id);
   };
 
+  const handleCloseIntroPopup = () => {
+    setShowIntroPopup(false);
+    localStorage.setItem("asset-library-intro-seen", "true");
+  };
+
   // Helper function to clear all filters and reset to initial state
   const handleClearAllFilters = () => {
     clearFilters();
@@ -560,6 +661,37 @@ export default function AssetLibraryPage() {
     setCurrentPage(1);
     // Navigate to clean URL
     router.push("/asset-library", { scroll: false });
+  };
+
+  // Helper function to build breadcrumb URLs with current filters
+  const buildBreadcrumbUrl = (
+    additionalParams: Record<string, string> = {}
+  ) => {
+    const params = new URLSearchParams();
+
+    // Include current filters
+    if (filters.category) params.set("category", filters.category);
+    if (filters.subcategory) params.set("subcategory", filters.subcategory);
+    if (selectedMaterials.length > 0)
+      params.set("materials", selectedMaterials.join(","));
+    if (selectedColors.length > 0)
+      params.set("colors", selectedColors.join(","));
+    if (selectedCompanies.length > 0)
+      params.set("companies", selectedCompanies.join(","));
+    if (filters.sort !== "name-asc") params.set("sort", filters.sort);
+    if (activeSearchValue) params.set("search", activeSearchValue);
+    if (currentPage > 1) params.set("page", currentPage.toString());
+
+    // Override with additional params
+    Object.entries(additionalParams).forEach(([key, value]) => {
+      if (value) {
+        params.set(key, value);
+      } else {
+        params.delete(key);
+      }
+    });
+
+    return `/asset-library${params.toString() ? `?${params.toString()}` : ""}`;
   };
 
   // Prepare props for AssetLibraryControlPanel (removed category props)
@@ -575,7 +707,7 @@ export default function AssetLibraryPage() {
             label:
               filterOptions.categories.find((c) => c.id === filters.category)
                 ?.name || "",
-            href: `/asset-library?category=${filters.category}`,
+            href: buildBreadcrumbUrl({ subcategory: "" }),
           },
         ]
       : []),
@@ -587,7 +719,7 @@ export default function AssetLibraryPage() {
                 .find((c) => c.id === filters.category)
                 ?.subcategories?.find((s) => s.id === filters.subcategory)
                 ?.name || "",
-            href: `/asset-library?category=${filters.category}&subcategory=${filters.subcategory}`,
+            href: buildBreadcrumbUrl(),
           },
         ]
       : []),
@@ -732,7 +864,8 @@ export default function AssetLibraryPage() {
           {/* Asset Count and Page Info */}
           <div className="flex justify-between items-center mb-4">
             <p className="text-xs sm:text-sm text-muted-foreground">
-              Showing {currentAssets.length} of {filteredAssets.length} assets
+              Showing {currentAssets?.length || 0} of{" "}
+              {filteredAssets?.length || 0} assets
               {totalPages > 1 && ` (Page ${currentPage} of ${totalPages})`}
             </p>
           </div>
@@ -889,6 +1022,12 @@ export default function AssetLibraryPage() {
           </Suspense>
         </SheetContent>
       </Sheet>
+
+      {/* Intro Popup */}
+      <AssetLibraryIntroPopup
+        isOpen={showIntroPopup}
+        onClose={handleCloseIntroPopup}
+      />
     </div>
   );
 }

@@ -60,10 +60,11 @@ import { EditCompaniesDialog } from "@/components/users/EditCompaniesDialog";
 interface Company {
   id: string;
   name: string;
-  email: string;
   company: string;
   contract_type: "standard" | "premium" | "enterprise" | "custom";
   contract_value: number;
+  models_in_contract?: number | null;
+  change_percentage?: number | null;
   payment_terms: string;
   start_date: string;
   end_date: string | null;
@@ -84,10 +85,11 @@ interface Company {
 
 interface CompanyFormData {
   name: string;
-  email: string;
   company: string;
   contract_type: "standard" | "premium" | "enterprise" | "custom";
   contract_value: number;
+  models_in_contract?: number;
+  change_percentage?: number;
   payment_terms: string;
   start_date: string;
   status: "active" | "inactive";
@@ -102,6 +104,10 @@ interface CompanyFormData {
   bunny_custom_access_key?: string;
 }
 
+interface CompanyAssetCount {
+  [companyName: string]: number;
+}
+
 export default function AdminClientsPage() {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
@@ -110,12 +116,14 @@ export default function AdminClientsPage() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [assetCounts, setAssetCounts] = useState<CompanyAssetCount>({});
   const [formData, setFormData] = useState<CompanyFormData>({
     name: "",
-    email: "",
     company: "",
     contract_type: "standard",
     contract_value: 0,
+    models_in_contract: 0,
+    change_percentage: 0,
     payment_terms: "",
     start_date: "",
     status: "active",
@@ -135,6 +143,70 @@ export default function AdminClientsPage() {
   useEffect(() => {
     fetchCompanies();
   }, []);
+
+  const fetchAssetCounts = async (companyNames: string[]) => {
+    try {
+      const counts: CompanyAssetCount = {};
+
+      // Query onboarding_assets table - get all records to filter manually
+      const { data: onboardingData, error: onboardingError } = await supabase
+        .from("onboarding_assets")
+        .select("client, transferred")
+        .in("client", companyNames);
+
+      if (onboardingError) throw onboardingError;
+
+      // Query assets table - get all records to filter manually
+      const { data: assetsData, error: assetsError } = await supabase
+        .from("assets")
+        .select("client, active")
+        .in("client", companyNames);
+
+      if (assetsError) throw assetsError;
+
+      // Count assets per company
+      companyNames.forEach((name) => {
+        // Debug: Log the data for this company
+        const companyOnboardingData = onboardingData?.filter(
+          (item) => item.client === name
+        );
+        const companyAssetsData = assetsData?.filter(
+          (item) => item.client === name
+        );
+        console.log(
+          `Admin - Company: ${name}, Onboarding data:`,
+          companyOnboardingData
+        );
+        console.log(
+          `Admin - Company: ${name}, Assets data:`,
+          companyAssetsData
+        );
+
+        // Filter onboarding_assets: exclude where transferred = true
+        const onboardingCount =
+          onboardingData?.filter(
+            (item) =>
+              item.client === name &&
+              (item.transferred === false || item.transferred === null)
+          ).length || 0;
+
+        // Filter assets: exclude where active = false
+        const assetsCount =
+          assetsData?.filter(
+            (item) =>
+              item.client === name &&
+              (item.active === true || item.active === null)
+          ).length || 0;
+
+        counts[name] = onboardingCount + assetsCount;
+      });
+
+      return counts;
+    } catch (error) {
+      console.error("Error fetching asset counts:", error);
+      return {};
+    }
+  };
 
   const fetchCompanies = async () => {
     try {
@@ -189,6 +261,7 @@ export default function AdminClientsPage() {
           company: "",
           contract_type: "standard",
           contract_value: 0,
+          models_in_contract: null,
           payment_terms: "",
           start_date: "",
           end_date: null,
@@ -213,6 +286,11 @@ export default function AdminClientsPage() {
       );
 
       setCompanies(merged);
+
+      // Fetch asset counts for all companies
+      const companyNames = merged.map((c) => c.name);
+      const counts = await fetchAssetCounts(companyNames);
+      setAssetCounts(counts);
     } catch (error) {
       console.error("Error fetching companies:", error);
       toast({
@@ -228,18 +306,17 @@ export default function AdminClientsPage() {
   const filteredCompanies = companies.filter(
     (company) =>
       company.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      company.company.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      company.email.toLowerCase().includes(searchTerm.toLowerCase())
+      company.company.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const handleEditCompany = (company: Company) => {
     setSelectedCompany(company);
     setFormData({
       name: company.name,
-      email: company.email,
       company: company.company,
       contract_type: company.contract_type,
       contract_value: company.contract_value,
+      models_in_contract: company.models_in_contract || 0,
       payment_terms: company.payment_terms,
       start_date: company.start_date,
       status: company.status === "inactive" ? "inactive" : "active",
@@ -264,10 +341,11 @@ export default function AdminClientsPage() {
   const handleAddCompany = () => {
     setFormData({
       name: "",
-      email: "",
       company: "",
       contract_type: "standard",
       contract_value: 0,
+      models_in_contract: 0,
+      change_percentage: 0,
       payment_terms: "",
       start_date: "",
       status: "active",
@@ -286,10 +364,11 @@ export default function AdminClientsPage() {
   const handleAddCompanyPrefill = (name: string) => {
     setFormData({
       name,
-      email: "",
       company: "",
       contract_type: "standard",
       contract_value: 0,
+      models_in_contract: 0,
+      change_percentage: 0,
       payment_terms: "",
       start_date: "",
       status: "active",
@@ -340,6 +419,7 @@ export default function AdminClientsPage() {
       } else {
         const { error } = await supabase.from("clients").insert({
           ...formData,
+
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         });
@@ -355,10 +435,11 @@ export default function AdminClientsPage() {
       // Reset form and close dialog
       setFormData({
         name: "",
-        email: "",
         company: "",
         contract_type: "standard",
         contract_value: 0,
+        models_in_contract: 0,
+        change_percentage: 0,
         payment_terms: "",
         start_date: "",
         status: "active",
@@ -383,9 +464,7 @@ export default function AdminClientsPage() {
 
       if (error?.code === "23505") {
         // Unique constraint violation
-        if (error?.details?.includes("email")) {
-          errorMessage = `This email (${formData.email}) is already associated with another company. Please use a different email address.`;
-        } else if (error?.details?.includes("name")) {
+        if (error?.details?.includes("name")) {
           errorMessage = `A company with the name "${formData.name}" already exists. Please use a different name.`;
         } else {
           errorMessage =
@@ -496,6 +575,7 @@ export default function AdminClientsPage() {
                   <TableHead className="text-left">Description</TableHead>
                   <TableHead className="text-left">Contract</TableHead>
                   <TableHead className="text-left">Value</TableHead>
+                  <TableHead className="text-left">Models</TableHead>
                   <TableHead className="text-left">Status</TableHead>
                   <TableHead className="text-left">Start Date</TableHead>
                   <TableHead className="text-left">Actions</TableHead>
@@ -541,6 +621,11 @@ export default function AdminClientsPage() {
                       {company.isPlaceholder
                         ? "-"
                         : `€${company.contract_value.toLocaleString()}`}
+                    </TableCell>
+                    <TableCell className="text-left">
+                      {company.isPlaceholder
+                        ? "-"
+                        : `${assetCounts[company.name] || 0} / ${company.models_in_contract || 0}`}
                     </TableCell>
                     <TableCell className="text-left">
                       {company.isPlaceholder ? (
@@ -604,9 +689,6 @@ export default function AdminClientsPage() {
                   <div className="flex items-start justify-between">
                     <div>
                       <h3 className="font-medium text-base">{company.name}</h3>
-                      <p className="text-sm text-muted-foreground">
-                        {company.email}
-                      </p>
                       {company.company && (
                         <p className="text-sm text-muted-foreground">
                           {company.company}
@@ -679,6 +761,13 @@ export default function AdminClientsPage() {
                       </p>
                     </div>
                     <div>
+                      <span className="text-muted-foreground">Models:</span>
+                      <p className="font-medium">
+                        {assetCounts[company.name] || 0} /{" "}
+                        {company.models_in_contract || 0}
+                      </p>
+                    </div>
+                    <div>
                       <span className="text-muted-foreground">Status:</span>
                       <div className="mt-1">
                         <Badge
@@ -728,7 +817,7 @@ export default function AdminClientsPage() {
 
       {/* Edit Company Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="w-[95vw] sm:w-full min-w-4xl max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[95vw] sm:w-full min-w-5xl max-w-5xl max-h-[90vh] overflow-y-auto">
           <DialogHeader className="pb-3 sm:pb-4">
             <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl">
               <Edit className="h-4 w-4 sm:h-5 sm:w-5" />
@@ -856,21 +945,6 @@ function CompanyForm({
             />
           </div>
           <div className="space-y-1">
-            <Label htmlFor="email" className="text-sm">
-              Email
-            </Label>
-            <Input
-              id="email"
-              type="email"
-              value={formData.email}
-              onChange={(e) =>
-                setFormData({ ...formData, email: e.target.value })
-              }
-              placeholder="Enter email address"
-              className="text-sm sm:text-base"
-            />
-          </div>
-          <div className="space-y-1">
             <Label htmlFor="company" className="text-sm">
               Description
             </Label>
@@ -905,84 +979,144 @@ function CompanyForm({
           </div>
         </div>
 
-        {/* Contract Information */}
+        {/* Contract Information - Collapsible */}
         <div className="border-t pt-3 sm:pt-4">
-          <h3 className="text-sm sm:text-base font-medium mb-3 flex items-center gap-2">
-            <FileText className="h-3 w-3 sm:h-4 sm:w-4 text-blue-600" />
-            Contract Details
-          </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-6">
-            {/* Contract Size and Value */}
-            <div className="space-y-3">
-              <div className="space-y-1">
-                <Label htmlFor="contract_type" className="text-sm">
-                  Contract Size
-                </Label>
-                <Select
-                  value={formData.contract_type}
-                  onValueChange={(
-                    value: "standard" | "premium" | "enterprise" | "custom"
-                  ) => setFormData({ ...formData, contract_type: value })}
-                >
-                  <SelectTrigger className="text-sm sm:text-base">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="standard">Small</SelectItem>
-                    <SelectItem value="premium">Medium</SelectItem>
-                    <SelectItem value="enterprise">Big</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="contract_value" className="text-sm">
-                  Contract Value (€)
-                </Label>
-                <Input
-                  id="contract_value"
-                  type="number"
-                  min="0"
-                  max="99999999.99"
-                  step="0.01"
-                  value={
-                    formData.contract_value === 0 ? "" : formData.contract_value
-                  }
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      contract_value:
-                        e.target.value === ""
-                          ? 0
-                          : parseFloat(e.target.value) || 0,
-                    })
-                  }
-                  placeholder="0.00"
-                  className="text-sm sm:text-base"
-                />
-              </div>
-            </div>
+          <Accordion type="single" collapsible className="w-full">
+            <AccordionItem value="contract-details" className="border-none">
+              <AccordionTrigger className="py-2 hover:no-underline">
+                <h3 className="text-sm sm:text-base font-medium flex items-center gap-2">
+                  <FileText className="h-3 w-3 sm:h-4 sm:w-4 text-blue-600" />
+                  Contract Details
+                </h3>
+              </AccordionTrigger>
+              <AccordionContent>
+                <div className="space-y-3 pt-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-6">
+                    {/* Contract Size and Value */}
+                    <div className="space-y-3">
+                      <div className="space-y-1">
+                        <Label htmlFor="contract_type" className="text-sm">
+                          Contract Size
+                        </Label>
+                        <Select
+                          value={formData.contract_type}
+                          onValueChange={(
+                            value:
+                              | "standard"
+                              | "premium"
+                              | "enterprise"
+                              | "custom"
+                          ) =>
+                            setFormData({ ...formData, contract_type: value })
+                          }
+                        >
+                          <SelectTrigger className="text-sm sm:text-base">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="standard">Small</SelectItem>
+                            <SelectItem value="premium">Medium</SelectItem>
+                            <SelectItem value="enterprise">Big</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label htmlFor="contract_value" className="text-sm">
+                          Contract Value (€)
+                        </Label>
+                        <Input
+                          id="contract_value"
+                          type="number"
+                          min="0"
+                          max="99999999.99"
+                          step="0.01"
+                          value={
+                            formData.contract_value === 0
+                              ? ""
+                              : formData.contract_value
+                          }
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              contract_value:
+                                e.target.value === ""
+                                  ? 0
+                                  : parseFloat(e.target.value) || 0,
+                            })
+                          }
+                          placeholder="0.00"
+                          className="text-sm sm:text-base"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label htmlFor="models_in_contract" className="text-sm">
+                          Models in Contract
+                        </Label>
+                        <Input
+                          id="models_in_contract"
+                          type="number"
+                          min="0"
+                          value={formData.models_in_contract || ""}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              models_in_contract: parseInt(e.target.value) || 0,
+                            })
+                          }
+                          placeholder="0"
+                          className="text-sm sm:text-base"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label htmlFor="change_percentage" className="text-sm">
+                          Change Percentage (%)
+                        </Label>
+                        <Input
+                          id="change_percentage"
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={formData.change_percentage || ""}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              change_percentage: parseInt(e.target.value) || 0,
+                            })
+                          }
+                          placeholder="0"
+                          className="text-sm sm:text-base"
+                        />
+                      </div>
+                    </div>
 
-            {/* Start Date */}
-            <div className="space-y-1">
-              <Label className="text-sm">Start Date</Label>
-              <DatePicker
-                value={
-                  formData.start_date
-                    ? new Date(formData.start_date)
-                    : undefined
-                }
-                onChange={(date) => {
-                  if (!date) return;
-                  const yyyy = date.getFullYear();
-                  const mm = String(date.getMonth() + 1).padStart(2, "0");
-                  const dd = String(date.getDate()).padStart(2, "0");
-                  const iso = `${yyyy}-${mm}-${dd}`;
-                  setFormData({ ...formData, start_date: iso });
-                }}
-                placeholder="Select start date"
-              />
-            </div>
-          </div>
+                    {/* Start Date */}
+                    <div className="space-y-1">
+                      <Label className="text-sm">Start Date</Label>
+                      <DatePicker
+                        value={
+                          formData.start_date
+                            ? new Date(formData.start_date)
+                            : undefined
+                        }
+                        onChange={(date) => {
+                          if (!date) return;
+                          const yyyy = date.getFullYear();
+                          const mm = String(date.getMonth() + 1).padStart(
+                            2,
+                            "0"
+                          );
+                          const dd = String(date.getDate()).padStart(2, "0");
+                          const iso = `${yyyy}-${mm}-${dd}`;
+                          setFormData({ ...formData, start_date: iso });
+                        }}
+                        placeholder="Select start date"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
         </div>
 
         {/* Specifications and Requirements - Collapsible */}
@@ -1401,10 +1535,6 @@ function CompanyView({ company }: { company: Company }) {
             <p className="text-base sm:text-lg">{company.name}</p>
           </div>
           <div>
-            <h4 className="font-medium text-muted-foreground text-sm">Email</h4>
-            <p className="text-sm sm:text-base break-all">{company.email}</p>
-          </div>
-          <div>
             <h4 className="font-medium text-muted-foreground text-sm">
               Description
             </h4>
@@ -1460,6 +1590,26 @@ function CompanyView({ company }: { company: Company }) {
               €{company.contract_value.toLocaleString()}
             </p>
           </div>
+          {company.models_in_contract && (
+            <div>
+              <h4 className="font-medium text-muted-foreground text-sm">
+                Models in Contract
+              </h4>
+              <p className="text-lg sm:text-2xl font-bold text-blue-600">
+                {company.models_in_contract.toLocaleString()}
+              </p>
+            </div>
+          )}
+          {company.change_percentage && (
+            <div>
+              <h4 className="font-medium text-muted-foreground text-sm">
+                Change Percentage
+              </h4>
+              <p className="text-lg sm:text-2xl font-bold text-green-600">
+                {company.change_percentage}%
+              </p>
+            </div>
+          )}
 
           <div>
             <h4 className="font-medium text-muted-foreground text-sm">

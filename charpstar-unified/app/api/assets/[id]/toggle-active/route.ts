@@ -82,6 +82,80 @@ export async function PATCH(
       );
     }
 
+    // Track change if client is deactivating an asset (active: false)
+    // OR restore change if client is reactivating an asset (active: true)
+    if (!isAdmin) {
+      const currentYear = new Date().getFullYear();
+
+      // Check if client has remaining changes
+      const { data: clientData } = await supabase
+        .from("clients")
+        .select("name, models_in_contract, change_percentage")
+        .eq("name", assetData.client)
+        .single();
+
+      if (clientData) {
+        const changeLimit =
+          clientData.models_in_contract && clientData.change_percentage
+            ? Math.floor(
+                (clientData.models_in_contract * clientData.change_percentage) /
+                  100
+              )
+            : 0;
+
+        // Get current year's changes
+        const { data: currentChanges } = await supabase
+          .from("asset_changes")
+          .select("change_count")
+          .eq("client", assetData.client)
+          .eq("year", currentYear)
+          .single();
+
+        const changesUsed = currentChanges?.change_count || 0;
+
+        // Calculate new change count based on action
+        let newChangeCount = changesUsed;
+        if (!active) {
+          // Deactivating: increment change count
+          newChangeCount = changesUsed + 1;
+
+          // Check if client has remaining changes
+          if (changesUsed >= changeLimit) {
+            return NextResponse.json(
+              {
+                error:
+                  "You have reached your annual change limit. Contact your administrator to increase your limit.",
+              },
+              { status: 403 }
+            );
+          }
+        } else {
+          // Reactivating: decrement change count (but don't go below 0)
+          newChangeCount = Math.max(0, changesUsed - 1);
+        }
+
+        // Update change count
+        const { error: changeError } = await supabase
+          .from("asset_changes")
+          .upsert(
+            {
+              client: assetData.client,
+              year: currentYear,
+              change_count: newChangeCount,
+              updated_at: new Date().toISOString(),
+            },
+            {
+              onConflict: "client,year",
+            }
+          );
+
+        if (changeError) {
+          console.error("Error tracking asset change:", changeError);
+          // Don't fail the request, just log the error
+        }
+      }
+    }
+
     return NextResponse.json({
       success: true,
       asset: data,

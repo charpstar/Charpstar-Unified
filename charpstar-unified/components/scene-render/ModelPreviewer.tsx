@@ -3,10 +3,12 @@ import Image from "next/image";
 import { Card } from "@/components/ui/containers/card";
 import { Button } from "@/components/ui/display/button";
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/interactive/popover";
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/containers/dialog";
 import {
   Command,
   CommandEmpty,
@@ -105,7 +107,7 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
     scenePresets[0].prompt
   );
   const [isCustomScene, setIsCustomScene] = useState(false);
-  const [sceneOpen, setSceneOpen] = useState(false);
+  const [sceneDialogOpen, setSceneDialogOpen] = useState(false);
   const [inspirationImage, setInspirationImage] = useState<File | null>(null);
   const [inspirationImageUrl, setInspirationImageUrl] = useState<string | null>(
     null
@@ -160,28 +162,62 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
 
     const handleLoad = () => {
       try {
-        // Get model dimensions from model-viewer
-        const model = modelViewer.model;
-        if (model) {
-          const box = model.boundingBox;
-          if (box) {
-            const size = box.getSize();
-            setModelDimensions({
-              x: size.x,
-              y: size.y,
-              z: size.z,
-            });
-            const sizeString = `Width: ${size.x.toFixed(2)}m, Height: ${size.y.toFixed(2)}m, Depth: ${size.z.toFixed(2)}m.`;
-            setObjectSize(sizeString);
-          } else {
-            setModelDimensions({ x: 0, y: 0, z: 0 });
-            setObjectSize("Could not determine object dimensions.");
+        // Wait a bit for the model to fully load and render
+        setTimeout(() => {
+          try {
+            // Get model dimensions using the official getDimensions() method
+            let dimensions = null;
+
+            if (typeof modelViewer.getDimensions === "function") {
+              try {
+                const modelDimensions = modelViewer.getDimensions();
+                if (
+                  modelDimensions &&
+                  modelDimensions.x &&
+                  modelDimensions.y &&
+                  modelDimensions.z
+                ) {
+                  dimensions = {
+                    x: modelDimensions.x,
+                    y: modelDimensions.y,
+                    z: modelDimensions.z,
+                  };
+                }
+              } catch (error) {
+                console.error("Failed to get model dimensions:", error);
+              }
+            }
+
+            if (
+              dimensions &&
+              dimensions.x > 0 &&
+              dimensions.y > 0 &&
+              dimensions.z > 0
+            ) {
+              setModelDimensions(dimensions);
+              const sizeString = `Width: ${dimensions.x.toFixed(2)}m, Height: ${dimensions.y.toFixed(2)}m, Depth: ${dimensions.z.toFixed(2)}m.`;
+              setObjectSize(sizeString);
+            } else {
+              console.warn("Could not determine model dimensions");
+              setModelDimensions({ x: 1, y: 1, z: 1 }); // Fallback dimensions
+              setObjectSize(
+                "Model dimensions could not be determined. Using default scale."
+              );
+            }
+          } catch (error) {
+            console.error("Error calculating model dimensions:", error);
+            setModelDimensions({ x: 1, y: 1, z: 1 }); // Fallback dimensions
+            setObjectSize(
+              "Model dimensions could not be determined. Using default scale."
+            );
           }
-        }
+        }, 1500); // Wait 1.5 seconds for model to fully load
       } catch (error) {
-        console.error("Error getting model dimensions:", error);
-        setModelDimensions({ x: 0, y: 0, z: 0 });
-        setObjectSize("Could not determine object dimensions.");
+        console.error("Error in model load handler:", error);
+        setModelDimensions({ x: 1, y: 1, z: 1 }); // Fallback dimensions
+        setObjectSize(
+          "Model dimensions could not be determined. Using default scale."
+        );
       }
       setIsModelLoading(false);
     };
@@ -206,7 +242,7 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
     if (!modelViewer) return;
 
     // Test the optimal hero shot angle
-    const optimalAngle = { orbit: "0deg 75deg 1.5m", name: "Hero Shot" };
+    const optimalAngle = { orbit: "0deg 75deg 2.5m", name: "Hero Shot" };
 
     setIsTestingAngles(true);
     setCurrentAngle(optimalAngle.name);
@@ -254,37 +290,14 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
       const finalObjectSize =
         objectSize || "The object's scale is unknown. Use common sense.";
 
-      // Use single optimal front angle for best quality
-      const optimalAngle = {
-        orbit: "0deg 75deg 1.5m",
-        name: "Front Hero Shot",
-      };
+      // Preserve current camera position instead of forcing zoom
 
       try {
-        setCurrentAngle(optimalAngle.name);
+        setCurrentAngle("Current View");
 
-        // Set camera to optimal position
-        modelViewer.cameraOrbit = optimalAngle.orbit;
-
-        // Force a re-render by updating the model-viewer element
-        modelViewer.dispatchEvent(new CustomEvent("camera-change"));
-
-        // Wait for the camera to settle at the optimal position
-        await new Promise((resolve) => {
-          const checkCamera = () => {
-            const currentOrbit = modelViewer.cameraOrbit;
-            if (currentOrbit === optimalAngle.orbit) {
-              resolve(undefined);
-            } else {
-              setTimeout(checkCamera, 100);
-            }
-          };
-          setTimeout(checkCamera, 200);
-          setTimeout(resolve, 2000);
-        });
-
-        // Additional wait to ensure rendering is complete
-        await new Promise((resolve) => setTimeout(resolve, 500));
+        // Keep current camera position - no need to change it
+        // Just wait a moment to ensure the model is ready for capture
+        await new Promise((resolve) => setTimeout(resolve, 200));
 
         // Capture single high-quality screenshot
         const snapshotDataUrl = await modelViewer.toDataURL();
@@ -451,7 +464,7 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
           shadow-softness="1"
           min-field-of-view="5deg"
           max-field-of-view="35deg"
-          camera-orbit="0deg 75deg 0deg"
+          camera-orbit="0deg 75deg 2.5m"
           max-camera-orbit="auto 100deg auto"
           touch-action="pan-y"
           style={{
@@ -463,7 +476,7 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
       </div>
 
       {/* Bottom: Compact Controls in Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 h-full max-h-[400px]">
         {/* Dimensions */}
         <Card className="p-4 hover:shadow-md transition-shadow">
           <div className="flex items-center gap-2 mb-3">
@@ -472,15 +485,30 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
             </div>
             <h3 className="text-sm font-semibold">Dimensions</h3>
           </div>
-          <div className="px-3 py-2 bg-muted rounded-md text-xs text-center font-mono">
-            {modelDimensions ? (
-              <div className="space-y-0.5">
-                <div>W: {modelDimensions.x.toFixed(2)}m</div>
-                <div>H: {modelDimensions.y.toFixed(2)}m</div>
-                <div>D: {modelDimensions.z.toFixed(2)}m</div>
+          <div className="px-3 py-4 bg-muted rounded-md text-center font-mono">
+            {isModelLoading ? (
+              <div className="flex items-center justify-center gap-3">
+                <div className="w-4 h-4 border border-primary border-t-transparent rounded-full animate-spin"></div>
+                <span className="text-muted-foreground text-sm">
+                  Loading...
+                </span>
+              </div>
+            ) : modelDimensions ? (
+              <div className="space-y-2">
+                <div className="text-lg">
+                  W: {modelDimensions.x.toFixed(2)}m
+                </div>
+                <div className="text-lg ">
+                  H: {modelDimensions.y.toFixed(2)}m
+                </div>
+                <div className="text-lg ">
+                  D: {modelDimensions.z.toFixed(2)}m
+                </div>
               </div>
             ) : (
-              <span className="text-muted-foreground">Calculating...</span>
+              <span className="text-muted-foreground text-sm">
+                Calculating...
+              </span>
             )}
           </div>
         </Card>
@@ -493,12 +521,12 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
             </div>
             <h3 className="text-sm font-semibold">Product Type</h3>
           </div>
-          <div className="grid grid-cols-2 gap-1 mb-2 max-h-32 overflow-y-auto">
+          <div className="grid grid-cols-2 gap-1 mb-2 h-full overflow-y-auto">
             {productPresets.map((preset) => (
               <button
                 key={preset}
                 onClick={() => setObjectType(preset)}
-                className={`px-2 py-1.5 text-xs font-medium rounded-md transition-all ${
+                className={`px-2 py-1.5 text-xs font-medium rounded-md transition-all cursor-pointer ${
                   objectType === preset
                     ? "bg-primary text-primary-foreground shadow-sm ring-2 ring-primary/20"
                     : "bg-muted text-muted-foreground hover:bg-muted/70 hover:text-foreground"
@@ -527,87 +555,121 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
             </div>
             <h3 className="text-sm font-semibold">Scene</h3>
           </div>
-          <Popover open={sceneOpen} onOpenChange={setSceneOpen} modal={false}>
-            <PopoverTrigger asChild>
-              <button
-                className="w-full px-3 py-2 text-sm bg-background border border-input rounded-md mb-2 focus:ring-2 focus:ring-primary focus:border-primary transition-shadow text-left flex items-center justify-between"
-                aria-expanded={sceneOpen}
-              >
-                <span className="truncate">
-                  {isCustomScene
-                    ? "✏️ Custom Scene..."
-                    : scenePresets.find((p) => p.prompt === sceneDescription)
-                        ?.label || "Select scene..."}
-                </span>
-                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-              </button>
-            </PopoverTrigger>
-            <PopoverContent
-              className="w-[--radix-popover-trigger-width] p-0 pointer-events-auto z-[100000]"
-              align="start"
+          {/* Two Button Layout */}
+          <div className="space-y-2">
+            {/* Scene Dialog Button */}
+            <Dialog open={sceneDialogOpen} onOpenChange={setSceneDialogOpen}>
+              <DialogTrigger asChild>
+                <button
+                  className="w-full px-3 cursor-pointer py-2 text-sm bg-background border border-input rounded-md focus:ring-2 focus:ring-primary focus:border-primary transition-shadow text-left flex items-center justify-between hover:bg-muted/50"
+                  aria-expanded={sceneDialogOpen}
+                >
+                  <span className="truncate">
+                    {!isCustomScene &&
+                    scenePresets.find((p) => p.prompt === sceneDescription)
+                      ? scenePresets.find((p) => p.prompt === sceneDescription)
+                          ?.label
+                      : "Browse Scene Presets"}
+                  </span>
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </button>
+              </DialogTrigger>
+              <DialogContent className="min-w-6xl max-h-[85vh] p-0">
+                <DialogHeader className="px-6 py-4 border-b">
+                  <DialogTitle>Choose a Scene</DialogTitle>
+                </DialogHeader>
+                <div className="p-6">
+                  <Command>
+                    <CommandInput placeholder="Search scenes..." className="" />
+                    <CommandList className="max-h-[65vh] overflow-y-auto">
+                      <CommandEmpty>No scene found.</CommandEmpty>
+                      {presetCategories.map((category) => (
+                        <CommandGroup key={category} heading={category}>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
+                            {scenePresets
+                              .filter((p) => p.category === category)
+                              .map((preset: any) => (
+                                <CommandItem
+                                  key={preset.id}
+                                  onSelect={() => {
+                                    setIsCustomScene(false);
+                                    setSceneDescription(preset.prompt);
+                                    setSceneDialogOpen(false);
+                                  }}
+                                  className="flex items-center gap-3 p-4 rounded-lg border hover:bg-muted/50 transition-colors"
+                                >
+                                  <Check
+                                    className={`h-5 w-5 ${
+                                      !isCustomScene &&
+                                      sceneDescription === preset.prompt
+                                        ? "opacity-100"
+                                        : "opacity-0"
+                                    }`}
+                                  />
+                                  {preset.thumbnailUrl ? (
+                                    <Image
+                                      src={preset.thumbnailUrl}
+                                      alt={preset.label}
+                                      width={64}
+                                      height={64}
+                                      className="w-16 h-16 object-cover rounded-lg border shadow-sm"
+                                      unoptimized
+                                    />
+                                  ) : (
+                                    <div className="w-16 h-16 bg-muted rounded-lg flex items-center justify-center">
+                                      <span className="text-lg">🎨</span>
+                                    </div>
+                                  )}
+                                  <div className="flex-1 min-w-0">
+                                    <div className="font-medium truncate">
+                                      {preset.label}
+                                    </div>
+                                    <div className="text-sm text-muted-foreground line-clamp-2">
+                                      {preset.prompt}
+                                    </div>
+                                  </div>
+                                </CommandItem>
+                              ))}
+                          </div>
+                        </CommandGroup>
+                      ))}
+                    </CommandList>
+                  </Command>
+                </div>
+              </DialogContent>
+            </Dialog>
+
+            {/* Custom Scene Button */}
+            <button
+              onClick={() => {
+                setIsCustomScene(true);
+                setSceneDescription("");
+              }}
+              className={`w-full px-3 cursor-pointer py-2 text-sm border rounded-md focus:ring-2 focus:ring-primary focus:border-primary transition-shadow text-left flex items-center justify-between hover:bg-muted/50 ${
+                isCustomScene
+                  ? "border-primary bg-primary/10 text-primary"
+                  : "border-input bg-background"
+              }`}
             >
-              <Command>
-                <CommandInput placeholder="Search scenes..." />
-                <CommandList className="max-h-[300px] overflow-y-auto">
-                  <CommandEmpty>No scene found.</CommandEmpty>
-                  <CommandGroup>
-                    <CommandItem
-                      key="custom"
-                      onSelect={() => {
-                        setIsCustomScene(true);
-                        setSceneDescription("");
-                        setSceneOpen(false);
-                      }}
-                    >
-                      <Check
-                        className={`mr-2 h-4 w-4 ${
-                          isCustomScene ? "opacity-100" : "opacity-0"
-                        }`}
-                      />
-                      ✏️ Custom Scene...
-                    </CommandItem>
-                  </CommandGroup>
-                  {presetCategories.map((category) => (
-                    <CommandGroup key={category} heading={category}>
-                      {scenePresets
-                        .filter((p) => p.category === category)
-                        .map((preset: any) => (
-                          <CommandItem
-                            key={preset.id}
-                            onSelect={() => {
-                              setIsCustomScene(false);
-                              setSceneDescription(preset.prompt);
-                              setSceneOpen(false);
-                            }}
-                            className="flex items-center gap-2 py-2"
-                          >
-                            <Check
-                              className={`h-4 w-4 ${
-                                !isCustomScene &&
-                                sceneDescription === preset.prompt
-                                  ? "opacity-100"
-                                  : "opacity-0"
-                              }`}
-                            />
-                            {preset.thumbnailUrl && (
-                              <Image
-                                src={preset.thumbnailUrl}
-                                alt={preset.label}
-                                width={40}
-                                height={40}
-                                className="w-10 h-10 object-cover rounded border"
-                                unoptimized
-                              />
-                            )}
-                            <span className="flex-1">{preset.label}</span>
-                          </CommandItem>
-                        ))}
-                    </CommandGroup>
-                  ))}
-                </CommandList>
-              </Command>
-            </PopoverContent>
-          </Popover>
+              <span className="truncate flex items-center gap-2">
+                <span className="text-lg">✏️</span>
+                {isCustomScene
+                  ? "Custom Scene (Active)"
+                  : "Create Custom Scene"}
+              </span>
+              {isCustomScene && <Check className="h-4 w-4 text-primary" />}
+            </button>
+          </div>
+
+          {/* Display chosen preset scene description */}
+          {!isCustomScene && sceneDescription && (
+            <div className="mt-3 p-3 bg-muted/30 rounded-md border">
+              <div className="text-xs font-medium text-muted-foreground mb-1">
+                Selected Scene Description:
+              </div>
+              <div className="text-sm text-foreground">{sceneDescription}</div>
+            </div>
+          )}
 
           {isCustomScene && (
             <textarea
@@ -634,11 +696,11 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
             </h3>
           </div>
           {inspirationImageUrl ? (
-            <div className="relative group">
+            <div className="relative group h-full">
               <Image
                 src={inspirationImageUrl}
                 alt="Inspiration"
-                className="w-full h-20 object-cover rounded-md border shadow-sm"
+                className="w-full  h-[220px] object-contain rounded-md border shadow-sm"
                 width={320}
                 height={180}
               />
@@ -660,11 +722,14 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
                   />
                 </svg>
               </button>
+              <div className="absolute  p-2 bg-black/50 text-white text-sm rounded-b-md">
+                {inspirationImage?.name}
+              </div>
             </div>
           ) : (
             <label
               htmlFor="inspiration-upload"
-              className="flex flex-col items-center justify-center h-20 border-2 border-dashed border-muted-foreground/30 rounded-md cursor-pointer hover:border-primary/50 hover:bg-muted/50 transition-all group"
+              className="flex flex-col items-center justify-center h-full border-2 border-dashed border-muted-foreground/30 rounded-md cursor-pointer hover:border-primary/50 hover:bg-muted/50 transition-all group"
             >
               <div className="text-center">
                 <svg

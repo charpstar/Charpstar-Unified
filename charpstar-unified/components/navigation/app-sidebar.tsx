@@ -273,6 +273,11 @@ export default function AppSidebar({
                 url: "/admin/pending-replies",
                 icon: MessageSquare,
               },
+              {
+                title: "Deactivated Assets",
+                url: "/production/deactivated-assets",
+                icon: Package,
+              },
             ],
           },
           {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Badge } from "@/components/ui/feedback";
 import { Button } from "@/components/ui/display";
 import { ArrowLeft, Download, ImageIcon, Pencil, Plus, X } from "lucide-react";
@@ -101,6 +101,7 @@ const getViewerParameters = (viewerType?: string | null) => {
 export default function AssetDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [asset, setAsset] = useState<Asset | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -117,6 +118,12 @@ export default function AssetDetailPage() {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [relatedAssets, setRelatedAssets] = useState<Asset[]>([]);
   const [clientViewerType, setClientViewerType] = useState<string | null>(null);
+
+  // Helper function to build back URL with current filters
+  const buildBackUrl = () => {
+    const currentParams = new URLSearchParams(searchParams.toString());
+    return `/asset-library${currentParams.toString() ? `?${currentParams.toString()}` : ""}`;
+  };
 
   useEffect(() => {
     const fetchUserRole = async () => {
@@ -428,7 +435,7 @@ export default function AssetDetailPage() {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => router.push("/asset-library")}
+            onClick={() => router.push(buildBackUrl())}
             className="gap-2 mb-6"
           >
             <ArrowLeft className="h-4 w-4" />
@@ -451,7 +458,7 @@ export default function AssetDetailPage() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => router.push("/asset-library")}
+              onClick={() => router.push(buildBackUrl())}
               className="gap-2"
             >
               <ArrowLeft className="h-4 w-4" />

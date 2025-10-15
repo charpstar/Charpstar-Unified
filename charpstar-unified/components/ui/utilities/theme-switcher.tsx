@@ -66,7 +66,7 @@ export function ThemeSwitcherCard() {
   };
 
   return (
-    <div>
+    <div className=" rounded-lg p-6">
       <div className="text-base font-medium text-foreground">Theme</div>
       <div className="text-sm text-muted-foreground mb-4">
         Select the theme for the dashboard.

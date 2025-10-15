@@ -6,7 +6,7 @@ import { useAssets } from "@/hooks/use-assets";
 import { useUser } from "@/contexts/useUser";
 import { Button } from "@/components/ui/display";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/display";
-import { Badge, Progress } from "@/components/ui/feedback";
+import { Badge } from "@/components/ui/feedback";
 import {
   Users,
   TrendingUp,
@@ -42,7 +42,7 @@ import { BarChart, XAxis, YAxis, Bar } from "recharts";
 import { supabase } from "@/lib/supabaseClient";
 import { ChartTooltip } from "@/components/ui/display";
 import { useActivities } from "@/hooks/use-activities";
-import { Card, Separator, CardContent } from "@/components/ui/containers";
+import { Card } from "@/components/ui/containers";
 
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { STATUS_LABELS, type StatusKey } from "@/lib/constants";
@@ -336,238 +336,31 @@ export function ProfileWidget({ user }: { user?: any }) {
   const userRole = user?.metadata?.role || "user";
 
   return (
-    <WidgetContainer>
-      <WidgetHeader title="Profile" icon={Users}>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => {
-            const userMenu = document.querySelector(
-              '[data-tour="user-profile"]'
-            );
-            if (userMenu) {
-              (userMenu as HTMLElement).click();
-            }
-          }}
-          className="h-9 w-9 p-0 hover:bg-primary/10 rounded-lg transition-all duration-200 hover:scale-105 group"
-        >
-          <div className="relative">
-            <Cog className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors duration-200" />
-            <div className="absolute inset-0 rounded-full bg-primary/0 group-hover:bg-primary/5 transition-all duration-200" />
-          </div>
-        </Button>
-      </WidgetHeader>
+    <div className="relative">
+      {/* Enhanced Widget Container with Multi-Layer Depth */}
+      <div className="relative bg-card rounded-3xl shadow-[0_8px_32px_hsl(var(--background),0.08)] dark:shadow-[0_8px_32px_hsl(var(--background),0.3)]">
+        {/* Inner shadow for depth */}
+        <div className="absolute inset-0 rounded-3xl shadow-[inset_0_1px_0_hsl(var(--background),0.1)] dark:shadow-[inset_0_1px_0_hsl(var(--background),0.05)] pointer-events-none" />
 
-      <div className="space-y-4">
-        {/* Profile Header */}
-        <div className="group relative overflow-hidden rounded-2xl border-2 border-blue-200 dark:border-blue-800 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950/50 dark:to-blue-900/50 p-4">
-          <div className="absolute inset-0 opacity-5">
-            <div className="absolute top-0 right-0 w-20 h-20 transform rotate-45 translate-x-8 -translate-y-8 bg-current rounded-full"></div>
-            <div className="absolute bottom-0 left-0 w-16 h-16 transform -rotate-45 -translate-x-6 translate-y-6 bg-current rounded-full"></div>
-          </div>
-          <div className="relative flex items-start gap-4">
+        {/* Header with enhanced styling and depth */}
+        <div className="flex items-center justify-between p-6 pb-4">
+          <div className="flex items-center gap-3">
             <div className="relative">
-              <Avatar className="h-16 w-16 border-2 border-primary/20">
-                <AvatarImage
-                  src={user?.avatar_url || user?.metadata?.avatar_url}
-                />
-                <AvatarFallback className="bg-primary/10 text-primary font-semibold text-lg">
-                  {userName.charAt(0).toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
-              <div className="absolute -bottom-1 -right-1 h-6 w-6 rounded-full bg-green-500 border-2 border-background flex items-center justify-center">
-                <span className="text-xs text-white">✓</span>
+              <div className="p-3 bg-primary rounded-2xl shadow-[0_4px_16px_hsl(var(--primary),0.1)] dark:shadow-[0_4px_16px_hsl(var(--primary),0.2)]">
+                <Users className="h-6 w-6 text-primary-foreground" />
               </div>
+              <div className="absolute inset-0 bg-primary/30 rounded-2xl blur-sm -z-10" />
             </div>
-
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-1">
-                <h3 className="font-semibold text-lg truncate">{userName}</h3>
-                <span className="text-2xl">{roleData.icon}</span>
-              </div>
-              <p className="text-sm text-muted-foreground mb-2">{userEmail}</p>
-              <div className="flex items-center gap-2">
-                <Badge
-                  variant={userRole === "admin" ? "destructive" : "secondary"}
-                  className="text-xs"
-                >
-                  {roleData.title}
-                </Badge>
-                <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <Badge
-                    variant="outline"
-                    className="h-2 w-2 p-0 bg-green-500 border-green-500"
-                  ></Badge>
-                  {roleData.status}
-                </div>
-              </div>
+            <div>
+              <h3 className="text-xl font-bold text-foreground">Profile</h3>
+              <p className="text-sm text-muted-foreground">
+                Your account overview
+              </p>
             </div>
           </div>
-          <div className="absolute bottom-0 left-0 right-0 h-1 bg-blue-500 dark:bg-blue-600 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 ease-out origin-left"></div>
-        </div>
-
-        {/* Role Description */}
-        <div className="p-3 bg-muted/30 rounded-lg border border-border/50">
-          <p className="text-sm text-muted-foreground">
-            {roleData.description}
-          </p>
-        </div>
-
-        {/* Stats Grid */}
-        <div className="grid grid-cols-3 gap-3">
-          {roleData.stats.map((stat, index) => (
-            <div
-              key={index}
-              className="group relative overflow-hidden rounded-xl border border-border/50 bg-gradient-to-br from-muted/30 to-muted/50 p-3 text-center transition-all duration-200 hover:shadow-md hover:-translate-y-[1px]"
-            >
-              <div className="absolute inset-0 opacity-5">
-                <div className="absolute top-0 right-0 w-10 h-10 transform rotate-45 translate-x-6 -translate-y-6 bg-current rounded-full"></div>
-              </div>
-              <div className="text-lg font-bold text-primary">{stat.value}</div>
-              <div className="text-xs text-muted-foreground mb-1">
-                {stat.label}
-              </div>
-              <div className="text-xs text-success font-medium">
-                {stat.trend}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Recent Activity */}
-        <div className="group relative overflow-hidden rounded-2xl border-2 border-indigo-200 dark:border-indigo-800 bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-950/50 dark:to-indigo-900/50 p-3">
-          <div className="absolute inset-0 opacity-5"></div>
-          <div className="relative flex items-center gap-2 mb-2">
-            <Activity className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
-            <span className="text-sm font-medium text-indigo-700 dark:text-indigo-300">
-              Recent Activity
-            </span>
-          </div>
-          <p className="relative text-sm text-muted-foreground">
-            {roleData.recentActivity}
-          </p>
-          <div className="absolute bottom-0 left-0 right-0 h-1 bg-indigo-500 dark:bg-indigo-600 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 ease-out origin-left"></div>
-        </div>
-
-        {/* Role Overview for Admins */}
-        {userRole === "admin" && roleData.roleOverview && (
-          <div className="space-y-3">
-            <div className="flex items-center gap-2">
-              <Users className="h-4 w-4 text-primary" />
-              <span className="text-sm font-medium text-primary">
-                Platform Overview
-              </span>
-            </div>
-
-            <div className="grid grid-cols-1 gap-3">
-              {/* QA Overview */}
-              <div className="p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="text-lg">🔍</span>
-                  <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
-                    Quality Assurance
-                  </span>
-                  <Badge variant="outline" className="text-xs ml-auto">
-                    {roleData.roleOverview.qa.totalUsers} users
-                  </Badge>
-                </div>
-                <div className="grid grid-cols-3 gap-2 text-xs">
-                  <div className="text-center">
-                    <div className="font-semibold text-info">
-                      {roleData.roleOverview.qa.modelsReviewed}
-                    </div>
-                    <div className="text-info">Reviewed</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="font-semibold text-info">
-                      {roleData.roleOverview.qa.issuesFound}
-                    </div>
-                    <div className="text-info">Issues</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="font-semibold text-info">
-                      {roleData.roleOverview.qa.approvalRate}
-                    </div>
-                    <div className="text-info">Approval</div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Modelers Overview */}
-              <div className="p-3 bg-success-muted rounded-lg border border-success/20">
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="text-lg">🎨</span>
-                  <span className="text-sm font-medium text-success">
-                    3D Modelers
-                  </span>
-                  <Badge variant="outline" className="text-xs ml-auto">
-                    {roleData.roleOverview.modelers.totalUsers} users
-                  </Badge>
-                </div>
-                <div className="grid grid-cols-3 gap-2 text-xs">
-                  <div className="text-center">
-                    <div className="font-semibold text-success">
-                      {roleData.roleOverview.modelers.modelsCreated}
-                    </div>
-                    <div className="text-success">Created</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="font-semibold text-success">
-                      {roleData.roleOverview.modelers.categories}
-                    </div>
-                    <div className="text-success">Categories</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="font-semibold text-success">
-                      {roleData.roleOverview.modelers.avgQuality}
-                    </div>
-                    <div className="text-success">Quality</div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Customers Overview */}
-              <div className="p-3 bg-accent-purple rounded-lg border border-accent-purple/20">
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="text-lg">👤</span>
-                  <span className="text-sm font-medium text-accent-purple">
-                    Customers
-                  </span>
-                  <Badge variant="outline" className="text-xs ml-auto">
-                    {roleData.roleOverview.client.totalUsers} users
-                  </Badge>
-                </div>
-                <div className="grid grid-cols-3 gap-2 text-xs">
-                  <div className="text-center">
-                    <div className="font-semibold text-accent-purple">
-                      {roleData.roleOverview.client.modelsViewed}
-                    </div>
-                    <div className="text-accent-purple">Viewed</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="font-semibold text-accent-purple">
-                      {roleData.roleOverview.client.downloads}
-                    </div>
-                    <div className="text-accent-purple">Downloads</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="font-semibold text-accent-purple">
-                      {roleData.roleOverview.client.favorites}
-                    </div>
-                    <div className="text-accent-purple">Favorites</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Quick Actions */}
-        <div className="flex gap-3">
           <Button
-            variant="outline"
+            variant="ghost"
             size="sm"
-            className="flex-1 text-xs group hover:bg-primary/5 transition-all duration-200"
             onClick={() => {
               const userMenu = document.querySelector(
                 '[data-tour="user-profile"]'
@@ -576,29 +369,296 @@ export function ProfileWidget({ user }: { user?: any }) {
                 (userMenu as HTMLElement).click();
               }
             }}
+            className="h-9 w-9 p-0 hover:bg-primary/10 rounded-lg transition-all duration-200 hover:scale-105 group"
           >
-            <div className="flex items-center gap-2">
-              <div className="relative">
-                <Cog className="h-3 w-3 text-muted-foreground group-hover:text-primary transition-colors duration-200" />
-                <div className="absolute inset-0 rounded-full bg-primary/0 group-hover:bg-primary/5 transition-all duration-200" />
-              </div>
-              <span className="font-medium">Settings</span>
-            </div>
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="flex-1 text-xs group hover:bg-primary/5 transition-all duration-200"
-            onClick={() => router.push("/asset-library")}
-          >
-            <div className="flex items-center gap-2">
-              <Folder className="h-3 w-3 text-muted-foreground group-hover:text-primary transition-colors duration-200" />
-              <span className="font-medium">Library</span>
+            <div className="relative">
+              <Cog className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors duration-200" />
+              <div className="absolute inset-0 rounded-full bg-primary/0 group-hover:bg-primary/5 transition-all duration-200" />
             </div>
           </Button>
         </div>
+
+        <div className="p-6 pt-2 space-y-6">
+          {/* Profile Header - Enhanced with Multi-Layer Depth */}
+          <div className="group relative">
+            {/* Multi-layer background for depth */}
+            <div className="absolute inset-0 bg-muted/30 rounded-2xl" />
+            <div className="absolute inset-0 bg-background/50 rounded-2xl" />
+
+            {/* Main profile card with enhanced depth */}
+            <div className="relative bg-card/50 rounded-2xl p-6 border border-border/50 shadow-[0_4px_20px_hsl(var(--background),0.08)] dark:shadow-[0_4px_20px_hsl(var(--background),0.2)] group-hover:shadow-[0_8px_32px_hsl(var(--background),0.12)] dark:group-hover:shadow-[0_8px_32px_hsl(var(--background),0.3)] transition-all duration-300">
+              {/* Inner highlight for depth */}
+              <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-border to-transparent" />
+
+              <div className="relative flex items-start gap-4">
+                <div className="relative">
+                  <Avatar className="h-16 w-16 border-2 border-primary/20 shadow-[0_4px_16px_hsl(var(--primary),0.1)]">
+                    <AvatarImage
+                      src={user?.avatar_url || user?.metadata?.avatar_url}
+                    />
+                    <AvatarFallback className="bg-primary/10 text-primary font-semibold text-lg">
+                      {userName.charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="absolute -bottom-1 -right-1 h-6 w-6 rounded-full bg-green-500 border-2 border-background flex items-center justify-center shadow-sm">
+                    <span className="text-xs text-white">✓</span>
+                  </div>
+                </div>
+
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <h3 className="font-semibold text-lg truncate text-foreground">
+                      {userName}
+                    </h3>
+                    <span className="text-2xl">{roleData.icon}</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground mb-2">
+                    {userEmail}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Badge
+                      variant={
+                        userRole === "admin" ? "destructive" : "secondary"
+                      }
+                      className="text-xs"
+                    >
+                      {roleData.title}
+                    </Badge>
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <div className="h-2 w-2 bg-green-500 rounded-full animate-pulse" />
+                      {roleData.status}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Bottom accent line with enhanced animation */}
+              <div className="absolute bottom-0 left-0 right-0 h-1 bg-primary/20 rounded-b-2xl transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 ease-out origin-left" />
+            </div>
+          </div>
+
+          {/* Role Description - Enhanced with depth */}
+          <div className="group relative">
+            <div className="absolute inset-0 bg-muted/20 rounded-xl" />
+            <div className="relative bg-card/30 rounded-xl p-4 border border-border/30">
+              <p className="text-sm text-muted-foreground">
+                {roleData.description}
+              </p>
+            </div>
+          </div>
+
+          {/* Stats Grid - Enhanced with Multi-Layer Depth */}
+          <div className="grid grid-cols-3 gap-3">
+            {roleData.stats.map((stat, index) => (
+              <div key={index} className="group relative">
+                {/* Multi-layer background for depth */}
+                <div className="absolute inset-0 bg-muted/20 rounded-xl" />
+                <div className="absolute inset-0 bg-background/30 rounded-xl" />
+
+                {/* Main stat card with enhanced depth */}
+                <div className="relative bg-card/30 rounded-xl p-4 text-center border border-border/30 shadow-[0_2px_12px_hsl(var(--background),0.04)] dark:shadow-[0_2px_12px_hsl(var(--background),0.2)] hover:shadow-[0_4px_20px_hsl(var(--background),0.08)] dark:hover:shadow-[0_4px_20px_hsl(var(--background),0.3)] transition-all duration-200 hover:-translate-y-0.5">
+                  <div className="text-lg font-bold text-foreground mb-1">
+                    {stat.value}
+                  </div>
+                  <div className="text-xs text-muted-foreground mb-1">
+                    {stat.label}
+                  </div>
+                  <div className="text-xs text-success font-medium">
+                    {stat.trend}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Recent Activity - Enhanced with Multi-Layer Depth */}
+          <div className="group relative">
+            {/* Multi-layer background for depth */}
+            <div className="absolute inset-0 bg-muted/30 rounded-2xl" />
+            <div className="absolute inset-0 bg-background/50 rounded-2xl" />
+
+            {/* Main activity card with enhanced depth */}
+            <div className="relative bg-card/50 rounded-2xl p-4 border border-border/50 shadow-[0_4px_20px_hsl(var(--background),0.08)] dark:shadow-[0_4px_20px_hsl(var(--background),0.2)] group-hover:shadow-[0_8px_32px_hsl(var(--background),0.12)] dark:group-hover:shadow-[0_8px_32px_hsl(var(--background),0.3)] transition-all duration-300">
+              {/* Inner highlight for depth */}
+              <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-border to-transparent" />
+
+              <div className="relative flex items-center gap-3 mb-2">
+                <div className="p-2 bg-muted rounded-lg">
+                  <Activity className="h-4 w-4 text-muted-foreground" />
+                </div>
+                <span className="text-sm font-medium text-foreground">
+                  Recent Activity
+                </span>
+              </div>
+              <p className="relative text-sm text-muted-foreground">
+                {roleData.recentActivity}
+              </p>
+
+              {/* Bottom accent line with enhanced animation */}
+              <div className="absolute bottom-0 left-0 right-0 h-1 bg-primary/20 rounded-b-2xl transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 ease-out origin-left" />
+            </div>
+          </div>
+
+          {/* Role Overview for Admins - Enhanced with depth */}
+          {userRole === "admin" && roleData.roleOverview && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <Users className="h-4 w-4 text-primary" />
+                <span className="text-sm font-medium text-primary">
+                  Platform Overview
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 gap-3">
+                {/* QA Overview - Enhanced */}
+                <div className="group relative">
+                  <div className="absolute inset-0 bg-muted/20 rounded-xl" />
+                  <div className="relative bg-card/30 rounded-xl p-4 border border-border/30">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-lg">🔍</span>
+                      <span className="text-sm font-medium text-foreground">
+                        Quality Assurance
+                      </span>
+                      <Badge variant="outline" className="text-xs ml-auto">
+                        {roleData.roleOverview.qa.totalUsers} users
+                      </Badge>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 text-xs">
+                      <div className="text-center">
+                        <div className="font-semibold text-foreground">
+                          {roleData.roleOverview.qa.modelsReviewed}
+                        </div>
+                        <div className="text-muted-foreground">Reviewed</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="font-semibold text-foreground">
+                          {roleData.roleOverview.qa.issuesFound}
+                        </div>
+                        <div className="text-muted-foreground">Issues</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="font-semibold text-foreground">
+                          {roleData.roleOverview.qa.approvalRate}
+                        </div>
+                        <div className="text-muted-foreground">Approval</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Modelers Overview - Enhanced */}
+                <div className="group relative">
+                  <div className="absolute inset-0 bg-muted/20 rounded-xl" />
+                  <div className="relative bg-card/30 rounded-xl p-4 border border-border/30">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-lg">🎨</span>
+                      <span className="text-sm font-medium text-foreground">
+                        3D Modelers
+                      </span>
+                      <Badge variant="outline" className="text-xs ml-auto">
+                        {roleData.roleOverview.modelers.totalUsers} users
+                      </Badge>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 text-xs">
+                      <div className="text-center">
+                        <div className="font-semibold text-foreground">
+                          {roleData.roleOverview.modelers.modelsCreated}
+                        </div>
+                        <div className="text-muted-foreground">Created</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="font-semibold text-foreground">
+                          {roleData.roleOverview.modelers.categories}
+                        </div>
+                        <div className="text-muted-foreground">Categories</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="font-semibold text-foreground">
+                          {roleData.roleOverview.modelers.avgQuality}
+                        </div>
+                        <div className="text-muted-foreground">Quality</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Customers Overview - Enhanced */}
+                <div className="group relative">
+                  <div className="absolute inset-0 bg-muted/20 rounded-xl" />
+                  <div className="relative bg-card/30 rounded-xl p-4 border border-border/30">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-lg">👤</span>
+                      <span className="text-sm font-medium text-foreground">
+                        Customers
+                      </span>
+                      <Badge variant="outline" className="text-xs ml-auto">
+                        {roleData.roleOverview.client.totalUsers} users
+                      </Badge>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 text-xs">
+                      <div className="text-center">
+                        <div className="font-semibold text-foreground">
+                          {roleData.roleOverview.client.modelsViewed}
+                        </div>
+                        <div className="text-muted-foreground">Viewed</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="font-semibold text-foreground">
+                          {roleData.roleOverview.client.downloads}
+                        </div>
+                        <div className="text-muted-foreground">Downloads</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="font-semibold text-foreground">
+                          {roleData.roleOverview.client.favorites}
+                        </div>
+                        <div className="text-muted-foreground">Favorites</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Quick Actions - Enhanced with depth */}
+          <div className="flex gap-3">
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex-1 text-xs group hover:bg-primary/5 transition-all duration-200"
+              onClick={() => {
+                const userMenu = document.querySelector(
+                  '[data-tour="user-profile"]'
+                );
+                if (userMenu) {
+                  (userMenu as HTMLElement).click();
+                }
+              }}
+            >
+              <div className="flex items-center gap-2">
+                <div className="relative">
+                  <Cog className="h-3 w-3 text-muted-foreground group-hover:text-primary transition-colors duration-200" />
+                  <div className="absolute inset-0 rounded-full bg-primary/0 group-hover:bg-primary/5 transition-all duration-200" />
+                </div>
+                <span className="font-medium">Settings</span>
+              </div>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex-1 text-xs group hover:bg-primary/5 transition-all duration-200"
+              onClick={() => router.push("/asset-library")}
+            >
+              <div className="flex items-center gap-2">
+                <Folder className="h-3 w-3 text-muted-foreground group-hover:text-primary transition-colors duration-200" />
+                <span className="font-medium">Library</span>
+              </div>
+            </Button>
+          </div>
+        </div>
       </div>
-    </WidgetContainer>
+    </div>
   );
 }
 
@@ -702,65 +762,93 @@ export function QuickActionsWidget() {
   ];
 
   return (
-    <WidgetContainer>
-      <QAHeader
-        icon={Settings}
-        title="Quick Actions"
-        subtitle="Common tools and workflows"
-      />
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 flex-1">
-        {actions.map((action) => {
-          const spanTwoCols =
-            user?.metadata?.role === "admin" &&
-            action.name === "View Analytics";
-          return (
-            <div
-              key={action.name}
-              className={`group relative overflow-hidden rounded-2xl border border-border/50 dark:border-border/30 bg-gradient-to-t from-current/5 to-transparent dark:from-muted/20 dark:to-muted/30 p-4 sm:p-6 transition-all duration-300 ease-out hover:scale-105 hover:shadow-xl hover:shadow-black/5 dark:hover:shadow-white/5 cursor-pointer ${spanTwoCols ? "sm:col-span-2" : ""}`}
-              onClick={action.action}
-            >
-              <div className="absolute inset-0 opacity-5"></div>
+    <div className="relative h-full ">
+      {/* Enhanced Widget Container with Multi-Layer Depth */}
+      <div className="relative min-h-full bg-card rounded-3xl shadow-[0_8px_32px_hsl(var(--background),0.08)] dark:shadow-[0_8px_32px_hsl(var(--background),0.3)]">
+        {/* Inner shadow for depth */}
+        <div className="absolute inset-0  min-h-full rounded-3xl shadow-[inset_0_1px_0_hsl(var(--background),0.1)] dark:shadow-[inset_0_1px_0_hsl(var(--background),0.05)] pointer-events-none" />
 
-              <div className="relative flex items-center gap-3 sm:gap-4 mb-2">
-                <div
-                  className={`p-2 sm:p-3 rounded-xl ${action.iconBg} shadow-lg shadow-black/10 flex-shrink-0`}
-                >
-                  <action.icon
-                    className={`h-4 w-4 sm:h-5 sm:w-5 ${action.iconColor}`}
-                  />
-                </div>
-                <div className="flex-1 min-w-0 p-1 sm:p-2">
-                  <p className="text-sm sm:text-base font-semibold truncate">
-                    {action.name}
-                  </p>
-                  {action.description && (
-                    <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2">
-                      {action.description}
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              <div className="mt-2 sm:mt-3">
-                <div
-                  className={`inline-flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3.5 py-2 sm:py-3 bg-gradient-to-r ${action.color} hover:${action.hoverColor} text-white rounded-lg transition-all duration-300 ease-out group-hover:scale-105 shadow-lg shadow-black/10`}
-                >
-                  <span className="text-xs sm:text-sm font-medium leading-none">
-                    Open
-                  </span>
-                  <div className="w-1 h-1 bg-white rounded-full"></div>
-                </div>
-              </div>
-
-              <div className="absolute inset-0 bg-gradient-to-t from-black/5 dark:from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-              <div
-                className={`absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r ${action.color} transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 ease-out origin-left`}
-              ></div>
+        {/* Header with enhanced styling and depth */}
+        <div className="flex items-center gap-3 p-6 pb-4 min-h-full">
+          <div className="relative">
+            <div className="p-3 bg-primary rounded-2xl shadow-[0_4px_16px_hsl(var(--primary),0.1)] dark:shadow-[0_4px_16px_hsl(var(--primary),0.2)]">
+              <Settings className="h-6 w-6 text-primary-foreground" />
             </div>
-          );
-        })}
+            <div className="absolute inset-0 bg-primary/30 rounded-2xl blur-sm -z-10" />
+          </div>
+          <div>
+            <h3 className="text-xl font-bold text-foreground">Quick Actions</h3>
+            <p className="text-sm text-muted-foreground">
+              Common tools and workflows
+            </p>
+          </div>
+        </div>
+
+        <div className="p-6 pt-22 min-h-full">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {actions.map((action) => {
+              const spanTwoCols =
+                user?.metadata?.role === "admin" &&
+                action.name === "View Analytics";
+              return (
+                <div
+                  key={action.name}
+                  className={`group relative ${spanTwoCols ? "sm:col-span-2" : ""}`}
+                >
+                  {/* Multi-layer background for depth */}
+                  <div className="absolute inset-0 bg-muted/30 rounded-2xl" />
+                  <div className="absolute inset-0 bg-background/50 rounded-2xl" />
+
+                  {/* Main action card with enhanced depth */}
+                  <div
+                    className="relative bg-card/50 rounded-2xl p-6 border border-border/50 shadow-[0_4px_20px_hsl(var(--background),0.08)] dark:shadow-[0_4px_20px_hsl(var(--background),0.2)] group-hover:shadow-[0_8px_32px_hsl(var(--background),0.12)] dark:group-hover:shadow-[0_8px_32px_hsl(var(--background),0.3)] transition-all duration-300 cursor-pointer hover:-translate-y-0.5"
+                    onClick={action.action}
+                  >
+                    {/* Inner highlight for depth */}
+                    <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-border to-transparent" />
+
+                    <div className="relative flex items-center gap-4 mb-4">
+                      <div className="relative">
+                        <div className="p-3 bg-muted rounded-xl shadow-[0_4px_16px_hsl(var(--background),0.1)]">
+                          <action.icon className="h-6 w-6 text-muted-foreground" />
+                        </div>
+                        <div className="absolute inset-0 bg-muted/40 rounded-xl blur-sm -z-10" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h4 className="text-lg font-semibold text-foreground mb-1">
+                          {action.name}
+                        </h4>
+                        {action.description && (
+                          <p className="text-sm text-muted-foreground line-clamp-2">
+                            {action.description}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Enhanced action button with depth */}
+                    <div className="relative">
+                      <div className="absolute inset-0 bg-muted/20 rounded-xl" />
+                      <div className="relative bg-primary/10 hover:bg-primary/20 border border-primary/20 hover:border-primary/30 rounded-xl p-3 transition-all duration-200 group-hover:scale-105">
+                        <div className="flex items-center justify-center gap-2">
+                          <span className="text-sm font-medium text-primary">
+                            Open
+                          </span>
+                          <div className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse" />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Bottom accent line with enhanced animation */}
+                    <div className="absolute bottom-0 left-0 right-0 h-1 bg-primary/20 rounded-b-2xl transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 ease-out origin-left" />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
       </div>
-    </WidgetContainer>
+    </div>
   );
 }
 
@@ -1488,112 +1576,170 @@ export function StatusPieChartWidget() {
     });
 
   return (
-    <Card className="p-0 rounded-2xl bg-transparent w-full mx-auto flex flex-col items-center border-0 shadow-none">
-      <div className="w-full px-4 pt-4 text-primary">
-        <QAHeader
-          icon={Activity}
-          title="Model Status Distribution "
-          subtitle="Your assets by status"
-        />
-      </div>
+    <div className="relative">
+      {/* Enhanced Widget Container with Depth */}
+      <div className="relative bg-card rounded-3xl shadow-[0_8px_32px_hsl(var(--background),0.08)] dark:shadow-[0_8px_32px_hsl(var(--background),0.3)]">
+        {/* Inner shadow for depth */}
+        <div className="absolute inset-0 rounded-3xl shadow-[inset_0_1px_0_hsl(var(--background),0.1)] dark:shadow-[inset_0_1px_0_hsl(var(--background),0.05)] pointer-events-none" />
 
-      {chartData.every((entry) => entry.value === 0) ? (
-        <div className=" text-center text-muted-foreground">
-          <span className="text-4xl">📊</span>
-          <div className="mt-2 font-medium">No data to display yet.</div>
-          <div className="text-xs">
-            Upload assets to see your status distribution.
+        {/* Header with enhanced styling */}
+        <div className="flex items-center gap-3  p-6">
+          <div className="relative">
+            <div className="p-3 bg-primary rounded-2xl shadow-[0_4px_16px_hsl(var(--primary),0.1)] dark:shadow-[0_4px_16px_hsl(var(--primary),0.2)]">
+              <Activity className="h-6 w-6 text-primary-foreground" />
+            </div>
+            <div className="absolute inset-0 bg-primary/30 rounded-2xl blur-sm -z-10" />
+          </div>
+          <div>
+            <h3 className="text-xl font-bold text-foreground">
+              Model Status Distribution
+            </h3>
+            <p className="text-sm text-muted-foreground">
+              Your assets by status
+            </p>
           </div>
         </div>
-      ) : (
-        <CardContent className=" w-full">
-          <div className="group relative overflow-hidden rounded-2xl    w-full flex flex-col md:flex-row items-center justify-center gap-6">
-            <div className="absolute inset-0 opacity-5"></div>
-            <div className="relative w-64 h-64 pr-6  pointer-events-auto">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={chartData}
-                    dataKey="value"
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={100}
-                    paddingAngle={2}
-                    cornerRadius={8}
-                    isAnimationActive={true}
-                  >
-                    {chartData.map((entry) => (
-                      <Cell
-                        key={`cell-${entry.key}`}
-                        fill={entry.color as string}
-                      />
-                    ))}
-                  </Pie>
-                  {/* Center text showing total assets */}
-                  <text
-                    x="50%"
-                    y="45%"
-                    textAnchor="middle"
-                    dominantBaseline="middle"
-                    className="text-3xl font-bold fill-foreground"
-                  >
-                    {total}
-                  </text>
-                  <text
-                    x="50%"
-                    y="55%"
-                    textAnchor="middle"
-                    dominantBaseline="middle"
-                    className="text-sm fill-muted-foreground"
-                  >
-                    Total Assets
-                  </text>
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "white",
-                      border: "1px solid #e5e7eb",
-                      borderRadius: 8,
-                      boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-                      fontSize: 14,
-                      color: "#111827",
-                    }}
-                    formatter={(value: number, name: string) => {
-                      const entry = chartData.find(
-                        (item) => item.name === name
-                      );
-                      const percentage = entry ? entry.percentage : 0;
-                      return [`${percentage}%`, name];
-                    }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
+
+        {chartData.every((entry) => entry.value === 0) ? (
+          <div className="text-center py-12 px-6">
+            <div className="relative mb-6">
+              <div className="p-6 bg-muted/50 rounded-3xl mx-auto w-fit">
+                <Activity className="h-12 w-12 text-muted-foreground" />
+              </div>
+              <div className="absolute inset-0 bg-muted/40 rounded-3xl blur-sm -z-10" />
             </div>
-            <div className="relative flex flex-col pl-4 gap-3 min-w-[160px] select-none">
-              {chartData.map((entry, index) => (
-                <React.Fragment key={entry.key}>
-                  <div className="flex items-center gap-3">
-                    <span
-                      className="inline-block w-4 h-4 rounded-full"
-                      style={{ background: entry.color as string }}
-                    />
-                    <span className="font-medium text-sm flex-1">
-                      {entry.name}
-                    </span>
-                    <span className="pl-6 font-medium">
-                      {entry.percentage}%
-                    </span>
-                  </div>
-                  {index !== chartData.length - 1 && (
-                    <Separator className="w-full" />
-                  )}
-                </React.Fragment>
-              ))}
+            <div className="text-lg font-semibold text-foreground mb-2">
+              No data to display yet
+            </div>
+            <div className="text-sm text-muted-foreground">
+              Upload assets to see your status distribution
             </div>
           </div>
-        </CardContent>
-      )}
-    </Card>
+        ) : (
+          <div className="p-6 h-full">
+            <div className="group relative">
+              {/* Background layers for depth */}
+              <div className="absolute inset-0 bg-muted/30 rounded-2xl" />
+              <div className="absolute inset-0 bg-background/50 rounded-2xl" />
+
+              {/* Main content card */}
+              <div className="relative bg-card/50 rounded-2xl p-6 border border-border/50 shadow-[0_4px_20px_hsl(var(--background),0.08)] dark:shadow-[0_4px_20px_hsl(var(--background),0.2)]">
+                {/* Inner highlight */}
+                <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-border to-transparent" />
+
+                <div className="flex flex-col lg:flex-row items-center justify-center gap-8">
+                  {/* Enhanced Chart Section */}
+                  <div className="relative">
+                    {/* Chart background with depth */}
+                    <div className="absolute inset-0 bg-muted/20 rounded-full scale-110" />
+                    <div className="relative w-64 h-64 p-4">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={chartData}
+                            dataKey="value"
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={60}
+                            outerRadius={100}
+                            paddingAngle={2}
+                            cornerRadius={8}
+                            isAnimationActive={true}
+                          >
+                            {chartData.map((entry) => (
+                              <Cell
+                                key={`cell-${entry.key}`}
+                                fill={entry.color as string}
+                              />
+                            ))}
+                          </Pie>
+                          {/* Enhanced center text */}
+                          <text
+                            x="50%"
+                            y="45%"
+                            textAnchor="middle"
+                            dominantBaseline="middle"
+                            className="text-3xl font-bold fill-foreground"
+                          >
+                            {total}
+                          </text>
+                          <text
+                            x="50%"
+                            y="55%"
+                            textAnchor="middle"
+                            dominantBaseline="middle"
+                            className="text-sm fill-muted-foreground"
+                          >
+                            Total Assets
+                          </text>
+                          <Tooltip
+                            contentStyle={{
+                              backgroundColor: "hsl(var(--card))",
+                              border: "1px solid hsl(var(--border))",
+                              borderRadius: 12,
+                              boxShadow:
+                                "0 8px 32px hsl(var(--background), 0.2)",
+                              fontSize: 14,
+                              color: "hsl(var(--foreground))",
+                            }}
+                            formatter={(value: number, name: string) => {
+                              const entry = chartData.find(
+                                (item) => item.name === name
+                              );
+                              const percentage = entry ? entry.percentage : 0;
+                              return [`${percentage}%`, name];
+                            }}
+                          />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+
+                  {/* Enhanced Legend Section */}
+                  <div className="relative flex flex-col gap-4 min-w-[200px]">
+                    <div className="absolute inset-0 bg-muted/20 rounded-xl" />
+                    <div className="relative bg-card/30 rounded-xl p-4 border border-border/30">
+                      <div className="space-y-3">
+                        {chartData.map((entry, index) => (
+                          <div key={entry.key} className="group/item">
+                            <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/30 transition-colors duration-200">
+                              <div className="relative">
+                                <span
+                                  className="inline-block w-4 h-4 rounded-full shadow-sm"
+                                  style={{ background: entry.color as string }}
+                                />
+                                <div
+                                  className="absolute inset-0 rounded-full opacity-20 blur-sm"
+                                  style={{ background: entry.color as string }}
+                                />
+                              </div>
+                              <span className="font-medium text-sm text-foreground flex-1">
+                                {entry.name}
+                              </span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-semibold text-foreground">
+                                  {entry.value}
+                                </span>
+                                <span className="text-xs text-muted-foreground bg-muted/50 px-2 py-1 rounded-full">
+                                  {entry.percentage}%
+                                </span>
+                              </div>
+                            </div>
+                            {index !== chartData.length - 1 && (
+                              <div className="h-px bg-border/30 mx-2" />
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -1654,83 +1800,173 @@ export function ClientActionCenterWidget() {
     : 0;
 
   return (
-    <Card className="p-0 rounded-2xl bg-transparent border-0 shadow-none ">
-      <div className="w-full px-4 pt-4">
-        <QAHeader
-          icon={Settings}
-          title="Action Center"
-          subtitle="What needs your attention"
-        />
-      </div>
-      <CardContent className="space-y-4">
-        <div className="group relative overflow-hidden rounded-2xl   bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950/50 dark:to-blue-900/50 p-4">
-          <div className="absolute inset-0 opacity-5"></div>
-          <div className="relative flex items-center justify-between">
-            <div className="text-sm text-blue-800 dark:text-blue-300">
-              Overall completion
+    <div className="relative">
+      {/* Enhanced Widget Container with Depth */}
+      <div className="relative bg-card rounded-3xl  shadow-[0_8px_32px_hsl(var(--background),0.08)] dark:shadow-[0_8px_32px_hsl(var(--background),0.3)]">
+        {/* Inner shadow for depth */}
+        <div className="absolute inset-0 rounded-3xl shadow-[inset_0_1px_0_hsl(var(--background),0.1)] dark:shadow-[inset_0_1px_0_hsl(var(--background),0.05)] pointer-events-none" />
+
+        {/* Header with enhanced styling */}
+        <div className="flex items-center gap-3 p-6 ">
+          <div className="relative">
+            <div className="p-3 bg-primary rounded-2xl shadow-[0_4px_16px_hsl(var(--primary),0.1)] dark:shadow-[0_4px_16px_hsl(var(--primary),0.2)]">
+              <Settings className="h-6 w-6 text-primary-foreground" />
             </div>
-            <div className="text-sm font-semibold">{completionPct}%</div>
+            <div className="absolute inset-0 bg-primary/30 rounded-2xl blur-sm -z-10" />
           </div>
-          <div className="mt-2">
-            <Progress value={completionPct} className="h-2" />
+          <div>
+            <h3 className="text-xl font-bold text-foreground">Action Center</h3>
+            <p className="text-sm text-muted-foreground">
+              What needs your attention
+            </p>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
-          <div
-            className="group relative overflow-hidden rounded-2xl  bg-gradient-to-br from-green-80 to-green-100 dark:from-green-950/50 dark:to-green-900/50 p-3 cursor-pointer"
-            onClick={() => router.push("/client-review?status=approved")}
-          >
-            <div className="absolute inset-0 opacity-5 w-full h-full"></div>
-            <div className="flex items-center justify-between mb-2 w-full">
-              <div className="text-sm font-medium">New Uploads</div>
-              <Badge variant="outline" className="bg-green-50 text-green-700">
-                {waitingForApproval.length}
-              </Badge>
-            </div>
-            {loading ? (
-              <div className="h-16 bg-muted animate-pulse rounded" />
-            ) : waitingForApproval.length === 0 ? (
-              <div className="text-xs text-muted-foreground">
-                Nothing pending
+        <div className="space-y-6 p-6 ">
+          {/* Overall Completion - Enhanced with depth */}
+          <div className="group relative">
+            {/* Background layers for depth */}
+            <div className="absolute inset-0 bg-muted/50 rounded-2xl" />
+            <div className="absolute inset-0 bg-background/80 rounded-2xl" />
+
+            {/* Main card with enhanced shadows */}
+            <div className="relative bg-card rounded-2xl p-6 border border-border shadow-[0_4px_20px_hsl(var(--background),0.08)] dark:shadow-[0_4px_20px_hsl(var(--background),0.2)] group-hover:shadow-[0_8px_32px_hsl(var(--background),0.12)] dark:group-hover:shadow-[0_8px_32px_hsl(var(--background),0.3)] transition-all duration-300">
+              {/* Inner highlight */}
+              <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-border to-transparent" />
+
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-muted rounded-xl">
+                    <div className="w-2 h-2 bg-muted-foreground rounded-full animate-pulse" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-semibold text-foreground">
+                      Overall Completion
+                    </h4>
+                    <p className="text-xs text-muted-foreground">
+                      Project progress overview
+                    </p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-2xl font-bold text-foreground">
+                    {completionPct}%
+                  </div>
+                  <div className="text-xs text-muted-foreground">completed</div>
+                </div>
               </div>
-            ) : (
-              <div className="space-y-2 w-full">
-                {waitingForApproval.map((a) => (
+
+              {/* Enhanced progress bar */}
+              <div className="relative">
+                <div className="h-3 bg-muted rounded-full overflow-hidden shadow-inner">
                   <div
-                    key={a.id}
-                    className="group/item relative flex items-center justify-between text-sm cursor-pointer"
-                    onClick={() =>
-                      router.push("/client-review?status=approved")
-                    }
-                  >
-                    <div className="truncate w-full">
-                      <div className="font-medium truncate max-w-[180px]">
-                        {a.product_name}
-                      </div>
-                      <div className="text-xs text-muted-foreground font-mono">
-                        {a.article_id}
+                    className="h-full bg-primary rounded-full transition-all duration-500 ease-out shadow-[0_2px_8px_hsl(var(--primary),0.2)]"
+                    style={{ width: `${completionPct}%` }}
+                  />
+                </div>
+                <div className="absolute inset-0 rounded-full bg-gradient-to-r from-transparent via-background/20 to-transparent" />
+              </div>
+            </div>
+          </div>
+
+          {/* New Uploads Section - Enhanced with depth */}
+          <div className="group relative">
+            {/* Background layers */}
+            <div className="absolute inset-0 bg-muted/50 rounded-2xl" />
+            <div className="absolute inset-0 bg-background/80 rounded-2xl" />
+
+            <div
+              className="relative bg-card rounded-2xl p-6 border border-border shadow-[0_4px_20px_hsl(var(--background),0.08)] dark:shadow-[0_4px_20px_hsl(var(--background),0.2)] group-hover:shadow-[0_8px_32px_hsl(var(--background),0.12)] dark:group-hover:shadow-[0_8px_32px_hsl(var(--background),0.3)] transition-all duration-300 cursor-pointer hover:-translate-y-0.5"
+              onClick={() => router.push("/client-review?status=approved")}
+            >
+              {/* Inner highlight */}
+              <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-border to-transparent" />
+
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-muted rounded-xl">
+                    <div className="w-2 h-2 bg-muted-foreground rounded-full animate-pulse" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-semibold text-foreground">
+                      New Uploads
+                    </h4>
+                    <p className="text-xs text-muted-foreground">
+                      Items awaiting your review
+                    </p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm font-semibold border border-primary/20">
+                    {waitingForApproval.length}
+                  </div>
+                </div>
+              </div>
+
+              {loading ? (
+                <div className="space-y-3">
+                  <div className="h-4 bg-muted animate-pulse rounded" />
+                  <div className="h-4 bg-muted animate-pulse rounded w-3/4" />
+                  <div className="h-4 bg-muted animate-pulse rounded w-1/2" />
+                </div>
+              ) : waitingForApproval.length === 0 ? (
+                <div className="text-center py-6">
+                  <div className="p-3 bg-muted/50 rounded-xl mx-auto w-fit mb-3">
+                    <Settings className="h-6 w-6 text-muted-foreground" />
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Nothing pending
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    All caught up!
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3 mb-4">
+                  {waitingForApproval.map((a) => (
+                    <div
+                      key={a.id}
+                      className="group/item relative bg-muted/30 rounded-xl p-3 border border-border/50 hover:bg-muted/50 hover:border-border transition-all duration-200 cursor-pointer"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        router.push("/client-review?status=approved");
+                      }}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-foreground truncate">
+                            {a.product_name}
+                          </div>
+                          <div className="text-xs text-muted-foreground font-mono mt-1">
+                            {a.article_id}
+                          </div>
+                        </div>
+                        <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover/item:opacity-100 transition-opacity flex-shrink-0 ml-2" />
                       </div>
                     </div>
-                    <ArrowRight className="h-3 w-3 text-muted-foreground opacity-0 group-hover/item:opacity-100 transition-opacity flex-shrink-0" />
-                  </div>
-                ))}
+                  ))}
+                </div>
+              )}
+
+              {/* Enhanced action button */}
+              <div className="pt-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="w-full bg-background/50 hover:bg-background border-border hover:border-border/80 transition-all duration-200"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    router.push("/client-review?status=approved");
+                  }}
+                >
+                  Review All Items
+                </Button>
               </div>
-            )}
-            <div className="mt-3">
-              <Button
-                size="sm"
-                variant="outline"
-                className=""
-                onClick={() => router.push("/client-review?status=approved")}
-              >
-                Review all
-              </Button>
             </div>
           </div>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
 
@@ -2417,6 +2653,396 @@ export function QAStatisticsWidget() {
         )}
       </div>
     </WidgetContainer>
+  );
+}
+
+// Client Asset Count Widget
+export function ClientAssetCountWidget() {
+  const user = useUser();
+  const [assetCounts, setAssetCounts] = useState<{
+    [companyName: string]: {
+      current: number;
+      limit: number;
+      changeLimit: number;
+      changesUsed: number;
+      changesRemaining: number;
+    };
+  }>({});
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchClientAssetCounts = async () => {
+      if (!user?.metadata?.client) return;
+      setLoading(true);
+
+      try {
+        const clientCompanies = Array.isArray(user.metadata.client)
+          ? user.metadata.client
+          : [user.metadata.client];
+
+        // Get contract limits for each company
+        const { data: contracts, error: contractsError } = await supabase
+          .from("clients")
+          .select("name, models_in_contract, change_percentage")
+          .in("name", clientCompanies);
+
+        if (contractsError) throw contractsError;
+
+        // Query onboarding_assets table - count all except where transferred = true
+        const { data: onboardingData, error: onboardingError } = await supabase
+          .from("onboarding_assets")
+          .select("client, transferred")
+          .in("client", clientCompanies);
+
+        if (onboardingError) throw onboardingError;
+
+        // Query assets table - count all except where active = false
+        const { data: assetsData, error: assetsError } = await supabase
+          .from("assets")
+          .select("client, active")
+          .in("client", clientCompanies);
+
+        if (assetsError) throw assetsError;
+
+        // Get current year's asset changes
+        const currentYear = new Date().getFullYear();
+        const { data: changesData, error: changesError } = await supabase
+          .from("asset_changes")
+          .select("client, change_count")
+          .in("client", clientCompanies)
+          .eq("year", currentYear);
+
+        if (changesError) throw changesError;
+
+        // Count assets per company
+        const counts: {
+          [companyName: string]: {
+            current: number;
+            limit: number;
+            changeLimit: number;
+            changesUsed: number;
+            changesRemaining: number;
+          };
+        } = {};
+
+        clientCompanies.forEach((companyName) => {
+          // Debug: Log the data for this company
+          const companyOnboardingData = onboardingData?.filter(
+            (item) => item.client === companyName
+          );
+          const companyAssetsData = assetsData?.filter(
+            (item) => item.client === companyName
+          );
+          console.log(
+            `Company: ${companyName}, Onboarding data:`,
+            companyOnboardingData
+          );
+          console.log(
+            `Company: ${companyName}, Assets data:`,
+            companyAssetsData
+          );
+
+          // Filter onboarding_assets: exclude where transferred = true
+          const onboardingCount =
+            onboardingData?.filter(
+              (item) =>
+                item.client === companyName &&
+                (item.transferred === false || item.transferred === null)
+            ).length || 0;
+
+          // Filter assets: exclude where active = false
+          const assetsCount =
+            assetsData?.filter(
+              (item) =>
+                item.client === companyName &&
+                (item.active === true || item.active === null)
+            ).length || 0;
+
+          const contract = contracts?.find((c) => c.name === companyName);
+          const changesUsed =
+            changesData?.find((c) => c.client === companyName)?.change_count ||
+            0;
+
+          // Calculate change limit based on percentage of contract models
+          const changeLimit =
+            contract?.models_in_contract && contract?.change_percentage
+              ? Math.floor(
+                  (contract.models_in_contract * contract.change_percentage) /
+                    100
+                )
+              : 0;
+
+          counts[companyName] = {
+            current: onboardingCount + assetsCount,
+            limit: contract?.models_in_contract || 0,
+            changeLimit,
+            changesUsed,
+            changesRemaining: Math.max(0, changeLimit - changesUsed),
+          };
+        });
+
+        setAssetCounts(counts);
+      } catch (error) {
+        console.error("Error fetching client asset counts:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchClientAssetCounts();
+  }, [user?.metadata?.client]);
+
+  if (loading) {
+    return (
+      <WidgetContainer>
+        <WidgetHeader title="Asset Usage" icon={Package} />
+        <div className="animate-pulse space-y-3">
+          <div className="h-6 bg-muted rounded w-1/3"></div>
+          <div className="h-16 bg-muted rounded"></div>
+        </div>
+      </WidgetContainer>
+    );
+  }
+
+  const totalCurrent = Object.values(assetCounts).reduce(
+    (sum, count) => sum + count.current,
+    0
+  );
+  const totalLimit = Object.values(assetCounts).reduce(
+    (sum, count) => sum + count.limit,
+    0
+  );
+  const totalChangeLimit = Object.values(assetCounts).reduce(
+    (sum, count) => sum + count.changeLimit,
+    0
+  );
+  const totalChangesUsed = Object.values(assetCounts).reduce(
+    (sum, count) => sum + count.changesUsed,
+    0
+  );
+  const totalChangesRemaining = Object.values(assetCounts).reduce(
+    (sum, count) => sum + count.changesRemaining,
+    0
+  );
+  const usagePercentage =
+    totalLimit > 0 ? Math.round((totalCurrent / totalLimit) * 100) : 0;
+
+  return (
+    <div className="relative">
+      {/* Enhanced Widget Container with Global CSS Variables */}
+      <div className="relative bg-card rounded-3xl p-6  shadow-[0_8px_32px_hsl(var(--background),0.08)] dark:shadow-[0_8px_32px_hsl(var(--background),0.3)] ">
+        {/* Inner shadow for depth */}
+        <div className="absolute inset-0 rounded-3xl shadow-[inset_0_1px_0_hsl(var(--background),0.1)] dark:shadow-[inset_0_1px_0_hsl(var(--background),0.05)] pointer-events-none" />
+
+        {/* Header with global styling */}
+        <div className="flex items-center gap-3 mb-6">
+          <div className="relative">
+            <div className="p-3 bg-primary rounded-2xl shadow-[0_4px_16px_hsl(var(--primary),0.1)] dark:shadow-[0_4px_16px_hsl(var(--primary),0.2)]">
+              <Package className="h-6 w-6 text-primary-foreground" />
+            </div>
+            <div className="absolute inset-0 bg-primary/30 rounded-2xl blur-sm -z-10" />
+          </div>
+          <div>
+            <h3 className="text-xl font-bold text-foreground">Asset Usage</h3>
+            <p className="text-sm text-muted-foreground">
+              Your contract overview
+            </p>
+          </div>
+        </div>
+
+        <div className="space-y-6">
+          {/* Overall Usage - Using global variables */}
+          <div className="group relative">
+            {/* Background layers for depth */}
+            <div className="absolute inset-0 bg-muted/50 rounded-2xl" />
+            <div className="absolute inset-0 bg-background/80 rounded-2xl" />
+
+            {/* Main card with global shadows */}
+            <div className="relative bg-card rounded-2xl p-6 border border-border shadow-[0_4px_20px_hsl(var(--background),0.08)] dark:shadow-[0_4px_20px_hsl(var(--background),0.2)] group-hover:shadow-[0_8px_32px_hsl(var(--background),0.12)] dark:group-hover:shadow-[0_8px_32px_hsl(var(--background),0.3)] transition-all duration-300">
+              {/* Inner highlight */}
+              <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-border to-transparent" />
+
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-muted rounded-xl">
+                    <div className="w-2 h-2 bg-muted-foreground rounded-full animate-pulse" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-semibold text-foreground">
+                      Total Usage
+                    </h4>
+                    <p className="text-xs text-muted-foreground">
+                      Active models in your contract
+                    </p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-2xl font-bold text-foreground">
+                    {usagePercentage}%
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    utilization
+                  </div>
+                </div>
+              </div>
+
+              <div className="mb-4">
+                <div className="text-3xl font-bold text-foreground mb-1">
+                  {totalCurrent}{" "}
+                  <span className="text-lg font-medium text-muted-foreground">
+                    / {totalLimit}
+                  </span>
+                </div>
+                <div className="text-sm text-muted-foreground">models used</div>
+              </div>
+
+              {/* Enhanced progress bar */}
+              <div className="relative">
+                <div className="h-3 bg-muted rounded-full overflow-hidden shadow-inner">
+                  <div
+                    className="h-full bg-primary rounded-full transition-all duration-500 ease-out shadow-[0_2px_8px_hsl(var(--primary),0.2)]"
+                    style={{ width: `${usagePercentage}%` }}
+                  />
+                </div>
+                <div className="absolute inset-0 rounded-full bg-gradient-to-r from-transparent via-background/20 to-transparent" />
+              </div>
+            </div>
+          </div>
+
+          {/* Changes Summary - Using global variables */}
+          {totalChangeLimit > 0 && (
+            <div className="group relative">
+              {/* Background layers */}
+              <div className="absolute inset-0 bg-muted/50 rounded-2xl" />
+              <div className="absolute inset-0 bg-background/80 rounded-2xl" />
+
+              <div className="relative bg-card rounded-2xl p-6 border border-border shadow-[0_4px_20px_hsl(var(--background),0.08)] dark:shadow-[0_4px_20px_hsl(var(--background),0.2)] group-hover:shadow-[0_8px_32px_hsl(var(--background),0.12)] dark:group-hover:shadow-[0_8px_32px_hsl(var(--background),0.3)] transition-all duration-300">
+                {/* Inner highlight */}
+                <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-border to-transparent" />
+
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-muted rounded-xl">
+                      <div className="w-2 h-2 bg-muted-foreground rounded-full animate-pulse" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-semibold text-foreground">
+                        Annual Changes
+                      </h4>
+                      <p className="text-xs text-muted-foreground">
+                        Free changes per year
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-2xl font-bold text-foreground">
+                      {totalChangeLimit > 0
+                        ? Math.round(
+                            (totalChangesUsed / totalChangeLimit) * 100
+                          )
+                        : 0}
+                      %
+                    </div>
+                    <div className="text-xs text-muted-foreground">used</div>
+                  </div>
+                </div>
+
+                <div className="mb-4">
+                  <div className="text-3xl font-bold text-foreground mb-1">
+                    {totalChangesUsed}{" "}
+                    <span className="text-lg font-medium text-muted-foreground">
+                      / {totalChangeLimit}
+                    </span>
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    {totalChangesRemaining} changes remaining this year
+                  </div>
+                </div>
+
+                {/* Enhanced progress bar */}
+                <div className="relative">
+                  <div className="h-3 bg-muted rounded-full overflow-hidden shadow-inner">
+                    <div
+                      className="h-full bg-primary rounded-full transition-all duration-500 ease-out shadow-[0_2px_8px_hsl(var(--primary),0.2)]"
+                      style={{
+                        width: `${totalChangeLimit > 0 ? (totalChangesUsed / totalChangeLimit) * 100 : 0}%`,
+                      }}
+                    />
+                  </div>
+                  <div className="absolute inset-0 rounded-full bg-gradient-to-r from-transparent via-background/20 to-transparent" />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Per Company Breakdown - Using global variables */}
+          <div className="space-y-3">
+            {Object.entries(assetCounts).map(([companyName, counts]) => (
+              <div
+                key={companyName}
+                className="group relative bg-card rounded-xl p-4 border border-border shadow-[0_2px_12px_hsl(var(--background),0.04)] dark:shadow-[0_2px_12px_hsl(var(--background),0.2)] hover:shadow-[0_4px_20px_hsl(var(--background),0.08)] dark:hover:shadow-[0_4px_20px_hsl(var(--background),0.3)] transition-all duration-300 hover:-translate-y-0.5"
+              >
+                {/* Subtle inner shadow */}
+                <div className="absolute inset-0 rounded-xl shadow-[inset_0_1px_0_hsl(var(--background),0.1)] dark:shadow-[inset_0_1px_0_hsl(var(--background),0.05)] pointer-events-none" />
+
+                <div className="relative flex items-center justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <div className="w-2 h-2 bg-muted-foreground rounded-full" />
+                      <div className="text-sm font-semibold text-foreground">
+                        {companyName}
+                      </div>
+                    </div>
+                    <div className="text-sm text-muted-foreground mb-1">
+                      {counts.current} / {counts.limit} models
+                    </div>
+                    {counts.changeLimit > 0 && (
+                      <div className="text-xs text-muted-foreground">
+                        Changes: {counts.changesUsed} / {counts.changeLimit}{" "}
+                        used ({counts.changesRemaining} remaining)
+                      </div>
+                    )}
+                  </div>
+                  <div className="text-right">
+                    <div className="text-lg font-bold text-foreground mb-1">
+                      {counts.limit > 0
+                        ? Math.round((counts.current / counts.limit) * 100)
+                        : 0}
+                      %
+                    </div>
+                    <div className="w-20 h-2 bg-muted rounded-full overflow-hidden shadow-inner">
+                      <div
+                        className="h-full bg-primary rounded-full transition-all duration-300"
+                        style={{
+                          width: `${counts.limit > 0 ? Math.min((counts.current / counts.limit) * 100, 100) : 0}%`,
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {Object.keys(assetCounts).length === 0 && (
+            <div className="text-center py-8">
+              <div className="relative mb-4">
+                <div className="p-4 bg-muted rounded-2xl mx-auto w-fit">
+                  <Package className="h-8 w-8 text-muted-foreground" />
+                </div>
+                <div className="absolute inset-0 bg-muted/40 rounded-2xl blur-sm -z-10" />
+              </div>
+              <p className="text-sm font-medium text-muted-foreground mb-1">
+                No asset data available
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Contact your administrator to set up your contract
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
 

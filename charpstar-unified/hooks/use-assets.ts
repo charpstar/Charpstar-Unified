@@ -79,6 +79,7 @@ const fetchAssets = async (
   ) {
     // Fetch assets where client is IN the user's array of companies
     countQuery = countQuery.in("client", userProfile.client);
+    // Show all assets for clients (including deactivated ones) so they can see contract value
   }
 
   const { count } = await countQuery;
@@ -102,6 +103,7 @@ const fetchAssets = async (
     ) {
       // Fetch assets where client is IN the user's array of companies
       dataQuery = dataQuery.in("client", userProfile.client);
+      // Show all assets for clients (including deactivated ones) so they can see contract value
     }
 
     const { data, error } = await dataQuery;
@@ -243,7 +245,7 @@ export function useAssets() {
     });
   }, [data?.assets, filters]);
 
-  // Generate filter options based on filtered assets
+  // Generate filter options based on client-specific assets
   const filterOptions = useMemo(() => {
     if (!data?.assets)
       return {
@@ -253,53 +255,19 @@ export function useAssets() {
         colors: [],
       };
 
-    // First filter assets based on current filters
-    let filteredAssets = data.assets;
+    // Use all client-specific assets for generating filter options (not filtered by current filters)
+    // This ensures categories only show what the client actually has
+    const clientAssets = data.assets;
 
-    // Apply category filter
-    if (filters.category) {
-      filteredAssets = filteredAssets.filter(
-        (asset) => asset.category === filters.category
-      );
-    }
-
-    // Apply subcategory filter
-    if (filters.subcategory) {
-      filteredAssets = filteredAssets.filter(
-        (asset) => asset.subcategory === filters.subcategory
-      );
-    }
-
-    // Apply client filter
-    if (filters.client.length > 0) {
-      filteredAssets = filteredAssets.filter((asset) =>
-        filters.client.includes(asset.client)
-      );
-    }
-
-    // Apply material filter
-    if (filters.material.length > 0) {
-      filteredAssets = filteredAssets.filter((asset) =>
-        filters.material.every((material) => asset.materials.includes(material))
-      );
-    }
-
-    // Apply color filter
-    if (filters.color.length > 0) {
-      filteredAssets = filteredAssets.filter((asset) =>
-        filters.color.every((color) => asset.colors.includes(color))
-      );
-    }
-
-    // Get unique categories and subcategories from filtered assets
+    // Get unique categories and subcategories from client assets
     const categories = Array.from(
-      new Set(filteredAssets.map((asset) => asset.category))
+      new Set(clientAssets.map((asset) => asset.category))
     ).map((category) => ({
       id: category,
       name: category,
       subcategories: Array.from(
         new Set(
-          filteredAssets
+          clientAssets
             .filter((asset) => asset.category === category)
             .map((asset) => asset.subcategory)
         )
@@ -311,25 +279,25 @@ export function useAssets() {
         })),
     }));
 
-    // Get unique clients from filtered assets
+    // Get unique clients from client assets
     const clients = Array.from(
-      new Set(filteredAssets.map((asset) => asset.client))
+      new Set(clientAssets.map((asset) => asset.client))
     ).map((client) => ({
       value: client,
       label: client,
     }));
 
-    // Get unique materials from filtered assets
+    // Get unique materials from client assets
     const materials = Array.from(
-      new Set(filteredAssets.flatMap((asset) => asset.materials))
+      new Set(clientAssets.flatMap((asset) => asset.materials))
     ).map((material) => ({
       value: material,
       label: material,
     }));
 
-    // Get unique colors from filtered assets
+    // Get unique colors from client assets
     const colors = Array.from(
-      new Set(filteredAssets.flatMap((asset) => asset.colors))
+      new Set(clientAssets.flatMap((asset) => asset.colors))
     ).map((color) => ({
       value: color,
       label: color,
@@ -341,7 +309,7 @@ export function useAssets() {
       materials,
       colors,
     };
-  }, [data?.assets, filters]);
+  }, [data?.assets]);
 
   return {
     assets: data?.assets || [],

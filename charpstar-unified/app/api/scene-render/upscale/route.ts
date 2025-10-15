@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
 **TASK:** Upscale and enhance this product scene image to the highest possible quality.
 
 **REQUIREMENTS:**
-- Increase resolution to 2048x2048 or higher while maintaining aspect ratio
+- Increase resolution to 8096x8096 or higher while maintaining aspect ratio
 - Enhance sharpness and detail clarity
 - Preserve all colors, lighting, and composition exactly
 - DO NOT add new elements or change the scene

@@ -4,6 +4,7 @@ const createPrompt = (
   size: string,
   objectType: string,
   scene: string,
+
   hasInspirationImage: boolean
 ): string => {
   const modelIntegrity = `1.  **MODEL INTEGRITY (ABSOLUTE PRIORITY):** You are forbidden from altering the primary product image. Do not redraw, re-render, distort, warp, or change its shape, color, texture, or proportions in any way. Treat it as a perfect, untouchable photograph that you are compositing into a background. Your ONLY job is to create the background scene *behind* it. This is the most important rule; violating it results in failure.`;
@@ -12,6 +13,11 @@ const createPrompt = (
     *   **Scaling Reference:** The product's real-world dimensions are: ${size}. Use this data to render the scene to a perfectly realistic scale.
     *   **CRITICAL: Do NOT Render Dimensions:** Under no circumstances should you draw or write these dimensions, measurement lines, or any related text onto the final image. This data is for your internal scaling calculations ONLY.
     *   **Object Context:** The object is a "${objectType}". This context is CRITICAL for realistic placement. A "${objectType}" belongs in a logical location (e.g., a chair on the floor, a lamp on a table). Ensure the placement is physically plausible and respects gravity.
+    *   **FURNITURE SET ACCURACY:** For furniture sets (dining sets, living room sets, bedroom sets), maintain realistic proportions and arrangements:
+        - **Dining Sets:** If the product is a dining table, show the appropriate number of chairs positioned realistically around the table. Chairs should be properly spaced with enough room for people to sit comfortably.
+        - **Scale Consistency:** All pieces in a set must be proportionally correct relative to each other and the room space.
+        - **Realistic Arrangement:** Furniture should be arranged as it would be in a real home, with proper spacing for movement and functionality.
+        - **NOTE:** Exact chair placement and count will be specified in the FURNITURE ARRANGEMENT ANALYSIS section below - follow those specifications precisely.
     *   **CRITICAL FOR GLASSES/EYEWEAR:** If the product is glasses or eyewear on a flat surface, they MUST be resting properly on their temple tips (the ends of the arms) and nose bridge. The lenses should NOT be touching the surface. Glasses naturally rest on these three contact points - ensure this is physically accurate.`;
 
   const sceneInstruction = `**Creative Brief:**\n${scene}`;
@@ -34,6 +40,11 @@ You have a second "inspiration" image.
     -   **Shiny/Metallic:** Must show clear, distorted reflections of the new scene.
     -   **Matte/Diffuse:** Must absorb light with soft, non-reflective highlights.
     -   **Transparent/Glass:** Must realistically refract and distort the background seen through it.
+-   **FABRIC TEXTURE FOCUS:** Pay special attention to fabric textures and materials. If the scene description mentions specific fabric details, ensure the lighting and shadows properly highlight these textures. Use lighting that brings out the fabric's unique characteristics (nap direction, weave pattern, surface finish).
+-   **FURNITURE SET REALISM:** For furniture sets, ensure each piece is rendered with consistent materials, finishes, and styling. All chairs in a dining set should match perfectly in design, fabric, and color. Maintain realistic spacing between pieces - chairs should be positioned so people can comfortably sit and move around.
+-   **EXACT ARRANGEMENT COMPLIANCE:** If the scene description specifies exact furniture arrangements (e.g., "3 chairs on each long side, 1 chair at each end"), you must render exactly that configuration. Do not deviate from the specified chair count or positioning.
+-   **Close-up Detail:** For furniture and upholstery, ensure the camera angle and lighting allow fabric textures to be clearly visible and realistic.
+-   **Room Scale:** Ensure the room proportions accommodate the furniture realistically. A dining table with 6 chairs needs adequate space around it for movement and proper visual balance.
 -   **Subtle Depth of Field:** Use a shallow depth of field to keep the product sharp while gently blurring the distant background, enhancing focus.
 -   **Ambient Occlusion:** Ensure soft, subtle shading appears in crevices and where objects meet, adding depth and realism.`;
 
@@ -49,6 +60,28 @@ ${physicalAccuracy}
 **CREATIVE TASK:**
 Your task is to create a photorealistic background scene and composite the provided product image into it, following all directives.
 
+**🚨 CRITICAL FURNITURE ARRANGEMENT COMPLIANCE 🚨**
+**ABSOLUTE PRIORITY: FURNITURE ARRANGEMENT ANALYSIS**
+If the scene description contains "FURNITURE ARRANGEMENT" details, this takes ABSOLUTE PRIORITY over any other instructions. You MUST:
+
+1. **READ THE ARRANGEMENT ANALYSIS FIRST** - Look for text like "FURNITURE ARRANGEMENT: This is a rectangular dining set. I count exactly..."
+2. **FOLLOW EXACT SPECIFICATIONS** - Use the exact chair count and positioning described
+3. **NO GENERIC DEFAULTS** - Do not use standard arrangements if specific counts are provided
+4. **VERIFY YOUR OUTPUT** - Before finalizing, ensure the chair count matches the analysis exactly
+
+**CURRENT ANALYSIS EXAMPLE (FOLLOW THIS EXACTLY):**
+- If analysis says "I count exactly 3 chairs on the left long side and 3 chairs on the right long side. There are 0 chairs on the top short side and 0 chairs on the bottom short side" → Create EXACTLY 3 chairs on left long side, 3 chairs on right long side, 0 chairs on short sides
+- If analysis says "six chairs total, three per long side" → Create EXACTLY 6 chairs total, 3 per long side
+- Do NOT default to "2 chairs per side + 1 at each end" if the analysis specifies different numbers
+
+**CRITICAL:** The analysis clearly states "There are 0 chairs on the top short side and 0 chairs on the bottom short side" - this means NO CHAIRS on the ends!
+
+**FURNITURE SET DETECTION:**
+- If the product appears to be part of a furniture set (dining table, sofa, etc.), analyze the image to determine what additional pieces should be included.
+- For dining tables: Match the EXACT chair count and positioning specified in the furniture arrangement analysis.
+- For sofas: Consider adding matching accent chairs, coffee tables, or ottomans if the room space allows.
+- For bedroom sets: Include matching nightstands, dressers, or headboards as appropriate.
+
 ${sceneInstruction}
 
 ${inspirationInstruction}
@@ -58,6 +91,14 @@ ${inspirationInstruction}
 **PHOTOREALISM CHECKLIST:**
 Apply these techniques to achieve a flawless, professional result.
 ${photorealismChecklist}
+
+**FINAL VERIFICATION:**
+Before completing your image, verify that:
+- If the scene description mentions "FURNITURE ARRANGEMENT" with specific chair counts, your generated scene matches those exact numbers
+- Do not use generic dining set arrangements when specific arrangements are provided
+- The chair positioning matches the analysis exactly
+- **SPECIFIC CHECK:** If analysis says "0 chairs on the top short side and 0 chairs on the bottom short side", ensure there are NO chairs at the table ends
+- **COUNT VERIFICATION:** Double-check that you have exactly the number of chairs specified (e.g., 6 total chairs for the current analysis)
 
 **Final Output:** Your output must be ONLY the final composited image. No text, no watermarks.`;
 };
@@ -70,6 +111,11 @@ async function callApi(
 ): Promise<string | null> {
   const maxRetries = 3;
   const baseDelay = 1000; // 1 second base delay
+
+  // Log the prompt being sent to AI for debugging
+  console.log("=== AI PROMPT BEING SENT ===");
+  console.log(textPart.text);
+  console.log("=== END AI PROMPT ===");
 
   try {
     const response = await ai.models.generateContent({

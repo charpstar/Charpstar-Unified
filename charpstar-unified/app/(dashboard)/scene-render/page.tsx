@@ -68,6 +68,8 @@ export default function SceneRenderPage() {
   const [selectedModelUrl, setSelectedModelUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [generatedImages, setGeneratedImages] = useState<string[]>([]);
+  const [upscaledImages, setUpscaledImages] = useState<string[]>([]);
+  const [showComparison, setShowComparison] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [clientViewerType, setClientViewerType] = useState<string | null>(null);
 
@@ -171,6 +173,10 @@ export default function SceneRenderPage() {
 
       if (data.scenes && data.scenes.length > 0) {
         setGeneratedImages(data.scenes);
+        if (data.upscaledScenes && data.comparison) {
+          setUpscaledImages(data.upscaledScenes);
+          setShowComparison(true);
+        }
         setAppState("results");
       } else {
         throw new Error("The AI did not return any images. Please try again.");
@@ -198,6 +204,8 @@ export default function SceneRenderPage() {
     setSelectedModelUrl(null);
     setError(null);
     setGeneratedImages([]);
+    setUpscaledImages([]);
+    setShowComparison(false);
     setAppState("upload");
   };
 
@@ -259,7 +267,12 @@ export default function SceneRenderPage() {
       case "results":
         return (
           generatedImages && (
-            <ResultDisplay images={generatedImages} onReset={handleReset} />
+            <ResultDisplay
+              images={generatedImages}
+              upscaledImages={upscaledImages}
+              showComparison={showComparison}
+              onReset={handleReset}
+            />
           )
         );
       case "error":
@@ -377,7 +390,7 @@ export default function SceneRenderPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 ">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3  min-h-[calc(100vh-132px)] ">
         {/* Main Content Area - Left Side (2/3 width) */}
         <div
           className="lg:col-span-2"

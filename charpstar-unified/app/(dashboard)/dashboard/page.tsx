@@ -145,7 +145,7 @@ export default function DashboardPage() {
 
   // Create profile content
   const profileContent = (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4">
         <div className="relative">
           <AvatarPicker
