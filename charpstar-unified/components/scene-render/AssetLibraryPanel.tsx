@@ -55,6 +55,7 @@ export default function AssetLibraryPanel({
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [selectedClient, setSelectedClient] = useState<string>("all");
+  const [showInactive, setShowInactive] = useState<boolean>(false);
   const [imageErrors, setImageErrors] = useState<Set<string>>(new Set());
 
   // Combobox open states
@@ -78,6 +79,11 @@ export default function AssetLibraryPanel({
     // Apply category filter (only categories available for selected client)
     if (selectedCategory !== "all") {
       result = result.filter((asset) => asset.category === selectedCategory);
+    }
+
+    // Apply active/inactive filter
+    if (!showInactive) {
+      result = result.filter((asset) => asset.active !== false);
     }
 
     // Apply search
@@ -115,6 +121,7 @@ export default function AssetLibraryPanel({
     sortOrder,
     selectedCategory,
     selectedClient,
+    showInactive,
   ]);
 
   // Calculate pagination
@@ -128,7 +135,14 @@ export default function AssetLibraryPanel({
   // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, selectedCategory, selectedClient, sortBy, sortOrder]);
+  }, [
+    searchTerm,
+    selectedCategory,
+    selectedClient,
+    sortBy,
+    sortOrder,
+    showInactive,
+  ]);
 
   // Get categories based on selected client (for admins)
   const availableCategories = useMemo(() => {
@@ -247,13 +261,15 @@ export default function AssetLibraryPanel({
                   {(selectedClient !== "all" ||
                     selectedCategory !== "all" ||
                     sortBy !== "name" ||
-                    sortOrder !== "asc") && (
+                    sortOrder !== "asc" ||
+                    !showInactive) && (
                     <Badge variant="secondary" className="ml-2 h-5 px-1.5">
                       {
                         [
                           selectedClient !== "all" && "Client",
                           selectedCategory !== "all" && "Category",
                           (sortBy !== "name" || sortOrder !== "asc") && "Sort",
+                          !showInactive && "Inactive",
                         ].filter(Boolean).length
                       }
                     </Badge>
@@ -532,11 +548,27 @@ export default function AssetLibraryPanel({
                 </Popover>
               </div>
 
+              {/* Show Inactive Assets Toggle */}
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium">
+                  Show Inactive Assets
+                </label>
+                <Button
+                  variant={showInactive ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setShowInactive(!showInactive)}
+                  className="h-8 px-3"
+                >
+                  {showInactive ? "Yes" : "No"}
+                </Button>
+              </div>
+
               {/* Clear Filters */}
               {(selectedClient !== "all" ||
                 selectedCategory !== "all" ||
                 sortBy !== "name" ||
-                sortOrder !== "asc") && (
+                sortOrder !== "asc" ||
+                !showInactive) && (
                 <Button
                   variant="ghost"
                   size="sm"
@@ -545,6 +577,7 @@ export default function AssetLibraryPanel({
                     setSelectedCategory("all");
                     setSortBy("name");
                     setSortOrder("asc");
+                    setShowInactive(true);
                   }}
                   className="w-full h-8"
                 >
@@ -579,7 +612,9 @@ export default function AssetLibraryPanel({
                 {paginatedAssets.map((asset) => (
                   <Card
                     key={asset.id}
-                    className="overflow-hidden p-4 rounded-lg cursor-grab active:cursor-grabbing hover:shadow-lg hover:ring-2 hover:ring-primary/50 hover:ring-offset-2 transition-all group"
+                    className={`overflow-hidden p-4 rounded-lg cursor-grab active:cursor-grabbing hover:shadow-lg hover:ring-2 hover:ring-primary/50 hover:ring-offset-2 transition-all group ${
+                      asset.active === false ? "opacity-60 border-dashed" : ""
+                    }`}
                     onClick={() => onAssetSelect?.(asset)}
                     draggable
                     onDragStart={(e) => {
@@ -622,9 +657,19 @@ export default function AssetLibraryPanel({
 
                     {/* Asset Info */}
                     <div className="p-2 space-y-1">
-                      <h4 className="text-xs font-medium line-clamp-1 group-hover:text-primary transition-colors">
-                        {asset.product_name}
-                      </h4>
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-xs font-medium line-clamp-1 group-hover:text-primary transition-colors">
+                          {asset.product_name}
+                        </h4>
+                        {asset.active === false && (
+                          <Badge
+                            variant="destructive"
+                            className="text-xs px-1.5 py-0.5"
+                          >
+                            Inactive
+                          </Badge>
+                        )}
+                      </div>
                       <p className="text-xs text-muted-foreground line-clamp-1">
                         {asset.category}
                       </p>
