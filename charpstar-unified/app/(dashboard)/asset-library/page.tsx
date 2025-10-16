@@ -20,11 +20,9 @@ import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { useUser } from "@/contexts/useUser";
 import { createClient } from "@/utils/supabase/client";
 import { AssetLibraryControlPanel } from "@/components/asset-library/AssetLibraryControlPanel";
-import { CategorySidebar } from "@/components/asset-library/CategorySidebar";
 import { translateSwedishToEnglish } from "@/utils/swedishTranslations";
 import { AssetLibrarySkeleton } from "@/components/ui/skeletons";
 import { Search } from "lucide-react";
-import { CategorySidebarSkeleton } from "@/components/ui/skeletons/CategorySidebarSkeleton";
 import React from "react";
 import { Card, CardContent } from "@/components/ui/containers/card";
 import { AssetLibraryIntroPopup } from "@/components/asset-library/AssetLibraryIntroPopup";
@@ -148,11 +146,11 @@ export default function AssetLibraryPage() {
   const [isBatchEditMode, setIsBatchEditMode] = useState(false);
   const [canDownloadGLB, setCanDownloadGLB] = useState(false);
 
-  // Mobile sidebar toggle state
-  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
-
   // Search timeout ref
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Track if this is the first render after initialization to prevent premature URL sync
+  const skipFirstUrlUpdate = useRef(false);
 
   // Filter state
   const [selectedMaterials, setSelectedMaterials] = useState<string[]>([]);
@@ -460,6 +458,12 @@ export default function AssetLibraryPage() {
   useEffect(() => {
     if (!isInitialized) return; // ⛔ Skip until filters loaded from URL
 
+    // Skip the first update after initialization to prevent race condition
+    if (skipFirstUrlUpdate.current) {
+      skipFirstUrlUpdate.current = false;
+      return;
+    }
+
     const params = new URLSearchParams();
 
     // Include all filters in the actual URL
@@ -491,9 +495,14 @@ export default function AssetLibraryPage() {
 
   // Initialize filters from URL on mount
   useEffect(() => {
+    if (isInitialized) return; // Only initialize once
+
     // Helper to parse comma-separated params
     const parseList = (param: string | null): string[] =>
       param ? param.split(",") : [];
+
+    const urlPage = searchParams.get("page");
+    const pageNumber = urlPage ? parseInt(urlPage, 10) : 1;
 
     setFilters((prev) => ({
       ...prev,
@@ -513,17 +522,13 @@ export default function AssetLibraryPage() {
     setSearchValue(searchParams.get("search") || "");
     setActiveSearchValue(searchParams.get("search") || "");
 
-    // Initialize page from URL
-    const pageParam = searchParams.get("page");
-    if (pageParam) {
-      const pageNumber = parseInt(pageParam, 10);
-      if (pageNumber > 0) {
-        setCurrentPage(pageNumber);
-      }
-    }
+    // ✅ Safely set page, with fallback to 1
+    setCurrentPage(pageNumber > 0 ? pageNumber : 1);
 
-    setIsInitialized(true); // ✅ Mark initialization complete
-  }, []); // 👈 Only run once on mount, not every time URL changes
+    // ✅ Mark initialization complete and skip first URL update
+    skipFirstUrlUpdate.current = true;
+    setIsInitialized(true);
+  }, [searchParams, isInitialized]);
 
   // Handle URL changes when navigating back from other pages (like categories do)
   useEffect(() => {
@@ -662,6 +667,13 @@ export default function AssetLibraryPage() {
     localStorage.setItem("asset-library-intro-seen", "true");
   };
 
+  const handlePageChange = (newPage: number) => {
+    setCurrentPage(newPage);
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("page", newPage.toString());
+    router.push(`${pathname}?${params.toString()}`, { scroll: false });
+  };
+
   // Helper function to clear all filters and reset to initial state
   const handleClearAllFilters = () => {
     clearFilters();
@@ -760,14 +772,15 @@ export default function AssetLibraryPage() {
   // Show skeletons while loading
   if (loading) {
     return (
-      <div className="flex flex-col lg:flex-row h-full">
-        {/* Category Sidebar - Hidden on mobile, shown on desktop */}
-        <div className="hidden lg:block">
-          <CategorySidebarSkeleton />
-        </div>
+      <div className="flex flex-col h-full">
         {/* Main Content */}
         <div className="flex-1 flex flex-col">
           <AssetLibraryControlPanel
+            categories={filterOptions.categories}
+            selectedCategory={filters.category}
+            setSelectedCategory={handleSetCategory}
+            selectedSubcategory={filters.subcategory}
+            setSelectedSubcategory={handleSetSubcategory}
             breadcrumbs={breadcrumbItems}
             searchValue={searchValue}
             onClearSearch={handleClearSearch}
@@ -790,13 +803,11 @@ export default function AssetLibraryPage() {
             setSelectedCompanies={setSelectedCompanies}
             showInactiveOnly={showInactiveOnly}
             setShowInactiveOnly={setShowInactiveOnly}
-            isMobileSidebarOpen={isMobileSidebarOpen}
-            onToggleMobileSidebar={() =>
-              setIsMobileSidebarOpen(!isMobileSidebarOpen)
-            }
           />
-          <div className="flex-1 p-3 sm:p-6">
-            <AssetLibrarySkeleton />
+          <div className="flex-1 flex flex-col max-h-[calc(100vh-80px)]">
+            <div className="flex-1 overflow-y-auto p-6">
+              <AssetLibrarySkeleton />
+            </div>
           </div>
         </div>
       </div>
@@ -822,26 +833,16 @@ export default function AssetLibraryPage() {
   }
 
   return (
-    <div className="flex flex-col lg:flex-row h-full p-6 space-y-6">
-      {/* Category Sidebar - Show on mobile when toggled, always on desktop */}
-      <div className={`${isMobileSidebarOpen ? "block" : "hidden"} lg:block`}>
-        <CategorySidebar
+    <div className="flex flex-col h-full">
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col">
+        {/* Control Panel */}
+        <AssetLibraryControlPanel
           categories={filterOptions.categories}
           selectedCategory={filters.category}
           setSelectedCategory={handleSetCategory}
           selectedSubcategory={filters.subcategory}
           setSelectedSubcategory={handleSetSubcategory}
-          onClearAllFilters={handleClearAllFilters}
-          onClose={() => setIsMobileSidebarOpen(false)}
-          selectedCompanies={selectedCompanies}
-          assets={assets}
-        />
-      </div>
-
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col">
-        {/* Control Panel */}
-        <AssetLibraryControlPanel
           breadcrumbs={breadcrumbItems}
           searchValue={searchValue}
           onClearSearch={handleClearSearch}
@@ -864,147 +865,156 @@ export default function AssetLibraryPage() {
           setSelectedCompanies={setSelectedCompanies}
           showInactiveOnly={showInactiveOnly}
           setShowInactiveOnly={setShowInactiveOnly}
-          isMobileSidebarOpen={isMobileSidebarOpen}
-          onToggleMobileSidebar={() =>
-            setIsMobileSidebarOpen(!isMobileSidebarOpen)
-          }
         />
 
         {/* Asset Grid */}
-        <div className="flex-1 p-3 sm:p-6 max-h-[calc(100vh-80px)] overflow-y-auto">
-          {/* Asset Count and Page Info */}
-          <div className="flex justify-between items-center mb-4">
-            <p className="text-xs sm:text-sm text-muted-foreground">
-              Showing {currentAssets?.length || 0} of{" "}
-              {filteredAssets?.length || 0} assets
-              {totalPages > 1 && ` (Page ${currentPage} of ${totalPages})`}
-            </p>
-          </div>
+        <div className="flex-1 flex flex-col max-h-[full]">
+          <div className="flex-1 overflow-y-auto p-6">
+            {/* Asset Count and Page Info */}
+            <div className="flex justify-between items-center mb-4">
+              <p className="text-xs sm:text-sm text-muted-foreground">
+                Showing {currentAssets?.length || 0} of{" "}
+                {filteredAssets?.length || 0} assets
+                {totalPages > 1 && ` (Page ${currentPage} of ${totalPages})`}
+              </p>
+            </div>
 
-          {/* Batch Edit Controls */}
-          {isBatchEditMode && (
-            <div className="bg-muted/50 rounded-lg p-3 sm:p-4 mb-4 border border-border">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                  <span className="text-sm font-medium">
-                    {selectedAssets.length} asset(s) selected
-                  </span>
+            {/* Batch Edit Controls */}
+            {isBatchEditMode && (
+              <div className="bg-muted/50 rounded-lg p-3 sm:p-4 mb-4 border border-border">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                    <span className="text-sm font-medium">
+                      {selectedAssets.length} asset(s) selected
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleSelectAll}
+                        disabled={
+                          selectedAssets.length === currentAssets.length
+                        }
+                      >
+                        Select All
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleDeselectAll}
+                        disabled={selectedAssets.length === 0}
+                      >
+                        Deselect All
+                      </Button>
+                    </div>
+                  </div>
                   <div className="flex items-center gap-2">
                     <Button
-                      variant="outline"
+                      variant="destructive"
                       size="sm"
-                      onClick={handleSelectAll}
-                      disabled={selectedAssets.length === currentAssets.length}
+                      onClick={handleDeleteSelected}
+                      disabled={selectedAssets.length === 0}
                     >
-                      Select All
+                      Delete Selected ({selectedAssets.length})
                     </Button>
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={handleDeselectAll}
-                      disabled={selectedAssets.length === 0}
+                      onClick={() => {
+                        setIsBatchEditMode(false);
+                        setSelectedAssets([]);
+                      }}
                     >
-                      Deselect All
+                      Cancel
                     </Button>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
+              </div>
+            )}
+
+            {/* No Results State */}
+            {filteredAssets.length === 0 && assets.length > 0 && (
+              <div className="flex flex-col items-center justify-center h-64 text-center px-4">
+                <div className="mb-6">
+                  <Search className="h-12 w-12 sm:h-16 sm:w-16 text-muted-foreground/50 mx-auto mb-4" />
+                  <h3 className="text-base sm:text-lg font-semibold text-foreground mb-2"></h3>
+                  <p className="text-sm sm:text-base text-muted-foreground mb-6 max-w-md">
+                    {activeSearchValue
+                      ? `We couldn't find any assets matching "${activeSearchValue}". Try adjusting your search terms or filters.`
+                      : "No assets match your current filters. Try adjusting your selection to see more results."}
+                  </p>
                   <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={handleDeleteSelected}
-                    disabled={selectedAssets.length === 0}
-                  >
-                    Delete Selected ({selectedAssets.length})
-                  </Button>
-                  <Button
+                    onClick={handleClearAllFilters}
                     variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setIsBatchEditMode(false);
-                      setSelectedAssets([]);
-                    }}
+                    className="gap-2"
                   >
-                    Cancel
+                    <Search className="h-4 w-4" />
+                    Remove Filters
                   </Button>
                 </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* No Results State */}
-          {filteredAssets.length === 0 && assets.length > 0 && (
-            <div className="flex flex-col items-center justify-center h-64 text-center px-4">
-              <div className="mb-6">
-                <Search className="h-12 w-12 sm:h-16 sm:w-16 text-muted-foreground/50 mx-auto mb-4" />
-                <h3 className="text-base sm:text-lg font-semibold text-foreground mb-2"></h3>
-                <p className="text-sm sm:text-base text-muted-foreground mb-6 max-w-md">
-                  {activeSearchValue
-                    ? `We couldn't find any assets matching "${activeSearchValue}". Try adjusting your search terms or filters.`
-                    : "No assets match your current filters. Try adjusting your selection to see more results."}
-                </p>
-                <Button
-                  onClick={handleClearAllFilters}
-                  variant="outline"
-                  className="gap-2"
-                >
-                  <Search className="h-4 w-4" />
-                  Remove Filters
-                </Button>
+            {/* Asset Grid */}
+            {filteredAssets.length > 0 && (
+              <div
+                className={
+                  viewMode === "grid"
+                    ? "grid gap-3 sm:gap-4 md:gap-5 lg:gap-6 p-1" +
+                      " grid-cols-[repeat(auto-fill,minmax(min(100%,200px),1fr))]" +
+                      " sm:grid-cols-[repeat(auto-fill,minmax(min(100%,220px),1fr))]" +
+                      " md:grid-cols-[repeat(auto-fill,minmax(min(100%,240px),1fr))]" +
+                      " lg:grid-cols-[repeat(auto-fill,minmax(min(100%,260px),1fr))]" +
+                      " xl:grid-cols-[repeat(auto-fill,minmax(min(100%,280px),1fr))]"
+                    : viewMode === "compactGrid"
+                      ? "flex flex-col gap-3"
+                      : "grid gap-3 sm:gap-4 md:gap-5 lg:gap-6" +
+                        " grid-cols-[repeat(auto-fill,minmax(min(100%,200px),1fr))]" +
+                        " sm:grid-cols-[repeat(auto-fill,minmax(min(100%,220px),1fr))]" +
+                        " md:grid-cols-[repeat(auto-fill,minmax(min(100%,240px),1fr))]" +
+                        " lg:grid-cols-[repeat(auto-fill,minmax(min(100%,260px),1fr))]" +
+                        " xl:grid-cols-[repeat(auto-fill,minmax(min(100%,280px),1fr))]"
+                }
+              >
+                {currentAssets.map((asset) => (
+                  <LazyAssetCardWrapper
+                    key={asset.id}
+                    asset={asset}
+                    isBatchEditMode={isBatchEditMode}
+                    isSelected={selectedAssets.includes(asset.id)}
+                    onSelect={handleAssetSelect}
+                    viewMode={viewMode}
+                  />
+                ))}
               </div>
-            </div>
-          )}
+            )}
+          </div>
 
-          {/* Asset Grid */}
-          {filteredAssets.length > 0 && (
-            <div
-              className={
-                viewMode === "grid"
-                  ? "grid grid-cols-1  sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3 sm:gap-4 p-1 overflow-hidden"
-                  : viewMode === "compactGrid"
-                    ? "flex flex-col gap-3"
-                    : "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3 sm:gap-4 overflow-hidden"
-              }
-            >
-              {currentAssets.map((asset) => (
-                <LazyAssetCardWrapper
-                  key={asset.id}
-                  asset={asset}
-                  isBatchEditMode={isBatchEditMode}
-                  isSelected={selectedAssets.includes(asset.id)}
-                  onSelect={handleAssetSelect}
-                  viewMode={viewMode}
-                />
-              ))}
-            </div>
-          )}
-
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex justify-center mt-6 sm:mt-8 sticky bottom-0 bg-muted border-t border-border z-10 p-2 rounded-lg w-fit mx-auto">
-              <div className="flex items-center gap-2">
+          {/* Pagination - Outside scrollable area */}
+          <div className="sticky bottom-0 bg-background/0 z-10">
+            <div className="flex justify-center p-4 gap-6">
+              <div className="flex items-center gap-6">
                 <Button
-                  variant="outline"
+                  variant="default"
                   size="sm"
-                  onClick={() => setCurrentPage(currentPage - 1)}
+                  onClick={() => handlePageChange(currentPage - 1)}
                   disabled={currentPage === 1}
                 >
                   Previous
                 </Button>
-                <span className="text-xs sm:text-sm text-muted-foreground">
-                  Page {currentPage} of {totalPages}
-                </span>
+              </div>
+              <div className="flex items-center gap-2">
                 <Button
-                  variant="outline"
+                  variant="default"
                   size="sm"
-                  onClick={() => setCurrentPage(currentPage + 1)}
+                  onClick={() => handlePageChange(currentPage + 1)}
                   disabled={currentPage === totalPages}
                 >
                   Next
                 </Button>
               </div>
             </div>
-          )}
+          </div>
         </div>
       </div>
 

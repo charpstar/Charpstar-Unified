@@ -84,6 +84,8 @@ interface ModelPreviewerProps {
   environmentImage?: string;
   exposure?: string;
   toneMapping?: string;
+  captureMode?: boolean; // If true, shows simplified UI for just capturing
+  captureButtonText?: string;
 }
 
 const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
@@ -94,6 +96,8 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
   environmentImage = "https://cdn.charpstar.net/Demos/HDR_Furniture.hdr",
   exposure = "1.2",
   toneMapping = "aces",
+  captureMode = false,
+  captureButtonText = "Generate Scene",
 }) => {
   const modelViewerRef = useRef<HTMLElement>(null);
   const [objectSize, setObjectSize] = useState("");
@@ -277,7 +281,8 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
   };
 
   const handleCapture = async () => {
-    if (!objectType.trim()) return;
+    // In capture mode, skip validation - just capture the model
+    if (!captureMode && !objectType.trim()) return;
 
     const modelViewer = modelViewerRef.current as any;
     if (modelViewer) {
@@ -312,7 +317,7 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
         onGenerate(
           [snapshotBase64],
           finalObjectSize,
-          objectType,
+          objectType || "Product",
           sceneDescription,
           inspirationBase64
         );
@@ -476,50 +481,61 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
       </div>
 
       {/* Bottom: Compact Controls in Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 h-full max-h-[400px]">
-        {/* Dimensions */}
-        <Card className="p-4 hover:shadow-md transition-shadow">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">
-              1
+      <div
+        className={`grid grid-cols-1 md:grid-cols-2 ${captureMode ? "lg:grid-cols-2" : "lg:grid-cols-4"} gap-3 h-full max-h-[400px]`}
+      >
+        {/* Dimensions - hide in capture mode */}
+        {!captureMode && (
+          <Card className="p-4 hover:shadow-md transition-shadow">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">
+                1
+              </div>
+              <h3 className="text-sm font-semibold">Dimensions</h3>
             </div>
-            <h3 className="text-sm font-semibold">Dimensions</h3>
-          </div>
-          <div className="px-3 py-4 bg-muted rounded-md text-center font-mono">
-            {isModelLoading ? (
-              <div className="flex items-center justify-center gap-3">
-                <div className="w-4 h-4 border border-primary border-t-transparent rounded-full animate-spin"></div>
+            <div className="px-3 py-4 bg-muted rounded-md text-center font-mono">
+              {isModelLoading ? (
+                <div className="flex items-center justify-center gap-3">
+                  <div className="w-4 h-4 border border-primary border-t-transparent rounded-full animate-spin"></div>
+                  <span className="text-muted-foreground text-sm">
+                    Loading...
+                  </span>
+                </div>
+              ) : modelDimensions ? (
+                <div className="space-y-2">
+                  <div className="text-lg">
+                    W: {modelDimensions.x.toFixed(2)}m
+                  </div>
+                  <div className="text-lg ">
+                    H: {modelDimensions.y.toFixed(2)}m
+                  </div>
+                  <div className="text-lg ">
+                    D: {modelDimensions.z.toFixed(2)}m
+                  </div>
+                </div>
+              ) : (
                 <span className="text-muted-foreground text-sm">
-                  Loading...
+                  Calculating...
                 </span>
-              </div>
-            ) : modelDimensions ? (
-              <div className="space-y-2">
-                <div className="text-lg">
-                  W: {modelDimensions.x.toFixed(2)}m
-                </div>
-                <div className="text-lg ">
-                  H: {modelDimensions.y.toFixed(2)}m
-                </div>
-                <div className="text-lg ">
-                  D: {modelDimensions.z.toFixed(2)}m
-                </div>
-              </div>
-            ) : (
-              <span className="text-muted-foreground text-sm">
-                Calculating...
-              </span>
-            )}
-          </div>
-        </Card>
+              )}
+            </div>
+          </Card>
+        )}
 
         {/* Product Type */}
         <Card className="p-4 hover:shadow-md transition-shadow">
           <div className="flex items-center gap-2 mb-3">
             <div className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">
-              2
+              {captureMode ? "1" : "2"}
             </div>
-            <h3 className="text-sm font-semibold">Product Type</h3>
+            <h3 className="text-sm font-semibold">
+              Product Type{" "}
+              {captureMode && (
+                <span className="text-xs text-muted-foreground font-normal">
+                  (Optional)
+                </span>
+              )}
+            </h3>
           </div>
           <div className="grid grid-cols-2 gap-1 mb-2 h-full overflow-y-auto">
             {productPresets.map((preset) => (
@@ -547,217 +563,227 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
           />
         </Card>
 
-        {/* Scene Description */}
-        <Card className="p-4 hover:shadow-md transition-shadow">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">
-              3
+        {/* Scene Description - hide in capture mode */}
+        {!captureMode && (
+          <Card className="p-4 hover:shadow-md transition-shadow">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">
+                3
+              </div>
+              <h3 className="text-sm font-semibold">Scene</h3>
             </div>
-            <h3 className="text-sm font-semibold">Scene</h3>
-          </div>
-          {/* Two Button Layout */}
-          <div className="space-y-2">
-            {/* Scene Dialog Button */}
-            <Dialog open={sceneDialogOpen} onOpenChange={setSceneDialogOpen}>
-              <DialogTrigger asChild>
-                <button
-                  className="w-full px-3 cursor-pointer py-2 text-sm bg-background border border-input rounded-md focus:ring-2 focus:ring-primary focus:border-primary transition-shadow text-left flex items-center justify-between hover:bg-muted/50"
-                  aria-expanded={sceneDialogOpen}
-                >
-                  <span className="truncate">
-                    {!isCustomScene &&
-                    scenePresets.find((p) => p.prompt === sceneDescription)
-                      ? scenePresets.find((p) => p.prompt === sceneDescription)
-                          ?.label
-                      : "Browse Scene Presets"}
-                  </span>
-                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                </button>
-              </DialogTrigger>
-              <DialogContent className="min-w-6xl max-h-[85vh] p-0">
-                <DialogHeader className="px-6 py-4 border-b">
-                  <DialogTitle>Choose a Scene</DialogTitle>
-                </DialogHeader>
-                <div className="p-6">
-                  <Command>
-                    <CommandInput placeholder="Search scenes..." className="" />
-                    <CommandList className="max-h-[65vh] overflow-y-auto">
-                      <CommandEmpty>No scene found.</CommandEmpty>
-                      {presetCategories.map((category) => (
-                        <CommandGroup key={category} heading={category}>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
-                            {scenePresets
-                              .filter((p) => p.category === category)
-                              .map((preset: any) => (
-                                <CommandItem
-                                  key={preset.id}
-                                  onSelect={() => {
-                                    setIsCustomScene(false);
-                                    setSceneDescription(preset.prompt);
-                                    setSceneDialogOpen(false);
-                                  }}
-                                  className="flex items-center gap-3 p-4 rounded-lg border hover:bg-muted/50 transition-colors"
-                                >
-                                  <Check
-                                    className={`h-5 w-5 ${
-                                      !isCustomScene &&
-                                      sceneDescription === preset.prompt
-                                        ? "opacity-100"
-                                        : "opacity-0"
-                                    }`}
-                                  />
-                                  {preset.thumbnailUrl ? (
-                                    <Image
-                                      src={preset.thumbnailUrl}
-                                      alt={preset.label}
-                                      width={64}
-                                      height={64}
-                                      className="w-16 h-16 object-cover rounded-lg border shadow-sm"
-                                      unoptimized
+            {/* Two Button Layout */}
+            <div className="space-y-2">
+              {/* Scene Dialog Button */}
+              <Dialog open={sceneDialogOpen} onOpenChange={setSceneDialogOpen}>
+                <DialogTrigger asChild>
+                  <button
+                    className="w-full px-3 cursor-pointer py-2 text-sm bg-background border border-input rounded-md focus:ring-2 focus:ring-primary focus:border-primary transition-shadow text-left flex items-center justify-between hover:bg-muted/50"
+                    aria-expanded={sceneDialogOpen}
+                  >
+                    <span className="truncate">
+                      {!isCustomScene &&
+                      scenePresets.find((p) => p.prompt === sceneDescription)
+                        ? scenePresets.find(
+                            (p) => p.prompt === sceneDescription
+                          )?.label
+                        : "Browse Scene Presets"}
+                    </span>
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </button>
+                </DialogTrigger>
+                <DialogContent className="min-w-6xl max-h-[85vh] p-0">
+                  <DialogHeader className="px-6 py-4 border-b">
+                    <DialogTitle>Choose a Scene</DialogTitle>
+                  </DialogHeader>
+                  <div className="p-6">
+                    <Command>
+                      <CommandInput
+                        placeholder="Search scenes..."
+                        className=""
+                      />
+                      <CommandList className="max-h-[65vh] overflow-y-auto">
+                        <CommandEmpty>No scene found.</CommandEmpty>
+                        {presetCategories.map((category) => (
+                          <CommandGroup key={category} heading={category}>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
+                              {scenePresets
+                                .filter((p) => p.category === category)
+                                .map((preset: any) => (
+                                  <CommandItem
+                                    key={preset.id}
+                                    onSelect={() => {
+                                      setIsCustomScene(false);
+                                      setSceneDescription(preset.prompt);
+                                      setSceneDialogOpen(false);
+                                    }}
+                                    className="flex items-center gap-3 p-4 rounded-lg border hover:bg-muted/50 transition-colors"
+                                  >
+                                    <Check
+                                      className={`h-5 w-5 ${
+                                        !isCustomScene &&
+                                        sceneDescription === preset.prompt
+                                          ? "opacity-100"
+                                          : "opacity-0"
+                                      }`}
                                     />
-                                  ) : (
-                                    <div className="w-16 h-16 bg-muted rounded-lg flex items-center justify-center">
-                                      <span className="text-lg">🎨</span>
+                                    {preset.thumbnailUrl ? (
+                                      <Image
+                                        src={preset.thumbnailUrl}
+                                        alt={preset.label}
+                                        width={64}
+                                        height={64}
+                                        className="w-16 h-16 object-cover rounded-lg border shadow-sm"
+                                        unoptimized
+                                      />
+                                    ) : (
+                                      <div className="w-16 h-16 bg-muted rounded-lg flex items-center justify-center">
+                                        <span className="text-lg">🎨</span>
+                                      </div>
+                                    )}
+                                    <div className="flex-1 min-w-0">
+                                      <div className="font-medium truncate">
+                                        {preset.label}
+                                      </div>
+                                      <div className="text-sm text-muted-foreground line-clamp-2">
+                                        {preset.prompt}
+                                      </div>
                                     </div>
-                                  )}
-                                  <div className="flex-1 min-w-0">
-                                    <div className="font-medium truncate">
-                                      {preset.label}
-                                    </div>
-                                    <div className="text-sm text-muted-foreground line-clamp-2">
-                                      {preset.prompt}
-                                    </div>
-                                  </div>
-                                </CommandItem>
-                              ))}
-                          </div>
-                        </CommandGroup>
-                      ))}
-                    </CommandList>
-                  </Command>
-                </div>
-              </DialogContent>
-            </Dialog>
+                                  </CommandItem>
+                                ))}
+                            </div>
+                          </CommandGroup>
+                        ))}
+                      </CommandList>
+                    </Command>
+                  </div>
+                </DialogContent>
+              </Dialog>
 
-            {/* Custom Scene Button */}
-            <button
-              onClick={() => {
-                setIsCustomScene(true);
-                setSceneDescription("");
-              }}
-              className={`w-full px-3 cursor-pointer py-2 text-sm border rounded-md focus:ring-2 focus:ring-primary focus:border-primary transition-shadow text-left flex items-center justify-between hover:bg-muted/50 ${
-                isCustomScene
-                  ? "border-primary bg-primary/10 text-primary"
-                  : "border-input bg-background"
-              }`}
-            >
-              <span className="truncate flex items-center gap-2">
-                <span className="text-lg">✏️</span>
-                {isCustomScene
-                  ? "Custom Scene (Active)"
-                  : "Create Custom Scene"}
-              </span>
-              {isCustomScene && <Check className="h-4 w-4 text-primary" />}
-            </button>
-          </div>
-
-          {/* Display chosen preset scene description */}
-          {!isCustomScene && sceneDescription && (
-            <div className="mt-3 p-3 bg-muted/30 rounded-md border">
-              <div className="text-xs font-medium text-muted-foreground mb-1">
-                Selected Scene Description:
-              </div>
-              <div className="text-sm text-foreground">{sceneDescription}</div>
-            </div>
-          )}
-
-          {isCustomScene && (
-            <textarea
-              id="scene-description"
-              value={sceneDescription}
-              onChange={(e) => setSceneDescription(e.target.value)}
-              placeholder="e.g., 'modern minimalist studio with soft lighting'"
-              className="w-full px-3 py-2 text-sm bg-background border border-input rounded-md resize-none h-20 focus:ring-2 focus:ring-primary focus:border-primary transition-shadow"
-            />
-          )}
-        </Card>
-
-        {/* Inspiration Image */}
-        <Card className="p-4 hover:shadow-md transition-shadow">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="w-6 h-6 rounded-full bg-muted text-muted-foreground flex items-center justify-center text-xs font-bold">
-              4
-            </div>
-            <h3 className="text-sm font-semibold">
-              Inspiration{" "}
-              <span className="text-xs text-muted-foreground font-normal">
-                (Optional)
-              </span>
-            </h3>
-          </div>
-          {inspirationImageUrl ? (
-            <div className="relative group h-full">
-              <Image
-                src={inspirationImageUrl}
-                alt="Inspiration"
-                className="w-full  h-[220px] object-contain rounded-md border shadow-sm"
-                width={320}
-                height={180}
-              />
+              {/* Custom Scene Button */}
               <button
-                onClick={handleRemoveInspirationImage}
-                className="absolute top-1 right-1 p-1 bg-destructive/90 rounded-full text-destructive-foreground hover:bg-destructive transition-colors shadow-md"
-                aria-label="Remove"
+                onClick={() => {
+                  setIsCustomScene(true);
+                  setSceneDescription("");
+                }}
+                className={`w-full px-3 cursor-pointer py-2 text-sm border rounded-md focus:ring-2 focus:ring-primary focus:border-primary transition-shadow text-left flex items-center justify-between hover:bg-muted/50 ${
+                  isCustomScene
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-input bg-background"
+                }`}
               >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-3 w-3"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
-                    clipRule="evenodd"
-                  />
-                </svg>
+                <span className="truncate flex items-center gap-2">
+                  <span className="text-lg">✏️</span>
+                  {isCustomScene
+                    ? "Custom Scene (Active)"
+                    : "Create Custom Scene"}
+                </span>
+                {isCustomScene && <Check className="h-4 w-4 text-primary" />}
               </button>
-              <div className="absolute  p-2 bg-black/50 text-white text-sm rounded-b-md">
-                {inspirationImage?.name}
-              </div>
             </div>
-          ) : (
-            <label
-              htmlFor="inspiration-upload"
-              className="flex flex-col items-center justify-center h-full border-2 border-dashed border-muted-foreground/30 rounded-md cursor-pointer hover:border-primary/50 hover:bg-muted/50 transition-all group"
-            >
-              <div className="text-center">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-5 w-5 mx-auto mb-1 text-muted-foreground group-hover:text-primary transition-colors"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                  />
-                </svg>
-                <p className="text-xs text-muted-foreground">Upload image</p>
+
+            {/* Display chosen preset scene description */}
+            {!isCustomScene && sceneDescription && (
+              <div className="mt-3 p-3 bg-muted/30 rounded-md border">
+                <div className="text-xs font-medium text-muted-foreground mb-1">
+                  Selected Scene Description:
+                </div>
+                <div className="text-sm text-foreground">
+                  {sceneDescription}
+                </div>
               </div>
-              <input
-                id="inspiration-upload"
-                type="file"
-                className="hidden"
-                onChange={handleInspirationImageChange}
-                accept="image/png, image/jpeg, image/webp"
+            )}
+
+            {isCustomScene && (
+              <textarea
+                id="scene-description"
+                value={sceneDescription}
+                onChange={(e) => setSceneDescription(e.target.value)}
+                placeholder="e.g., 'modern minimalist studio with soft lighting'"
+                className="w-full px-3 py-2 text-sm bg-background border border-input rounded-md resize-none h-20 focus:ring-2 focus:ring-primary focus:border-primary transition-shadow"
               />
-            </label>
-          )}
-        </Card>
+            )}
+          </Card>
+        )}
+
+        {/* Inspiration Image - hide in capture mode */}
+        {!captureMode && (
+          <Card className="p-4 hover:shadow-md transition-shadow">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-6 h-6 rounded-full bg-muted text-muted-foreground flex items-center justify-center text-xs font-bold">
+                4
+              </div>
+              <h3 className="text-sm font-semibold">
+                Inspiration{" "}
+                <span className="text-xs text-muted-foreground font-normal">
+                  (Optional)
+                </span>
+              </h3>
+            </div>
+            {inspirationImageUrl ? (
+              <div className="relative group h-full">
+                <Image
+                  src={inspirationImageUrl}
+                  alt="Inspiration"
+                  className="w-full  h-[220px] object-contain rounded-md border shadow-sm"
+                  width={320}
+                  height={180}
+                />
+                <button
+                  onClick={handleRemoveInspirationImage}
+                  className="absolute top-1 right-1 p-1 bg-destructive/90 rounded-full text-destructive-foreground hover:bg-destructive transition-colors shadow-md"
+                  aria-label="Remove"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-3 w-3"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                </button>
+                <div className="absolute  p-2 bg-black/50 text-white text-sm rounded-b-md">
+                  {inspirationImage?.name}
+                </div>
+              </div>
+            ) : (
+              <label
+                htmlFor="inspiration-upload"
+                className="flex flex-col items-center justify-center h-full border-2 border-dashed border-muted-foreground/30 rounded-md cursor-pointer hover:border-primary/50 hover:bg-muted/50 transition-all group"
+              >
+                <div className="text-center">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-5 w-5 mx-auto mb-1 text-muted-foreground group-hover:text-primary transition-colors"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                    />
+                  </svg>
+                  <p className="text-xs text-muted-foreground">Upload image</p>
+                </div>
+                <input
+                  id="inspiration-upload"
+                  type="file"
+                  className="hidden"
+                  onChange={handleInspirationImageChange}
+                  accept="image/png, image/jpeg, image/webp"
+                />
+              </label>
+            )}
+          </Card>
+        )}
       </div>
 
       {/* Action Buttons - Full Width Bottom */}
@@ -785,14 +811,20 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
           variant="default"
           size="sm"
           className="flex-1"
-          disabled={!objectType.trim() || isCapturing || isTestingAngles}
+          disabled={
+            (!objectType.trim() && !captureMode) ||
+            isCapturing ||
+            isTestingAngles
+          }
           title={
-            !objectType.trim()
+            !objectType.trim() && !captureMode
               ? "Please describe the object first"
-              : "Generate high-quality scene"
+              : captureMode
+                ? "Capture this asset"
+                : "Generate high-quality scene"
           }
         >
-          {isCapturing ? "Capturing..." : "Generate Scene"}
+          {isCapturing ? "Capturing..." : captureButtonText}
         </Button>
       </div>
     </div>

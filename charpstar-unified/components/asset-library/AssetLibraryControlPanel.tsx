@@ -21,20 +21,12 @@ import {
   PopoverTrigger,
 } from "@/components/ui/interactive";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/interactive";
-import {
   LayoutGrid,
   Rows,
   Filter,
   Search,
   ChevronRight,
   Upload,
-  MoreVertical,
   X,
   ChevronDown,
   Image,
@@ -57,6 +49,12 @@ interface FilterOption {
   count?: number;
 }
 
+interface CategoryOption {
+  id: string;
+  name: string;
+  subcategories?: CategoryOption[];
+}
+
 interface AssetLibraryControlPanelProps {
   breadcrumbs: BreadcrumbItem[];
   searchValue: string;
@@ -70,6 +68,11 @@ interface AssetLibraryControlPanelProps {
   onGeneratePreviews: () => void;
   userRole?: string | null;
   // Filter props
+  categories: CategoryOption[];
+  selectedCategory: string | null;
+  setSelectedCategory: (category: string | null) => void;
+  selectedSubcategory: string | null;
+  setSelectedSubcategory: (subcategory: string | null) => void;
   materials: FilterOption[];
   selectedMaterials: string[];
   setSelectedMaterials: React.Dispatch<React.SetStateAction<string[]>>;
@@ -82,9 +85,6 @@ interface AssetLibraryControlPanelProps {
   // Active filter props
   showInactiveOnly: boolean;
   setShowInactiveOnly: React.Dispatch<React.SetStateAction<boolean>>;
-  // Mobile sidebar props
-  isMobileSidebarOpen?: boolean;
-  onToggleMobileSidebar?: () => void;
   className?: string;
 }
 
@@ -102,6 +102,11 @@ export const AssetLibraryControlPanel: React.FC<
   onBatchEdit,
   onGeneratePreviews,
   userRole,
+  categories,
+  selectedCategory,
+  setSelectedCategory,
+  selectedSubcategory,
+  setSelectedSubcategory,
   materials,
   selectedMaterials,
   setSelectedMaterials,
@@ -113,13 +118,12 @@ export const AssetLibraryControlPanel: React.FC<
   setSelectedCompanies,
   showInactiveOnly,
   setShowInactiveOnly,
-  isMobileSidebarOpen,
-  onToggleMobileSidebar,
   className = "",
 }) => {
   const [materialSearch, setMaterialSearch] = React.useState("");
   const [colorSearch, setColorSearch] = React.useState("");
   const [companySearch, setCompanySearch] = React.useState("");
+  const [categorySearch, setCategorySearch] = React.useState("");
   const [localSearchValue, setLocalSearchValue] = React.useState(searchValue);
 
   // Update local search value when prop changes
@@ -142,6 +146,10 @@ export const AssetLibraryControlPanel: React.FC<
     onClearSearch();
   };
 
+  const filteredCategories = categories.filter((category) =>
+    category.name.toLowerCase().includes(categorySearch.toLowerCase())
+  );
+
   const filteredMaterials = materials.filter((material) =>
     material.name.toLowerCase().includes(materialSearch.toLowerCase())
   );
@@ -151,6 +159,14 @@ export const AssetLibraryControlPanel: React.FC<
   const filteredCompanies = companies.filter((company) =>
     company.name.toLowerCase().includes(companySearch.toLowerCase())
   );
+
+  const handleCategorySelect = (categoryId: string | null) => {
+    setSelectedCategory(categoryId); // Parent handler clears subcategory automatically
+  };
+
+  const handleSubcategorySelect = (subcategoryId: string | null) => {
+    setSelectedSubcategory(subcategoryId);
+  };
 
   const handleMaterialToggle = (materialId: string) => {
     setSelectedMaterials((prev: string[]) =>
@@ -176,90 +192,122 @@ export const AssetLibraryControlPanel: React.FC<
     );
   };
 
+  const getCategoryLabel = () => {
+    if (selectedSubcategory && selectedCategory) {
+      const category = categories.find((c) => c.id === selectedCategory);
+      const subcategory = category?.subcategories?.find(
+        (s) => s.id === selectedSubcategory
+      );
+      return subcategory?.name || "Category";
+    }
+    if (selectedCategory) {
+      const category = categories.find((c) => c.id === selectedCategory);
+      return category?.name || "Category";
+    }
+    return "Category";
+  };
+
   return (
     <div
-      className={`sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border ${className}`}
+      className={`sticky top-0 z-10 bg-background border-b border-border shadow-sm ${className}`}
     >
-      <div className="p-3 sm:p-4 space-y-3 sm:space-y-4">
-        {/* Breadcrumbs */}
-        <nav className="flex items-center space-x-1 text-xs sm:text-sm text-muted-foreground overflow-x-auto">
-          {breadcrumbs.map((item, index) => (
-            <React.Fragment key={index}>
-              {index > 0 && (
-                <ChevronRight className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
-              )}
-              <Link
-                href={item.href}
-                onClick={item.onClick}
-                className="hover:text-foreground transition-colors whitespace-nowrap flex-shrink-0"
-              >
-                {item.label}
-              </Link>
-            </React.Fragment>
-          ))}
-        </nav>
-
-        {/* Main Controls Row */}
-        <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
-          {/* Mobile Sidebar Toggle - Only show on mobile */}
-          {onToggleMobileSidebar && (
-            <div className="flex sm:hidden">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={onToggleMobileSidebar}
-                className="cursor-pointer"
-              >
-                <Filter className="h-4 w-4 mr-2" />
-                Categories
-                {isMobileSidebarOpen && (
-                  <Badge variant="secondary" className="ml-2 text-xs">
-                    Open
-                  </Badge>
+      {/* Compact Header with Breadcrumbs & Quick Actions */}
+      <div className="bg-muted/30 border-b border-border/50 px-4 py-2">
+        <div className="flex items-center justify-between gap-4">
+          {/* Breadcrumbs */}
+          <nav className="flex items-center space-x-1 text-xs text-muted-foreground overflow-x-auto flex-1 min-w-0">
+            {breadcrumbs.map((item, index) => (
+              <React.Fragment key={index}>
+                {index > 0 && (
+                  <ChevronRight className="h-3 w-3 flex-shrink-0 opacity-50" />
                 )}
-              </Button>
-            </div>
-          )}
+                <Link
+                  href={item.href}
+                  onClick={item.onClick}
+                  className="hover:text-foreground transition-colors whitespace-nowrap flex-shrink-0 font-medium"
+                >
+                  {item.label}
+                </Link>
+              </React.Fragment>
+            ))}
+          </nav>
 
-          {/* Search */}
-          <div className="flex-1 min-w-0">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search assets..."
-                value={localSearchValue}
-                onChange={(e) => setLocalSearchValue(e.target.value)}
-                onKeyDown={handleKeyPress}
-                className="pl-10 pr-20 text-sm sm:text-base"
-              />
-              <div className="absolute right-1 top-1/2 transform -translate-y-1/2 flex items-center gap-1">
-                {localSearchValue && (
+          {/* Admin Quick Actions */}
+          {userRole === "admin" && (
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <Tooltip>
+                <TooltipTrigger asChild>
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={handleClearSearch}
-                    className="h-6 w-6 p-0"
+                    onClick={onGeneratePreviews}
+                    className="h-7 px-2"
                   >
-                    ×
+                    <Image className="h-3.5 w-3.5" />
                   </Button>
-                )}
+                </TooltipTrigger>
+                <TooltipContent>Generate Previews</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={onBatchEdit}
+                    className="h-7 px-2"
+                  >
+                    <Edit3 className="h-3.5 w-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Batch Edit</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Link href="/asset-library/upload">
+                    <Button variant="ghost" size="sm" className="h-7 px-2">
+                      <Upload className="h-3.5 w-3.5" />
+                    </Button>
+                  </Link>
+                </TooltipTrigger>
+                <TooltipContent>Upload Assets</TooltipContent>
+              </Tooltip>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Main Control Bar */}
+      <div className="p-4">
+        <div className="flex flex-col lg:flex-row gap-4">
+          {/* Left: Search */}
+          <div className="flex-1 min-w-0">
+            <div className="relative group">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+              <Input
+                placeholder="Search assets by name, material, color..."
+                value={localSearchValue}
+                onChange={(e) => setLocalSearchValue(e.target.value)}
+                onKeyDown={handleKeyPress}
+                className="pl-10 pr-10 h-10 bg-muted/50 border-border/50 focus:bg-background transition-colors"
+              />
+              {localSearchValue && (
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={handleSearch}
-                  className="h-6 w-6 p-0"
+                  onClick={handleClearSearch}
+                  className="absolute right-1 top-1/2 transform -translate-y-1/2 h-8 w-8 p-0 hover:bg-muted"
                 >
-                  <Search className="h-4 w-4" />
+                  <X className="h-4 w-4" />
                 </Button>
-              </div>
+              )}
             </div>
           </div>
 
-          {/* Sort and View Controls */}
-          <div className="flex items-center gap-2 sm:gap-4">
+          {/* Right: Controls */}
+          <div className="flex items-center gap-3 flex-wrap lg:flex-nowrap">
             {/* Sort */}
             <Select value={sortValue} onValueChange={setSortValue}>
-              <SelectTrigger className="w-32 sm:w-48 cursor-pointer text-xs sm:text-sm">
+              <SelectTrigger className="w-full sm:w-[180px] h-10 bg-muted/50 border-border/50 cursor-pointer">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -273,14 +321,14 @@ export const AssetLibraryControlPanel: React.FC<
             </Select>
 
             {/* View Switcher */}
-            <div className="flex items-center border rounded-md">
+            <div className="flex items-center bg-muted/50 rounded-md p-1 gap-1">
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
-                    variant={viewMode === "grid" ? "default" : "ghost"}
+                    variant={viewMode === "grid" ? "secondary" : "ghost"}
                     size="sm"
                     onClick={() => setViewMode("grid")}
-                    className="rounded-r-none cursor-pointer"
+                    className="h-8 w-8 p-0 cursor-pointer"
                   >
                     <LayoutGrid className="h-4 w-4" />
                   </Button>
@@ -290,10 +338,10 @@ export const AssetLibraryControlPanel: React.FC<
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
-                    variant={viewMode === "compactGrid" ? "default" : "ghost"}
+                    variant={viewMode === "compactGrid" ? "secondary" : "ghost"}
                     size="sm"
                     onClick={() => setViewMode("compactGrid")}
-                    className="rounded-l-none cursor-pointer"
+                    className="h-8 w-8 p-0 cursor-pointer"
                   >
                     <Rows className="h-4 w-4" />
                   </Button>
@@ -302,333 +350,413 @@ export const AssetLibraryControlPanel: React.FC<
               </Tooltip>
             </div>
 
-            {/* Inactive Filter Toggle */}
+            {/* Active/Inactive Toggle */}
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
-                  variant={showInactiveOnly ? "default" : "outline"}
+                  variant={showInactiveOnly ? "destructive" : "secondary"}
                   size="sm"
                   onClick={() => setShowInactiveOnly(!showInactiveOnly)}
-                  className={`cursor-pointer transition-colors ${
-                    showInactiveOnly
-                      ? "bg-red-500 hover:bg-red-600 text-white"
-                      : "hover:bg-muted"
-                  }`}
+                  className="h-10 px-3 cursor-pointer gap-2"
                 >
                   {showInactiveOnly ? (
-                    <XCircle className="h-4 w-4 mr-2" />
+                    <XCircle className="h-4 w-4" />
                   ) : (
-                    <CheckCircle2 className="h-4 w-4 mr-2" />
+                    <CheckCircle2 className="h-4 w-4" />
                   )}
-                  <span className="hidden sm:inline">
-                    {showInactiveOnly ? "Inactive Only" : "All Active"}
+                  <span className="hidden md:inline text-sm">
+                    {showInactiveOnly ? "Inactive" : "Active"}
                   </span>
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
                 {showInactiveOnly
-                  ? "Showing inactive assets only - Click to show all"
-                  : "Showing active assets - Click to show inactive only"}
+                  ? "Showing inactive assets - Click to show active"
+                  : "Showing active assets - Click to show inactive"}
               </TooltipContent>
             </Tooltip>
-
-            {/* Admin Actions */}
-            {userRole === "admin" && (
-              <div className="flex items-center gap-2">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="cursor-pointer"
-                    >
-                      <MoreVertical className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-48">
-                    <DropdownMenuItem asChild>
-                      <Link
-                        href="/asset-library/upload"
-                        className="cursor-pointer"
-                      >
-                        <Upload className="h-4 w-4 mr-2" />
-                        Upload Assets
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={onGeneratePreviews}
-                      className="cursor-pointer"
-                    >
-                      <Image className="h-4 w-4 mr-2" />
-                      Generate Previews
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      onClick={onBatchEdit}
-                      className="cursor-pointer"
-                    >
-                      <Edit3 className="h-4 w-4 mr-2" />
-                      Batch Edit
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            )}
           </div>
         </div>
 
-        {/* Filter Layer */}
-        <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 pt-2 border-t border-border/50">
-          {/* Filter Header */}
-          <div className="flex items-center gap-2 text-xs sm:text-sm font-medium text-muted-foreground">
-            <Filter className="h-3 w-3 sm:h-4 sm:w-4" />
-            <span>Filters:</span>
+        {/* Filter Pills */}
+        <div className="flex items-center gap-2 mt-4 flex-wrap">
+          <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground mr-2">
+            <Filter className="h-3.5 w-3.5" />
+            <span>Filters</span>
           </div>
+          <div className="flex flex-wrap gap-2">
+            {/* Category Filter */}
+            {categories.length > 0 && (
+              <Popover modal={false}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant={selectedCategory ? "secondary" : "outline"}
+                    size="sm"
+                    className="h-8 px-3 gap-2 cursor-pointer rounded-full text-xs font-medium"
+                  >
+                    <span>{getCategoryLabel()}</span>
+                    {(selectedCategory || selectedSubcategory) && (
+                      <Badge
+                        variant="default"
+                        className="h-4 px-1.5 text-[10px] rounded-full"
+                      >
+                        1
+                      </Badge>
+                    )}
+                    <ChevronDown className="h-3 w-3 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent
+                  className="w-64 p-0"
+                  align="start"
+                  onOpenAutoFocus={(e) => e.preventDefault()}
+                >
+                  <div className="p-2">
+                    <div className="relative mb-2">
+                      <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Search categories..."
+                        value={categorySearch}
+                        onChange={(e) => setCategorySearch(e.target.value)}
+                        className="pl-8 text-sm"
+                      />
+                    </div>
+                    <ScrollArea className="h-60">
+                      <div className="space-y-1">
+                        {/* All Categories Option */}
+                        <div
+                          className="flex items-center space-x-2 p-2 rounded-md hover:bg-muted/50 cursor-pointer"
+                          onClick={() => handleCategorySelect(null)}
+                        >
+                          <input
+                            type="radio"
+                            checked={!selectedCategory}
+                            onChange={() => {}}
+                            className="rounded-full"
+                          />
+                          <span className="flex-1 text-sm font-medium">
+                            All Categories
+                          </span>
+                        </div>
 
-          {/* Filters Row */}
-          <div className="flex flex-wrap gap-2 sm:gap-4">
-            {/* Materials Filter */}
-            {materials.length > 1 ? (
-              <div className="relative">
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className="w-32 sm:w-48 justify-between cursor-pointer text-xs sm:text-sm"
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className="truncate">Materials</span>
-                        {selectedMaterials.length > 0 && (
-                          <Badge variant="secondary" className="text-xs">
-                            {selectedMaterials.length}
-                          </Badge>
-                        )}
-                      </div>
-                      <ChevronDown className="h-3 w-3 sm:h-4 sm:w-4 opacity-50 flex-shrink-0" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-64 p-0" align="start">
-                    <div className="p-2">
-                      <div className="relative mb-2">
-                        <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input
-                          placeholder="Search materials..."
-                          value={materialSearch}
-                          onChange={(e) => setMaterialSearch(e.target.value)}
-                          className="pl-8 text-sm"
-                        />
-                      </div>
-                      <ScrollArea className="h-60">
-                        <div className="space-y-1">
-                          {filteredMaterials.map((material) => (
+                        {/* Categories List */}
+                        {filteredCategories.map((category) => (
+                          <div key={category.id} className="space-y-1">
                             <div
-                              key={material.id}
-                              className="flex items-center space-x-2 p-2 rounded-md hover:bg-muted/50 cursor-pointer"
-                              onClick={() => handleMaterialToggle(material.id)}
+                              className={`flex items-center space-x-2 p-2 rounded-md hover:bg-muted/50 cursor-pointer transition-colors ${
+                                selectedCategory === category.id
+                                  ? "bg-muted/30"
+                                  : ""
+                              }`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleCategorySelect(category.id);
+                              }}
                             >
                               <input
-                                type="checkbox"
-                                checked={selectedMaterials.includes(
-                                  material.id
-                                )}
+                                type="radio"
+                                checked={selectedCategory === category.id}
                                 onChange={() => {}}
-                                className="rounded"
-                                aria-invalid="false"
+                                className="rounded-full pointer-events-none"
                               />
-                              <span className="flex-1 text-sm truncate">
-                                {material.name}
+                              <span className="flex-1 text-sm truncate font-medium">
+                                {category.name}
                               </span>
-                              {material.count && (
-                                <Badge
-                                  variant="outline"
-                                  className="text-xs flex-shrink-0"
-                                >
-                                  {material.count}
-                                </Badge>
-                              )}
+                              {category.subcategories &&
+                                category.subcategories.length > 0 && (
+                                  <ChevronDown
+                                    className={`h-3 w-3 transition-transform ${
+                                      selectedCategory === category.id
+                                        ? "rotate-180"
+                                        : ""
+                                    }`}
+                                  />
+                                )}
                             </div>
-                          ))}
-                        </div>
-                      </ScrollArea>
+
+                            {/* Subcategories */}
+                            {selectedCategory === category.id &&
+                              category.subcategories &&
+                              category.subcategories.length > 0 && (
+                                <div className="ml-6 space-y-1 border-l-2 border-primary/30 pl-2">
+                                  {category.subcategories.map((subcategory) => (
+                                    <div
+                                      key={subcategory.id}
+                                      className="flex items-center space-x-2 p-2 rounded-md hover:bg-muted/50 cursor-pointer transition-colors"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleSubcategorySelect(subcategory.id);
+                                      }}
+                                    >
+                                      <input
+                                        type="radio"
+                                        checked={
+                                          selectedSubcategory === subcategory.id
+                                        }
+                                        onChange={() => {}}
+                                        className="rounded-full pointer-events-none"
+                                      />
+                                      <span className="flex-1 text-sm truncate">
+                                        {subcategory.name}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                          </div>
+                        ))}
+                      </div>
+                    </ScrollArea>
+                  </div>
+                </PopoverContent>
+              </Popover>
+            )}
+
+            {/* Materials Filter */}
+            {materials.length > 1 ? (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant={
+                      selectedMaterials.length > 0 ? "secondary" : "outline"
+                    }
+                    size="sm"
+                    className="h-8 px-3 gap-2 cursor-pointer rounded-full text-xs font-medium"
+                  >
+                    <span>Materials</span>
+                    {selectedMaterials.length > 0 && (
+                      <Badge
+                        variant="default"
+                        className="h-4 px-1.5 text-[10px] rounded-full"
+                      >
+                        {selectedMaterials.length}
+                      </Badge>
+                    )}
+                    <ChevronDown className="h-3 w-3 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-64 p-0" align="start">
+                  <div className="p-2">
+                    <div className="relative mb-2">
+                      <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Search materials..."
+                        value={materialSearch}
+                        onChange={(e) => setMaterialSearch(e.target.value)}
+                        className="pl-8 text-sm"
+                      />
                     </div>
-                  </PopoverContent>
-                </Popover>
-              </div>
+                    <ScrollArea className="h-60">
+                      <div className="space-y-1">
+                        {filteredMaterials.map((material) => (
+                          <div
+                            key={material.id}
+                            className="flex items-center space-x-2 p-2 rounded-md hover:bg-muted/50 cursor-pointer"
+                            onClick={() => handleMaterialToggle(material.id)}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={selectedMaterials.includes(material.id)}
+                              onChange={() => {}}
+                              className="rounded"
+                              aria-invalid="false"
+                            />
+                            <span className="flex-1 text-sm truncate">
+                              {material.name}
+                            </span>
+                            {material.count && (
+                              <Badge
+                                variant="outline"
+                                className="text-xs flex-shrink-0"
+                              >
+                                {material.count}
+                              </Badge>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </ScrollArea>
+                  </div>
+                </PopoverContent>
+              </Popover>
             ) : materials.length === 1 ? (
-              <div className="flex items-center gap-2">
-                <span className="text-xs sm:text-sm text-muted-foreground">
-                  Material:
-                </span>
-                <Badge variant="outline" className="text-xs sm:text-sm">
-                  {materials[0].name}
-                </Badge>
-              </div>
+              <Badge
+                variant="secondary"
+                className="h-8 px-3 rounded-full text-xs font-medium"
+              >
+                {materials[0].name}
+              </Badge>
             ) : null}
 
             {/* Colors Filter */}
             {colors.length > 1 ? (
-              <div className="relative">
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className="w-32 sm:w-48 justify-between cursor-pointer text-xs sm:text-sm"
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className="truncate">Colors</span>
-                        {selectedColors.length > 0 && (
-                          <Badge variant="secondary" className="text-xs">
-                            {selectedColors.length}
-                          </Badge>
-                        )}
-                      </div>
-                      <ChevronDown className="h-3 w-3 sm:h-4 sm:w-4 opacity-50 flex-shrink-0" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-64 p-0" align="start">
-                    <div className="p-2">
-                      <div className="relative mb-2">
-                        <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input
-                          placeholder="Search colors..."
-                          value={colorSearch}
-                          onChange={(e) => setColorSearch(e.target.value)}
-                          className="pl-8 text-sm"
-                        />
-                      </div>
-                      <ScrollArea className="h-60">
-                        <div className="space-y-1">
-                          {filteredColors.map((color) => (
-                            <div
-                              key={color.id}
-                              className="flex items-center space-x-2 p-2 rounded-md hover:bg-muted/50 cursor-pointer"
-                              onClick={() => handleColorToggle(color.id)}
-                            >
-                              <input
-                                type="checkbox"
-                                checked={selectedColors.includes(color.id)}
-                                onChange={() => {}}
-                                className="rounded"
-                                aria-invalid="false"
-                              />
-                              <span className="flex-1 text-sm truncate">
-                                {color.name}
-                              </span>
-                              {color.count && (
-                                <Badge
-                                  variant="outline"
-                                  className="text-xs flex-shrink-0"
-                                >
-                                  {color.count}
-                                </Badge>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      </ScrollArea>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant={
+                      selectedColors.length > 0 ? "secondary" : "outline"
+                    }
+                    size="sm"
+                    className="h-8 px-3 gap-2 cursor-pointer rounded-full text-xs font-medium"
+                  >
+                    <span>Colors</span>
+                    {selectedColors.length > 0 && (
+                      <Badge
+                        variant="default"
+                        className="h-4 px-1.5 text-[10px] rounded-full"
+                      >
+                        {selectedColors.length}
+                      </Badge>
+                    )}
+                    <ChevronDown className="h-3 w-3 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-64 p-0" align="start">
+                  <div className="p-2">
+                    <div className="relative mb-2">
+                      <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Search colors..."
+                        value={colorSearch}
+                        onChange={(e) => setColorSearch(e.target.value)}
+                        className="pl-8 text-sm"
+                      />
                     </div>
-                  </PopoverContent>
-                </Popover>
-              </div>
+                    <ScrollArea className="h-60">
+                      <div className="space-y-1">
+                        {filteredColors.map((color) => (
+                          <div
+                            key={color.id}
+                            className="flex items-center space-x-2 p-2 rounded-md hover:bg-muted/50 cursor-pointer"
+                            onClick={() => handleColorToggle(color.id)}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={selectedColors.includes(color.id)}
+                              onChange={() => {}}
+                              className="rounded"
+                              aria-invalid="false"
+                            />
+                            <span className="flex-1 text-sm truncate">
+                              {color.name}
+                            </span>
+                            {color.count && (
+                              <Badge
+                                variant="outline"
+                                className="text-xs flex-shrink-0"
+                              >
+                                {color.count}
+                              </Badge>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </ScrollArea>
+                  </div>
+                </PopoverContent>
+              </Popover>
             ) : colors.length === 1 ? (
-              <div className="flex items-center gap-2">
-                <span className="text-xs sm:text-sm text-muted-foreground">
-                  Color:
-                </span>
-                <Badge variant="outline" className="text-xs sm:text-sm">
-                  {colors[0].name}
-                </Badge>
-              </div>
+              <Badge
+                variant="secondary"
+                className="h-8 px-3 rounded-full text-xs font-medium"
+              >
+                {colors[0].name}
+              </Badge>
             ) : null}
 
             {/* Companies Filter */}
             {companies.length > 1 ? (
-              <div className="relative">
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className="w-32 sm:w-48 justify-between cursor-pointer text-xs sm:text-sm"
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className="truncate">Companies</span>
-                        {selectedCompanies.length > 0 && (
-                          <Badge variant="secondary" className="text-xs">
-                            {selectedCompanies.length}
-                          </Badge>
-                        )}
-                      </div>
-                      <ChevronDown className="h-3 w-3 sm:h-4 sm:w-4 opacity-50 flex-shrink-0" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-64 p-0" align="start">
-                    <div className="p-2">
-                      <div className="relative mb-2">
-                        <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input
-                          placeholder="Search companies..."
-                          value={companySearch}
-                          onChange={(e) => setCompanySearch(e.target.value)}
-                          className="pl-8 text-sm"
-                        />
-                      </div>
-                      <ScrollArea className="h-60">
-                        <div className="space-y-1">
-                          {filteredCompanies.map((company) => (
-                            <div
-                              key={company.id}
-                              className="flex items-center space-x-2 p-2 rounded-md hover:bg-muted/50 cursor-pointer"
-                              onClick={() => handleCompanyToggle(company.id)}
-                            >
-                              <input
-                                type="checkbox"
-                                checked={selectedCompanies.includes(company.id)}
-                                onChange={() => {}}
-                                className="rounded"
-                              />
-                              <span className="flex-1 text-sm truncate">
-                                {company.name}
-                              </span>
-                              {company.count && (
-                                <Badge
-                                  variant="outline"
-                                  className="text-xs flex-shrink-0"
-                                >
-                                  {company.count}
-                                </Badge>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      </ScrollArea>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant={
+                      selectedCompanies.length > 0 ? "secondary" : "outline"
+                    }
+                    size="sm"
+                    className="h-8 px-3 gap-2 cursor-pointer rounded-full text-xs font-medium"
+                  >
+                    <span>Companies</span>
+                    {selectedCompanies.length > 0 && (
+                      <Badge
+                        variant="default"
+                        className="h-4 px-1.5 text-[10px] rounded-full"
+                      >
+                        {selectedCompanies.length}
+                      </Badge>
+                    )}
+                    <ChevronDown className="h-3 w-3 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-64 p-0" align="start">
+                  <div className="p-2">
+                    <div className="relative mb-2">
+                      <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Search companies..."
+                        value={companySearch}
+                        onChange={(e) => setCompanySearch(e.target.value)}
+                        className="pl-8 text-sm"
+                      />
                     </div>
-                  </PopoverContent>
-                </Popover>
-              </div>
+                    <ScrollArea className="h-60">
+                      <div className="space-y-1">
+                        {filteredCompanies.map((company) => (
+                          <div
+                            key={company.id}
+                            className="flex items-center space-x-2 p-2 rounded-md hover:bg-muted/50 cursor-pointer"
+                            onClick={() => handleCompanyToggle(company.id)}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={selectedCompanies.includes(company.id)}
+                              onChange={() => {}}
+                              className="rounded"
+                            />
+                            <span className="flex-1 text-sm truncate">
+                              {company.name}
+                            </span>
+                            {company.count && (
+                              <Badge
+                                variant="outline"
+                                className="text-xs flex-shrink-0"
+                              >
+                                {company.count}
+                              </Badge>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </ScrollArea>
+                  </div>
+                </PopoverContent>
+              </Popover>
             ) : companies.length === 1 ? (
-              <div className="flex items-center gap-2">
-                <span className="text-xs sm:text-sm text-muted-foreground">
-                  Company:
-                </span>
-                <Badge variant="outline" className="text-xs sm:text-sm">
-                  {companies[0].name}
-                </Badge>
-              </div>
+              <Badge
+                variant="secondary"
+                className="h-8 px-3 rounded-full text-xs font-medium"
+              >
+                {companies[0].name}
+              </Badge>
             ) : null}
 
             {/* Clear All Filters */}
-            {(selectedMaterials.length > 0 ||
+            {(selectedCategory ||
+              selectedSubcategory ||
+              selectedMaterials.length > 0 ||
               selectedColors.length > 0 ||
               selectedCompanies.length > 0) && (
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => {
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setSelectedCategory(null); // This also clears subcategory
                   setSelectedMaterials([]);
                   setSelectedColors([]);
                   setSelectedCompanies([]);
                 }}
-                className="text-muted-foreground hover:text-foreground text-xs sm:text-sm"
+                className="h-8 px-3 text-xs font-medium text-muted-foreground hover:text-destructive transition-colors cursor-pointer"
               >
                 Clear all
               </Button>
@@ -636,69 +764,109 @@ export const AssetLibraryControlPanel: React.FC<
           </div>
         </div>
 
-        {/* Selected Filters Display */}
-        {(selectedMaterials.length > 0 ||
+        {/* Active Filters Display */}
+        {(selectedCategory ||
+          selectedSubcategory ||
+          selectedMaterials.length > 0 ||
           selectedColors.length > 0 ||
           selectedCompanies.length > 0) && (
-          <div className="flex flex-wrap gap-2 pt-2">
+          <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-border/50">
+            {/* Category Badge */}
+            {selectedCategory && (
+              <div className="inline-flex items-center gap-1.5 h-7 px-3 bg-primary/10 text-primary rounded-full text-xs font-medium group">
+                <span className="truncate max-w-[200px]">
+                  {selectedSubcategory
+                    ? `${categories.find((c) => c.id === selectedCategory)?.subcategories?.find((s) => s.id === selectedSubcategory)?.name}`
+                    : `${categories.find((c) => c.id === selectedCategory)?.name}`}
+                </span>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setSelectedCategory(null); // This also clears subcategory
+                  }}
+                  className="hover:bg-primary/20 rounded-full p-0.5 transition-colors cursor-pointer"
+                  aria-label="Remove category filter"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            )}
+
             {selectedMaterials.map((materialId) => {
               const material = materials.find((m) => m.id === materialId);
               return material ? (
-                <Badge
+                <div
                   key={materialId}
-                  variant="secondary"
-                  className="flex items-center gap-1 text-xs"
+                  className="inline-flex items-center gap-1.5 h-7 px-3 bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-full text-xs font-medium"
                 >
-                  <span className="truncate">Material: {material.name}</span>
+                  <span className="truncate max-w-[150px]">
+                    {material.name}
+                  </span>
                   <button
-                    onClick={() => handleMaterialToggle(materialId)}
-                    className="ml-1 hover:bg-muted/50 rounded-full p-0.5 flex-shrink-0"
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleMaterialToggle(materialId);
+                    }}
+                    className="hover:bg-blue-500/20 rounded-full p-0.5 transition-colors cursor-pointer"
+                    aria-label={`Remove ${material.name} filter`}
                   >
                     <X className="h-3 w-3" />
                   </button>
-                </Badge>
+                </div>
               ) : null;
             })}
             {selectedColors.map((colorId) => {
               const color = colors.find((c) => c.id === colorId);
               return color ? (
-                <Badge
+                <div
                   key={colorId}
-                  variant="secondary"
-                  className="flex items-center gap-1 text-xs"
+                  className="inline-flex items-center gap-1.5 h-7 px-3 bg-purple-500/10 text-purple-600 dark:text-purple-400 rounded-full text-xs font-medium"
                 >
-                  <span className="truncate">Color: {color.name}</span>
+                  <span className="truncate max-w-[150px]">{color.name}</span>
                   <button
-                    onClick={() => handleColorToggle(colorId)}
-                    className="ml-1 hover:bg-muted/50 rounded-full p-0.5 flex-shrink-0"
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleColorToggle(colorId);
+                    }}
+                    className="hover:bg-purple-500/20 rounded-full p-0.5 transition-colors cursor-pointer"
+                    aria-label={`Remove ${color.name} filter`}
                   >
                     <X className="h-3 w-3" />
                   </button>
-                </Badge>
+                </div>
               ) : null;
             })}
             {selectedCompanies.map((companyId) => {
               const company = companies.find((c) => c.id === companyId);
               return company ? (
-                <Badge
+                <div
                   key={companyId}
-                  variant="secondary"
-                  className="flex items-center gap-1 text-xs"
+                  className="inline-flex items-center gap-1.5 h-7 px-3 bg-orange-500/10 text-orange-600 dark:text-orange-400 rounded-full text-xs font-medium"
                 >
-                  <span className="truncate">Company: {company.name}</span>
+                  <span className="truncate max-w-[150px]">{company.name}</span>
                   <button
-                    onClick={() => handleCompanyToggle(companyId)}
-                    className="ml-1 hover:bg-muted/50 rounded-full p-0.5 flex-shrink-0"
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleCompanyToggle(companyId);
+                    }}
+                    className="hover:bg-orange-500/20 rounded-full p-0.5 transition-colors cursor-pointer"
+                    aria-label={`Remove ${company.name} filter`}
                   >
                     <X className="h-3 w-3" />
                   </button>
-                </Badge>
+                </div>
               ) : null;
             })}
           </div>
         )}
-
-        {/* Selected Assets Actions */}
       </div>
     </div>
   );

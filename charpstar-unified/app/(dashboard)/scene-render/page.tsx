@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Image from "next/image";
 import "./scene-render.css";
 import { useUser } from "@/contexts/useUser";
 import { useLoadingState } from "@/hooks/useLoadingState";
@@ -15,6 +16,7 @@ import { ChevronLeft } from "lucide-react";
 import { useRouter } from "next/navigation";
 import FileUploader from "@/components/scene-render/FileUploader";
 import ModelPreviewer from "@/components/scene-render/ModelPreviewer";
+import SceneConfigurator from "@/components/scene-render/SceneConfigurator";
 import Loader from "@/components/scene-render/Loader";
 import ResultDisplay from "@/components/scene-render/ResultDisplay";
 import AssetLibraryPanel from "@/components/scene-render/AssetLibraryPanel";
@@ -72,6 +74,14 @@ export default function SceneRenderPage() {
   const [showComparison, setShowComparison] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [clientViewerType, setClientViewerType] = useState<string | null>(null);
+
+  // Multi-asset mode states
+  const [multiAssetMode, setMultiAssetMode] = useState(false);
+  const [capturedAssets, setCapturedAssets] = useState<
+    Array<{ snapshot: string; name: string }>
+  >([]);
+  const [isCapturingAssets, setIsCapturingAssets] = useState(false);
+  const [isDoneCapturing, setIsDoneCapturing] = useState(false);
 
   // Fetch client viewer type based on user's client
   useEffect(() => {
@@ -138,6 +148,20 @@ export default function SceneRenderPage() {
     }
   };
 
+  const handleCaptureAsset = (snapshot: string) => {
+    // Add captured asset to the list
+    const assetName =
+      selectedFile?.name ||
+      selectedModelUrl?.split("/").pop() ||
+      `Asset ${capturedAssets.length + 1}`;
+    setCapturedAssets([...capturedAssets, { snapshot, name: assetName }]);
+
+    // Reset for next asset selection
+    setSelectedFile(null);
+    setSelectedModelUrl(null);
+    setAppState("upload");
+  };
+
   const handleGenerate = async (
     snapshots: string[],
     objectSize: string,
@@ -145,10 +169,22 @@ export default function SceneRenderPage() {
     sceneDescription: string,
     inspirationImage: string | null
   ) => {
+    // Multi-asset mode: capture each asset
+    if (multiAssetMode && isCapturingAssets) {
+      handleCaptureAsset(snapshots[0]);
+      return;
+    }
+
     try {
       setAppState("generating");
       startLoading();
       setError(null);
+
+      // Combine snapshots if in multi-asset mode
+      const finalSnapshots =
+        multiAssetMode && capturedAssets.length > 0
+          ? [...capturedAssets.map((a) => a.snapshot), ...snapshots]
+          : snapshots;
 
       const response = await fetch("/api/scene-render", {
         method: "POST",
@@ -156,7 +192,7 @@ export default function SceneRenderPage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          base64Images: snapshots,
+          base64Images: finalSnapshots,
           objectSize,
           objectType,
           sceneDescription,
@@ -193,6 +229,14 @@ export default function SceneRenderPage() {
   };
 
   const handleCancel = () => {
+    // If in done capturing state, go back to capturing mode
+    if (isDoneCapturing) {
+      setIsDoneCapturing(false);
+      setIsCapturingAssets(true);
+      setAppState("upload");
+      return;
+    }
+
     setSelectedFile(null);
     setSelectedModelUrl(null);
     setError(null);
@@ -206,7 +250,25 @@ export default function SceneRenderPage() {
     setGeneratedImages([]);
     setUpscaledImages([]);
     setShowComparison(false);
+    setMultiAssetMode(false);
+    setCapturedAssets([]);
+    setIsCapturingAssets(false);
+    setIsDoneCapturing(false);
     setAppState("upload");
+  };
+
+  const handleRemoveAsset = (index: number) => {
+    setCapturedAssets(capturedAssets.filter((_, i) => i !== index));
+  };
+
+  const handleDoneCapturing = () => {
+    if (capturedAssets.length === 0) {
+      setError("Please capture at least one asset");
+      return;
+    }
+    setIsDoneCapturing(true);
+    setIsCapturingAssets(false);
+    setAppState("preview");
   };
 
   // Show loading state while user context is initializing
@@ -245,21 +307,165 @@ export default function SceneRenderPage() {
   const renderContent = () => {
     switch (appState) {
       case "upload":
-        return <FileUploader onFileSelect={handleFileSelect} error={error} />;
+        return (
+          <div className="w-full h-full flex flex-col items-center justify-center gap-4 p-4">
+            {multiAssetMode &&
+              isCapturingAssets &&
+              capturedAssets.length > 0 && (
+                <div className="w-full max-w-2xl mb-4">
+                  <div className="p-4 bg-primary/10 border border-primary rounded-lg">
+                    <div className="flex items-center justify-between mb-3">
+                      <p className="text-sm font-semibold text-primary">
+                        Captured Assets ({capturedAssets.length})
+                      </p>
+                      <Button
+                        onClick={handleDoneCapturing}
+                        variant="default"
+                        size="sm"
+                      >
+                        Done Adding Assets
+                      </Button>
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                      {capturedAssets.map((asset, index) => (
+                        <div
+                          key={index}
+                          className="relative group bg-muted rounded-lg p-2"
+                        >
+                          <Image
+                            width={320}
+                            height={180}
+                            src={`data:image/png;base64,${asset.snapshot}`}
+                            alt={asset.name}
+                            className="w-full h-24 object-contain rounded"
+                          />
+                          <p className="text-xs mt-1 truncate">{asset.name}</p>
+                          <button
+                            onClick={() => handleRemoveAsset(index)}
+                            className="absolute top-1 right-1 p-1 bg-destructive/90 rounded-full text-destructive-foreground hover:bg-destructive transition-colors shadow-md opacity-0 group-hover:opacity-100"
+                            aria-label="Remove"
+                          >
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              className="h-3 w-3"
+                              viewBox="0 0 20 20"
+                              fill="currentColor"
+                            >
+                              <path
+                                fillRule="evenodd"
+                                d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                                clipRule="evenodd"
+                              />
+                            </svg>
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+            <FileUploader onFileSelect={handleFileSelect} error={error} />
+
+            {!isCapturingAssets && (
+              <div className="flex flex-col items-center gap-2 mt-4">
+                <Button
+                  onClick={() => {
+                    setMultiAssetMode(!multiAssetMode);
+                    if (!multiAssetMode) {
+                      setIsCapturingAssets(true);
+                      setCapturedAssets([]);
+                    } else {
+                      setIsCapturingAssets(false);
+                      setCapturedAssets([]);
+                    }
+                  }}
+                  variant={multiAssetMode ? "default" : "outline"}
+                  size="sm"
+                >
+                  {multiAssetMode
+                    ? "✓ Multi-Asset Mode Active"
+                    : "Render Scene from Multiple Assets"}
+                </Button>
+                {multiAssetMode && (
+                  <p className="text-xs text-muted-foreground text-center max-w-sm">
+                    Capture multiple assets, then configure one shared
+                    environment for all
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        );
       case "preview":
+        // If done capturing in multi-asset mode, show config UI without model viewer
+        if (isDoneCapturing && multiAssetMode) {
+          return (
+            <div className="w-full h-full p-4">
+              <div className="max-w-4xl mx-auto">
+                <div className="mb-4 p-4 bg-primary/10 border border-primary rounded-lg">
+                  <p className="text-sm font-semibold text-primary mb-2">
+                    Configure Scene for {capturedAssets.length} Assets
+                  </p>
+                  <div className="grid grid-cols-3 md:grid-cols-5 gap-2">
+                    {capturedAssets.map((asset, index) => (
+                      <div key={index} className="bg-muted rounded p-2">
+                        <Image
+                          width={320}
+                          height={180}
+                          src={`data:image/png;base64,${asset.snapshot}`}
+                          alt={asset.name}
+                          className="w-full h-16 object-contain rounded"
+                        />
+                        <p className="text-xs mt-1 truncate text-center">
+                          {asset.name}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <SceneConfigurator
+                  onGenerate={handleGenerate}
+                  onCancel={handleCancel}
+                />
+              </div>
+            </div>
+          );
+        }
+
         return (
           (selectedFile || selectedModelUrl) && (
-            <ModelPreviewer
-              file={selectedFile}
-              modelUrl={selectedModelUrl}
-              onGenerate={handleGenerate}
-              onCancel={handleCancel}
-              environmentImage={
-                getViewerParameters(clientViewerType).environmentImage
-              }
-              exposure={getViewerParameters(clientViewerType).exposure}
-              toneMapping={getViewerParameters(clientViewerType).toneMapping}
-            />
+            <div className="w-full h-full flex flex-col gap-3">
+              {multiAssetMode && isCapturingAssets && (
+                <div className="p-3 bg-primary/10 border border-primary rounded-lg">
+                  <p className="text-sm font-semibold text-primary">
+                    Capturing Asset {capturedAssets.length + 1}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Click &quot;Capture Asset&quot; to add this model to your
+                    scene
+                  </p>
+                </div>
+              )}
+              <ModelPreviewer
+                file={selectedFile}
+                modelUrl={selectedModelUrl}
+                onGenerate={handleGenerate}
+                onCancel={handleCancel}
+                environmentImage={
+                  getViewerParameters(clientViewerType).environmentImage
+                }
+                exposure={getViewerParameters(clientViewerType).exposure}
+                toneMapping={getViewerParameters(clientViewerType).toneMapping}
+                captureMode={multiAssetMode && isCapturingAssets}
+                captureButtonText={
+                  multiAssetMode && isCapturingAssets
+                    ? "Capture Asset"
+                    : "Generate Scene"
+                }
+              />
+            </div>
           )
         );
       case "generating":
