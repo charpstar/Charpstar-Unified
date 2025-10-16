@@ -401,7 +401,7 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
   }
 
   return (
-    <div className="w-full h-full flex flex-col gap-3 p-2 animate-fade-in">
+    <div className="w-full h-full flex flex-col gap-3 p-2 animate-fade-in overflow-hidden">
       {/* Top: 3D Model Viewer */}
       <div className="h-[650px] rounded-lg overflow-hidden bg-gray-900/50 relative cursor-grab active:cursor-grabbing border border-white/10 shadow-lg">
         {/* Capture Progress Overlay */}
@@ -482,7 +482,7 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
 
       {/* Bottom: Compact Controls in Grid */}
       <div
-        className={`grid grid-cols-1 md:grid-cols-2 ${captureMode ? "lg:grid-cols-2" : "lg:grid-cols-4"} gap-3 h-full max-h-[400px]`}
+        className={`grid grid-cols-1 md:grid-cols-2 ${captureMode ? "lg:grid-cols-2" : "lg:grid-cols-4"} gap-3 flex-1 min-h-0 overflow-hidden`}
       >
         {/* Dimensions - hide in capture mode */}
         {!captureMode && (

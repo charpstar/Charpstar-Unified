@@ -124,7 +124,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
 
   return (
     <>
-      <div className="w-full max-w-6xl flex flex-col items-center glass-card p-6 rounded-2xl shadow-2xl animate-fade-in">
+      <div className="w-full h-full flex flex-col items-center glass-card p-6 rounded-2xl shadow-2xl animate-fade-in overflow-hidden">
         <h2 className="text-2xl sm:text-3xl font-bold text-foreground mb-2">
           {showComparison
             ? "Your AI-Upscaled Scene is Ready!"
@@ -138,7 +138,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
 
         {showComparison && upscaledImageUrl ? (
           // Show only the upscaled image
-          <div className="w-full max-w-4xl mb-6 ">
+          <div className="w-full max-w-4xl mb-6 flex-1 min-h-0 overflow-hidden">
             <div className="text-center mb-4">
               <span className="inline-flex items-center gap-2 px-3 py-1 bg-primary/10 text-primary rounded-full text-sm font-medium">
                 <div className="w-2 h-2 rounded-full bg-primary"></div>
@@ -191,7 +191,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
         ) : (
           // Single image display
           <div
-            className="w-full max-w-2xl aspect-square rounded-lg overflow-hidden border-2 border-border mb-6 shadow-lg cursor-zoom-in group relative"
+            className="w-full max-w-2xl aspect-square rounded-lg overflow-hidden border-2 border-border mb-6 shadow-lg cursor-zoom-in group relative flex-1 min-h-0"
             onClick={() => setIsModalOpen(true)}
             title="Click to view fullscreen"
             role="button"

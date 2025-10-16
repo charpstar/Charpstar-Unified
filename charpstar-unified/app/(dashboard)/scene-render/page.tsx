@@ -313,8 +313,8 @@ export default function SceneRenderPage() {
               isCapturingAssets &&
               capturedAssets.length > 0 && (
                 <div className="w-full max-w-2xl mb-4">
-                  <div className="p-4 bg-primary/10 border border-primary rounded-lg">
-                    <div className="flex items-center justify-between mb-3">
+                  <div className="p-3 sm:p-4 bg-primary/10 border border-primary rounded-lg">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 gap-2">
                       <p className="text-sm font-semibold text-primary">
                         Captured Assets ({capturedAssets.length})
                       </p>
@@ -322,11 +322,12 @@ export default function SceneRenderPage() {
                         onClick={handleDoneCapturing}
                         variant="default"
                         size="sm"
+                        className="w-full sm:w-auto"
                       >
                         Done Adding Assets
                       </Button>
                     </div>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                    <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 gap-2">
                       {capturedAssets.map((asset, index) => (
                         <div
                           key={index}
@@ -337,7 +338,7 @@ export default function SceneRenderPage() {
                             height={180}
                             src={`data:image/png;base64,${asset.snapshot}`}
                             alt={asset.name}
-                            className="w-full h-24 object-contain rounded"
+                            className="w-full h-20 sm:h-24 object-contain rounded"
                           />
                           <p className="text-xs mt-1 truncate">{asset.name}</p>
                           <button
@@ -401,13 +402,13 @@ export default function SceneRenderPage() {
         // If done capturing in multi-asset mode, show config UI without model viewer
         if (isDoneCapturing && multiAssetMode) {
           return (
-            <div className="w-full h-full p-4">
+            <div className="w-full h-full p-2 sm:p-4">
               <div className="max-w-4xl mx-auto">
-                <div className="mb-4 p-4 bg-primary/10 border border-primary rounded-lg">
+                <div className="mb-4 p-3 sm:p-4 bg-primary/10 border border-primary rounded-lg">
                   <p className="text-sm font-semibold text-primary mb-2">
                     Configure Scene for {capturedAssets.length} Assets
                   </p>
-                  <div className="grid grid-cols-3 md:grid-cols-5 gap-2">
+                  <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
                     {capturedAssets.map((asset, index) => (
                       <div key={index} className="bg-muted rounded p-2">
                         <Image
@@ -415,7 +416,7 @@ export default function SceneRenderPage() {
                           height={180}
                           src={`data:image/png;base64,${asset.snapshot}`}
                           alt={asset.name}
-                          className="w-full h-16 object-contain rounded"
+                          className="w-full h-12 sm:h-16 object-contain rounded"
                         />
                         <p className="text-xs mt-1 truncate text-center">
                           {asset.name}
@@ -501,9 +502,9 @@ export default function SceneRenderPage() {
   };
 
   return (
-    <div className="w-full h-full p-2 space-y-2">
-      {/* Compact Header */}
-      <div className="flex items-center justify-between">
+    <div className="w-full h-full flex flex-col p-2 overflow-hidden">
+      {/* Responsive Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4 mb-2 flex-shrink-0">
         <div className="flex items-center gap-2">
           <Button
             variant="ghost"
@@ -512,13 +513,15 @@ export default function SceneRenderPage() {
             className="gap-1 h-7 text-xs"
           >
             <ChevronLeft className="h-3 w-3" />
-            Back
+            <span className="hidden xs:inline">Back</span>
           </Button>
-          <h1 className="text-lg font-semibold">3D Product Stager</h1>
+          <h1 className="text-base sm:text-lg font-semibold">
+            3D Product Stager
+          </h1>
         </div>
 
-        {/* Compact Progress Indicator */}
-        <div className="flex items-center gap-2 text-xs">
+        {/* Responsive Progress Indicator */}
+        <div className="flex items-center gap-1 sm:gap-2 text-xs">
           <div
             className={`flex items-center gap-1 ${
               appState === "upload"
@@ -529,7 +532,7 @@ export default function SceneRenderPage() {
             }`}
           >
             <div
-              className={`w-5 h-5 rounded-full border flex items-center justify-center text-xs ${
+              className={`w-4 h-4 sm:w-5 sm:h-5 rounded-full border flex items-center justify-center text-xs ${
                 appState === "upload"
                   ? "border-primary bg-primary/10"
                   : ["preview", "generating", "results"].includes(appState)
@@ -541,10 +544,10 @@ export default function SceneRenderPage() {
                 ? "✓"
                 : "1"}
             </div>
-            <span className="hidden sm:inline">Upload</span>
+            <span className="hidden xs:inline sm:inline">Upload</span>
           </div>
 
-          <div className="w-6 h-px bg-border"></div>
+          <div className="w-4 sm:w-6 h-px bg-border"></div>
 
           <div
             className={`flex items-center gap-1 ${
@@ -556,7 +559,7 @@ export default function SceneRenderPage() {
             }`}
           >
             <div
-              className={`w-5 h-5 rounded-full border flex items-center justify-center text-xs ${
+              className={`w-4 h-4 sm:w-5 sm:h-5 rounded-full border flex items-center justify-center text-xs ${
                 appState === "preview"
                   ? "border-primary bg-primary/10"
                   : ["generating", "results"].includes(appState)
@@ -566,10 +569,10 @@ export default function SceneRenderPage() {
             >
               {["generating", "results"].includes(appState) ? "✓" : "2"}
             </div>
-            <span className="hidden sm:inline">Configure</span>
+            <span className="hidden xs:inline sm:inline">Configure</span>
           </div>
 
-          <div className="w-6 h-px bg-border"></div>
+          <div className="w-4 sm:w-6 h-px bg-border"></div>
 
           <div
             className={`flex items-center gap-1 ${
@@ -581,7 +584,7 @@ export default function SceneRenderPage() {
             }`}
           >
             <div
-              className={`w-5 h-5 rounded-full border flex items-center justify-center text-xs ${
+              className={`w-4 h-4 sm:w-5 sm:h-5 rounded-full border flex items-center justify-center text-xs ${
                 appState === "generating"
                   ? "border-primary bg-primary/10"
                   : appState === "results"
@@ -591,15 +594,15 @@ export default function SceneRenderPage() {
             >
               {appState === "results" ? "✓" : "3"}
             </div>
-            <span className="hidden sm:inline">Generate</span>
+            <span className="hidden xs:inline sm:inline">Generate</span>
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3  min-h-[calc(100vh-132px)] ">
-        {/* Main Content Area - Left Side (2/3 width) */}
+      <div className="flex flex-col lg:grid lg:grid-cols-3 gap-3 flex-1 min-h-0 overflow-hidden">
+        {/* Main Content Area - Left Side (2/3 width on desktop) */}
         <div
-          className="lg:col-span-2"
+          className="lg:col-span-2 order-1 lg:order-1 h-full overflow-hidden"
           onDragOver={(e) => {
             e.preventDefault();
             setIsDragging(true);
@@ -645,8 +648,8 @@ export default function SceneRenderPage() {
           </Card>
         </div>
 
-        {/* Asset Library Panel - Right Side (1/3 width) */}
-        <div className="hidden lg:block">
+        {/* Asset Library Panel - Right Side (1/3 width on desktop, full width on mobile) */}
+        <div className="order-2 lg:order-2 h-full overflow-hidden">
           <AssetLibraryPanel onAssetSelect={handleAssetSelect} />
         </div>
       </div>

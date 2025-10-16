@@ -245,17 +245,24 @@ export async function generateMultiAngleScenes(
 
   const ai = new GoogleGenAI({ apiKey });
 
-  // Single image generation - use first image (hero shot)
-  const base64Image = base64Images[0];
-
-  const imagePart = {
+  // Create image parts for ALL products
+  const productImageParts = base64Images.map((base64Image) => ({
     inlineData: {
       mimeType: "image/png",
       data: base64Image,
     },
-  };
+  }));
 
-  const imageParts = [imagePart];
+  console.log(`🎨 Multi-Asset Scene Generation:`);
+  console.log(`   - Number of product images: ${base64Images.length}`);
+  console.log(`   - Has inspiration image: ${!!inspirationImage}`);
+  console.log(
+    `   - Total images being sent to AI: ${base64Images.length + (inspirationImage ? 1 : 0)}`
+  );
+
+  const imageParts = [...productImageParts];
+
+  // Add inspiration image AFTER all product images
   if (inspirationImage) {
     imageParts.push({
       inlineData: {
@@ -265,44 +272,95 @@ export async function generateMultiAngleScenes(
     });
   }
 
-  const shotTypeModifier = `**Shot Type:** Generate a premium, eye-level hero shot. The product should be perfectly centered, professionally lit, with the background beautifully complementing it to create a stunning, e-commerce ready image.`;
+  const isMultiAsset = base64Images.length > 1;
+
+  const shotTypeModifier = isMultiAsset
+    ? `**Shot Type:** Generate a premium, eye-level room shot that shows ALL ${base64Images.length} products arranged naturally in the space. Each product should be clearly visible and professionally lit, creating a cohesive, e-commerce ready scene.`
+    : `**Shot Type:** Generate a premium, eye-level hero shot. The product should be perfectly centered, professionally lit, with the background beautifully complementing it to create a stunning, e-commerce ready image.`;
 
   let scene;
   if (sceneDescription.trim() !== "") {
     scene = `**Scene Description:** The user wants the following scene: "${sceneDescription}".\n${shotTypeModifier}`;
   } else {
-    scene = `**Scene Description:** Place the object in a bright, airy, modern Scandinavian interior.\n${shotTypeModifier}`;
+    scene = isMultiAsset
+      ? `**Scene Description:** Create a bright, airy, modern Scandinavian interior that accommodates ALL ${base64Images.length} products. Arrange them naturally in the space based on their types.\n${shotTypeModifier}`
+      : `**Scene Description:** Place the object in a bright, airy, modern Scandinavian interior.\n${shotTypeModifier}`;
   }
 
-  // Enhanced prompt optimized for single high-quality image
+  // Count how many product images we have
+  const productCount = base64Images.length;
+  const isMultiProduct = productCount > 1;
+
+  // Enhanced prompt optimized for single or multi-product scenes
   const enhancedPrompt = `You are an elite virtual product photographer and compositing expert, specializing in creating photorealistic e-commerce product imagery.
+
+**🚨 CRITICAL: ${isMultiProduct ? `MULTIPLE SEPARATE PRODUCTS (${productCount} PRODUCTS)` : "SINGLE PRODUCT"} 🚨**
+${
+  isMultiProduct
+    ? `
+**IMAGE ORDER:** The first ${productCount} images you received are SEPARATE product images. ${inspirationImage ? "The last image is an inspiration/style reference (NOT a product)." : ""}
+
+You have been provided with ${productCount} SEPARATE product images. Each image shows a DIFFERENT, DISTINCT product.
+
+**ABSOLUTE REQUIREMENT:** You MUST composite ALL ${productCount} products into the scene. Each product must:
+- Remain completely separate and distinct - DO NOT MERGE THEM
+- NOT be merged, combined, or blended with other products
+- Keep its exact shape, color, texture, and materials unchanged
+- Be placed in an appropriate location in the scene based on its type
+- Each product should look EXACTLY as it appears in its source image
+
+**COMMON MISTAKE TO AVOID:**
+❌ DO NOT combine all products into a single merged/blended object
+❌ DO NOT redraw the products to make them match each other
+✅ KEEP each product as a separate, distinct object in the scene
+✅ Think of it like placing real furniture in a real room - each piece stays separate
+
+**MULTI-PRODUCT ARRANGEMENT:**
+- Analyze each product type (chair, table, lamp, sofa, etc.)
+- Place each product in its logical position:
+  * Floor lamps → Standing on the floor
+  * Table lamps → On tables or desks  
+  * Wall lamps → Mounted on walls at appropriate height
+  * Pendant lamps → Hanging from ceiling
+  * Chairs → Around tables or in seating areas
+  * Tables → On the floor as focal furniture pieces
+  * Sofas → Against walls or as room centerpieces
+  * Dining sets → Table with chairs around it (keep all pieces separate)
+- Create a cohesive scene where ALL products work together
+- Maintain proper spacing and realistic room proportions
+- DO NOT leave any product out of the scene
+- Each product must be clearly visible and identifiable
+`
+    : ""
+}
 
 **ABSOLUTE RULES (NON-NEGOTIABLE):**
 
 1. **PRODUCT PRESERVATION (HIGHEST PRIORITY):**
-   - DO NOT alter, redraw, distort, warp, stretch, or modify the product in ANY way
+   - DO NOT alter, redraw, distort, warp, stretch, or modify ${isMultiProduct ? "ANY of the products" : "the product"} in ANY way
    - DO NOT change the product's shape, color, texture, material, or proportions
-   - Treat the product as a sacred, untouchable photograph
-   - Your ONLY task is to composite this exact product into a new background
-   - Think of this as traditional photo compositing - the product is perfect as-is
+   - Treat ${isMultiProduct ? "each product" : "the product"} as a sacred, untouchable photograph
+   - Your ONLY task is to composite ${isMultiProduct ? "these exact products" : "this exact product"} into a new background
+   - Think of this as traditional photo compositing - the products are perfect as-is
+   ${isMultiProduct ? "- DO NOT merge multiple products into one - keep them SEPARATE" : ""}
 
 2. **INSPIRATION IMAGE HANDLING (IF PROVIDED):**
    - The inspiration image shows STYLE and MOOD only
    - Extract: lighting direction, color palette, atmosphere, vibe
    - DO NOT recreate or copy the exact scene from the inspiration
-   - DO NOT modify the product to match the inspiration
+   - DO NOT modify ${isMultiProduct ? "any products" : "the product"} to match the inspiration
    - Create a NEW scene that captures the ESSENCE of the inspiration style
    - Your scene should feel similar but must be completely unique
 
 3. **PHYSICAL ACCURACY:**
    - Product dimensions: ${objectSize}
    - Product type: "${objectType}"
-   - Place the product logically (chairs on floor, lamps on tables, etc.)
+   ${isMultiProduct ? `- You have ${productCount} different products - place EACH ONE appropriately` : "- Place the product logically (chairs on floor, lamps on tables, etc.)"}
    - Ensure physically plausible positioning with realistic gravity
    - DO NOT draw dimension lines, measurements, or text on the image
 
 **YOUR TASK:**
-Create a single, premium-quality photorealistic background scene and seamlessly composite the product into it.
+Create a single, premium-quality photorealistic background scene and seamlessly composite ${isMultiProduct ? `ALL ${productCount} products` : "the product"} into it.
 
 ${scene}
 
@@ -314,7 +372,7 @@ An inspiration image is provided for STYLE REFERENCE ONLY:
 - Extract the mood, lighting style, color harmony, and atmosphere
 - Create a COMPLETELY NEW scene inspired by this aesthetic
 - DO NOT replicate the inspiration scene's specific objects, layout, or composition
-- DO NOT alter the product to match the inspiration
+- DO NOT alter ${isMultiProduct ? "any of the products" : "the product"} to match the inspiration
 - Focus on capturing the emotional essence and visual style only
 `
     : ""
@@ -323,9 +381,11 @@ An inspiration image is provided for STYLE REFERENCE ONLY:
 **PROFESSIONAL QUALITY STANDARDS:**
 
 - **Product Integration:**
-  - Preserve every detail of the product exactly as shown
+  - Preserve every detail of ${isMultiProduct ? "EACH product" : "the product"} exactly as shown
+  ${isMultiProduct ? `- Ensure ALL ${productCount} products are visible in the final image` : ""}
+  ${isMultiProduct ? "- Keep products SEPARATE - do not merge or blend them together" : ""}
   - Match lighting direction and color temperature to the scene
-  - Create realistic shadows (both cast and contact shadows)
+  - Create realistic shadows (both cast and contact shadows) for ${isMultiProduct ? "each product" : "the product"}
   - Ensure proper depth and spatial relationships
 
 - **Material Realism:**
@@ -336,16 +396,31 @@ An inspiration image is provided for STYLE REFERENCE ONLY:
 
 - **Scene Quality:**
   - Professional studio-quality lighting
-  - Subtle depth of field (product sharp, distant background softly blurred)
+  - Subtle depth of field (products sharp, distant background softly blurred)
   - Ambient occlusion for depth and realism
   - Natural color grading and tonal balance
   - Clean, distraction-free composition
+  ${isMultiProduct ? `- Room must be large enough to accommodate ALL ${productCount} products comfortably` : ""}
 
 - **E-commerce Excellence:**
-  - Product must be the clear focal point
+  - ${isMultiProduct ? "All products must" : "Product must"} be clearly visible
   - Background enhances but doesn't compete
   - Professional, trustworthy, and appealing presentation
   - Ready for immediate use in product listings
+
+${
+  isMultiProduct
+    ? `
+**FINAL VERIFICATION FOR MULTI-PRODUCT SCENES:**
+Before completing the image, verify that:
+1. You can see ALL ${productCount} separate products in the scene
+2. Each product maintains its original appearance (not merged or modified)
+3. Each product is positioned logically based on its type
+4. The room/scene is proportioned to show all products clearly
+5. Lighting and shadows work for all products consistently
+`
+    : ""
+}
 
 **OUTPUT:** Return ONLY the final composited image. No text, watermarks, or additional elements.`;
 

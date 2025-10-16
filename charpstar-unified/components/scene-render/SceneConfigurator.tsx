@@ -119,9 +119,9 @@ const SceneConfigurator: React.FC<SceneConfiguratorProps> = ({
   ];
 
   return (
-    <div className="w-full flex flex-col gap-3">
+    <div className="w-full h-full flex flex-col gap-3 overflow-hidden">
       {/* Configuration Controls in Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 flex-1 min-h-0 overflow-hidden">
         {/* Product Type */}
         <Card className="p-4 hover:shadow-md transition-shadow">
           <div className="flex items-center gap-2 mb-3">
