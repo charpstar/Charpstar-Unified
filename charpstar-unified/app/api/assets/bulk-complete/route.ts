@@ -175,6 +175,139 @@ export async function POST(request: NextRequest) {
             }
           }
 
+          // Copy GLB files to Android folder for approved assets
+          const assetsWithGlb = onboardingAssets.filter(
+            (asset) => asset.glb_link
+          );
+          if (assetsWithGlb.length > 0) {
+            try {
+              // Get BunnyCDN configuration
+              const storageKey = process.env.BUNNY_STORAGE_KEY;
+              const storageZone =
+                process.env.BUNNY_STORAGE_ZONE_NAME || "maincdn";
+              const cdnBaseUrl = process.env.BUNNY_STORAGE_PUBLIC_URL;
+
+              if (storageKey && storageZone && cdnBaseUrl) {
+                console.log(
+                  `🔄 Starting GLB file transfers for ${assetsWithGlb.length} assets...`
+                );
+
+                // Process GLB files in smaller batches to avoid overwhelming the server
+                const glbChunks = chunkArray(assetsWithGlb, 5);
+
+                for (const glbChunk of glbChunks) {
+                  const transferPromises = glbChunk.map(async (asset) => {
+                    try {
+                      // Download the current GLB file
+                      const glbResponse = await fetch(asset.glb_link, {
+                        method: "GET",
+                        headers: {
+                          AccessKey: storageKey,
+                        },
+                      });
+
+                      if (glbResponse.ok) {
+                        const glbBuffer = await glbResponse.arrayBuffer();
+
+                        // Create Android folder path
+                        const sanitizedClientName = asset.client.replace(
+                          /[^a-zA-Z0-9._-]/g,
+                          "_"
+                        );
+                        const fileName = `${asset.article_id}.glb`;
+                        const androidPath = `${sanitizedClientName}/Android/${fileName}`;
+                        const androidStorageUrl = `https://se.storage.bunnycdn.com/${storageZone}/${androidPath}`;
+
+                        // Upload to Android folder
+                        const androidUploadResponse = await fetch(
+                          androidStorageUrl,
+                          {
+                            method: "PUT",
+                            headers: {
+                              AccessKey: storageKey,
+                              "Content-Type": "application/octet-stream",
+                            },
+                            body: glbBuffer,
+                          }
+                        );
+
+                        if (androidUploadResponse.ok) {
+                          // Update the GLB link in the assets table to point to Android folder
+                          const newGlbLink = `${cdnBaseUrl}/${androidPath}`;
+
+                          await supabaseAuth
+                            .from("assets")
+                            .update({ glb_link: newGlbLink })
+                            .eq("article_id", asset.article_id)
+                            .eq("client", asset.client);
+
+                          console.log(
+                            `✅ GLB file copied: ${asset.article_id} -> ${newGlbLink}`
+                          );
+                          return { success: true, assetId: asset.article_id };
+                        } else {
+                          console.error(
+                            `❌ Failed to upload GLB for ${asset.article_id}:`,
+                            androidUploadResponse.status
+                          );
+                          return {
+                            success: false,
+                            assetId: asset.article_id,
+                            error: `Upload failed: ${androidUploadResponse.status}`,
+                          };
+                        }
+                      } else {
+                        console.error(
+                          `❌ Failed to download GLB for ${asset.article_id}:`,
+                          glbResponse.status
+                        );
+                        return {
+                          success: false,
+                          assetId: asset.article_id,
+                          error: `Download failed: ${glbResponse.status}`,
+                        };
+                      }
+                    } catch (error) {
+                      console.error(
+                        `❌ Error transferring GLB for ${asset.article_id}:`,
+                        error
+                      );
+                      return {
+                        success: false,
+                        assetId: asset.article_id,
+                        error:
+                          error instanceof Error
+                            ? error.message
+                            : "Unknown error",
+                      };
+                    }
+                  });
+
+                  // Wait for this batch to complete
+                  const results = await Promise.all(transferPromises);
+                  const successCount = results.filter((r) => r.success).length;
+                  console.log(
+                    `📊 Batch completed: ${successCount}/${results.length} files transferred successfully`
+                  );
+
+                  // Small delay between batches
+                  await new Promise((resolve) => setTimeout(resolve, 1000));
+                }
+
+                console.log(
+                  `✅ GLB file transfer process completed for ${assetsWithGlb.length} assets`
+                );
+              } else {
+                console.warn(
+                  "⚠️ BunnyCDN configuration missing, skipping file transfers"
+                );
+              }
+            } catch (error) {
+              console.error("❌ Error during bulk GLB file transfer:", error);
+              // Don't fail the entire operation if file transfer fails
+            }
+          }
+
           // Update onboarding_assets to mark as transferred (in chunks)
           const transferredIds = onboardingAssets.map((asset) => asset.id);
           const transferredIdChunks = chunkArray(transferredIds, CHUNK_SIZE);

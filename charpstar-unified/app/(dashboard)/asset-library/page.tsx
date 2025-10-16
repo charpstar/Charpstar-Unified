@@ -543,13 +543,25 @@ export default function AssetLibraryPage() {
     const urlSort = (searchParams.get("sort") as SortOption) || "name-asc";
     const urlPage = parseInt(searchParams.get("page") || "1", 10);
 
-    // Update filters if they've changed
-    if (urlCategory !== filters.category) {
-      setFilters((prev) => ({ ...prev, category: urlCategory }));
-    }
-    if (urlSubcategory !== filters.subcategory) {
-      setFilters((prev) => ({ ...prev, subcategory: urlSubcategory }));
-    }
+    // Use setFilters with callback to always get current state
+    setFilters((prev) => {
+      const needsUpdate =
+        urlCategory !== prev.category ||
+        urlSubcategory !== prev.subcategory ||
+        urlSort !== prev.sort;
+
+      if (needsUpdate) {
+        return {
+          ...prev,
+          category: urlCategory,
+          subcategory: urlSubcategory,
+          sort: urlSort,
+        };
+      }
+      return prev;
+    });
+
+    // Update other states
     if (JSON.stringify(urlMaterials) !== JSON.stringify(selectedMaterials)) {
       setSelectedMaterials(urlMaterials);
     }
@@ -562,9 +574,6 @@ export default function AssetLibraryPage() {
     if (urlSearch !== activeSearchValue) {
       setSearchValue(urlSearch);
       setActiveSearchValue(urlSearch);
-    }
-    if (urlSort !== filters.sort) {
-      setFilters((prev) => ({ ...prev, sort: urlSort }));
     }
     if (urlPage !== currentPage && urlPage > 0) {
       setCurrentPage(urlPage);
@@ -824,6 +833,8 @@ export default function AssetLibraryPage() {
           setSelectedSubcategory={handleSetSubcategory}
           onClearAllFilters={handleClearAllFilters}
           onClose={() => setIsMobileSidebarOpen(false)}
+          selectedCompanies={selectedCompanies}
+          assets={assets}
         />
       </div>
 

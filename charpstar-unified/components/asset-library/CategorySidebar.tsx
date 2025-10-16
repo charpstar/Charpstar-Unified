@@ -1,7 +1,14 @@
-import React from "react";
+import React, { useState } from "react";
 import { Button } from "@/components/ui/display";
 import { Badge } from "@/components/ui/feedback";
-import { ChevronRight, Folder, FolderOpen, ChevronLeft, X } from "lucide-react";
+import {
+  ChevronRight,
+  Folder,
+  FolderOpen,
+  ChevronLeft,
+  X,
+  ChevronDown,
+} from "lucide-react";
 
 interface CategoryOption {
   id: string;
@@ -18,6 +25,8 @@ interface CategorySidebarProps {
   onClearAllFilters?: () => void;
   onClose?: () => void;
   className?: string;
+  selectedCompanies?: string[];
+  assets?: any[];
 }
 
 export const CategorySidebar: React.FC<CategorySidebarProps> = ({
@@ -29,10 +38,71 @@ export const CategorySidebar: React.FC<CategorySidebarProps> = ({
   onClearAllFilters,
   onClose,
   className = "",
+  selectedCompanies = [],
+  assets = [],
 }) => {
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(
+    new Set()
+  );
+
+  // Filter categories based on selected companies
+  const filteredCategories = React.useMemo(() => {
+    if (selectedCompanies.length === 0) {
+      return categories;
+    }
+
+    // Get all assets that belong to the selected companies
+    const companyAssets = assets.filter((asset) =>
+      selectedCompanies.includes(asset.client)
+    );
+
+    // Get unique categories from these assets
+    const availableCategories = new Set(
+      companyAssets.map((asset) => asset.category).filter(Boolean)
+    );
+
+    // Filter categories and their subcategories
+    return categories
+      .filter((category) => availableCategories.has(category.id))
+      .map((category) => {
+        // Get available subcategories for this category and these companies
+        const availableSubcategories = new Set(
+          companyAssets
+            .filter((asset) => asset.category === category.id)
+            .map((asset) => asset.subcategory)
+            .filter(Boolean)
+        );
+
+        return {
+          ...category,
+          subcategories: category.subcategories?.filter((sub) =>
+            availableSubcategories.has(sub.id)
+          ),
+        };
+      });
+  }, [categories, selectedCompanies, assets]);
+
   const currentSubcategories = selectedCategory
-    ? categories.find((cat) => cat.id === selectedCategory)?.subcategories || []
+    ? filteredCategories.find((cat) => cat.id === selectedCategory)
+        ?.subcategories || []
     : [];
+
+  const toggleSubcategories = (categoryId: string) => {
+    setExpandedCategories((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(categoryId)) {
+        newSet.delete(categoryId);
+      } else {
+        newSet.add(categoryId);
+      }
+      return newSet;
+    });
+  };
+
+  // Hide the sidebar if no categories are available
+  if (filteredCategories.length === 0) {
+    return null;
+  }
 
   return (
     <div
@@ -81,6 +151,8 @@ export const CategorySidebar: React.FC<CategorySidebarProps> = ({
               setSelectedCategory(null);
               setSelectedSubcategory(null);
             }
+            // Clear all expanded categories when going back to "All Categories"
+            setExpandedCategories(new Set());
           }}
         >
           {selectedCategory || selectedSubcategory ? (
@@ -91,7 +163,7 @@ export const CategorySidebar: React.FC<CategorySidebarProps> = ({
           <span className="truncate">All Categories</span>
           {!selectedCategory && !selectedSubcategory && (
             <Badge variant="secondary" className="ml-auto text-xs">
-              {categories.length}
+              {filteredCategories.length}
             </Badge>
           )}
         </Button>
@@ -105,87 +177,131 @@ export const CategorySidebar: React.FC<CategorySidebarProps> = ({
         {/* Categories Dropdown */}
         <div className="border border-border/50 rounded-md bg-background/50 max-h-[400px] sm:max-h-[600px] lg:max-h-[800px] overflow-y-auto">
           <div className="p-1 space-y-1">
-            {categories.map((category) => (
-              <div key={category.id} className="space-y-1">
-                <Button
-                  variant={
-                    selectedCategory === category.id ? "default" : "ghost"
-                  }
-                  className={`w-full justify-start h-9 sm:h-10 px-2 sm:px-3 cursor-pointer text-sm sm:text-base ${
-                    selectedCategory === category.id
-                      ? "bg-primary text-primary-foreground"
-                      : "hover:bg-muted/50"
-                  }`}
-                  onClick={() => {
-                    setSelectedCategory(category.id);
-                    setSelectedSubcategory(null);
-                  }}
-                >
-                  {selectedCategory === category.id ? (
-                    <FolderOpen className="h-3 w-3 sm:h-4 sm:w-4 mr-2 flex-shrink-0" />
-                  ) : (
-                    <Folder className="h-3 w-3 sm:h-4 sm:w-4 mr-2 flex-shrink-0" />
-                  )}
-                  <span className="truncate">{category.name}</span>
-                  {category.subcategories &&
-                    category.subcategories.length > 0 && (
-                      <ChevronRight className="h-3 w-3 sm:h-4 sm:w-4 ml-auto flex-shrink-0" />
+            {filteredCategories
+              .filter(
+                (category) =>
+                  // If a category is selected, only show that category
+                  !selectedCategory || category.id === selectedCategory
+              )
+              .map((category) => (
+                <div key={category.id} className="space-y-1">
+                  <Button
+                    variant={
+                      selectedCategory === category.id ? "default" : "ghost"
+                    }
+                    className={`w-full justify-start h-9 sm:h-10 px-2 sm:px-3 cursor-pointer text-sm sm:text-base ${
+                      selectedCategory === category.id
+                        ? "bg-primary text-primary-foreground"
+                        : "hover:bg-muted/50"
+                    }`}
+                    onClick={() => {
+                      // If clicking the same category, deselect it
+                      if (selectedCategory === category.id) {
+                        setSelectedCategory(null);
+                        setSelectedSubcategory(null);
+                        // Collapse subcategories when deselecting
+                        setExpandedCategories((prev) => {
+                          const newSet = new Set(prev);
+                          newSet.delete(category.id);
+                          return newSet;
+                        });
+                      } else {
+                        // Select new category and deselect any previous one
+                        setSelectedCategory(category.id);
+                        setSelectedSubcategory(null);
+                        // Only one category can be expanded at a time - collapse all others
+                        if (
+                          category.subcategories &&
+                          category.subcategories.length > 0
+                        ) {
+                          // Replace the entire set with just this category
+                          setExpandedCategories(new Set([category.id]));
+                        } else {
+                          // No subcategories, so clear all expanded categories
+                          setExpandedCategories(new Set());
+                        }
+                      }
+                    }}
+                  >
+                    {selectedCategory === category.id ? (
+                      <FolderOpen className="h-3 w-3 sm:h-4 sm:w-4 mr-2 flex-shrink-0" />
+                    ) : (
+                      <Folder className="h-3 w-3 sm:h-4 sm:w-4 mr-2 flex-shrink-0" />
                     )}
-                </Button>
+                    <span className="truncate">{category.name}</span>
+                    {category.subcategories &&
+                      category.subcategories.length > 0 && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 p-0 ml-auto flex-shrink-0 hover:bg-transparent"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleSubcategories(category.id);
+                          }}
+                        >
+                          {expandedCategories.has(category.id) ? (
+                            <ChevronDown className="h-3 w-3 sm:h-4 sm:w-4" />
+                          ) : (
+                            <ChevronRight className="h-3 w-3 sm:h-4 sm:w-4" />
+                          )}
+                        </Button>
+                      )}
+                  </Button>
 
-                {/* Subcategories Dropdown (only show if this category is selected) */}
-                {selectedCategory === category.id &&
-                  category.subcategories &&
-                  category.subcategories.length > 0 && (
-                    <div className="space-y-1">
-                      <Button
-                        variant={!selectedSubcategory ? "secondary" : "ghost"}
-                        size="sm"
-                        className={`w-full justify-start h-7 sm:h-8 px-2 sm:px-3 text-xs sm:text-sm cursor-pointer ${
-                          !selectedSubcategory
-                            ? "bg-secondary text-secondary-foreground"
-                            : "hover:bg-muted/50"
-                        }`}
-                        onClick={() => setSelectedSubcategory(null)}
-                      >
-                        {selectedSubcategory && (
-                          <ChevronLeft className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
-                        )}
-                        <span className="truncate">Subcategories</span>
-                      </Button>
+                  {/* Subcategories Dropdown (show when expanded) */}
+                  {expandedCategories.has(category.id) &&
+                    category.subcategories &&
+                    category.subcategories.length > 0 && (
+                      <div className="space-y-1 ml-2">
+                        <Button
+                          variant={!selectedSubcategory ? "secondary" : "ghost"}
+                          size="sm"
+                          className={`w-full justify-start h-7 sm:h-8 px-2 sm:px-3 text-xs sm:text-sm cursor-pointer ${
+                            !selectedSubcategory
+                              ? "bg-secondary text-secondary-foreground"
+                              : "hover:bg-muted/50"
+                          }`}
+                          onClick={() => setSelectedSubcategory(null)}
+                        >
+                          {selectedSubcategory && (
+                            <ChevronLeft className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
+                          )}
+                          <span className="truncate">All {category.name}</span>
+                        </Button>
 
-                      {/* Subcategories Dropdown */}
-                      <div className="border border-border/50 rounded-md bg-background/50 max-h-[300px] sm:max-h-[500px] lg:max-h-[700px] overflow-y-auto">
-                        <div className="p-1 space-y-1">
-                          {category.subcategories.map((subcategory) => (
-                            <Button
-                              key={subcategory.id}
-                              variant={
-                                selectedSubcategory === subcategory.id
-                                  ? "secondary"
-                                  : "ghost"
-                              }
-                              size="sm"
-                              className={`w-full justify-start h-7 sm:h-8 px-2 sm:px-3 text-xs sm:text-sm cursor-pointer ${
-                                selectedSubcategory === subcategory.id
-                                  ? "bg-secondary text-secondary-foreground"
-                                  : "hover:bg-muted/50"
-                              }`}
-                              onClick={() =>
-                                setSelectedSubcategory(subcategory.id)
-                              }
-                            >
-                              <span className="truncate">
-                                {subcategory.name}
-                              </span>
-                            </Button>
-                          ))}
+                        {/* Subcategories Dropdown */}
+                        <div className="border border-border/50 rounded-md bg-background/50 max-h-[300px] sm:max-h-[500px] lg:max-h-[700px] overflow-y-auto">
+                          <div className="p-1 space-y-1">
+                            {category.subcategories.map((subcategory) => (
+                              <Button
+                                key={subcategory.id}
+                                variant={
+                                  selectedSubcategory === subcategory.id
+                                    ? "secondary"
+                                    : "ghost"
+                                }
+                                size="sm"
+                                className={`w-full justify-start h-7 sm:h-8 px-2 sm:px-3 text-xs sm:text-sm cursor-pointer ${
+                                  selectedSubcategory === subcategory.id
+                                    ? "bg-secondary text-secondary-foreground"
+                                    : "hover:bg-muted/50"
+                                }`}
+                                onClick={() =>
+                                  setSelectedSubcategory(subcategory.id)
+                                }
+                              >
+                                <span className="truncate">
+                                  {subcategory.name}
+                                </span>
+                              </Button>
+                            ))}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  )}
-              </div>
-            ))}
+                    )}
+                </div>
+              ))}
           </div>
         </div>
       </div>
@@ -196,7 +312,10 @@ export const CategorySidebar: React.FC<CategorySidebarProps> = ({
           {selectedCategory ? (
             <>
               <div className="font-medium truncate">
-                {categories.find((c) => c.id === selectedCategory)?.name}
+                {
+                  filteredCategories.find((c) => c.id === selectedCategory)
+                    ?.name
+                }
               </div>
               {selectedSubcategory && (
                 <div className="text-muted-foreground truncate">

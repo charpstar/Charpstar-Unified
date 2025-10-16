@@ -188,6 +188,80 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Copy GLB file to Android folder for approved assets
+    if (status === "approved_by_client" && onboardingAsset.glb_link) {
+      try {
+        // Get BunnyCDN configuration
+        const storageKey = process.env.BUNNY_STORAGE_KEY;
+        const storageZone = process.env.BUNNY_STORAGE_ZONE_NAME || "maincdn";
+        const cdnBaseUrl = process.env.BUNNY_STORAGE_PUBLIC_URL;
+
+        if (storageKey && storageZone && cdnBaseUrl) {
+          // Download the current GLB file
+          const glbResponse = await fetch(onboardingAsset.glb_link, {
+            method: "GET",
+            headers: {
+              AccessKey: storageKey,
+            },
+          });
+
+          if (glbResponse.ok) {
+            const glbBuffer = await glbResponse.arrayBuffer();
+
+            // Create Android folder path
+            const sanitizedClientName = onboardingAsset.client.replace(
+              /[^a-zA-Z0-9._-]/g,
+              "_"
+            );
+            const fileName = `${onboardingAsset.article_id}.glb`;
+            const androidPath = `${sanitizedClientName}/Android/${fileName}`;
+            const androidStorageUrl = `https://se.storage.bunnycdn.com/${storageZone}/${androidPath}`;
+
+            // Upload to Android folder
+            const androidUploadResponse = await fetch(androidStorageUrl, {
+              method: "PUT",
+              headers: {
+                AccessKey: storageKey,
+                "Content-Type": "application/octet-stream",
+              },
+              body: glbBuffer,
+            });
+
+            if (androidUploadResponse.ok) {
+              // Update the GLB link in the assets table to point to Android folder
+              const newGlbLink = `${cdnBaseUrl}/${androidPath}`;
+
+              await supabaseAdmin
+                .from("assets")
+                .update({ glb_link: newGlbLink })
+                .eq("id", assetId);
+
+              console.log(
+                `✅ GLB file copied to Android folder: ${newGlbLink}`
+              );
+            } else {
+              console.error(
+                "❌ Failed to upload GLB to Android folder:",
+                androidUploadResponse.status
+              );
+            }
+          } else {
+            console.error(
+              "❌ Failed to download GLB file:",
+              glbResponse.status
+            );
+          }
+        } else {
+          console.warn(
+            "⚠️ BunnyCDN configuration missing, skipping file transfer"
+          );
+        }
+      } catch (error) {
+        console.error("❌ Error during GLB file transfer:", error);
+        // Don't fail the entire operation if file transfer fails
+      }
+    }
+
     // Clean up allocation lists
     await cleanupSingleAllocationList(supabaseAdmin, assetId);
 
