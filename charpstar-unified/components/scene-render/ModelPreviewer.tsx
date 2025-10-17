@@ -86,6 +86,10 @@ interface ModelPreviewerProps {
   toneMapping?: string;
   captureMode?: boolean; // If true, shows simplified UI for just capturing
   captureButtonText?: string;
+  onCaptureAsset?: (
+    snapshot: string,
+    dimensions: { x: number; y: number; z: number } | null
+  ) => void;
 }
 
 const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
@@ -98,6 +102,7 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
   toneMapping = "aces",
   captureMode = false,
   captureButtonText = "Generate Scene",
+  onCaptureAsset,
 }) => {
   const modelViewerRef = useRef<HTMLElement>(null);
   const [objectSize, setObjectSize] = useState("");
@@ -313,14 +318,19 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
           inspirationBase64 = await fileToBase64(inspirationImage);
         }
 
-        // Pass single snapshot in array for API compatibility
-        onGenerate(
-          [snapshotBase64],
-          finalObjectSize,
-          objectType || "Product",
-          sceneDescription,
-          inspirationBase64
-        );
+        // In capture mode, use onCaptureAsset callback with dimensions
+        if (captureMode && onCaptureAsset) {
+          onCaptureAsset(snapshotBase64, modelDimensions);
+        } else {
+          // Pass single snapshot in array for API compatibility
+          onGenerate(
+            [snapshotBase64],
+            finalObjectSize,
+            objectType || "Product",
+            sceneDescription,
+            inspirationBase64
+          );
+        }
       } finally {
         setIsCapturing(false);
         setCaptureProgress({ current: 0, total: 1 });

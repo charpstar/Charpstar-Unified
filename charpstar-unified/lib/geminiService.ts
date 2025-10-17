@@ -358,6 +358,17 @@ You have been provided with ${productCount} SEPARATE product images. Each image 
    ${isMultiProduct ? `- You have ${productCount} different products - place EACH ONE appropriately` : "- Place the product logically (chairs on floor, lamps on tables, etc.)"}
    - Ensure physically plausible positioning with realistic gravity
    - DO NOT draw dimension lines, measurements, or text on the image
+   ${
+     isMultiProduct && objectSize.includes("Asset")
+       ? `
+   **CRITICAL SIZE ACCURACY FOR MULTIPLE ASSETS:**
+   - Each asset has specific dimensions listed above - use these EXACT measurements
+   - Scale each product according to its individual size specifications
+   - Maintain proper proportional relationships between all products
+   - A small lamp should appear small, a large dining table should appear large
+   - The room must accommodate all products at their correct relative sizes`
+       : ""
+   }
 
 **YOUR TASK:**
 Create a single, premium-quality photorealistic background scene and seamlessly composite ${isMultiProduct ? `ALL ${productCount} products` : "the product"} into it.
@@ -418,6 +429,16 @@ Before completing the image, verify that:
 3. Each product is positioned logically based on its type
 4. The room/scene is proportioned to show all products clearly
 5. Lighting and shadows work for all products consistently
+${
+  objectSize.includes("Asset")
+    ? `
+6. **SIZE VERIFICATION:** Each product appears at the correct relative size based on the dimensions provided:
+   - Small items (lamps, accessories) should appear appropriately small
+   - Large items (tables, sofas) should appear appropriately large
+   - All products should be proportionally correct relative to each other
+   - The scene should accommodate all products at their proper scales`
+    : ""
+}
 `
     : ""
 }

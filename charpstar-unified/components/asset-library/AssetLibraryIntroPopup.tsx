@@ -242,8 +242,8 @@ export function AssetLibraryIntroPopup({
           className="w-full max-w-2xl max-h-[90vh] overflow-hidden"
           onClick={(e) => e.stopPropagation()}
         >
-          <Card className="border-2 shadow-2xl">
-            <CardContent className="p-0">
+          <Card className="border-2 shadow-2xl bg-background">
+            <CardContent className="p-0 bg-background">
               {/* Header */}
               <div className="flex items-center justify-between p-6 border-b border-border">
                 <div className="flex items-center gap-3">

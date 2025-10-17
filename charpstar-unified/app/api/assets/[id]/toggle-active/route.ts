@@ -116,10 +116,10 @@ export async function PATCH(
         // Calculate new change count based on action
         let newChangeCount = changesUsed;
         if (!active) {
-          // Deactivating: increment change count
+          // Deactivating: increment change count (uses up a change)
           newChangeCount = changesUsed + 1;
 
-          // Check if client has remaining changes
+          // Check if client has remaining changes for deactivation
           if (changesUsed >= changeLimit) {
             return NextResponse.json(
               {
@@ -130,7 +130,7 @@ export async function PATCH(
             );
           }
         } else {
-          // Reactivating: decrement change count (but don't go below 0)
+          // Reactivating: decrement change count (frees up a change)
           newChangeCount = Math.max(0, changesUsed - 1);
         }
 

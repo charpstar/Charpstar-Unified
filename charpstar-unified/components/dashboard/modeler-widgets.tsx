@@ -17,8 +17,8 @@ import {
   Package,
   FileText,
 } from "lucide-react";
-// Reuse QA header style locally
-function QAHeader({
+// Enhanced header component matching admin/QA widgets
+function ModelerWidgetHeader({
   icon: Icon,
   title,
   subtitle,
@@ -28,18 +28,17 @@ function QAHeader({
   subtitle?: string;
 }) {
   return (
-    <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
-      <div className="p-1.5 sm:p-2 bg-muted rounded-lg flex-shrink-0">
-        <Icon className="h-4 w-4 sm:h-5 sm:w-5 text-foreground" />
+    <div className="flex items-center gap-3 mb-6">
+      <div className="relative">
+        <div className="p-3 bg-primary rounded-2xl shadow-[0_4px_16px_hsl(var(--primary),0.1)] dark:shadow-[0_4px_16px_hsl(var(--primary),0.2)]">
+          <Icon className="h-6 w-6 text-primary-foreground" />
+        </div>
+        <div className="absolute inset-0 bg-primary/30 rounded-2xl blur-sm -z-10" />
       </div>
-      <div className="min-w-0 flex-1">
-        <h3 className="text-sm sm:text-lg font-semibold text-foreground truncate">
-          {title}
-        </h3>
+      <div>
+        <h3 className="text-xl font-bold text-foreground">{title}</h3>
         {subtitle ? (
-          <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2">
-            {subtitle}
-          </p>
+          <p className="text-sm text-muted-foreground">{subtitle}</p>
         ) : null}
       </div>
     </div>
@@ -247,8 +246,8 @@ export function ModelerStatsWidget() {
   ];
 
   return (
-    <div className="h-full flex flex-col">
-      <QAHeader
+    <div className="h-full flex flex-col p-6">
+      <ModelerWidgetHeader
         icon={Package}
         title="Assignment Overview"
         subtitle="Track your current workload and progress"
@@ -259,39 +258,44 @@ export function ModelerStatsWidget() {
           <div
             key={index}
             className={`
-              group relative overflow-hidden rounded-2xl border transition-all duration-300 ease-out min-h-[64px]
-              hover:scale-102 hover:shadow-xl hover:shadow-black/5
-              ${stat.bgColor} ${stat.borderColor}
+              group relative overflow-hidden rounded-xl transition-all duration-300 ease-out min-h-[64px]
+              bg-gradient-to-br from-card/80 to-card/60
+              shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05),0_1px_3px_rgba(0,0,0,0.1),0_1px_2px_rgba(0,0,0,0.06)]
+              hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.08),0_4px_12px_rgba(0,0,0,0.15),0_2px_4px_rgba(0,0,0,0.1)]
+              hover:translate-y-[-2px]
+              dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.05),inset_0_0_12px_rgba(0,0,0,0.2),0_2px_8px_rgba(0,0,0,0.3)]
+              dark:hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.08),inset_0_0_16px_rgba(0,0,0,0.25),0_4px_16px_rgba(0,0,0,0.4)]
+              border border-border/50
               ${loading ? "animate-pulse" : ""}
               ${index === 0 ? "sm:col-span-2 lg:col-span-1 xl:col-span-2 min-h-[72px]" : ""}
             `}
           >
-            {/* Background Pattern */}
-            <div className="absolute inset-0 opacity-5">
-              <div className="absolute top-0 right-0 w-14 h-14 transform rotate-45 translate-x-6 -translate-y-8 bg-current rounded-full"></div>
-              <div className="absolute bottom-0 left-0 w-12 h-12 transform -rotate-45 -translate-x-6 translate-y-6 bg-current rounded-full"></div>
-            </div>
-
             {/* Content */}
-            <div className="relative p-2 sm:p-2.5 h-full flex flex-col justify-between">
+            <div className="relative p-4 h-full flex flex-col justify-between">
               {/* Header */}
-              <div className="flex items-start justify-between mb-1 sm:mb-1.5">
+              <div className="flex items-start justify-between mb-2">
                 <div
-                  className={`p-1 sm:p-0 rounded-xl ${stat.iconBg} shadow-lg shadow-black/10 flex-shrink-0`}
+                  className={`relative p-3 rounded-xl ${stat.iconBg} 
+                    shadow-[inset_0_2px_4px_rgba(255,255,255,0.1),0_2px_8px_rgba(0,0,0,0.1)]
+                    dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.05),0_2px_8px_rgba(0,0,0,0.3)]
+                    group-hover:shadow-[inset_0_2px_4px_rgba(255,255,255,0.15),0_3px_12px_rgba(0,0,0,0.15)]
+                    transition-shadow duration-300`}
                 >
-                  <stat.icon className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
+                  <stat.icon className="h-4 w-4 text-white relative z-10" />
+                  <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                 </div>
               </div>
 
               {/* Stats */}
-              <div className="">
-                <p className={`text-lg sm:text-2xl font-bold ${stat.color} `}>
+              <div>
+                <p className="text-2xl font-bold text-foreground mb-1 tabular-nums drop-shadow-[0_2px_4px_rgba(0,0,0,0.1)]">
                   {stat.value}
                 </p>
                 <div>
-                  <p className="text-xs sm:text-sm font-semibold text-foreground/80 mb-0.5 sm:mb-1 truncate">
+                  <p className="text-sm font-semibold text-foreground/90 mb-1 group-hover:text-foreground transition-colors">
                     {stat.title}
                   </p>
+                  <div className="h-0.5 w-0 group-hover:w-full bg-gradient-to-r from-primary/50 to-transparent transition-all duration-300 rounded-full mb-1" />
                   <p className="text-xs text-muted-foreground line-clamp-2">
                     {stat.description}
                   </p>
@@ -302,7 +306,7 @@ export function ModelerStatsWidget() {
               {!loading &&
                 stat.title === "In Progress" &&
                 stats.inProgress > 0 && (
-                  <div className="mt-1 sm:mt-2">
+                  <div className="mt-2">
                     <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
                       <span>Progress</span>
                       <span>
@@ -312,7 +316,7 @@ export function ModelerStatsWidget() {
                         %
                       </span>
                     </div>
-                    <div className="w-full bg-muted/30 dark:bg-muted/20 rounded-full h-1.5 sm:h-2 overflow-hidden">
+                    <div className="w-full bg-muted/30 dark:bg-muted/20 rounded-full h-2 overflow-hidden">
                       <div
                         className="h-full bg-gradient-to-r from-indigo-500 to-indigo-600 dark:from-indigo-400 dark:to-indigo-500 rounded-full transition-all duration-1000 ease-out"
                         style={{
@@ -322,15 +326,7 @@ export function ModelerStatsWidget() {
                     </div>
                   </div>
                 )}
-
-              {/* Hover Effect Overlay */}
-              <div className="absolute  inset-0 bg-gradient-to-t from-black/5 dark:from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
             </div>
-
-            {/* Bottom Accent */}
-            <div
-              className={`absolute bottom-0 left-0 right-0 h-0.5 ${stat.iconBg} transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 ease-out origin-left`}
-            ></div>
           </div>
         ))}
       </div>
@@ -451,7 +447,7 @@ export function AssignedModelsWidget() {
   return (
     <div className="space-y-4 min-h-[283px]">
       <div className="flex items-center justify-between">
-        <QAHeader icon={Package} title="Recent Assigned Models" />
+        <ModelerWidgetHeader icon={Package} title="Recent Assigned Models" />
         <Button
           variant="outline"
           size="sm"
@@ -784,24 +780,14 @@ export function ModelerEarningsWidget() {
 
   if (loading) {
     return (
-      <div className="h-full flex flex-col min-h-[400px]">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0 mb-4 sm:mb-6">
-          <div>
-            <div className="h-5 sm:h-6 bg-muted rounded-lg w-32 sm:w-48 mb-2 animate-pulse"></div>
-            <div className="h-3 sm:h-4 bg-muted rounded-lg w-48 sm:w-64 animate-pulse"></div>
-          </div>
-          <div className="h-6 sm:h-8 bg-muted rounded-full w-20 sm:w-24 animate-pulse"></div>
-        </div>
-
-        <div className="flex-1 flex items-center justify-center">
-          <div className="w-full h-32 sm:h-48 bg-gradient-to-br from-muted/50 to-muted animate-pulse rounded-2xl"></div>
-        </div>
-
-        <div className="mt-4 sm:mt-6 p-3 sm:p-4 bg-gradient-to-r from-muted/30 to-muted/50 dark:from-muted/20 dark:to-muted/30 rounded-xl border border-border/50 dark:border-border/30">
-          <div className="space-y-2 sm:space-y-3">
-            <div className="h-3 sm:h-4 bg-muted rounded w-3/4 animate-pulse"></div>
-            <div className="h-3 sm:h-4 bg-muted rounded w-1/2 animate-pulse"></div>
-          </div>
+      <div className="h-full flex flex-col p-6 min-h-[400px]">
+        <ModelerWidgetHeader
+          icon={CheckCircle}
+          title="Earnings & Performance"
+          subtitle="Your earnings over the last 15 days"
+        />
+        <div className="flex-1">
+          <div className="h-64 bg-muted animate-pulse rounded-xl" />
         </div>
       </div>
     );
@@ -820,8 +806,8 @@ export function ModelerEarningsWidget() {
   const isTrendingUp = earningsData.thisMonth > earningsData.lastMonth;
 
   return (
-    <div className="h-full flex flex-col min-h-[400px]">
-      <QAHeader
+    <div className="h-full flex flex-col p-6 min-h-[400px] ">
+      <ModelerWidgetHeader
         icon={CheckCircle}
         title="Earnings & Performance"
         subtitle="Your earnings over the last 15 days"
@@ -834,10 +820,7 @@ export function ModelerEarningsWidget() {
 
           <div className="relative overflow-x-auto">
             {earningsData.chartData.length > 0 ? (
-              <ChartContainer
-                className="h-48 sm:h-68 min-w-[600px]"
-                config={chartConfig}
-              >
+              <ChartContainer className="h-48 sm:h-68 " config={chartConfig}>
                 <LineChart
                   accessibilityLayer
                   data={earningsData.chartData}
@@ -1059,8 +1042,8 @@ export function ModelerQuickActionsWidget() {
   ];
 
   return (
-    <div className="h-full flex flex-col flex-1">
-      <QAHeader
+    <div className="h-full flex flex-col p-6 flex-1">
+      <ModelerWidgetHeader
         icon={FileText}
         title="Quick Actions"
         subtitle="Access your most important tools and workflows"
@@ -1070,49 +1053,43 @@ export function ModelerQuickActionsWidget() {
         {actions.map((action, index) => (
           <div
             key={index}
-            className={`group relative overflow-hidden rounded-2xl border border-border/50 dark:border-border/30 bg-gradient-to-br from-muted/30 to-muted/50 dark:from-muted/20 dark:to-muted/30 p-4 sm:p-6 transition-all duration-300 ease-out hover:scale-105 hover:shadow-xl hover:shadow-black/5 dark:hover:shadow-white/5 cursor-pointer ${
-              action.title === "Model Viewer" ? "sm:col-span-2" : ""
-            }`}
+            className={`group relative overflow-hidden rounded-xl p-6 transition-all duration-300 cursor-pointer
+              bg-gradient-to-br from-card/80 to-card/60
+              shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05),0_1px_3px_rgba(0,0,0,0.1),0_1px_2px_rgba(0,0,0,0.06)]
+              hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.08),0_4px_12px_rgba(0,0,0,0.15),0_2px_4px_rgba(0,0,0,0.1)]
+              hover:translate-y-[-2px]
+              dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.05),inset_0_0_12px_rgba(0,0,0,0.2),0_2px_8px_rgba(0,0,0,0.3)]
+              dark:hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.08),inset_0_0_16px_rgba(0,0,0,0.25),0_4px_16px_rgba(0,0,0,0.4)]
+              border border-border/50 ${
+                action.title === "Model Viewer" ? "sm:col-span-2" : ""
+              }`}
             onClick={action.action}
           >
-            <div className="absolute inset-0 bg-gradient-to-r from-current/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-
-            <div className="relative flex flex-col justify-center h-full">
-              <div className="flex items-center gap-3 sm:gap-4 mb-3 sm:mb-4">
+            <div className="relative flex flex-col h-full">
+              <div className="flex items-center gap-4 mb-4">
                 <div
-                  className={`p-2 sm:p-3 rounded-xl ${action.iconBg} shadow-lg shadow-black/10 dark:shadow-black/20 flex-shrink-0`}
+                  className={`relative p-3 rounded-xl ${action.iconBg} 
+                    shadow-[inset_0_2px_4px_rgba(255,255,255,0.1),0_2px_8px_rgba(0,0,0,0.1)]
+                    dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.05),0_2px_8px_rgba(0,0,0,0.3)]
+                    group-hover:shadow-[inset_0_2px_4px_rgba(255,255,255,0.15),0_3px_12px_rgba(0,0,0,0.15)]
+                    transition-shadow duration-300 flex-shrink-0`}
                 >
                   <action.icon
-                    className={`h-4 w-4 sm:h-6 sm:w-6 ${action.iconColor}`}
+                    className={`h-6 w-6 ${action.iconColor} relative z-10`}
                   />
+                  <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h4 className="text-sm sm:text-lg font-semibold text-foreground mb-1 truncate">
+                  <h4 className="text-lg font-semibold text-foreground mb-1 group-hover:text-foreground transition-colors">
                     {action.title}
                   </h4>
-                  <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed line-clamp-2">
+                  <div className="h-0.5 w-0 group-hover:w-full bg-gradient-to-r from-primary/50 to-transparent transition-all duration-300 rounded-full" />
+                  <p className="text-sm text-muted-foreground leading-relaxed line-clamp-2 mt-1">
                     {action.description}
                   </p>
                 </div>
               </div>
-
-              <div className="mt-auto">
-                <div
-                  className={`inline-flex items-center gap-2 px-2 sm:px-3 py-1.5 sm:py-2 bg-gradient-to-r ${action.color} hover:${action.hoverColor} text-white rounded-lg transition-all duration-300 ease-out group-hover:scale-105 shadow-lg shadow-black/20 dark:shadow-black/40`}
-                >
-                  <span className="text-xs sm:text-sm font-medium">Open</span>
-                  <div className="w-1 h-1 bg-white rounded-full"></div>
-                </div>
-              </div>
             </div>
-
-            {/* Hover Effect Overlay */}
-            <div className="absolute inset-0 bg-gradient-to-t from-current/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-
-            {/* Bottom Accent */}
-            <div
-              className={`absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r ${action.color} transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 ease-out origin-left`}
-            ></div>
           </div>
         ))}
       </div>

@@ -70,6 +70,7 @@ export default function AssetCard({
   const [isActive, setIsActive] = useState(asset.active ?? true);
   const [isTogglingActive, setIsTogglingActive] = useState(false);
   const [remainingChanges, setRemainingChanges] = useState<number | null>(null);
+  const [isUpdatingChanges, setIsUpdatingChanges] = useState(false);
   const user = useUser();
   const { toast } = useToast();
 
@@ -210,24 +211,36 @@ export default function AssetCard({
       if (user?.metadata?.role !== "admin") {
         // Optimistically update the remaining changes count
         if (remainingChanges !== null) {
+          setIsUpdatingChanges(true);
           let newCount = remainingChanges;
           if (!isActive) {
-            // Deactivating: decrease remaining changes
+            // Deactivating: decrease remaining changes (deactivation uses up a change)
             newCount = Math.max(0, remainingChanges - 1);
           } else {
-            // Reactivating: increase remaining changes
+            // Reactivating: increase remaining changes (reactivation frees up a change)
             newCount = remainingChanges + 1;
           }
           setRemainingChanges(newCount);
-          // Update cache
+
+          // Update cache and notify all components for this client
           const clientName = asset.client || "";
           remainingChangesCache.set(clientName, {
             count: newCount,
             timestamp: Date.now(),
           });
+
+          // Notify all other components for this client
+          const callbacks = dataCallbacks.get(clientName);
+          if (callbacks) {
+            callbacks.forEach((callback) => callback(newCount));
+          }
         }
-        // Also fetch from server to ensure accuracy (force fetch)
-        fetchRemainingChanges(true);
+        // Also fetch from server to ensure accuracy (force fetch) with a small delay
+        setTimeout(() => {
+          fetchRemainingChanges(true).finally(() => {
+            setIsUpdatingChanges(false);
+          });
+        }, 100);
       }
 
       // Trigger refetch to update the list
@@ -245,8 +258,22 @@ export default function AssetCard({
 
       // Rollback optimistic updates on error
       setIsActive(originalIsActive);
+      setIsUpdatingChanges(false);
       if (originalRemainingChanges !== null) {
         setRemainingChanges(originalRemainingChanges);
+
+        // Restore cache and notify other components
+        const clientName = asset.client || "";
+        remainingChangesCache.set(clientName, {
+          count: originalRemainingChanges,
+          timestamp: Date.now(),
+        });
+
+        // Notify all other components for this client
+        const callbacks = dataCallbacks.get(clientName);
+        if (callbacks) {
+          callbacks.forEach((callback) => callback(originalRemainingChanges));
+        }
       }
 
       // Show error message to user
@@ -529,7 +556,9 @@ export default function AssetCard({
                         <Button
                           variant="outline"
                           size="icon"
-                          className={`h-9 w-9 transition-colors ${
+                          className={`h-9 w-9 transition-all ${
+                            isUpdatingChanges ? "opacity-70" : ""
+                          } ${
                             isActive
                               ? "bg-green-100 hover:bg-green-200 text-green-700 dark:bg-green-900/30 dark:hover:bg-green-900/50 dark:text-green-400"
                               : "bg-red-100 hover:bg-red-200 text-red-700 dark:bg-red-900/30 dark:hover:bg-red-900/50 dark:text-red-400"
@@ -550,13 +579,13 @@ export default function AssetCard({
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent>
-                        {isActive
-                          ? remainingChanges === 0
-                            ? "Active - No changes remaining this year"
-                            : remainingChanges !== null
-                              ? `Active - Click to deactivate (${remainingChanges} changes remaining)`
-                              : "Active - Click to deactivate"
-                          : "Inactive - Click to activate"}
+                        {isUpdatingChanges
+                          ? "Updating changes..."
+                          : isActive
+                            ? remainingChanges === 0
+                              ? "Active - No changes remaining to deactivate"
+                              : `Active - Click to deactivate (${remainingChanges} changes remaining)`
+                            : "Inactive - Click to activate (frees up a change)"}
                       </TooltipContent>
                     </Tooltip>
                   </div>
@@ -683,7 +712,9 @@ export default function AssetCard({
                     <Button
                       variant="outline"
                       size="icon"
-                      className={`h-9 w-9 transition-colors ${
+                      className={`h-9 w-9 transition-all ${
+                        isUpdatingChanges ? "opacity-70" : ""
+                      } ${
                         isActive
                           ? "bg-green-100 hover:bg-green-200 text-green-700 dark:bg-green-900/30 dark:hover:bg-green-900/50 dark:text-green-400"
                           : "bg-red-100 hover:bg-red-200 text-red-700 dark:bg-red-900/30 dark:hover:bg-red-900/50 dark:text-red-400"
@@ -692,7 +723,7 @@ export default function AssetCard({
                       disabled={
                         isTogglingActive ||
                         (user?.metadata?.role !== "admin" &&
-                          isActive &&
+                          !isActive &&
                           remainingChanges === 0)
                       }
                     >
@@ -704,13 +735,13 @@ export default function AssetCard({
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>
-                    {isActive
-                      ? remainingChanges === 0
-                        ? "Active - No changes remaining this year"
-                        : remainingChanges !== null
-                          ? `Active - Click to deactivate (${remainingChanges} changes remaining)`
-                          : "Active - Click to deactivate"
-                      : "Inactive - Click to activate"}
+                    {isUpdatingChanges
+                      ? "Updating changes..."
+                      : isActive
+                        ? remainingChanges === 0
+                          ? "Active - No changes remaining to deactivate"
+                          : `Active - Click to deactivate (${remainingChanges} changes remaining)`
+                        : "Inactive - Click to activate (frees up a change)"}
                   </TooltipContent>
                 </Tooltip>
               </div>

@@ -58,12 +58,30 @@ export async function GET(request: NextRequest) {
 
     const currentYear = new Date().getFullYear();
 
-    // Get client's change limit
-    const { data: clientData } = await supabase
+    // Get client's change limit - try exact match first, then case-insensitive
+    let { data: clientData } = await supabase
       .from("clients")
       .select("models_in_contract, change_percentage")
       .eq("name", clientName)
       .single();
+
+    // If no exact match, try case-insensitive search
+    if (!clientData) {
+      const { data: allClients } = await supabase
+        .from("clients")
+        .select("name, models_in_contract, change_percentage");
+
+      const matchingClient = allClients?.find(
+        (client) => client.name.toLowerCase() === clientName.toLowerCase()
+      );
+
+      if (matchingClient) {
+        clientData = {
+          models_in_contract: matchingClient.models_in_contract,
+          change_percentage: matchingClient.change_percentage,
+        };
+      }
+    }
 
     if (!clientData) {
       return NextResponse.json({ remainingChanges: 0 });

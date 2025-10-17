@@ -76,15 +76,8 @@ export function PreviewGeneratorDialog({
   const processingRef = useRef(false);
 
   const assetsNeedingPreview = retakeAll
-    ? assets
-        .filter((asset) => asset.glb_link && asset.client === "Elon")
-        .slice(0, 4000)
-    : assets
-        .filter(
-          (asset) =>
-            !asset.preview_image && asset.glb_link && asset.client === "Elon"
-        )
-        .slice(0, 4000);
+    ? assets.filter((asset) => asset.glb_link)
+    : assets.filter((asset) => !asset.preview_image && asset.glb_link);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -118,9 +111,7 @@ export function PreviewGeneratorDialog({
     let total = 0;
     let checked = 0;
 
-    const assetsWithPreviews = assets
-      .filter((a) => a.preview_image && a.client === "Elon")
-      .slice(0, 4000);
+    const assetsWithPreviews = assets.filter((a) => a.preview_image);
     const totalToCheck = assetsWithPreviews.length;
 
     for (const asset of assetsWithPreviews) {
@@ -308,8 +299,8 @@ export function PreviewGeneratorDialog({
           `Model URL mismatch: Expected ${asset.glb_link}, got ${modelViewer.src}`
         );
 
-      // Set maximum zoom out for all objects
-      modelViewer.cameraOrbit = "-20.05deg 79.38deg 15m";
+      // Set maximum zoom out for large houses
+      modelViewer.cameraOrbit = "-20.05deg 79.38deg 40m";
 
       // Wait for camera to settle
       await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -486,10 +477,8 @@ export function PreviewGeneratorDialog({
   // Regenerate previews only for assets with failed URLs
   const regenerateFailedPreviews = async () => {
     if (failedUrls.length === 0) return;
-    const assetsToRegenerate = assets.filter(
-      (a) =>
-        failedUrls.some((f) => f.id === a.id && a.glb_link) &&
-        a.client === "Elon"
+    const assetsToRegenerate = assets.filter((a) =>
+      failedUrls.some((f) => f.id === a.id && a.glb_link)
     );
     if (assetsToRegenerate.length === 0) return;
 
@@ -649,11 +638,9 @@ export function PreviewGeneratorDialog({
                 <DialogDescription className="text-sm text-muted-foreground mt-1">
                   Preview generation for{" "}
                   <span className="font-semibold text-primary">
-                    {assetsNeedingPreview.length} /{" "}
-                    {assets.filter((a) => a.client === "Elon").length} (limited
-                    to 4000 assets for now)
+                    {assetsNeedingPreview.length} / {assets.length}
                   </span>{" "}
-                  elon client assets
+                  all client assets
                 </DialogDescription>
               </div>
             </div>
@@ -767,7 +754,7 @@ export function PreviewGeneratorDialog({
                 ref={modelViewerRef}
                 tone-mapping="aces"
                 shadow-intensity="0"
-                camera-orbit="-20.05deg 79.38deg 6.5m"
+                camera-orbit="-20.05deg 79.38deg 40m"
                 field-of-view="10deg"
                 environment-image="https://cdn.charpstar.net/Demos/HDR_Furniture.hdr"
                 exposure="1.2"
@@ -801,7 +788,7 @@ export function PreviewGeneratorDialog({
                   </span>
                 </div>
                 <p className="text-xs text-muted-foreground mb-3">
-                  This will generate preview images for elon client assets that
+                  This will generate preview images for all client assets that
                   do not currently have a preview image (i.e., the preview image
                   field is empty or missing). Assets with a preview image
                   (working or broken) will be skipped.
@@ -835,8 +822,8 @@ export function PreviewGeneratorDialog({
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground mt-2">
-                  Only elon client assets with a GLB link and no preview image
-                  will be processed.
+                  Only assets with a GLB link and no preview image will be
+                  processed.
                 </p>
               </div>
 
@@ -849,9 +836,9 @@ export function PreviewGeneratorDialog({
                   </span>
                 </div>
                 <p className="text-xs text-muted-foreground mb-3 text-wrap items-center">
-                  This will check all elon client preview image URLs for broken
-                  links (404 or unreachable). Assets with broken preview image
-                  URLs will be listed for regeneration.
+                  This will check all client preview image URLs for broken links
+                  (404 or unreachable). Assets with broken preview image URLs
+                  will be listed for regeneration.
                 </p>
                 <div className="flex gap-3 pt-4">
                   <Button

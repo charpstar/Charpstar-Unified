@@ -49,11 +49,17 @@ interface SceneConfiguratorProps {
     inspirationImage: string | null
   ) => void;
   onCancel: () => void;
+  capturedAssets?: Array<{
+    snapshot: string;
+    name: string;
+    dimensions: { x: number; y: number; z: number } | null;
+  }>;
 }
 
 const SceneConfigurator: React.FC<SceneConfiguratorProps> = ({
   onGenerate,
   onCancel,
+  capturedAssets = [],
 }) => {
   const [objectType, setObjectType] = useState("");
   const [sceneDescription, setSceneDescription] = useState(
@@ -74,10 +80,25 @@ const SceneConfigurator: React.FC<SceneConfiguratorProps> = ({
       inspirationBase64 = await fileToBase64(inspirationImage);
     }
 
+    // Create size description for multiple assets using auto-extracted dimensions
+    let sizeDescription = "Multiple assets with varying sizes";
+    if (capturedAssets.length > 0) {
+      const sizeEntries = capturedAssets.map((asset, index) => {
+        if (asset.dimensions) {
+          const { x, y, z } = asset.dimensions;
+          const size = `Width: ${x.toFixed(2)}m, Height: ${y.toFixed(2)}m, Depth: ${z.toFixed(2)}m`;
+          return `Asset ${index + 1} (${asset.name}): ${size}`;
+        } else {
+          return `Asset ${index + 1} (${asset.name}): Dimensions could not be determined`;
+        }
+      });
+      sizeDescription = sizeEntries.join("; ");
+    }
+
     // Pass empty snapshots array since assets are already captured
     onGenerate(
       [],
-      "Multiple assets with varying sizes",
+      sizeDescription,
       objectType,
       sceneDescription,
       inspirationBase64
@@ -155,6 +176,38 @@ const SceneConfigurator: React.FC<SceneConfiguratorProps> = ({
             required
           />
         </Card>
+
+        {/* Asset Dimensions Display - Only show for multi-asset mode */}
+        {capturedAssets.length > 0 && (
+          <Card className="p-4 hover:shadow-md transition-shadow">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">
+                1.5
+              </div>
+              <h3 className="text-sm font-semibold">Asset Dimensions</h3>
+            </div>
+            <div className="space-y-3 max-h-40 overflow-y-auto">
+              {capturedAssets.map((asset, index) => (
+                <div key={index} className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">
+                    {asset.name}
+                  </label>
+                  <div className="px-2 py-1.5 text-xs bg-muted rounded-md font-mono">
+                    {asset.dimensions ? (
+                      <>
+                        W: {asset.dimensions.x.toFixed(2)}m × H:{" "}
+                        {asset.dimensions.y.toFixed(2)}m × D:{" "}
+                        {asset.dimensions.z.toFixed(2)}m
+                      </>
+                    ) : (
+                      "Dimensions could not be determined"
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+        )}
 
         {/* Scene Description */}
         <Card className="p-4 hover:shadow-md transition-shadow">

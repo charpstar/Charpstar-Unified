@@ -42,35 +42,11 @@ import { BarChart, XAxis, YAxis, Bar } from "recharts";
 import { supabase } from "@/lib/supabaseClient";
 import { ChartTooltip } from "@/components/ui/display";
 import { useActivities } from "@/hooks/use-activities";
-import { Card } from "@/components/ui/containers";
 
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { STATUS_LABELS, type StatusKey } from "@/lib/constants";
 
 // QA-style header used across widgets for consistent look
-function QAHeader({
-  icon: Icon,
-  title,
-  subtitle,
-}: {
-  icon: React.ComponentType<{ className?: string }>;
-  title: string;
-  subtitle?: string;
-}) {
-  return (
-    <div className="flex items-center gap-3 mb-4">
-      <div className="p-2 bg-gray-100 rounded-lg">
-        <Icon className="h-5 w-5 text-gray-600" />
-      </div>
-      <div>
-        <h3 className="text-lg font-semibold text-foreground">{title}</h3>
-        {subtitle ? (
-          <p className="text-sm text-muted-foreground">{subtitle}</p>
-        ) : null}
-      </div>
-    </div>
-  );
-}
 
 // Helper function to get status color CSS variable
 const getStatusColor = (status: StatusKey): string => {
@@ -1616,7 +1592,7 @@ export function StatusPieChartWidget() {
             </div>
           </div>
         ) : (
-          <div className="p-6 h-full">
+          <div className="p-6 min-h-full">
             <div className="group relative">
               {/* Background layers for depth */}
               <div className="absolute inset-0 bg-muted/30 rounded-2xl" />
@@ -1627,7 +1603,7 @@ export function StatusPieChartWidget() {
                 {/* Inner highlight */}
                 <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-border to-transparent" />
 
-                <div className="flex flex-col lg:flex-row items-center justify-center gap-8">
+                <div className="flex flex-col lg:flex-row items-center justify-center gap-8 h-full">
                   {/* Enhanced Chart Section */}
                   <div className="relative">
                     {/* Chart background with depth */}
@@ -2096,75 +2072,49 @@ export function AdminPipelineWidget() {
   const statusStyles: Record<
     StatusKey | "unallocated",
     {
-      bgGradient: string;
-      border: string;
       iconBg: string;
       accentBar: string;
       icon: React.ComponentType<{ className?: string }>;
     }
   > = {
     unallocated: {
-      bgGradient:
-        "bg-gradient-to-br from-red-50 to-red-100 dark:from-red-950/50 dark:to-red-900/50",
-      border: "border-red-200 dark:border-none",
-      iconBg: "bg-red-500 dark:bg-red-600",
-      accentBar: "bg-red-500 dark:bg-red-600",
+      iconBg: "bg-red-500/90 dark:bg-red-600/80",
+      accentBar: "bg-red-500 dark:bg-red-400",
       icon: AlertTriangle,
     },
     not_started: {
-      bgGradient:
-        "bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-950/50 dark:to-gray-900/50",
-      border: "border-gray-200 dark:border-none",
-      iconBg: "bg-gray-500 dark:bg-gray-600",
-      accentBar: "bg-gray-500 dark:bg-gray-600",
+      iconBg: "bg-gray-500/90 dark:bg-gray-600/80",
+      accentBar: "bg-gray-500 dark:bg-gray-400",
       icon: Package,
     },
     in_production: {
-      bgGradient:
-        "bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-950/50 dark:to-indigo-900/50",
-      border: "border-indigo-200 dark:border-none",
-      iconBg: "bg-indigo-500 dark:bg-indigo-600",
-      accentBar: "bg-indigo-500 dark:bg-indigo-600",
+      iconBg: "bg-indigo-500/90 dark:bg-indigo-600/80",
+      accentBar: "bg-indigo-500 dark:bg-indigo-400",
       icon: Activity,
     },
     revisions: {
-      bgGradient:
-        "bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-950/50 dark:to-amber-900/50",
-      border: "border-amber-200 dark:border-none",
-      iconBg: "bg-amber-500 dark:bg-amber-600",
-      accentBar: "bg-amber-500 dark:bg-amber-600",
+      iconBg: "bg-amber-500/90 dark:bg-amber-600/80",
+      accentBar: "bg-amber-500 dark:bg-amber-400",
       icon: RotateCcw,
     },
     client_revision: {
-      bgGradient:
-        "bg-gradient-to-br from-red-50 to-red-100 dark:from-red-950/50 dark:to-red-900/50",
-      border: "border-red-200 dark:border-none",
-      iconBg: "bg-red-500 dark:bg-red-600",
-      accentBar: "bg-red-500 dark:bg-red-600",
+      iconBg: "bg-red-500/90 dark:bg-red-600/80",
+      accentBar: "bg-red-500 dark:bg-red-400",
       icon: Eye,
     },
     approved: {
-      bgGradient:
-        "bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950/50 dark:to-blue-900/50",
-      border: "border-blue-200 dark:border-none",
-      iconBg: "bg-blue-500 dark:bg-blue-600",
-      accentBar: "bg-blue-500 dark:bg-blue-600",
+      iconBg: "bg-blue-500/90 dark:bg-blue-600/80",
+      accentBar: "bg-blue-500 dark:bg-blue-400",
       icon: CheckCircle,
     },
     approved_by_client: {
-      bgGradient:
-        "bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-950/50 dark:to-emerald-900/50",
-      border: "border-emerald-200 dark:border-none",
-      iconBg: "bg-emerald-500 dark:bg-emerald-600",
-      accentBar: "bg-emerald-500 dark:bg-emerald-600",
+      iconBg: "bg-emerald-500/90 dark:bg-emerald-600/80",
+      accentBar: "bg-emerald-500 dark:bg-emerald-400",
       icon: ShieldCheck,
     },
     delivered_by_artist: {
-      bgGradient:
-        "bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-950/50 dark:to-purple-900/50",
-      border: "border-purple-200 dark:border-none",
-      iconBg: "bg-purple-500 dark:bg-purple-600",
-      accentBar: "bg-purple-500 dark:bg-purple-600",
+      iconBg: "bg-purple-500/90 dark:bg-purple-600/80",
+      accentBar: "bg-purple-500 dark:bg-purple-400",
       icon: Package,
     },
   };
@@ -2189,68 +2139,82 @@ export function AdminPipelineWidget() {
     const style = statusStyles[item.key] || statusStyles.in_production;
     const Icon = style.icon;
     return (
-      <button
-        type="button"
+      <div
         onClick={handleClick}
-        className={`cursor-pointer group relative overflow-hidden rounded-lg border transition-all duration-200 ease-out hover:shadow-md ${style.bgGradient} ${style.border} p-2 text-left focus:outline-none focus:ring-2 focus:ring-primary/20 h-16`}
-        title={`View ${item.label}`}
+        className="group relative flex items-center justify-between p-4 rounded-xl cursor-pointer transition-all duration-300
+          bg-gradient-to-br from-card/80 to-card/60
+          shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05),0_1px_3px_rgba(0,0,0,0.1),0_1px_2px_rgba(0,0,0,0.06)]
+          hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.08),0_4px_12px_rgba(0,0,0,0.15),0_2px_4px_rgba(0,0,0,0.1)]
+          hover:translate-y-[-2px]
+          dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.05),inset_0_0_12px_rgba(0,0,0,0.2),0_2px_8px_rgba(0,0,0,0.3)]
+          dark:hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.08),inset_0_0_16px_rgba(0,0,0,0.25),0_4px_16px_rgba(0,0,0,0.4)]
+          border border-border/20"
       >
-        <div className="absolute inset-0 opacity-5">
-          <div className="absolute top-0 right-0 w-12 h-12 transform rotate-45 translate-x-4 -translate-y-4 bg-current rounded-full"></div>
-          <div className="absolute bottom-0 left-0 w-8 h-8 transform -rotate-45 -translate-x-3 translate-y-3 bg-current rounded-full"></div>
-        </div>
-
-        <div className="relative flex items-center justify-between h-full">
-          <div className="flex items-center gap-2">
-            <div
-              className={`p-1 rounded ${style.iconBg} shadow-sm shadow-black/10`}
-            >
-              <Icon className="h-3 w-3 text-white" />
-            </div>
-            <div>
-              <div className="text-xs text-muted-foreground leading-tight">
-                {item.label}
-              </div>
-              <div className="text-lg font-bold text-foreground leading-tight">
-                {animatedValue}
-              </div>
-            </div>
+        <div className="flex items-center gap-4">
+          <div
+            className={`relative p-3 rounded-xl ${style.iconBg} 
+            shadow-[inset_0_2px_4px_rgba(255,255,255,0.1),0_2px_8px_rgba(0,0,0,0.1)]
+            dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.05),0_2px_8px_rgba(0,0,0,0.3)]
+            group-hover:shadow-[inset_0_2px_4px_rgba(255,255,255,0.15),0_3px_12px_rgba(0,0,0,0.15)]
+            transition-shadow duration-300`}
+          >
+            <Icon className="h-5 w-5 text-white relative z-10" />
+            <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
           </div>
-          <ArrowRight className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+          <div>
+            <span className="text-sm font-semibold text-foreground/90 group-hover:text-foreground transition-colors">
+              {item.label}
+            </span>
+            <div className="h-0.5 w-0 group-hover:w-full bg-gradient-to-r from-primary/50 to-transparent transition-all duration-300 rounded-full mt-0.5" />
+          </div>
         </div>
-
-        <div className="absolute inset-0 bg-gradient-to-t from-black/5 dark:from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-        <div
-          className={`absolute bottom-0 left-0 right-0 h-0.5 ${style.accentBar} transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 ease-out origin-left`}
-        ></div>
-      </button>
+        <div className="flex items-center gap-3">
+          <span
+            className="text-2xl font-bold text-foreground tabular-nums
+            drop-shadow-[0_2px_4px_rgba(0,0,0,0.1)]
+            group-hover:drop-shadow-[0_2px_6px_rgba(0,0,0,0.15)]
+            transition-all duration-300"
+          >
+            {animatedValue}
+          </span>
+          <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground group-hover:translate-x-1 transition-all duration-300" />
+        </div>
+      </div>
     );
   };
 
   return (
-    <Card className="p-4 rounded-lg bg-muted-background border-0 shadow-none h-full  ">
-      <QAHeader
-        icon={Activity}
-        title="Production Pipeline"
-        subtitle="Overview of asset statuses"
-      />
+    <div className="h-full p-6">
+      <div className="flex items-center gap-3 mb-6">
+        <div className="relative">
+          <div className="p-3 bg-primary rounded-2xl shadow-[0_4px_16px_hsl(var(--primary),0.1)] dark:shadow-[0_4px_16px_hsl(var(--primary),0.2)]">
+            <Activity className="h-6 w-6 text-primary-foreground" />
+          </div>
+          <div className="absolute inset-0 bg-primary/30 rounded-2xl blur-sm -z-10" />
+        </div>
+        <div>
+          <h3 className="text-xl font-bold text-foreground">
+            Production Pipeline
+          </h3>
+          <p className="text-sm text-muted-foreground">
+            Overview of asset statuses
+          </p>
+        </div>
+      </div>
       {loading ? (
-        <div className="grid grid-cols-2 gap-2 mt-2">
+        <div className="grid grid-cols-2 gap-2.5">
           {[...Array(6)].map((_, i) => (
-            <div
-              key={i}
-              className="h-16 bg-muted animate-pulse rounded-md cursor-pointer"
-            />
+            <div key={i} className="h-16 bg-muted animate-pulse rounded-xl" />
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-2 mt-2">
+        <div className="grid grid-cols-2 gap-2.5">
           {items.map((item) => (
             <StatusStatCard key={item.key} item={item} />
           ))}
         </div>
       )}
-    </Card>
+    </div>
   );
 }
 
@@ -2298,88 +2262,166 @@ export function AdminQueuesWidget() {
     fetchQueues();
   }, []);
 
-  const List = () => {
-    const visible = showAll ? clientQueue : clientQueue.slice(0, 5);
+  if (loading) {
     return (
-      <div className="group relative overflow-hidden rounded-2xl  border-indigo-200  bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-950/50 dark:to-indigo-900/50 p-3 transition-all duration-300 ease-out">
-        <div className="absolute inset-0 opacity-5">
-          <div className="absolute top-0 right-0 w-20 h-20 transform rotate-45 translate-x-8 -translate-y-8 bg-current rounded-full"></div>
-          <div className="absolute bottom-0 left-0 w-16 h-16 transform -rotate-45 -translate-x-6 translate-y-6 bg-current rounded-full"></div>
-        </div>
-        <div className="flex items-center justify-between mb-2">
-          <div className="text-sm font-medium">New Uploads</div>
-          <Badge variant="outline" className="bg-indigo-50 text-indigo-700">
-            {clientQueue.length}
-          </Badge>
-        </div>
-        {loading ? (
-          <div className="h-16 bg-muted animate-pulse rounded" />
-        ) : clientQueue.length === 0 ? (
-          <div className="text-xs text-muted-foreground">Nothing here</div>
-        ) : (
-          <div className="space-y-1">
-            {visible.map((g) => (
-              <div
-                key={g.client}
-                className="group/item relative text-sm cursor-pointer rounded px-2 py-2 transition-all duration-200 hover:shadow-sm hover:-translate-y-[1px]"
-                onClick={() =>
-                  router.push(
-                    `/admin-review?client=${encodeURIComponent(g.client)}`
-                  )
-                }
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <div className="min-w-0">
-                    <div className="font-medium truncate">{g.client}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {g.count} assets
-                      {g.batches.length > 0
-                        ? ` • Batches: ${g.batches.join(", ")}`
-                        : ""}
-                    </div>
-                  </div>
-                  <ArrowRight className="h-3 w-3 text-muted-foreground opacity-0 group-hover/item:opacity-100 transition-opacity flex-shrink-0" />
-                </div>
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-500/60 transform scale-x-0 group-hover/item:scale-x-100 transition-transform duration-300 ease-out"></div>
-              </div>
-            ))}
+      <div className="h-full p-6">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="relative">
+            <div className="p-3 bg-primary rounded-2xl shadow-[0_4px_16px_hsl(var(--primary),0.1)] dark:shadow-[0_4px_16px_hsl(var(--primary),0.2)]">
+              <Folder className="h-6 w-6 text-primary-foreground" />
+            </div>
+            <div className="absolute inset-0 bg-primary/30 rounded-2xl blur-sm -z-10" />
           </div>
-        )}
-        <div className="mt-3 flex items-center gap-2">
-          {clientQueue.length > 5 && (
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => setShowAll((v) => !v)}
-              className="gap-1"
-            >
-              {showAll ? (
-                <>
-                  Show less <ChevronUp className="h-4 w-4" />
-                </>
-              ) : (
-                <>
-                  Show all <ChevronDown className="h-4 w-4" />
-                </>
-              )}
-            </Button>
-          )}
+          <div>
+            <h3 className="text-xl font-bold text-foreground">Client Queues</h3>
+            <p className="text-sm text-muted-foreground">
+              New uploads grouped by client
+            </p>
+          </div>
+        </div>
+        <div className="space-y-2.5">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="h-16 bg-muted animate-pulse rounded-xl" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  const visible = showAll ? clientQueue : clientQueue.slice(0, 5);
+  const totalAssets = clientQueue.reduce((sum, g) => sum + g.count, 0);
+
+  const ClientQueueCard: React.FC<{
+    item: { client: string; count: number; batches: number[] };
+  }> = ({ item }) => {
+    const animatedCount = useCountUp(item.count);
+    return (
+      <div
+        onClick={() =>
+          router.push(`/admin-review?client=${encodeURIComponent(item.client)}`)
+        }
+        className="group relative flex items-center justify-between p-4 rounded-xl cursor-pointer transition-all duration-300
+          bg-gradient-to-br from-card/80 to-card/60
+          shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05),0_1px_3px_rgba(0,0,0,0.1),0_1px_2px_rgba(0,0,0,0.06)]
+          hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.08),0_4px_12px_rgba(0,0,0,0.15),0_2px_4px_rgba(0,0,0,0.1)]
+          hover:translate-y-[-2px]
+          dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.05),inset_0_0_12px_rgba(0,0,0,0.2),0_2px_8px_rgba(0,0,0,0.3)]
+          dark:hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.08),inset_0_0_16px_rgba(0,0,0,0.25),0_4px_16px_rgba(0,0,0,0.4)]
+          border border-border/50"
+      >
+        <div className="flex items-center gap-4">
+          <div
+            className="relative p-3 rounded-xl bg-muted 
+            shadow-[inset_0_2px_4px_rgba(255,255,255,0.1),0_2px_8px_rgba(0,0,0,0.1)]
+            dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.05),0_2px_8px_rgba(0,0,0,0.3)]
+            group-hover:shadow-[inset_0_2px_4px_rgba(255,255,255,0.15),0_3px_12px_rgba(0,0,0,0.15)]
+            transition-shadow duration-300"
+          >
+            <Folder className="h-5 w-5 text-foreground relative z-10" />
+            <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <span className="text-sm font-semibold text-foreground/90 group-hover:text-foreground transition-colors block truncate">
+              {item.client}
+            </span>
+            <div className="h-0.5 w-0 group-hover:w-full bg-gradient-to-r from-primary/50 to-transparent transition-all duration-300 rounded-full mt-0.5" />
+            {item.batches.length > 0 && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Batches: {item.batches.join(", ")}
+              </p>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <span
+            className="text-2xl font-bold text-foreground tabular-nums
+            drop-shadow-[0_2px_4px_rgba(0,0,0,0.1)]
+            group-hover:drop-shadow-[0_2px_6px_rgba(0,0,0,0.15)]
+            transition-all duration-300"
+          >
+            {animatedCount}
+          </span>
+          <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground group-hover:translate-x-1 transition-all duration-300" />
         </div>
       </div>
     );
   };
 
   return (
-    <Card className="p-4 rounded-lg bg-muted-background border-0 shadow-none">
-      <QAHeader
-        icon={Folder}
-        title="Client Queues"
-        subtitle="New uploads grouped by client"
-      />
-      <div className="grid grid-cols-1 gap-4 mt-3">
-        <List />
+    <div className="h-full p-6">
+      <div className="flex items-center gap-3 mb-6">
+        <div className="relative">
+          <div className="p-3 bg-primary rounded-2xl shadow-[0_4px_16px_hsl(var(--primary),0.1)] dark:shadow-[0_4px_16px_hsl(var(--primary),0.2)]">
+            <Folder className="h-6 w-6 text-primary-foreground" />
+          </div>
+          <div className="absolute inset-0 bg-primary/30 rounded-2xl blur-sm -z-10" />
+        </div>
+        <div>
+          <h3 className="text-xl font-bold text-foreground">Client Queues</h3>
+          <p className="text-sm text-muted-foreground">
+            New uploads grouped by client
+          </p>
+        </div>
       </div>
-    </Card>
+      {clientQueue.length === 0 ? (
+        <div className="p-8 text-center">
+          <p className="text-sm text-muted-foreground">No new uploads</p>
+        </div>
+      ) : (
+        <>
+          <div className="space-y-2.5">
+            {visible.map((item) => (
+              <ClientQueueCard key={item.client} item={item} />
+            ))}
+          </div>
+          {clientQueue.length > 5 && (
+            <div className="mt-4">
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setShowAll((v) => !v)}
+                className="w-full gap-1.5"
+              >
+                {showAll ? (
+                  <>
+                    Show less <ChevronUp className="h-4 w-4" />
+                  </>
+                ) : (
+                  <>
+                    Show all ({clientQueue.length}){" "}
+                    <ChevronDown className="h-4 w-4" />
+                  </>
+                )}
+              </Button>
+            </div>
+          )}
+          {totalAssets > 0 && (
+            <div
+              className="mt-4 p-4 rounded-xl relative overflow-hidden
+              bg-gradient-to-br from-muted/80 to-muted/40
+              shadow-[inset_0_1px_0_0_rgba(255,255,255,0.1),0_2px_8px_rgba(0,0,0,0.1)]
+              dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.05),inset_0_0_12px_rgba(0,0,0,0.2)]
+              border border-border"
+            >
+              <div className="absolute inset-0 bg-gradient-to-br from-foreground/5 to-transparent" />
+              <div className="relative z-10">
+                <div className="flex items-center gap-2.5 mb-2">
+                  <div className="p-1.5 rounded-lg bg-muted shadow-inner">
+                    <Package className="h-4 w-4 text-foreground drop-shadow-sm" />
+                  </div>
+                  <span className="text-sm font-bold text-foreground bg-gradient-to-r from-foreground to-foreground/80 bg-clip-text">
+                    Total Assets
+                  </span>
+                </div>
+                <p className="text-sm text-muted-foreground font-medium pl-8">
+                  {totalAssets} assets pending from {clientQueue.length} clients
+                </p>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </div>
   );
 }
 
@@ -2563,14 +2605,25 @@ export function QAStatisticsWidget() {
 
   if (loading) {
     return (
-      <WidgetContainer>
-        <WidgetHeader title="QA Statistics" icon={ShieldCheck} />
-        <div className="space-y-3">
+      <div className="h-full p-6">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="relative">
+            <div className="p-3 bg-primary rounded-2xl shadow-[0_4px_16px_hsl(var(--primary),0.1)] dark:shadow-[0_4px_16px_hsl(var(--primary),0.2)]">
+              <ShieldCheck className="h-6 w-6 text-primary-foreground" />
+            </div>
+            <div className="absolute inset-0 bg-primary/30 rounded-2xl blur-sm -z-10" />
+          </div>
+          <div>
+            <h3 className="text-xl font-bold text-foreground">QA Statistics</h3>
+            <p className="text-sm text-muted-foreground">Performance metrics</p>
+          </div>
+        </div>
+        <div className="space-y-2.5">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-12 bg-muted rounded animate-pulse" />
+            <div key={i} className="h-16 bg-muted animate-pulse rounded-xl" />
           ))}
         </div>
-      </WidgetContainer>
+      </div>
     );
   }
 
@@ -2579,8 +2632,8 @@ export function QAStatisticsWidget() {
       title: "Total QAs",
       count: stats.totalQAs,
       animatedCount: animatedTotalQAs,
-      color: "text-info",
-      bg: "bg-info-muted",
+      color: "text-foreground",
+      bg: "bg-muted",
       icon: Users,
       action: () => router.push("/qa-statistics"),
     },
@@ -2588,8 +2641,8 @@ export function QAStatisticsWidget() {
       title: "Total Reviews",
       count: stats.totalReviews,
       animatedCount: animatedTotalReviews,
-      color: "text-accent-purple",
-      bg: "bg-purple-500/20",
+      color: "text-foreground",
+      bg: "bg-muted",
       icon: Eye,
       action: () => router.push("/qa-statistics"),
     },
@@ -2597,8 +2650,8 @@ export function QAStatisticsWidget() {
       title: "Total Approvals",
       count: stats.totalApprovals,
       animatedCount: animatedTotalApprovals,
-      color: "text-success",
-      bg: "bg-success-muted",
+      color: "text-foreground",
+      bg: "bg-muted",
       icon: CheckCircle,
       action: () => router.push("/qa-statistics"),
     },
@@ -2606,53 +2659,101 @@ export function QAStatisticsWidget() {
       title: "Avg Reviews/QA",
       count: stats.averageReviewsPerQA,
       animatedCount: animatedAverageReviews,
-      color: "text-warning",
-      bg: "bg-warning-muted",
+      color: "text-foreground",
+      bg: "bg-muted",
       icon: TrendingUp,
       action: () => router.push("/qa-statistics"),
     },
   ];
 
   return (
-    <WidgetContainer>
-      <WidgetHeader title="QA Statistics" icon={ShieldCheck} />
-      <div className="space-y-3">
+    <div className="h-full p-6">
+      <div className="flex items-center gap-3 mb-6">
+        <div className="relative">
+          <div className="p-3 bg-primary rounded-2xl shadow-[0_4px_16px_hsl(var(--primary),0.1)] dark:shadow-[0_4px_16px_hsl(var(--primary),0.2)]">
+            <ShieldCheck className="h-6 w-6 text-primary-foreground" />
+          </div>
+          <div className="absolute inset-0 bg-primary/30 rounded-2xl blur-sm -z-10" />
+        </div>
+        <div>
+          <h3 className="text-xl font-bold text-foreground">QA Statistics</h3>
+          <p className="text-sm text-muted-foreground">Performance metrics</p>
+        </div>
+      </div>
+      <div className="space-y-2.5">
         {qaStatsItems.map((item) => (
           <div
             key={item.title}
             onClick={item.action}
-            className="flex items-center justify-between p-3 rounded-lg bg-background hover:bg-accent border border-border cursor-pointer transition-colors"
+            className="group relative flex items-center justify-between p-4 rounded-xl cursor-pointer transition-all duration-300
+              bg-gradient-to-br from-card/80 to-card/60
+              shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05),0_1px_3px_rgba(0,0,0,0.1),0_1px_2px_rgba(0,0,0,0.06)]
+              hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.08),0_4px_12px_rgba(0,0,0,0.15),0_2px_4px_rgba(0,0,0,0.1)]
+              hover:translate-y-[-2px]
+              dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.05),inset_0_0_12px_rgba(0,0,0,0.2),0_2px_8px_rgba(0,0,0,0.3)]
+              dark:hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.08),inset_0_0_16px_rgba(0,0,0,0.25),0_4px_16px_rgba(0,0,0,0.4)]
+              border border-border/50"
           >
-            <div className="flex items-center gap-3">
-              <div className={`p-2 rounded ${item.bg}`}>
-                <item.icon className={`h-4 w-4 ${item.color}`} />
+            <div className="flex items-center gap-4">
+              <div
+                className={`relative p-3 rounded-xl ${item.bg} 
+                shadow-[inset_0_2px_4px_rgba(255,255,255,0.1),0_2px_8px_rgba(0,0,0,0.1)]
+                dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.05),0_2px_8px_rgba(0,0,0,0.3)]
+                group-hover:shadow-[inset_0_2px_4px_rgba(255,255,255,0.15),0_3px_12px_rgba(0,0,0,0.15)]
+                transition-shadow duration-300`}
+              >
+                <item.icon className={`h-5 w-5 ${item.color} relative z-10`} />
+                <div
+                  className={`absolute inset-0 rounded-xl bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300`}
+                />
               </div>
-              <span className="text-sm font-medium">{item.title}</span>
+              <div>
+                <span className="text-sm font-semibold text-foreground/90 group-hover:text-foreground transition-colors">
+                  {item.title}
+                </span>
+                <div className="h-0.5 w-0 group-hover:w-full bg-gradient-to-r from-primary/50 to-transparent transition-all duration-300 rounded-full mt-0.5" />
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <span className={`text-lg font-bold ${item.color}`}>
+            <div className="flex items-center gap-3">
+              <span
+                className={`text-2xl font-bold ${item.color} tabular-nums
+                drop-shadow-[0_2px_4px_rgba(0,0,0,0.1)]
+                group-hover:drop-shadow-[0_2px_6px_rgba(0,0,0,0.15)]
+                transition-all duration-300`}
+              >
                 {item.animatedCount}
               </span>
-              <ArrowRight className="h-4 w-4 text-muted-foreground" />
+              <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground group-hover:translate-x-1 transition-all duration-300" />
             </div>
           </div>
         ))}
         {stats.topQA.email && stats.topQA.email !== "No QAs" && (
-          <div className="mt-3 p-3 bg-info-muted rounded-lg border border-info">
-            <div className="flex items-center gap-2 mb-1">
-              <ShieldCheck className="h-4 w-4 text-info" />
-              <span className="text-sm font-medium text-foreground">
-                Top Performer
-              </span>
+          <div
+            className="mt-4 p-4 rounded-xl relative overflow-hidden
+            bg-gradient-to-br from-muted/80 to-muted/40
+            shadow-[inset_0_1px_0_0_rgba(255,255,255,0.1),0_2px_8px_rgba(0,0,0,0.1)]
+            dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.05),inset_0_0_12px_rgba(0,0,0,0.2)]
+            border border-border"
+          >
+            <div className="absolute inset-0 bg-gradient-to-br from-foreground/5 to-transparent" />
+            <div className="relative z-10">
+              <div className="flex items-center gap-2.5 mb-2">
+                <div className="p-1.5 rounded-lg bg-muted shadow-inner">
+                  <ShieldCheck className="h-4 w-4 text-foreground drop-shadow-sm" />
+                </div>
+                <span className="text-sm font-bold text-foreground bg-gradient-to-r from-foreground to-foreground/80 bg-clip-text">
+                  Top Performer
+                </span>
+              </div>
+              <p className="text-sm text-muted-foreground font-medium pl-8">
+                {stats.topQA.email} • {stats.topQA.reviews} reviews •{" "}
+                {stats.topQA.approvals} approvals
+              </p>
             </div>
-            <p className="text-xs text-info">
-              {stats.topQA.email} • {stats.topQA.reviews} reviews •{" "}
-              {stats.topQA.approvals} approvals
-            </p>
           </div>
         )}
       </div>
-    </WidgetContainer>
+    </div>
   );
 }
 
@@ -3217,14 +3318,25 @@ export function CostSummaryWidget() {
 
   if (loading) {
     return (
-      <WidgetContainer>
-        <WidgetHeader title="Cost Summary" icon={DollarSign} />
-        <div className="space-y-3">
+      <div className="h-full p-6">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="relative">
+            <div className="p-3 bg-primary rounded-2xl shadow-[0_4px_16px_hsl(var(--primary),0.1)] dark:shadow-[0_4px_16px_hsl(var(--primary),0.2)]">
+              <DollarSign className="h-6 w-6 text-primary-foreground" />
+            </div>
+            <div className="absolute inset-0 bg-primary/30 rounded-2xl blur-sm -z-10" />
+          </div>
+          <div>
+            <h3 className="text-xl font-bold text-foreground">Cost Summary</h3>
+            <p className="text-sm text-muted-foreground">Production costs</p>
+          </div>
+        </div>
+        <div className="space-y-2.5">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-12 bg-gray-100 rounded animate-pulse" />
+            <div key={i} className="h-16 bg-muted animate-pulse rounded-xl" />
           ))}
         </div>
-      </WidgetContainer>
+      </div>
     );
   }
 
@@ -3233,8 +3345,8 @@ export function CostSummaryWidget() {
       title: "Total Cost",
       count: stats.totalCost,
       animatedCount: animatedTotalCost,
-      color: "text-red-600",
-      bg: "bg-red-500/20",
+      color: "text-foreground",
+      bg: "bg-muted",
       icon: DollarSign,
       action: () => router.push("/production/cost-tracking"),
       prefix: "€",
@@ -3243,8 +3355,8 @@ export function CostSummaryWidget() {
       title: "Monthly Avg",
       count: stats.monthlyAverage,
       animatedCount: animatedMonthlyAverage,
-      color: "text-blue-600",
-      bg: "bg-blue-500/20",
+      color: "text-foreground",
+      bg: "bg-muted",
       icon: TrendingUp,
       action: () => router.push("/production/cost-tracking"),
       prefix: "€",
@@ -3253,8 +3365,8 @@ export function CostSummaryWidget() {
       title: "Completed Assets",
       count: stats.totalCompletedAssets,
       animatedCount: animatedCompletedAssets,
-      color: "text-green-600",
-      bg: "bg-green-500/20",
+      color: "text-foreground",
+      bg: "bg-muted",
       icon: CheckCircle,
       action: () => router.push("/production/cost-tracking"),
     },
@@ -3262,8 +3374,8 @@ export function CostSummaryWidget() {
       title: "Cost/Asset",
       count: stats.costEfficiency,
       animatedCount: animatedCostEfficiency,
-      color: "text-purple-600",
-      bg: "bg-purple-500/20",
+      color: "text-foreground",
+      bg: "bg-muted",
       icon: BarChart3,
       action: () => router.push("/production/cost-tracking"),
       prefix: "€",
@@ -3271,44 +3383,92 @@ export function CostSummaryWidget() {
   ];
 
   return (
-    <WidgetContainer>
-      <WidgetHeader title="Cost Summary" icon={DollarSign} />
-      <div className="space-y-3">
+    <div className="h-full p-6">
+      <div className="flex items-center gap-3 mb-6">
+        <div className="relative">
+          <div className="p-3 bg-primary rounded-2xl shadow-[0_4px_16px_hsl(var(--primary),0.1)] dark:shadow-[0_4px_16px_hsl(var(--primary),0.2)]">
+            <DollarSign className="h-6 w-6 text-primary-foreground" />
+          </div>
+          <div className="absolute inset-0 bg-primary/30 rounded-2xl blur-sm -z-10" />
+        </div>
+        <div>
+          <h3 className="text-xl font-bold text-foreground">Cost Summary</h3>
+          <p className="text-sm text-muted-foreground">Production costs</p>
+        </div>
+      </div>
+      <div className="space-y-2.5">
         {costStatsItems.map((item) => (
           <div
             key={item.title}
             onClick={item.action}
-            className="flex items-center justify-between p-3 rounded-lg bg-background hover:bg-accent border border-border cursor-pointer transition-colors"
+            className="group relative flex items-center justify-between p-4 rounded-xl cursor-pointer transition-all duration-300
+              bg-gradient-to-br from-card/80 to-card/60
+              shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05),0_1px_3px_rgba(0,0,0,0.1),0_1px_2px_rgba(0,0,0,0.06)]
+              hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.08),0_4px_12px_rgba(0,0,0,0.15),0_2px_4px_rgba(0,0,0,0.1)]
+              hover:translate-y-[-2px]
+              dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.05),inset_0_0_12px_rgba(0,0,0,0.2),0_2px_8px_rgba(0,0,0,0.3)]
+              dark:hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.08),inset_0_0_16px_rgba(0,0,0,0.25),0_4px_16px_rgba(0,0,0,0.4)]
+              border border-border/50"
           >
-            <div className="flex items-center gap-3">
-              <div className={`p-2 rounded ${item.bg}`}>
-                <item.icon className={`h-4 w-4 ${item.color}`} />
+            <div className="flex items-center gap-4">
+              <div
+                className={`relative p-3 rounded-xl ${item.bg} 
+                shadow-[inset_0_2px_4px_rgba(255,255,255,0.1),0_2px_8px_rgba(0,0,0,0.1)]
+                dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.05),0_2px_8px_rgba(0,0,0,0.3)]
+                group-hover:shadow-[inset_0_2px_4px_rgba(255,255,255,0.15),0_3px_12px_rgba(0,0,0,0.15)]
+                transition-shadow duration-300`}
+              >
+                <item.icon className={`h-5 w-5 ${item.color} relative z-10`} />
+                <div
+                  className={`absolute inset-0 rounded-xl bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300`}
+                />
               </div>
-              <span className="text-sm font-medium">{item.title}</span>
+              <div>
+                <span className="text-sm font-semibold text-foreground/90 group-hover:text-foreground transition-colors">
+                  {item.title}
+                </span>
+                <div className="h-0.5 w-0 group-hover:w-full bg-gradient-to-r from-primary/50 to-transparent transition-all duration-300 rounded-full mt-0.5" />
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <span className={`text-lg font-bold ${item.color}`}>
+            <div className="flex items-center gap-3">
+              <span
+                className={`text-2xl font-bold ${item.color} tabular-nums
+                drop-shadow-[0_2px_4px_rgba(0,0,0,0.1)]
+                group-hover:drop-shadow-[0_2px_6px_rgba(0,0,0,0.15)]
+                transition-all duration-300`}
+              >
                 {item.prefix || ""}
                 {item.animatedCount}
               </span>
-              <ArrowRight className="h-4 w-4 text-muted-foreground" />
+              <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground group-hover:translate-x-1 transition-all duration-300" />
             </div>
           </div>
         ))}
         {stats.topModelerEmail && (
-          <div className="mt-3 p-3 bg-error-muted rounded-lg border border-error">
-            <div className="flex items-center gap-2 mb-1">
-              <DollarSign className="h-4 w-4 text-error" />
-              <span className="text-sm font-medium text-foreground">
-                Highest Cost
-              </span>
+          <div
+            className="mt-4 p-4 rounded-xl relative overflow-hidden
+            bg-gradient-to-br from-muted/80 to-muted/40
+            shadow-[inset_0_1px_0_0_rgba(255,255,255,0.1),0_2px_8px_rgba(0,0,0,0.1)]
+            dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.05),inset_0_0_12px_rgba(0,0,0,0.2)]
+            border border-border"
+          >
+            <div className="absolute inset-0 bg-gradient-to-br from-foreground/5 to-transparent" />
+            <div className="relative z-10">
+              <div className="flex items-center gap-2.5 mb-2">
+                <div className="p-1.5 rounded-lg bg-muted shadow-inner">
+                  <DollarSign className="h-4 w-4 text-foreground drop-shadow-sm" />
+                </div>
+                <span className="text-sm font-bold text-foreground bg-gradient-to-r from-foreground to-foreground/80 bg-clip-text">
+                  Highest Cost
+                </span>
+              </div>
+              <p className="text-sm text-muted-foreground font-medium pl-8">
+                {stats.topModelerEmail} • €{stats.topModelerCost} total cost
+              </p>
             </div>
-            <p className="text-xs text-error">
-              {stats.topModelerEmail} • €{stats.topModelerCost} total cost
-            </p>
           </div>
         )}
       </div>
-    </WidgetContainer>
+    </div>
   );
 }

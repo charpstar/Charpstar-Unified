@@ -78,7 +78,11 @@ export default function SceneRenderPage() {
   // Multi-asset mode states
   const [multiAssetMode, setMultiAssetMode] = useState(false);
   const [capturedAssets, setCapturedAssets] = useState<
-    Array<{ snapshot: string; name: string }>
+    Array<{
+      snapshot: string;
+      name: string;
+      dimensions: { x: number; y: number; z: number } | null;
+    }>
   >([]);
   const [isCapturingAssets, setIsCapturingAssets] = useState(false);
   const [isDoneCapturing, setIsDoneCapturing] = useState(false);
@@ -148,13 +152,19 @@ export default function SceneRenderPage() {
     }
   };
 
-  const handleCaptureAsset = (snapshot: string) => {
+  const handleCaptureAsset = (
+    snapshot: string,
+    dimensions: { x: number; y: number; z: number } | null
+  ) => {
     // Add captured asset to the list
     const assetName =
       selectedFile?.name ||
       selectedModelUrl?.split("/").pop() ||
       `Asset ${capturedAssets.length + 1}`;
-    setCapturedAssets([...capturedAssets, { snapshot, name: assetName }]);
+    setCapturedAssets([
+      ...capturedAssets,
+      { snapshot, name: assetName, dimensions },
+    ]);
 
     // Reset for next asset selection
     setSelectedFile(null);
@@ -171,7 +181,7 @@ export default function SceneRenderPage() {
   ) => {
     // Multi-asset mode: capture each asset
     if (multiAssetMode && isCapturingAssets) {
-      handleCaptureAsset(snapshots[0]);
+      handleCaptureAsset(snapshots[0], null);
       return;
     }
 
@@ -429,6 +439,7 @@ export default function SceneRenderPage() {
                 <SceneConfigurator
                   onGenerate={handleGenerate}
                   onCancel={handleCancel}
+                  capturedAssets={capturedAssets}
                 />
               </div>
             </div>
@@ -465,6 +476,7 @@ export default function SceneRenderPage() {
                     ? "Capture Asset"
                     : "Generate Scene"
                 }
+                onCaptureAsset={handleCaptureAsset}
               />
             </div>
           )

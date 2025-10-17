@@ -8,8 +8,6 @@ import { supabase } from "@/lib/supabaseClient";
 import { Button } from "@/components/ui/display";
 import { Badge } from "@/components/ui/feedback";
 
-import { Skeleton } from "@/components/ui/skeletons";
-
 import {
   Users,
   CheckCircle,
@@ -48,11 +46,14 @@ function QAWidgetHeader({
 }) {
   return (
     <div className="flex items-center gap-3 mb-6">
-      <div className="p-2 bg-muted rounded-lg">
-        <Icon className="h-5 w-5 text-foreground" />
+      <div className="relative">
+        <div className="p-3 bg-primary rounded-2xl shadow-[0_4px_16px_hsl(var(--primary),0.1)] dark:shadow-[0_4px_16px_hsl(var(--primary),0.2)]">
+          <Icon className="h-6 w-6 text-primary-foreground" />
+        </div>
+        <div className="absolute inset-0 bg-primary/30 rounded-2xl blur-sm -z-10" />
       </div>
       <div>
-        <h3 className="text-lg font-semibold text-foreground">{title}</h3>
+        <h3 className="text-xl font-bold text-foreground">{title}</h3>
         {subtitle ? (
           <p className="text-sm text-muted-foreground">{subtitle}</p>
         ) : null}
@@ -310,35 +311,15 @@ export default function QAWidgets() {
 
   if (loading) {
     return (
-      <div className="h-full flex flex-col">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="p-2 bg-gray-100 rounded-lg">
-            <Users className="h-5 w-5 text-gray-600" />
-          </div>
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900">Projects</h3>
-            <p className="text-sm text-gray-500">
-              Your allocated project teams
-            </p>
-          </div>
-        </div>
-        <div className="flex-1 space-y-4">
+      <div className="h-full flex flex-col p-6">
+        <QAWidgetHeader
+          icon={Users}
+          title="Projects"
+          subtitle="Your allocated project teams"
+        />
+        <div className="flex-1 space-y-3">
           {[1, 2, 3].map((i) => (
-            <div
-              key={i}
-              className="bg-card border border-border rounded-xl p-4 shadow-sm"
-            >
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-3">
-                  <div className="h-5 w-32 bg-muted animate-pulse rounded" />
-                  <div className="h-5 w-16 bg-muted/50 animate-pulse rounded-full" />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <div className="h-4 w-full bg-muted animate-pulse rounded" />
-                <div className="h-4 w-2/3 bg-muted animate-pulse rounded" />
-              </div>
-            </div>
+            <div key={i} className="h-24 bg-muted animate-pulse rounded-xl" />
           ))}
         </div>
       </div>
@@ -347,18 +328,12 @@ export default function QAWidgets() {
 
   if (projects.length === 0) {
     return (
-      <div className="h-full flex flex-col">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="p-2 bg-gray-100 rounded-lg">
-            <Users className="h-5 w-5 text-gray-600" />
-          </div>
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900">Projects</h3>
-            <p className="text-sm text-gray-500">
-              Your allocated project teams
-            </p>
-          </div>
-        </div>
+      <div className="h-full flex flex-col p-6">
+        <QAWidgetHeader
+          icon={Users}
+          title="Projects"
+          subtitle="Your allocated project teams"
+        />
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center py-12">
             <div className="p-4 bg-muted rounded-full w-fit mx-auto mb-4">
@@ -378,25 +353,39 @@ export default function QAWidgets() {
   }
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col p-6">
       <QAWidgetHeader
         icon={Users}
         title="Projects"
         subtitle="Your allocated project teams"
       />
       <div className="flex-1 min-h-0">
-        <div className="max-h-[30vh] overflow-y-auto space-y-4">
+        <div className="max-h-[45vh] overflow-y-auto space-y-3">
           {projects.map((p) => {
             const value = `${p.client}-${p.batch}`;
             return (
               <div
                 key={value}
-                className="bg-card border border-border rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow"
+                className="group relative rounded-xl p-5 transition-all duration-300
+                  bg-gradient-to-br from-card/80 to-card/60
+                  shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05),0_1px_3px_rgba(0,0,0,0.1),0_1px_2px_rgba(0,0,0,0.06)]
+                  hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.08),0_4px_12px_rgba(0,0,0,0.15),0_2px_4px_rgba(0,0,0,0.1)]
+                  hover:translate-y-[-2px]
+                  dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.05),inset_0_0_12px_rgba(0,0,0,0.2),0_2px_8px_rgba(0,0,0,0.3)]
+                  dark:hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.08),inset_0_0_16px_rgba(0,0,0,0.25),0_4px_16px_rgba(0,0,0,0.4)]
+                  border border-border/50"
               >
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-3">
-                    <div className="p-2 bg-muted rounded-lg">
-                      <Users className="h-4 w-4 text-muted-foreground" />
+                    <div
+                      className="relative p-3 rounded-xl bg-muted 
+                      shadow-[inset_0_2px_4px_rgba(255,255,255,0.1),0_2px_8px_rgba(0,0,0,0.1)]
+                      dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.05),0_2px_8px_rgba(0,0,0,0.3)]
+                      group-hover:shadow-[inset_0_2px_4px_rgba(255,255,255,0.15),0_3px_12px_rgba(0,0,0,0.15)]
+                      transition-shadow duration-300"
+                    >
+                      <Users className="h-5 w-5 text-foreground relative z-10" />
+                      <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                     </div>
                     <div>
                       <h4 className="font-semibold text-foreground">
@@ -416,11 +405,18 @@ export default function QAWidgets() {
                   </Badge>
                 </div>
 
-                <div className="space-y-3">
+                <div className="space-y-2">
                   {p.modelers.map((m) => (
                     <div
                       key={m.id}
-                      className="flex items-center justify-between p-3 bg-muted rounded-lg hover:bg-muted/80 transition-colors"
+                      className="flex items-center justify-between p-3 bg-muted/50 rounded-lg hover:bg-muted transition-colors cursor-pointer"
+                      onClick={() =>
+                        router.push(
+                          `/qa-review?modeler=${m.id}&client=${encodeURIComponent(
+                            p.client
+                          )}&batch=${p.batch}`
+                        )
+                      }
                     >
                       <div className="flex items-center gap-3 flex-1 min-w-0">
                         <div className="p-1.5 bg-card rounded-md shadow-sm">
@@ -435,21 +431,7 @@ export default function QAWidgets() {
                           </p>
                         </div>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground hover:bg-card"
-                        title="View QA review for this modeler"
-                        onClick={() =>
-                          router.push(
-                            `/qa-review?modeler=${m.id}&client=${encodeURIComponent(
-                              p.client
-                            )}&batch=${p.batch}`
-                          )
-                        }
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
+                      <Eye className="h-4 w-4 text-muted-foreground" />
                     </div>
                   ))}
                 </div>
@@ -748,21 +730,14 @@ export function PersonalMetricsWidget() {
 
   if (loading) {
     return (
-      <div className="h-full flex flex-col">
+      <div className="h-full flex flex-col p-6">
         <QAWidgetHeader
           icon={BarChart3}
           title="Personal Metrics"
           subtitle="Your QA performance overview"
         />
-        <div className="flex-1 space-y-4">
-          <div className="grid grid-cols-3 gap-4 h-50">
-            <div className="bg-card h-20 border border-border rounded-xl p-4 shadow-sm"></div>
-            <div className="bg-card h-20 border border-border rounded-xl p-4 shadow-sm"></div>
-            <div className="bg-card h-20 border border-border rounded-xl p-4 shadow-sm"></div>
-          </div>
-          <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
-            <Skeleton className="h-32 w-full rounded" />
-          </div>
+        <div className="flex-1">
+          <div className="h-48 bg-muted animate-pulse rounded-xl" />
         </div>
       </div>
     );
@@ -770,7 +745,7 @@ export function PersonalMetricsWidget() {
 
   if (!metrics) {
     return (
-      <div className="h-full flex flex-col">
+      <div className="h-full flex flex-col p-6">
         <QAWidgetHeader
           icon={BarChart3}
           title="Personal Metrics"
@@ -836,7 +811,7 @@ export function PersonalMetricsWidget() {
       : "0.0";
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col p-6">
       <QAWidgetHeader
         icon={BarChart3}
         title="Personal Metrics"
@@ -844,12 +819,14 @@ export function PersonalMetricsWidget() {
       />
 
       <div className="flex-1 space-y-6">
-        {/* Key Statistics */}
-
-        {/* Selected day overview */}
-
         {/* Chart */}
-        <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
+        <div
+          className="relative rounded-xl p-6 transition-all duration-300
+          bg-gradient-to-br from-card/80 to-card/60
+          shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05),0_1px_3px_rgba(0,0,0,0.1),0_1px_2px_rgba(0,0,0,0.06)]
+          dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.05),inset_0_0_12px_rgba(0,0,0,0.2),0_2px_8px_rgba(0,0,0,0.3)]
+          border border-border/50"
+        >
           <div className="mb-4">
             <h4 className="font-semibold text-foreground mb-1">
               Weekly Activity
@@ -1045,7 +1022,7 @@ export function WaitingForApprovalWidget() {
 
   if (loading) {
     return (
-      <div className="h-full flex flex-col">
+      <div className="h-full flex flex-col p-6">
         <QAWidgetHeader
           icon={Clock}
           title="Waiting for Approval"
@@ -1053,22 +1030,7 @@ export function WaitingForApprovalWidget() {
         />
         <div className="flex-1 space-y-3">
           {[...Array(4)].map((_, i) => (
-            <div
-              key={i}
-              className="bg-card border border-border rounded-xl p-4 shadow-sm"
-            >
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-3">
-                  <div className="w-5 h-5 bg-muted rounded animate-pulse" />
-                  <div className="h-4 w-32 bg-muted rounded animate-pulse" />
-                </div>
-                <div className="w-16 h-6 bg-muted rounded-full animate-pulse" />
-              </div>
-              <div className="space-y-2">
-                <div className="h-3 w-full bg-muted rounded animate-pulse" />
-                <div className="h-3 w-2/3 bg-muted rounded animate-pulse" />
-              </div>
-            </div>
+            <div key={i} className="h-20 bg-muted animate-pulse rounded-xl" />
           ))}
         </div>
       </div>
@@ -1077,7 +1039,7 @@ export function WaitingForApprovalWidget() {
 
   if (assets.length === 0) {
     return (
-      <div className="h-full flex flex-col">
+      <div className="h-full flex flex-col p-6">
         <QAWidgetHeader
           icon={Clock}
           title="Waiting for Approval"
@@ -1100,7 +1062,7 @@ export function WaitingForApprovalWidget() {
   }
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col p-6">
       <div className="flex items-center justify-between mb-6">
         <QAWidgetHeader
           icon={Clock}
@@ -1125,7 +1087,17 @@ export function WaitingForApprovalWidget() {
           {(expanded ? assets : assets.slice(0, 5)).map((asset) => (
             <div
               key={asset.id}
-              className="bg-card border border-border rounded-xl p-4 shadow-sm hover:shadow-md transition-all duration-200 hover:border-muted-foreground/20"
+              className="group relative rounded-xl p-4 transition-all duration-300 cursor-pointer
+                bg-gradient-to-br from-card/80 to-card/60
+                shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05),0_1px_3px_rgba(0,0,0,0.1),0_1px_2px_rgba(0,0,0,0.06)]
+                hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.08),0_4px_12px_rgba(0,0,0,0.15),0_2px_4px_rgba(0,0,0,0.1)]
+                hover:translate-y-[-2px]
+                dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.05),inset_0_0_12px_rgba(0,0,0,0.2),0_2px_8px_rgba(0,0,0,0.3)]
+                dark:hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.08),inset_0_0_16px_rgba(0,0,0,0.25),0_4px_16px_rgba(0,0,0,0.4)]
+                border border-border/50"
+              onClick={() =>
+                window.open(`/client-review/${asset.id}`, "_blank")
+              }
             >
               <div className="flex items-start justify-between mb-3">
                 <div className="flex-1 min-w-0">
@@ -1165,16 +1137,7 @@ export function WaitingForApprovalWidget() {
                   >
                     {getPriorityLabel(asset.priority)}
                   </span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground hover:bg-muted"
-                    onClick={() =>
-                      window.open(`/client-review/${asset.id}`, "_blank")
-                    }
-                  >
-                    <Eye className="h-4 w-4" />
-                  </Button>
+                  <Eye className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
                 </div>
               </div>
             </div>
@@ -1183,20 +1146,18 @@ export function WaitingForApprovalWidget() {
           {assets.length > 5 && (
             <div className="text-center pt-4">
               <Button
-                variant="outline"
+                variant="ghost"
                 size="sm"
-                className="text-muted-foreground hover:text-foreground hover:bg-muted"
+                className="w-full text-muted-foreground hover:text-foreground hover:bg-muted gap-2"
                 onClick={() => setExpanded((v) => !v)}
               >
                 {expanded ? (
                   <>
-                    <AlertCircle className="h-4 w-4 mr-2" />
-                    Show Less
+                    Show Less <AlertCircle className="h-4 w-4" />
                   </>
                 ) : (
                   <>
-                    <Eye className="h-4 w-4 mr-2" />
-                    View All ({assets.length})
+                    View All ({assets.length}) <Eye className="h-4 w-4" />
                   </>
                 )}
               </Button>

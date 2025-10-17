@@ -1,12 +1,6 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/containers";
 import { Button } from "@/components/ui/display";
 import { Badge } from "@/components/ui/feedback";
 import {
@@ -211,51 +205,72 @@ export default function QACommentsWidget() {
 
   if (loading) {
     return (
-      <Card className="h-full">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Star className="h-5 w-5 text-yellow-500" />
-            Priority QA Comments
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="animate-pulse">
-                <div className="h-4 bg-muted rounded w-3/4 mb-2"></div>
-                <div className="h-3 bg-muted rounded w-1/2"></div>
-              </div>
-            ))}
+      <div className="h-full flex flex-col p-6">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="relative">
+            <div className="p-3 bg-primary rounded-2xl shadow-[0_4px_16px_hsl(var(--primary),0.1)] dark:shadow-[0_4px_16px_hsl(var(--primary),0.2)]">
+              <Star className="h-6 w-6 text-primary-foreground" />
+            </div>
+            <div className="absolute inset-0 bg-primary/30 rounded-2xl blur-sm -z-10" />
           </div>
-        </CardContent>
-      </Card>
+          <div>
+            <h3 className="text-xl font-bold text-foreground">
+              Priority QA Comments
+            </h3>
+            <p className="text-sm text-muted-foreground">
+              Important notes from your QA team
+            </p>
+          </div>
+        </div>
+        <div className="flex-1 space-y-3">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-20 bg-muted animate-pulse rounded-xl" />
+          ))}
+        </div>
+      </div>
     );
   }
 
   return (
-    <Card className="h-full">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Star className="h-5 w-5 text-yellow-500" />
-          Priority QA Comments
-          {priorityComments.length > 0 && (
-            <Badge variant="secondary" className="ml-auto">
-              {priorityComments.length}
-            </Badge>
-          )}
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
+    <div className="h-full flex flex-col p-6">
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <div className="p-3 bg-primary rounded-2xl shadow-[0_4px_16px_hsl(var(--primary),0.1)] dark:shadow-[0_4px_16px_hsl(var(--primary),0.2)]">
+              <Star className="h-6 w-6 text-primary-foreground" />
+            </div>
+            <div className="absolute inset-0 bg-primary/30 rounded-2xl blur-sm -z-10" />
+          </div>
+          <div>
+            <h3 className="text-xl font-bold text-foreground">
+              Priority QA Comments
+            </h3>
+            <p className="text-sm text-muted-foreground">
+              Important notes from your QA team
+            </p>
+          </div>
+        </div>
+        {priorityComments.length > 0 && (
+          <Badge variant="secondary" className="ml-auto">
+            {priorityComments.length}
+          </Badge>
+        )}
+      </div>
+      <div className="flex-1 min-h-0">
         {priorityComments.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">
-            <Star className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
-            <p className="text-sm">No priority comments yet</p>
-            <p className="text-xs text-muted-foreground/70">
+          <div className="text-center py-12">
+            <div className="p-4 bg-muted rounded-full w-fit mx-auto mb-4">
+              <Star className="h-8 w-8 text-muted-foreground" />
+            </div>
+            <h4 className="text-foreground font-medium mb-2">
+              No priority comments yet
+            </h4>
+            <p className="text-sm text-muted-foreground max-w-xs mx-auto">
               QAs can star important comments for you to see here
             </p>
           </div>
         ) : (
-          <div className="space-y-4 max-h-126 overflow-y-auto">
+          <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
             {priorityComments.map((comment) => {
               const urgency = getUrgencyLevel(comment.comment);
               const UrgencyIcon = urgency.icon;
@@ -263,7 +278,14 @@ export default function QACommentsWidget() {
               return (
                 <div
                   key={comment.id}
-                  className="p-3 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer group"
+                  className="group relative rounded-xl p-4 transition-all duration-300 cursor-pointer
+                    bg-gradient-to-br from-card/80 to-card/60
+                    shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05),0_1px_3px_rgba(0,0,0,0.1),0_1px_2px_rgba(0,0,0,0.06)]
+                    hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.08),0_4px_12px_rgba(0,0,0,0.15),0_2px_4px_rgba(0,0,0,0.1)]
+                    hover:translate-y-[-2px]
+                    dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.05),inset_0_0_12px_rgba(0,0,0,0.2),0_2px_8px_rgba(0,0,0,0.3)]
+                    dark:hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.08),inset_0_0_16px_rgba(0,0,0,0.25),0_4px_16px_rgba(0,0,0,0.4)]
+                    border border-border/50"
                   onClick={() => handleCommentClick(comment.asset_id)}
                 >
                   <div className="flex items-start justify-between gap-2 mb-2">
@@ -328,9 +350,9 @@ export default function QACommentsWidget() {
         )}
 
         {priorityComments.length > 0 && (
-          <div className="mt-4 pt-3 border-t">
+          <div className="mt-4">
             <Button
-              variant="outline"
+              variant="ghost"
               size="sm"
               className="w-full text-xs"
               onClick={() => router.push("/my-assignments")}
@@ -339,7 +361,7 @@ export default function QACommentsWidget() {
             </Button>
           </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
