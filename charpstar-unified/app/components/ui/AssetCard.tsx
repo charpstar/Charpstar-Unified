@@ -385,6 +385,8 @@ export default function AssetCard({
                     <motion.img
                       src={previewImageUrl}
                       alt={asset.product_name}
+                      loading="lazy"
+                      decoding="async"
                       className={`w-full h-full object-contain transition-transform duration-500 ${
                         imgLoaded ? "scale-100" : "scale-105 blur-sm"
                       }`}
@@ -609,6 +611,8 @@ export default function AssetCard({
                     <motion.img
                       src={previewImageUrl}
                       alt={asset.product_name}
+                      loading="lazy"
+                      decoding="async"
                       className={`w-full object-contain transition-transform duration-500 ${
                         imgLoaded ? "scale-100" : "scale-105 blur-sm"
                       } ${isCompactMode ? "h-24" : "h-36"}`}

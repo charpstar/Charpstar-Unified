@@ -308,8 +308,8 @@ export default function AssetLibraryPanel({
                         {selectedClient === "all"
                           ? "All Clients"
                           : filterOptions.clients.find(
-                              (c) => c.value === selectedClient
-                            )?.label || "All Clients"}
+                              (c) => c.id === selectedClient
+                            )?.name || "All Clients"}
                         <ChevronsUpDown className="ml-2 h-3 w-3 sm:h-4 sm:w-4 shrink-0 opacity-50" />
                       </Button>
                     </PopoverTrigger>
@@ -337,25 +337,25 @@ export default function AssetLibraryPanel({
                               All Clients
                             </CommandItem>
                             {filterOptions.clients
-                              .sort((a, b) => a.label.localeCompare(b.label))
+                              .sort((a, b) => a.name.localeCompare(b.name))
                               .map((client) => (
                                 <CommandItem
-                                  key={client.value}
-                                  value={client.value}
+                                  key={client.id}
+                                  value={client.id}
                                   onSelect={() => {
-                                    setSelectedClient(client.value);
+                                    setSelectedClient(client.id);
                                     setClientOpen(false);
                                   }}
                                 >
                                   <Check
                                     className={cn(
                                       "mr-2 h-4 w-4",
-                                      selectedClient === client.value
+                                      selectedClient === client.id
                                         ? "opacity-100"
                                         : "opacity-0"
                                     )}
                                   />
-                                  {client.label}
+                                  {client.name}
                                 </CommandItem>
                               ))}
                           </CommandGroup>
@@ -375,8 +375,8 @@ export default function AssetLibraryPanel({
                       (for{" "}
                       {
                         filterOptions.clients.find(
-                          (c) => c.value === selectedClient
-                        )?.label
+                          (c) => c.id === selectedClient
+                        )?.name
                       }
                       )
                     </span>

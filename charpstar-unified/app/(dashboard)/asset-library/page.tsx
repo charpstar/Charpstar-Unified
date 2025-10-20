@@ -26,6 +26,7 @@ import { Search } from "lucide-react";
 import React from "react";
 import { Card, CardContent } from "@/components/ui/containers/card";
 import { AssetLibraryIntroPopup } from "@/components/asset-library/AssetLibraryIntroPopup";
+import { useVirtualizer } from "@tanstack/react-virtual";
 
 // Lazy load heavy components
 const LazyAssetCard = React.lazy(() => import("@/app/components/ui/AssetCard"));
@@ -124,22 +125,38 @@ export default function AssetLibraryPage() {
   const router = useRouter();
   const pathname = usePathname();
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 60;
+
+  // Filter state - moved before useAssets
+  const [selectedMaterials, setSelectedMaterials] = useState<string[]>([]);
+  const [selectedColors, setSelectedColors] = useState<string[]>([]);
+  const [selectedCompanies, setSelectedCompanies] = useState<string[]>([]);
+  const [showInactiveOnly, setShowInactiveOnly] = useState(false);
+
   const {
     assets,
     loading,
-
     refetch,
     filterOptions,
     filters,
     setFilters,
     filteredAssets: hookFilteredAssets,
-  } = useAssets();
+    totalCount: serverTotalCount,
+    setSearchTerm: setServerSearchTerm,
+  } = useAssets(
+    currentPage,
+    ITEMS_PER_PAGE,
+    selectedMaterials,
+    selectedColors,
+    selectedCompanies,
+    showInactiveOnly
+  );
   const [searchValue, setSearchValue] = useState("");
   const [activeSearchValue, setActiveSearchValue] = useState("");
   const [viewMode, setViewMode] = useState<"grid" | "compactGrid">("grid");
   const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
   const [batchUploadOpen, setBatchUploadOpen] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
   const user = useUser();
   const [userRole, setUserRole] = useState<string | null>(null);
   const [selectedAssets, setSelectedAssets] = useState<string[]>([]);
@@ -149,14 +166,35 @@ export default function AssetLibraryPage() {
   // Search timeout ref
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Ref for virtualized scrolling container
+  const parentRef = useRef<HTMLDivElement>(null);
+
   // Track if this is the first render after initialization to prevent premature URL sync
   const skipFirstUrlUpdate = useRef(false);
 
-  // Filter state
-  const [selectedMaterials, setSelectedMaterials] = useState<string[]>([]);
-  const [selectedColors, setSelectedColors] = useState<string[]>([]);
-  const [selectedCompanies, setSelectedCompanies] = useState<string[]>([]);
-  const [showInactiveOnly, setShowInactiveOnly] = useState(false);
+  // Calculate number of columns based on viewport width
+  const [columnsCount, setColumnsCount] = useState(4);
+
+  useEffect(() => {
+    const updateColumns = () => {
+      const width = window.innerWidth;
+      if (width >= 1280)
+        setColumnsCount(5); // xl
+      else if (width >= 1024)
+        setColumnsCount(4); // lg
+      else if (width >= 768)
+        setColumnsCount(3); // md
+      else if (width >= 640)
+        setColumnsCount(2); // sm
+      else setColumnsCount(1); // mobile
+    };
+
+    updateColumns();
+    window.addEventListener("resize", updateColumns);
+    return () => window.removeEventListener("resize", updateColumns);
+  }, []);
+
+  // Initialization state
   const [isInitialized, setIsInitialized] = useState(false);
   const [showIntroPopup, setShowIntroPopup] = useState(false);
 
@@ -264,143 +302,61 @@ export default function AssetLibraryPage() {
     }
   }, [user?.metadata?.role]);
 
-  const ITEMS_PER_PAGE = 60;
-
-  // Reset to page 1 when search changes
+  // Reset to page 1 when search or filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [activeSearchValue]);
-
-  // Filter assets based on active search, category, and other filters
-  const filteredAssets = useMemo(() => {
-    return hookFilteredAssets
-      .filter((asset) => {
-        // Apply active/inactive filter
-        if (showInactiveOnly && asset.active !== false) {
-          return false;
-        }
-
-        // Apply search filter with optimized search
-        if (activeSearchValue) {
-          if (!optimizedSearch(activeSearchValue, asset)) return false;
-        }
-
-        // Apply material filter
-        if (selectedMaterials.length > 0) {
-          const hasSelectedMaterial = asset.materials?.some((material) =>
-            selectedMaterials.includes(material)
-          );
-          if (!hasSelectedMaterial) return false;
-        }
-
-        // Apply color filter
-        if (selectedColors.length > 0) {
-          const hasSelectedColor = asset.colors?.some((color) =>
-            selectedColors.includes(color)
-          );
-          if (!hasSelectedColor) return false;
-        }
-
-        // Apply company/client filter
-        if (selectedCompanies.length > 0) {
-          const hasSelectedCompany = selectedCompanies.includes(
-            asset.client || ""
-          );
-          if (!hasSelectedCompany) return false;
-        }
-
-        return true;
-      })
-      .map((asset) => {
-        // Add relevance score for search results
-        const relevanceScore = activeSearchValue
-          ? calculateSearchRelevance(activeSearchValue, asset)
-          : 0;
-
-        return { ...asset, relevanceScore };
-      })
-      .sort((a, b) => {
-        // If there's an active search, sort by relevance first
-        if (activeSearchValue) {
-          if (b.relevanceScore !== a.relevanceScore) {
-            return b.relevanceScore - a.relevanceScore;
-          }
-        }
-
-        // Then apply the selected sort order
-        switch (filters.sort) {
-          case "name-asc":
-            return a.product_name.localeCompare(b.product_name);
-          case "name-desc":
-            return b.product_name.localeCompare(a.product_name);
-          case "date-asc":
-            return (
-              new Date(a.created_at).getTime() -
-              new Date(b.created_at).getTime()
-            );
-          case "date-desc":
-            return (
-              new Date(b.created_at).getTime() -
-              new Date(a.created_at).getTime()
-            );
-          case "updated-desc":
-            return (
-              new Date(b.updated_at || b.created_at).getTime() -
-              new Date(a.updated_at || a.created_at).getTime()
-            );
-          default:
-            return 0;
-        }
-      })
-      .filter((asset) => {
-        // Only show assets with reasonable relevance when searching
-        if (activeSearchValue) {
-          return asset.relevanceScore > 0;
-        }
-        return true;
-      });
   }, [
-    hookFilteredAssets,
     activeSearchValue,
     selectedMaterials,
     selectedColors,
     selectedCompanies,
     showInactiveOnly,
-    filters.sort,
-    optimizedSearch,
   ]);
 
-  // Calculate pagination
-  const totalPages = Math.ceil(filteredAssets.length / ITEMS_PER_PAGE);
-  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-  const endIndex = startIndex + ITEMS_PER_PAGE;
-  const currentAssets = filteredAssets.slice(startIndex, endIndex);
+  // Update server search term when active search changes
+  useEffect(() => {
+    if (setServerSearchTerm) {
+      setServerSearchTerm(activeSearchValue);
+    }
+  }, [activeSearchValue, setServerSearchTerm]);
 
-  // Generate dynamic filter options based on currently filtered assets
-  const dynamicFilterOptions = useMemo(() => {
-    const materials = new Set<string>();
-    const colors = new Set<string>();
-    const companies = new Set<string>();
+  // Client-side filtering only for search (server handles materials, colors, companies, inactive)
+  const filteredAssets = useMemo(() => {
+    // If there's a search term, apply client-side search and relevance scoring
+    if (activeSearchValue) {
+      return hookFilteredAssets
+        .filter((asset) => optimizedSearch(activeSearchValue, asset))
+        .map((asset) => ({
+          ...asset,
+          relevanceScore: calculateSearchRelevance(activeSearchValue, asset),
+        }))
+        .filter((asset) => asset.relevanceScore > 0)
+        .sort((a, b) => b.relevanceScore - a.relevanceScore);
+    }
 
-    // Use the original assets, not filtered assets, to avoid circular dependency
-    hookFilteredAssets.forEach((asset) => {
-      asset.materials?.forEach((material) => materials.add(material));
-      asset.colors?.forEach((color) => colors.add(color));
-      if (asset.client) companies.add(asset.client);
-    });
+    // No search - return server results as-is (already filtered and sorted)
+    return hookFilteredAssets;
+  }, [hookFilteredAssets, activeSearchValue, optimizedSearch]);
 
-    return {
-      materials: Array.from(materials).map((material) => ({
-        id: material,
-        name: material,
-      })),
-      colors: Array.from(colors).map((color) => ({ id: color, name: color })),
-      companies: Array.from(companies).map((company) => ({
-        id: company,
-        name: company,
-      })),
-    };
-  }, [hookFilteredAssets]);
+  // Calculate pagination - server returns paginated data, so we use it directly
+  const currentAssets = filteredAssets;
+  const totalPages = Math.ceil(
+    (serverTotalCount || filteredAssets.length) / ITEMS_PER_PAGE
+  );
+
+  // Calculate rows for virtualization
+  const rowCount = Math.ceil(currentAssets.length / columnsCount);
+
+  // Set up virtualizer for rows
+  const rowVirtualizer = useVirtualizer({
+    count: rowCount,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => (viewMode === "grid" ? 400 : 200), // Estimated row height
+    overscan: 2, // Render 2 extra rows above/below viewport
+  });
+
+  // Filter options now come from useAssets hook - they include ALL user's assets
+  // No need to generate dynamic options from current page
 
   // Reset to page 1 when filters change (but not when coming from URL)
   useEffect(() => {
@@ -792,13 +748,13 @@ export default function AssetLibraryPage() {
             onBatchEdit={handleBatchEdit}
             onGeneratePreviews={handleGeneratePreviews}
             userRole={userRole}
-            materials={dynamicFilterOptions.materials}
+            materials={filterOptions.materials}
             selectedMaterials={selectedMaterials}
             setSelectedMaterials={setSelectedMaterials}
-            colors={dynamicFilterOptions.colors}
+            colors={filterOptions.colors}
             selectedColors={selectedColors}
             setSelectedColors={setSelectedColors}
-            companies={dynamicFilterOptions.companies}
+            companies={filterOptions.clients}
             selectedCompanies={selectedCompanies}
             setSelectedCompanies={setSelectedCompanies}
             showInactiveOnly={showInactiveOnly}
@@ -854,13 +810,13 @@ export default function AssetLibraryPage() {
           onBatchEdit={handleBatchEdit}
           onGeneratePreviews={handleGeneratePreviews}
           userRole={userRole}
-          materials={dynamicFilterOptions.materials}
+          materials={filterOptions.materials}
           selectedMaterials={selectedMaterials}
           setSelectedMaterials={setSelectedMaterials}
-          colors={dynamicFilterOptions.colors}
+          colors={filterOptions.colors}
           selectedColors={selectedColors}
           setSelectedColors={setSelectedColors}
-          companies={dynamicFilterOptions.companies}
+          companies={filterOptions.clients}
           selectedCompanies={selectedCompanies}
           setSelectedCompanies={setSelectedCompanies}
           showInactiveOnly={showInactiveOnly}
@@ -869,12 +825,12 @@ export default function AssetLibraryPage() {
 
         {/* Asset Grid */}
         <div className="flex-1 flex flex-col max-h-[full]">
-          <div className="flex-1 overflow-y-auto p-6">
+          <div ref={parentRef} className="flex-1 overflow-y-auto p-6">
             {/* Asset Count and Page Info */}
             <div className="flex justify-between items-center mb-4">
               <p className="text-xs sm:text-sm text-muted-foreground">
                 Showing {currentAssets?.length || 0} of{" "}
-                {filteredAssets?.length || 0} assets
+                {serverTotalCount || filteredAssets?.length || 0} assets
                 {totalPages > 1 && ` (Page ${currentPage} of ${totalPages})`}
               </p>
             </div>
@@ -955,37 +911,60 @@ export default function AssetLibraryPage() {
               </div>
             )}
 
-            {/* Asset Grid */}
+            {/* Virtualized Asset Grid */}
             {filteredAssets.length > 0 && (
               <div
-                className={
-                  viewMode === "grid"
-                    ? "grid gap-3 sm:gap-4 md:gap-5 lg:gap-6 p-1" +
-                      " grid-cols-[repeat(auto-fill,minmax(min(100%,200px),1fr))]" +
-                      " sm:grid-cols-[repeat(auto-fill,minmax(min(100%,220px),1fr))]" +
-                      " md:grid-cols-[repeat(auto-fill,minmax(min(100%,240px),1fr))]" +
-                      " lg:grid-cols-[repeat(auto-fill,minmax(min(100%,260px),1fr))]" +
-                      " xl:grid-cols-[repeat(auto-fill,minmax(min(100%,280px),1fr))]"
-                    : viewMode === "compactGrid"
-                      ? "flex flex-col gap-3"
-                      : "grid gap-3 sm:gap-4 md:gap-5 lg:gap-6" +
-                        " grid-cols-[repeat(auto-fill,minmax(min(100%,200px),1fr))]" +
-                        " sm:grid-cols-[repeat(auto-fill,minmax(min(100%,220px),1fr))]" +
-                        " md:grid-cols-[repeat(auto-fill,minmax(min(100%,240px),1fr))]" +
-                        " lg:grid-cols-[repeat(auto-fill,minmax(min(100%,260px),1fr))]" +
-                        " xl:grid-cols-[repeat(auto-fill,minmax(min(100%,280px),1fr))]"
-                }
+                style={{
+                  height: `${rowVirtualizer.getTotalSize()}px`,
+                  width: "100%",
+                  position: "relative",
+                }}
               >
-                {currentAssets.map((asset) => (
-                  <LazyAssetCardWrapper
-                    key={asset.id}
-                    asset={asset}
-                    isBatchEditMode={isBatchEditMode}
-                    isSelected={selectedAssets.includes(asset.id)}
-                    onSelect={handleAssetSelect}
-                    viewMode={viewMode}
-                  />
-                ))}
+                {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                  const startIndex = virtualRow.index * columnsCount;
+                  const rowAssets = currentAssets.slice(
+                    startIndex,
+                    startIndex + columnsCount
+                  );
+
+                  return (
+                    <div
+                      key={virtualRow.index}
+                      style={{
+                        position: "absolute",
+                        top: 0,
+                        left: 0,
+                        width: "100%",
+                        transform: `translateY(${virtualRow.start}px)`,
+                      }}
+                    >
+                      <div
+                        className={
+                          viewMode === "grid"
+                            ? `grid gap-3 sm:gap-4 md:gap-5 lg:gap-6 p-1 grid-cols-${columnsCount}`
+                            : "flex flex-col gap-3"
+                        }
+                        style={{
+                          gridTemplateColumns:
+                            viewMode === "grid"
+                              ? `repeat(${columnsCount}, minmax(0, 1fr))`
+                              : undefined,
+                        }}
+                      >
+                        {rowAssets.map((asset) => (
+                          <LazyAssetCardWrapper
+                            key={asset.id}
+                            asset={asset}
+                            isBatchEditMode={isBatchEditMode}
+                            isSelected={selectedAssets.includes(asset.id)}
+                            onSelect={handleAssetSelect}
+                            viewMode={viewMode}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>

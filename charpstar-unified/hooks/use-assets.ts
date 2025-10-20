@@ -39,8 +39,9 @@ export type FilterOptions = {
 interface Asset {
   id: string;
   product_name: string;
-  product_link: string;
-  glb_link: string;
+  article_id?: string;
+  product_link?: string;
+  glb_link?: string;
   category: string;
   subcategory: string;
   client: string;
@@ -58,18 +59,37 @@ interface AssetsResponse {
   totalCount: number;
 }
 
-const fetchAssets = async (
+interface PaginatedAssetsResponse extends AssetsResponse {
+  page: number;
+  pageSize: number;
+}
+
+// Fetch ONLY unique filter values (not full assets) - Much more efficient!
+const fetchFilterOptions = async (
   user: any,
   userProfile: any
-): Promise<AssetsResponse> => {
-  if (!user || !userProfile) return { assets: [], totalCount: 0 };
+): Promise<{
+  categories: Set<string>;
+  subcategories: Map<string, Set<string>>;
+  clients: Set<string>;
+  materials: Set<string>;
+  colors: Set<string>;
+}> => {
+  if (!user || !userProfile)
+    return {
+      categories: new Set(),
+      subcategories: new Map(),
+      clients: new Set(),
+      materials: new Set(),
+      colors: new Set(),
+    };
 
   const supabase = createClient();
 
-  // First get the total count
-  let countQuery = supabase
-    .from("assets")
-    .select("*", { count: "exact", head: true });
+  // Fetch only the fields needed for filters - MUCH smaller payload
+  const filterFields = `category, subcategory, client, materials, colors`;
+
+  let query = supabase.from("assets").select(filterFields);
 
   // Only apply client filter if user is not admin
   if (
@@ -77,59 +97,180 @@ const fetchAssets = async (
     userProfile.client &&
     userProfile.client.length > 0
   ) {
-    // Fetch assets where client is IN the user's array of companies
-    countQuery = countQuery.in("client", userProfile.client);
-    // Show all assets for clients (including deactivated ones) so they can see contract value
+    query = query.in("client", userProfile.client);
   }
 
-  const { count } = await countQuery;
+  const { data, error } = await query;
 
-  // Then fetch all assets with pagination
-  let allAssets: Asset[] = [];
-  let page = 0;
-  const pageSize = 1000;
+  if (error) throw error;
 
-  while (true) {
-    let dataQuery = supabase
-      .from("assets")
-      .select("*")
-      .range(page * pageSize, (page + 1) * pageSize - 1);
+  // Extract unique values
+  const categories = new Set<string>();
+  const subcategories = new Map<string, Set<string>>();
+  const clients = new Set<string>();
+  const materials = new Set<string>();
+  const colors = new Set<string>();
 
-    // Only apply client filter if user is not admin
-    if (
-      userProfile.role !== "admin" &&
-      userProfile.client &&
-      userProfile.client.length > 0
-    ) {
-      // Fetch assets where client is IN the user's array of companies
-      dataQuery = dataQuery.in("client", userProfile.client);
-      // Show all assets for clients (including deactivated ones) so they can see contract value
+  (data || []).forEach((item: any) => {
+    if (item.category) {
+      categories.add(item.category);
+
+      if (item.subcategory) {
+        if (!subcategories.has(item.category)) {
+          subcategories.set(item.category, new Set());
+        }
+        subcategories.get(item.category)?.add(item.subcategory);
+      }
     }
 
-    const { data, error } = await dataQuery;
+    if (item.client) clients.add(item.client);
 
-    if (error) throw error;
-    if (!data || data.length === 0) break;
+    if (Array.isArray(item.materials)) {
+      item.materials.forEach((m: string) => materials.add(m));
+    }
 
-    allAssets = [...allAssets, ...data];
-    page++;
+    if (Array.isArray(item.colors)) {
+      item.colors.forEach((c: string) => colors.add(c));
+    }
+  });
 
-    // If we got less than pageSize items, we've reached the end
-    if (data.length < pageSize) break;
+  return { categories, subcategories, clients, materials, colors };
+};
+
+// Fetch paginated assets with server-side filtering
+const fetchPaginatedAssets = async (
+  user: any,
+  userProfile: any,
+  page: number,
+  pageSize: number,
+  filters: FilterState,
+  searchTerm: string,
+  selectedMaterials: string[],
+  selectedColors: string[],
+  selectedCompanies: string[],
+  showInactiveOnly: boolean
+): Promise<PaginatedAssetsResponse> => {
+  if (!user || !userProfile)
+    return { assets: [], totalCount: 0, page, pageSize };
+
+  const supabase = createClient();
+
+  // Optimized query: Select only essential fields for list view
+  const selectFields = `
+    id,
+    product_name,
+    article_id,
+    preview_image,
+    category,
+    subcategory,
+    client,
+    materials,
+    colors,
+    tags,
+    active,
+    created_at,
+    updated_at
+  `.trim();
+
+  // Build the query with filters
+  let query = supabase.from("assets").select(selectFields, { count: "exact" });
+
+  // Apply client filter if user is not admin
+  if (
+    userProfile.role !== "admin" &&
+    userProfile.client &&
+    userProfile.client.length > 0
+  ) {
+    query = query.in("client", userProfile.client);
   }
 
+  // Apply category filter
+  if (filters.category) {
+    query = query.eq("category", filters.category);
+  }
+
+  // Apply subcategory filter
+  if (filters.subcategory) {
+    query = query.eq("subcategory", filters.subcategory);
+  }
+
+  // Apply client/company filter (if selected in UI)
+  if (selectedCompanies && selectedCompanies.length > 0) {
+    query = query.in("client", selectedCompanies);
+  }
+
+  // Apply material filter (contains any of the selected materials)
+  if (selectedMaterials && selectedMaterials.length > 0) {
+    query = query.overlaps("materials", selectedMaterials);
+  }
+
+  // Apply color filter (contains any of the selected colors)
+  if (selectedColors && selectedColors.length > 0) {
+    query = query.overlaps("colors", selectedColors);
+  }
+
+  // Apply active/inactive filter
+  if (showInactiveOnly) {
+    query = query.eq("active", false);
+  }
+
+  // Apply sorting
+  switch (filters.sort) {
+    case "name-asc":
+      query = query.order("product_name", { ascending: true });
+      break;
+    case "name-desc":
+      query = query.order("product_name", { ascending: false });
+      break;
+    case "date-asc":
+      query = query.order("created_at", { ascending: true });
+      break;
+    case "date-desc":
+      query = query.order("created_at", { ascending: false });
+      break;
+    case "updated-desc":
+      query = query.order("updated_at", {
+        ascending: false,
+        nullsFirst: false,
+      });
+      break;
+    default:
+      query = query.order("product_name", { ascending: true });
+  }
+
+  // Apply pagination
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
+  query = query.range(from, to);
+
+  const { data, count, error } = await query;
+
+  if (error) throw error;
+
   // Parse materials, colors, and tags from jsonb fields
-  const parsedAssets = allAssets.map((item) => ({
+  const parsedAssets = (data || []).map((item: any) => ({
     ...item,
     materials: Array.isArray(item.materials) ? item.materials : [],
     colors: Array.isArray(item.colors) ? item.colors : [],
     tags: Array.isArray(item.tags) ? item.tags : [],
   }));
 
-  return { assets: parsedAssets, totalCount: count || 0 };
+  return {
+    assets: parsedAssets,
+    totalCount: count || 0,
+    page,
+    pageSize,
+  };
 };
 
-export function useAssets() {
+export function useAssets(
+  currentPage: number = 1,
+  pageSize: number = 60,
+  selectedMaterials: string[] = [],
+  selectedColors: string[] = [],
+  selectedCompanies: string[] = [],
+  showInactiveOnly: boolean = false
+) {
   const [filters, setFilters] = useState<FilterState>({
     search: [],
     category: null,
@@ -139,6 +280,7 @@ export function useAssets() {
     color: [],
     sort: "name-asc",
   });
+  const [searchTerm, setSearchTerm] = useState("");
   const user = useUser();
   const [userProfile, setUserProfile] = useState<{
     client: string[] | null;
@@ -179,75 +321,100 @@ export function useAssets() {
     };
 
     fetchUserProfile();
-  }, [user?.id]); // Only depend on user.id, not the entire user object
+  }, [user?.id]);
 
-  // Create a stable query key
-  const queryKey = useMemo(() => {
+  // Create a stable query key for filter options
+  const filterQueryKey = useMemo(() => {
     if (!user?.id || !userProfile) return null;
     return [
-      "assets",
+      "assets-filter-options",
       user.id,
       JSON.stringify(userProfile.client),
       userProfile.role,
     ];
   }, [user?.id, userProfile?.client, userProfile?.role]);
 
-  // Use React Query to fetch and cache assets
-  const { data, isLoading, error, refetch } = useQuery<AssetsResponse>({
-    queryKey: queryKey || ["assets"],
-    queryFn: () => fetchAssets(user, userProfile),
-    enabled: !!user && !!userProfile && !!queryKey,
-    staleTime: 5 * 60 * 1000, // Consider data fresh for 5 minutes
-    gcTime: 30 * 60 * 1000, // Keep data in cache for 30 minutes
-    refetchOnWindowFocus: false, // Prevent refetch on window focus
-    refetchOnMount: false, // Prevent refetch on mount if data exists
+  // Fetch ONLY unique filter values (not full assets) - Much more efficient!
+  const { data: filterData } = useQuery<{
+    categories: Set<string>;
+    subcategories: Map<string, Set<string>>;
+    clients: Set<string>;
+    materials: Set<string>;
+    colors: Set<string>;
+  }>({
+    queryKey: filterQueryKey || ["assets-filter-options"],
+    queryFn: () => fetchFilterOptions(user, userProfile),
+    enabled: !!user && !!userProfile && !!filterQueryKey,
+    staleTime: 15 * 60 * 1000, // 15 minutes (filter options change less frequently)
+    gcTime: 60 * 60 * 1000, // 60 minutes
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
   });
 
-  // Filter assets based on current filters
-  const filteredAssets = useMemo(() => {
-    if (!data?.assets) return [];
+  // Create a stable query key for paginated data
+  const paginatedQueryKey = useMemo(() => {
+    if (!user?.id || !userProfile) return null;
+    return [
+      "assets-paginated",
+      user.id,
+      JSON.stringify(userProfile.client),
+      userProfile.role,
+      currentPage,
+      pageSize,
+      JSON.stringify(filters),
+      searchTerm,
+      JSON.stringify(selectedMaterials),
+      JSON.stringify(selectedColors),
+      JSON.stringify(selectedCompanies),
+      showInactiveOnly,
+    ];
+  }, [
+    user?.id,
+    userProfile?.client,
+    userProfile?.role,
+    currentPage,
+    pageSize,
+    filters,
+    searchTerm,
+    selectedMaterials,
+    selectedColors,
+    selectedCompanies,
+    showInactiveOnly,
+  ]);
 
-    return data.assets.filter((asset: Asset) => {
-      // Category filter
-      if (filters.category && asset.category !== filters.category) {
-        return false;
-      }
+  // Use React Query to fetch paginated assets
+  const {
+    data: paginatedData,
+    isLoading,
+    error,
+    refetch,
+  } = useQuery<PaginatedAssetsResponse>({
+    queryKey: paginatedQueryKey || ["assets-paginated"],
+    queryFn: () =>
+      fetchPaginatedAssets(
+        user,
+        userProfile,
+        currentPage,
+        pageSize,
+        filters,
+        searchTerm,
+        selectedMaterials,
+        selectedColors,
+        selectedCompanies,
+        showInactiveOnly
+      ),
+    enabled: !!user && !!userProfile && !!paginatedQueryKey,
+    staleTime: 5 * 60 * 1000, // 5 minutes for paginated data
+    gcTime: 30 * 60 * 1000, // 30 minutes
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    retry: 2,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+  });
 
-      // Subcategory filter
-      if (filters.subcategory && asset.subcategory !== filters.subcategory) {
-        return false;
-      }
-
-      // Client filter
-      if (filters.client.length > 0 && !filters.client.includes(asset.client)) {
-        return false;
-      }
-
-      // Material filter
-      if (
-        filters.material.length > 0 &&
-        !filters.material.every((material) =>
-          asset.materials.includes(material)
-        )
-      ) {
-        return false;
-      }
-
-      // Color filter
-      if (
-        filters.color.length > 0 &&
-        !filters.color.every((color) => asset.colors.includes(color))
-      ) {
-        return false;
-      }
-
-      return true;
-    });
-  }, [data?.assets, filters]);
-
-  // Generate filter options based on client-specific assets
+  // Generate filter options from the unique values
   const filterOptions = useMemo(() => {
-    if (!data?.assets)
+    if (!filterData)
       return {
         categories: [],
         clients: [],
@@ -255,52 +422,34 @@ export function useAssets() {
         colors: [],
       };
 
-    // Use all client-specific assets for generating filter options (not filtered by current filters)
-    // This ensures categories only show what the client actually has
-    const clientAssets = data.assets;
-
-    // Get unique categories and subcategories from client assets
-    const categories = Array.from(
-      new Set(clientAssets.map((asset) => asset.category))
-    ).map((category) => ({
+    // Convert categories Set to array with subcategories
+    const categories = Array.from(filterData.categories).map((category) => ({
       id: category,
       name: category,
       subcategories: Array.from(
-        new Set(
-          clientAssets
-            .filter((asset) => asset.category === category)
-            .map((asset) => asset.subcategory)
-        )
-      )
-        .filter(Boolean)
-        .map((subcategory) => ({
-          id: subcategory,
-          name: subcategory,
-        })),
+        filterData.subcategories.get(category) || []
+      ).map((subcategory) => ({
+        id: subcategory,
+        name: subcategory,
+      })),
     }));
 
-    // Get unique clients from client assets
-    const clients = Array.from(
-      new Set(clientAssets.map((asset) => asset.client))
-    ).map((client) => ({
-      value: client,
-      label: client,
+    // Convert clients Set to array
+    const clients = Array.from(filterData.clients).map((client) => ({
+      id: client,
+      name: client,
     }));
 
-    // Get unique materials from client assets
-    const materials = Array.from(
-      new Set(clientAssets.flatMap((asset) => asset.materials))
-    ).map((material) => ({
-      value: material,
-      label: material,
+    // Convert materials Set to array
+    const materials = Array.from(filterData.materials).map((material) => ({
+      id: material,
+      name: material,
     }));
 
-    // Get unique colors from client assets
-    const colors = Array.from(
-      new Set(clientAssets.flatMap((asset) => asset.colors))
-    ).map((color) => ({
-      value: color,
-      label: color,
+    // Convert colors Set to array
+    const colors = Array.from(filterData.colors).map((color) => ({
+      id: color,
+      name: color,
     }));
 
     return {
@@ -309,17 +458,20 @@ export function useAssets() {
       materials,
       colors,
     };
-  }, [data?.assets]);
+  }, [filterData]);
 
   return {
-    assets: data?.assets || [],
+    assets: paginatedData?.assets || [],
     loading: isLoading,
     error: error ? (error as Error).message : null,
     refetch,
     filters,
     setFilters,
+    setSearchTerm,
     filterOptions,
-    totalCount: data?.totalCount || 0,
-    filteredAssets,
+    totalCount: paginatedData?.totalCount || 0,
+    filteredAssets: paginatedData?.assets || [], // For compatibility
+    currentPage: paginatedData?.page || currentPage,
+    pageSize: paginatedData?.pageSize || pageSize,
   };
 }

@@ -26,15 +26,15 @@ import { useAssets } from "@/hooks/use-assets";
 interface Asset {
   id: string;
   product_name: string;
-  product_link: string;
-  glb_link: string;
+  product_link?: string;
+  glb_link?: string;
   category: string;
   subcategory: string;
   client: string;
   materials: string[];
   colors: string[];
   tags: string[];
-  preview_image: string | string[];
+  preview_image?: string | string[];
   created_at: string;
 }
 
@@ -358,7 +358,11 @@ export function PreviewGeneratorDialog({
           await new Promise((resolve) => setTimeout(resolve, 1000));
 
           // Check GLB file accessibility
-
+          if (!asset.glb_link) {
+            throw new Error(
+              `Missing GLB link for asset: ${asset.product_name}`
+            );
+          }
           await checkGLBFile(asset.glb_link, asset.id);
 
           const previewUrl = await generatePreview(asset);
@@ -510,7 +514,11 @@ export function PreviewGeneratorDialog({
           await new Promise((resolve) => setTimeout(resolve, 1000));
 
           // Check GLB file accessibility
-
+          if (!asset.glb_link) {
+            throw new Error(
+              `Missing GLB link for asset: ${asset.product_name}`
+            );
+          }
           await checkGLBFile(asset.glb_link, asset.id);
 
           const previewUrl = await generatePreview(asset);
