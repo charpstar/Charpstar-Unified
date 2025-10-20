@@ -601,7 +601,7 @@ export default function AssetLibraryPanel({
         {/* Assets Grid */}
         <ScrollArea className="flex-1 min-h-0">
           {loading ? (
-            <div className="grid grid-cols-1 xs:grid-cols-2 gap-2 sm:gap-3">
+            <div className="grid grid-cols-3 xs:grid-cols-2 gap-2 sm:gap-3">
               {[...Array(6)].map((_, i) => (
                 <Card key={i} className="animate-pulse overflow-hidden">
                   <div className="aspect-square bg-muted" />
@@ -620,7 +620,7 @@ export default function AssetLibraryPanel({
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-2 xs:grid-cols-2 gap-2 sm:gap-3 pb-4 p-1">
+              <div className="grid grid-cols-3 xs:grid-cols-3 gap-2 sm:gap-3 pb-4 p-1">
                 {paginatedAssets.map((asset) => (
                   <Card
                     key={asset.id}
@@ -638,7 +638,7 @@ export default function AssetLibraryPanel({
                     }}
                   >
                     {/* Preview Image */}
-                    <div className="relative aspect-square bg-muted">
+                    <div className="relative aspect-square ">
                       {asset.preview_image && !imageErrors.has(asset.id) ? (
                         <Image
                           src={
@@ -649,7 +649,7 @@ export default function AssetLibraryPanel({
                           alt={asset.product_name}
                           fill
                           unoptimized
-                          className="object-cover group-hover:scale-105 transition-transform"
+                          className="object-contain group-hover:scale-105 transition-transform"
                           sizes="(max-width: 768px) 50vw, 200px"
                           onError={() => {
                             setImageErrors((prev) =>

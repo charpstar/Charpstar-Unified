@@ -772,7 +772,7 @@ export default function AssetLibraryPage() {
   // Show skeletons while loading
   if (loading) {
     return (
-      <div className="flex flex-col h-full">
+      <div className="flex flex-col h-full max-w-7xl mx-auto space-y-8 ">
         {/* Main Content */}
         <div className="flex-1 flex flex-col">
           <AssetLibraryControlPanel
@@ -804,7 +804,7 @@ export default function AssetLibraryPage() {
             showInactiveOnly={showInactiveOnly}
             setShowInactiveOnly={setShowInactiveOnly}
           />
-          <div className="flex-1 flex flex-col max-h-[calc(100vh-80px)]">
+          <div className="flex-1 flex flex-col max-h-[calc(100vh-80px)] max-w-7xl mx-auto space-y-8">
             <div className="flex-1 overflow-y-auto p-6">
               <AssetLibrarySkeleton />
             </div>
@@ -817,7 +817,7 @@ export default function AssetLibraryPage() {
   // Show 'No assets found' only if not loading and assets.length === 0
   if (!loading && assets.length === 0) {
     return (
-      <div className="p-6">
+      <div className="p-6 max-w-7xl mx-auto space-y-8">
         <Card>
           <CardContent className="pt-6">
             <div className="text-center py-8">
@@ -833,7 +833,7 @@ export default function AssetLibraryPage() {
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full  max-w-7xl mx-auto space-y-8">
       {/* Main Content */}
       <div className="flex-1 flex flex-col">
         {/* Control Panel */}

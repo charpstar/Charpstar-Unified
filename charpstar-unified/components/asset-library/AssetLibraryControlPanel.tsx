@@ -209,7 +209,7 @@ export const AssetLibraryControlPanel: React.FC<
 
   return (
     <div
-      className={`sticky top-0 z-10 bg-background border-b border-border shadow-sm ${className}`}
+      className={`sticky top-0 z-10 bg-background rounded-b-lg border-b border-border shadow-sm ${className}`}
     >
       {/* Compact Header with Breadcrumbs & Quick Actions */}
       <div className="bg-muted/30 border-b border-border/50 px-4 py-2">
@@ -277,7 +277,7 @@ export const AssetLibraryControlPanel: React.FC<
       </div>
 
       {/* Main Control Bar */}
-      <div className="p-4">
+      <div className="p-4 rounded-b-lg ">
         <div className="flex flex-col lg:flex-row gap-4">
           {/* Left: Search */}
           <div className="flex-1 min-w-0">

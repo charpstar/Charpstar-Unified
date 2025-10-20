@@ -3463,7 +3463,7 @@ export default function ReviewPage() {
                       className="cursor-pointer bg-blue-500/20 text-blue-700 hover:bg-blue-500/30 hover:text-blue-700 text-x"
                     >
                       <Clock className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
-                      <span className="hidden sm:inline">Approval History</span>
+                      <span className="hidden sm:inline">Status History</span>
                       <span className="sm:hidden">History</span>
                     </Button>
                   </div>

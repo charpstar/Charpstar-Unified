@@ -1,6 +1,6 @@
 "use client";
 
-import { LucideIcon, ChevronDown } from "lucide-react";
+import { LucideIcon, ChevronDown, Lock } from "lucide-react";
 
 import {
   SidebarGroup,
@@ -14,6 +14,11 @@ import {
   SidebarMenuSubButton,
 } from "@/components/navigation/sidebar";
 import { Badge } from "@/components/ui/feedback/badge";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/display/tooltip";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import * as React from "react";
@@ -26,11 +31,15 @@ export default function NavMain({
     url: string;
     icon?: LucideIcon;
     badge?: string | null;
+    disabled?: boolean;
+    tooltip?: string;
     children?: {
       title: string;
       url: string;
       icon?: LucideIcon;
       badge?: string | null;
+      disabled?: boolean;
+      tooltip?: string;
     }[];
   }[];
 }) {
@@ -62,23 +71,55 @@ export default function NavMain({
               return null;
             }
 
+            const menuButtonContent = item.disabled ? (
+              <div className="group flex items-center gap-2 w-full">
+                {item.icon && <item.icon className="" />}
+                <span className="flex-1">{item.title}</span>
+                <Lock className="h-3 w-3 opacity-50" />
+                {item.badge && (
+                  <Badge variant="extraSmall" className="ml-auto text-xs">
+                    {item.badge}
+                  </Badge>
+                )}
+              </div>
+            ) : (
+              <Link href={item.url} className="group">
+                {item.icon && <item.icon className="" />}
+                <span className="flex-1">{item.title}</span>
+                {item.badge && (
+                  <Badge variant="extraSmall" className="ml-auto text-xs">
+                    {item.badge}
+                  </Badge>
+                )}
+              </Link>
+            );
+
+            const menuButton = (
+              <SidebarMenuButton
+                asChild={!item.disabled}
+                isActive={isActive}
+                className={`${item.disabled ? "opacity-50 cursor-not-allowed" : ""}`}
+              >
+                {menuButtonContent}
+              </SidebarMenuButton>
+            );
+
             return (
               <SidebarMenuItem
                 key={item.title}
                 isActive={isActive}
                 className=""
               >
-                <SidebarMenuButton asChild isActive={isActive} className="">
-                  <Link href={item.url} className="group">
-                    {item.icon && <item.icon className="" />}
-                    <span className="flex-1">{item.title}</span>
-                    {item.badge && (
-                      <Badge variant="extraSmall" className="ml-auto text-xs">
-                        {item.badge}
-                      </Badge>
-                    )}
-                  </Link>
-                </SidebarMenuButton>
+                {item.disabled && item.tooltip ? (
+                  <Tooltip>
+                    <TooltipTrigger asChild>{menuButton}</TooltipTrigger>
+                    <TooltipContent side="right" align="center">
+                      {item.tooltip}
+                    </TooltipContent>
+                  </Tooltip>
+                ) : (
+                  menuButton
+                )}
 
                 {hasChildren && enableSubmenus && (
                   <SidebarMenuAction

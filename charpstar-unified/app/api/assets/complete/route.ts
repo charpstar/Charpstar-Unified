@@ -6,7 +6,7 @@ import { cookies } from "next/headers";
 
 import { cleanupSingleAllocationList } from "@/lib/allocationListCleanup";
 import { logActivityServer } from "@/lib/serverActivityLogger";
-import { AssetStatusLogger } from "@/lib/assetStatusLogger";
+
 // import { notificationService } from "@/lib/notificationService"; // TEMPORARILY DISABLED
 
 export async function POST(request: NextRequest) {
@@ -56,6 +56,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Enforce role on QA approval - allow only admins
+    if (status === "approved" && profile?.role !== "admin") {
+      return NextResponse.json(
+        { error: "Only admins can approve assets for QA" },
+        { status: 403 }
+      );
+    }
+
     // Enforce role on modeler actions - allow both modelers and admins
     if (
       (status === "delivered_by_artist" || status === "revision_requested") &&
@@ -68,10 +76,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get the asset from onboarding_assets table
+    // Get the asset from onboarding_assets table along with allocation list info
     const { data: onboardingAsset, error: fetchError } = await supabaseAdmin
       .from("onboarding_assets")
-      .select("*")
+      .select(
+        `
+        *,
+        asset_assignments!inner(allocation_list_id)
+      `
+      )
       .eq("id", assetId)
       .eq("transferred", false)
       .single();
@@ -91,66 +104,174 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Double-check that the asset has the correct status
-    if (onboardingAsset.status !== "approved_by_client") {
+    // For client approvals, allow any status transition to approved_by_client
+    // For QA approvals, allow any status transition to approved
+    // For other statuses, ensure the asset is in the correct state
+    if (
+      status !== "approved_by_client" &&
+      status !== "approved" &&
+      onboardingAsset.status !== "approved_by_client"
+    ) {
       return NextResponse.json(
         { error: "Asset status mismatch, cannot complete" },
         { status: 400 }
       );
     }
 
-    // Check if asset already exists in assets table
-    const { data: existingAsset } = await supabaseAdmin
-      .from("assets")
-      .select("id")
-      .eq("id", assetId)
-      .single();
+    // Allow duplicates - removed duplicate check to allow multiple entries
 
-    if (existingAsset) {
-      return NextResponse.json(
-        { error: "Asset already exists in production" },
-        { status: 400 }
-      );
-    }
+    // Prepare data for assets table - match the schema from transfer-approved route
+    const assetData = {
+      article_id: onboardingAsset.article_id,
+      product_name: onboardingAsset.product_name,
+      product_link: onboardingAsset.product_link,
+      glb_link: onboardingAsset.glb_link,
+      category: onboardingAsset.category,
+      subcategory: onboardingAsset.subcategory,
+      client: onboardingAsset.client,
+      tags: onboardingAsset.tags,
+      created_at: onboardingAsset.created_at || new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      preview_image: onboardingAsset.preview_images
+        ? Array.isArray(onboardingAsset.preview_images)
+          ? onboardingAsset.preview_images[0]
+          : onboardingAsset.preview_images
+        : null,
+      materials: null, // Will be populated later if needed
+      colors: null, // Will be populated later if needed
+      glb_status: "completed", // Since it's approved by client
+    };
 
     // Insert the asset into the assets table
     const { data: newAsset, error: insertError } = await supabaseAdmin
       .from("assets")
-      .insert({
-        id: onboardingAsset.id,
-        product_name: onboardingAsset.product_name,
-        article_id: onboardingAsset.article_id,
-        client: onboardingAsset.client,
-        status: status,
-        glb_link: onboardingAsset.glb_link,
-        reference_images: onboardingAsset.reference_images,
-        created_at: onboardingAsset.created_at,
-        updated_at: new Date().toISOString(),
-        created_by: onboardingAsset.created_by,
-        revision_count: revisionCount || 0,
-      })
+      .insert(assetData)
       .select("*")
       .single();
 
     if (insertError) {
       console.error("Error inserting asset:", insertError);
+      console.error("Asset data being inserted:", assetData);
       return NextResponse.json(
-        { error: "Failed to create asset" },
+        { error: "Failed to create asset", details: insertError.message },
         { status: 500 }
       );
     }
 
+    // First, log the status history with proper user information before any triggers
+    try {
+      const { error: statusHistoryError } = await supabaseAdmin
+        .from("asset_status_history")
+        .insert({
+          asset_id: assetId,
+          previous_status: onboardingAsset.status,
+          new_status: status,
+          action_type:
+            status === "approved_by_client"
+              ? "client_approved"
+              : "status_changed",
+          revision_number: revisionCount || 0,
+          changed_by: user.id,
+          metadata: {
+            user_role: profile?.role,
+            new_revision_count: revisionCount || 0,
+            previous_revision_count: onboardingAsset.revision_count,
+          },
+        });
+
+      if (statusHistoryError) {
+        console.error("Error logging status history:", statusHistoryError);
+        // Continue anyway - don't fail the operation for logging errors
+      }
+    } catch (historyError) {
+      console.error("Error creating status history record:", historyError);
+      // Continue anyway - don't fail the operation for logging errors
+    }
+
     // Update the onboarding_assets table to mark as transferred
-    const { error: updateError } = await supabaseAdmin
+    // We'll avoid updating the status here to prevent trigger issues
+    // since we've already logged the status change manually above
+    const { data: updateResult, error: updateError } = await supabaseAdmin
       .from("onboarding_assets")
-      .update({ transferred: true, transferred_at: new Date().toISOString() })
-      .eq("id", assetId);
+      .update({
+        transferred: true,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", assetId)
+      .eq("transferred", false) // Ensure we only update if not already transferred
+      .select();
+
+    // Let's also update the status but handle any potential trigger errors gracefully
+    if (updateResult && updateResult.length > 0) {
+      try {
+        const { error: statusUpdateError } = await supabaseAdmin
+          .from("onboarding_assets")
+          .update({
+            status: status, // Set the status to approved_by_client
+          })
+          .eq("id", assetId);
+
+        if (statusUpdateError) {
+          console.error(
+            "Error updating onboarding asset status:",
+            statusUpdateError
+          );
+          console.log(
+            "Status update failed but asset was marked as transferred - continuing"
+          );
+          // Continue anyway since the main transfer operation succeeded
+        }
+      } catch (statusError) {
+        console.error("Exception during status update:", statusError);
+        // Continue anyway since the main transfer operation succeeded
+      }
+    }
 
     if (updateError) {
       console.error("Error updating onboarding asset:", updateError);
+      console.error("Asset ID:", assetId);
+      console.error("Onboarding asset data:", onboardingAsset);
+      // Rollback the assets table insert if possible
+      try {
+        await supabaseAdmin
+          .from("assets")
+          .delete()
+          .eq("article_id", onboardingAsset.article_id)
+          .eq("client", onboardingAsset.client);
+      } catch (rollbackError) {
+        console.error("Error during rollback:", rollbackError);
+      }
       return NextResponse.json(
-        { error: "Failed to update asset status" },
+        {
+          error: "Failed to update asset status",
+          details: updateError.message,
+        },
         { status: 500 }
+      );
+    }
+
+    // Check if the update actually affected any rows
+    if (!updateResult || updateResult.length === 0) {
+      console.error(
+        "No rows updated - asset may have been transferred already",
+        assetId
+      );
+      // Rollback the assets table insert since the onboarding asset wasn't updated
+      try {
+        await supabaseAdmin
+          .from("assets")
+          .delete()
+          .eq("article_id", onboardingAsset.article_id)
+          .eq("client", onboardingAsset.client);
+      } catch (rollbackError) {
+        console.error("Error during rollback:", rollbackError);
+      }
+      return NextResponse.json(
+        {
+          error:
+            "Asset has already been transferred or is not in the expected state",
+        },
+        { status: 409 }
       );
     }
 
@@ -167,26 +288,6 @@ export async function POST(request: NextRequest) {
         client: onboardingAsset.client,
       },
     });
-
-    // Log to the new asset status history table
-    if (status === "approved_by_client") {
-      await AssetStatusLogger.clientApproved(
-        assetId,
-        onboardingAsset.status,
-        revisionCount
-      );
-    } else if (status === "delivered_by_artist") {
-      await AssetStatusLogger.deliveredByArtist(
-        assetId,
-        onboardingAsset.status
-      );
-    } else {
-      await AssetStatusLogger.statusChanged(
-        assetId,
-        onboardingAsset.status,
-        status
-      );
-    }
 
     // Copy GLB file to Android folder for approved assets
     if (status === "approved_by_client" && onboardingAsset.glb_link) {
@@ -259,6 +360,61 @@ export async function POST(request: NextRequest) {
       } catch (error) {
         console.error("❌ Error during GLB file transfer:", error);
         // Don't fail the entire operation if file transfer fails
+      }
+    }
+
+    // Check if all assets in the allocation list are now approved and update list accordingly
+    if (
+      (status === "approved_by_client" || status === "approved") &&
+      onboardingAsset.asset_assignments?.[0]?.allocation_list_id
+    ) {
+      const allocationListId =
+        onboardingAsset.asset_assignments[0].allocation_list_id;
+
+      try {
+        // Get all assets in this allocation list
+        const { data: allAssetsInList, error: listAssetsError } =
+          await supabaseAdmin
+            .from("asset_assignments")
+            .select(
+              `
+            onboarding_assets!inner(id, status)
+          `
+            )
+            .eq("allocation_list_id", allocationListId);
+
+        if (!listAssetsError && allAssetsInList && allAssetsInList.length > 0) {
+          // Check if all assets in the list are approved
+          const allApproved = allAssetsInList.every(
+            (assignment: any) =>
+              assignment.onboarding_assets.status === "approved_by_client" ||
+              assignment.onboarding_assets.status === "approved"
+          );
+
+          if (allApproved) {
+            // Update the allocation list to mark it as approved
+            const { error: updateListError } = await supabaseAdmin
+              .from("allocation_lists")
+              .update({
+                approved_at: new Date().toISOString(),
+                status: "approved",
+              })
+              .eq("id", allocationListId);
+
+            if (updateListError) {
+              console.error(
+                "Error updating allocation list as approved:",
+                updateListError
+              );
+            } else {
+              console.log(
+                `✅ Allocation list ${allocationListId} marked as approved - all assets completed`
+              );
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Error checking allocation list completion:", error);
       }
     }
 

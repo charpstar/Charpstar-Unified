@@ -2146,7 +2146,7 @@ export default function ModelerReviewPage() {
                           className="bg-green-100 text-green-800 border-green-200"
                         >
                           <CheckCircle className="h-3 w-3 mr-1" />
-                          QA Approved
+                          Approved
                         </Badge>
                       ) : (
                         <Badge

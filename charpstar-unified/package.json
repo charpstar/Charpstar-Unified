@@ -10,7 +10,8 @@
     "check-all-glb-links": "tsx scripts/check-glb-links.ts",
     "check-glb-links:synsam": "tsx scripts/check-glb-links.ts",
     "check-polhus-glb": "node scripts/check-polhus-glb-simple.js",
-    "check-all-glb:db": "tsx scripts/check-polhus-glb-links.ts"
+    "check-all-glb:db": "tsx scripts/check-polhus-glb-links.ts",
+    "check-asset-links": "tsx scripts/check-asset-links.ts"
   },
   "dependencies": {
     "@cloudinary/react": "^1.14.3",

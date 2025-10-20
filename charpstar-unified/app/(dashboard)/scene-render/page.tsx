@@ -611,7 +611,7 @@ export default function SceneRenderPage() {
         </div>
       </div>
 
-      <div className="flex flex-col lg:grid lg:grid-cols-3 gap-3 flex-1 min-h-0 overflow-hidden">
+      <div className="flex flex-col lg:grid lg:grid-cols-3 gap-3 flex-1 min-h-[100px] ">
         {/* Main Content Area - Left Side (2/3 width on desktop) */}
         <div
           className="lg:col-span-2 order-1 lg:order-1 h-full overflow-hidden"

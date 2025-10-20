@@ -492,7 +492,7 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
 
       {/* Bottom: Compact Controls in Grid */}
       <div
-        className={`grid grid-cols-1 md:grid-cols-2 ${captureMode ? "lg:grid-cols-2" : "lg:grid-cols-4"} gap-3 flex-1 min-h-0 overflow-hidden`}
+        className={`grid grid-cols-1 md:grid-cols-2 ${captureMode ? "lg:grid-cols-2" : "lg:grid-cols-4"} gap-3 flex-1 min-h-fit `}
       >
         {/* Dimensions - hide in capture mode */}
         {!captureMode && (

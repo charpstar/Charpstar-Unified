@@ -55,6 +55,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
+    // Enforce role on QA approval - allow only admins
+    if (status === "approved" && profile?.role !== "admin") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     // Helper function to chunk array
     const chunkArray = <T>(array: T[], chunkSize: number): T[][] => {
       const chunks: T[][] = [];
@@ -365,8 +370,80 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Clean up allocation lists for any assets that moved to completed states
-    if (status === "approved_by_client") {
+    // Check and update allocation lists that are now fully completed
+    if (status === "approved_by_client" || status === "approved") {
+      try {
+        // Get allocation list IDs for the updated assets
+        const { data: assetAssignments, error: assignmentError } =
+          await supabaseAuth
+            .from("asset_assignments")
+            .select("allocation_list_id")
+            .in("asset_id", assetIds);
+
+        if (!assignmentError && assetAssignments) {
+          // Get unique allocation list IDs
+          const allocationListIds = [
+            ...new Set(
+              assetAssignments.map((a) => a.allocation_list_id).filter(Boolean)
+            ),
+          ];
+
+          // Check each allocation list to see if all assets are now approved
+          for (const listId of allocationListIds) {
+            const { data: allAssetsInList, error: listAssetsError } =
+              await supabaseAuth
+                .from("asset_assignments")
+                .select(
+                  `
+                onboarding_assets!inner(id, status)
+              `
+                )
+                .eq("allocation_list_id", listId);
+
+            if (
+              !listAssetsError &&
+              allAssetsInList &&
+              allAssetsInList.length > 0
+            ) {
+              // Check if all assets in the list are approved
+              const allApproved = allAssetsInList.every(
+                (assignment: any) =>
+                  assignment.onboarding_assets.status ===
+                    "approved_by_client" ||
+                  assignment.onboarding_assets.status === "approved"
+              );
+
+              if (allApproved) {
+                // Update the allocation list to mark it as approved
+                const { error: updateListError } = await supabaseAuth
+                  .from("allocation_lists")
+                  .update({
+                    approved_at: new Date().toISOString(),
+                    status: "approved",
+                  })
+                  .eq("id", listId);
+
+                if (updateListError) {
+                  console.error(
+                    `Error updating allocation list ${listId} as approved:`,
+                    updateListError
+                  );
+                } else {
+                  console.log(
+                    `✅ Allocation list ${listId} marked as approved - all assets completed`
+                  );
+                }
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.error(
+          "Error checking allocation list completion in bulk update:",
+          error
+        );
+      }
+
       const cleanupPromises = assetIds.map((assetId) =>
         cleanupSingleAllocationList(assetId, user.id).catch((error) => {
           console.error(

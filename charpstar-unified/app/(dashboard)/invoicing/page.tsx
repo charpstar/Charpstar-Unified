@@ -18,6 +18,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  Textarea,
 } from "@/components/ui/inputs";
 import {
   Table,
@@ -35,6 +36,9 @@ import {
   CheckCircle,
   Download,
   Clock,
+  XCircle,
+  AlertCircle,
+  Edit,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -63,9 +67,11 @@ interface ApprovedAsset {
   allocation_list_number: number;
   allocation_list_status: string;
   allocation_list_created_at: string;
+  allocation_list_deadline: string;
   allocation_lists?: {
     bonus: number;
     approved_at: string;
+    deadline: string;
   };
 }
 
@@ -153,10 +159,34 @@ export default function InvoicingPage() {
   >([]);
   // const [futureBonuses, setFutureBonuses] = useState<FutureBonus[]>([]);
 
+  // Invoice submission state
+  const [submittedInvoices, setSubmittedInvoices] = useState<any[]>([]);
+  const [loadingInvoices, setLoadingInvoices] = useState(false);
+  const [modelerNotes, setModelerNotes] = useState("");
+
+  // Edit invoice state
+  const [editingInvoice, setEditingInvoice] = useState<any>(null);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [editBankDetails, setEditBankDetails] = useState({
+    bankName: "",
+    bankAccountNr: "",
+    streetAddress: "",
+    cityStateZip: "",
+    bicSwiftCode: "",
+  });
+  const [editModelerNotes, setEditModelerNotes] = useState("");
+  const [updatingInvoice, setUpdatingInvoice] = useState(false);
+
   useEffect(() => {
     document.title = "CharpstAR Platform - Invoicing";
     generateMonthlyPeriods();
   }, []);
+
+  useEffect(() => {
+    if (user?.id) {
+      fetchSubmittedInvoices();
+    }
+  }, [user?.id]);
 
   useEffect(() => {
     if (user?.id && monthlyPeriods.length > 0) {
@@ -233,7 +263,8 @@ export default function InvoicingPage() {
             bonus,
             status,
             approved_at,
-            created_at
+            created_at,
+            deadline
           ),
           onboarding_assets!inner(
             id,
@@ -278,6 +309,7 @@ export default function InvoicingPage() {
           allocation_list_number: item.allocation_lists.number,
           allocation_list_status: item.allocation_lists.status,
           allocation_list_created_at: item.allocation_lists.created_at,
+          allocation_list_deadline: item.allocation_lists.deadline,
           allocation_lists: item.allocation_lists,
         })
       );
@@ -364,12 +396,13 @@ export default function InvoicingPage() {
         return sum;
       }
 
-      // Only calculate bonus if the allocation list is approved (has approved_at)
-      if (!asset.approved_at) {
+      // Only calculate bonus if the allocation list is approved (has approved_at) and completed before deadline
+      const listApprovedAt = asset.allocation_lists?.approved_at;
+      if (!listApprovedAt || !isListCompletedBeforeDeadline(asset)) {
         return sum;
       }
 
-      const listCompletedDate = new Date(asset.approved_at);
+      const listCompletedDate = new Date(listApprovedAt);
       const isListCompletedInPeriod =
         listCompletedDate >= period.startDate &&
         listCompletedDate <= period.endDate;
@@ -568,35 +601,220 @@ export default function InvoicingPage() {
     setShowInvoiceDialog(true);
   };
 
-  const handleGenerateFinalInvoice = async () => {
+  const fetchSubmittedInvoices = async () => {
+    try {
+      setLoadingInvoices(true);
+      const session = await supabase.auth.getSession();
+      const token = session.data.session?.access_token;
+
+      if (!token) {
+        return;
+      }
+
+      const response = await fetch("/api/invoices/list", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setSubmittedInvoices(data.invoices || []);
+      }
+    } catch (error) {
+      console.error("Error fetching invoices:", error);
+    } finally {
+      setLoadingInvoices(false);
+    }
+  };
+
+  const handleSubmitInvoice = async () => {
     if (!invoicePreview) return;
 
     setGeneratingInvoice(true);
     try {
-      // Generate the actual invoice HTML
-      const invoiceHTML = generateInvoiceHTML({
-        ...invoicePreview,
-        bankDetails,
+      const session = await supabase.auth.getSession();
+      const token = session.data.session?.access_token;
+
+      if (!token) {
+        toast.error("Authentication required");
+        return;
+      }
+
+      const period = monthlyPeriods.find((p) => p.value === selectedPeriod);
+      if (!period) return;
+
+      const response = await fetch("/api/invoices/submit", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          invoiceNumber: invoicePreview.invoiceNumber,
+          periodStart: period.startDate.toISOString().split("T")[0],
+          periodEnd: period.endDate.toISOString().split("T")[0],
+          assets: invoicePreview.assets,
+          subtotal: invoicePreview.subtotal,
+          bonusEarnings: invoicePreview.bonusEarnings,
+          totalAmount: invoicePreview.total,
+          bankDetails: bankDetails,
+          modelerNotes: modelerNotes,
+          clients: invoicePreview.clients,
+          categories: invoicePreview.categories,
+        }),
       });
 
-      // Create and download the invoice
-      const blob = new Blob([invoiceHTML], { type: "text/html" });
-      const url = URL.createObjectURL(blob);
+      if (!response.ok) {
+        throw new Error("Failed to submit invoice");
+      }
+
+      toast.success("Invoice submitted for review successfully!");
+      setShowInvoiceDialog(false);
+      setModelerNotes("");
+      fetchSubmittedInvoices();
+    } catch (error) {
+      console.error("Error submitting invoice:", error);
+      toast.error("Failed to submit invoice");
+    } finally {
+      setGeneratingInvoice(false);
+    }
+  };
+
+  const handleGenerateFinalInvoice = handleSubmitInvoice;
+
+  // Helper function to check if allocation list was completed before deadline
+  const isListCompletedBeforeDeadline = (asset: ApprovedAsset) => {
+    const listApprovedAt = asset.allocation_lists?.approved_at;
+    const deadline = asset.allocation_list_deadline;
+    const listStatus = asset.allocation_list_status;
+
+    // If we have both list approved_at and deadline, use that
+    if (listApprovedAt && deadline) {
+      const listCompletedDate = new Date(listApprovedAt);
+      const deadlineDate = new Date(deadline);
+      return listCompletedDate <= deadlineDate;
+    }
+
+    // If no deadline, we can't determine if it was completed on time
+    if (!deadline) {
+      return false;
+    }
+
+    // If the allocation list status is "approved", consider it completed
+    if (listStatus === "approved") {
+      // Use the asset's updated_at as the completion date if no list approved_at exists
+      const completionDate = asset.asset_updated_at;
+      if (completionDate) {
+        const completionDateTime = new Date(completionDate);
+        const deadlineDate = new Date(deadline);
+        return completionDateTime <= deadlineDate;
+      }
+      return true; // If status is approved but no date, consider it on time
+    }
+
+    return false;
+  };
+
+  const handleEditInvoice = async (invoice: any) => {
+    setEditingInvoice(invoice);
+    setEditBankDetails({
+      bankName: invoice.bank_name || "",
+      bankAccountNr: invoice.bank_account_nr || "",
+      streetAddress: invoice.street_address || "",
+      cityStateZip: invoice.city_state_zip || "",
+      bicSwiftCode: invoice.bic_swift_code || "",
+    });
+    setEditModelerNotes(invoice.modeler_notes || "");
+    setShowEditDialog(true);
+  };
+
+  const handleUpdateInvoice = async () => {
+    if (!editingInvoice) return;
+
+    setUpdatingInvoice(true);
+    try {
+      const session = await supabase.auth.getSession();
+      const token = session.data.session?.access_token;
+
+      if (!token) {
+        toast.error("Authentication required");
+        return;
+      }
+
+      const response = await fetch(`/api/invoices/${editingInvoice.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          bankDetails: editBankDetails,
+          modelerNotes: editModelerNotes,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to update invoice");
+      }
+
+      toast.success("Invoice updated successfully!");
+      setShowEditDialog(false);
+      setEditingInvoice(null);
+      fetchSubmittedInvoices();
+    } catch (error) {
+      console.error("Error updating invoice:", error);
+      toast.error("Failed to update invoice");
+    } finally {
+      setUpdatingInvoice(false);
+    }
+  };
+
+  const handleDownloadInvoice = async (invoice: any) => {
+    try {
+      // Create invoice data for download
+      const invoiceData = {
+        invoiceNumber: invoice.invoice_number,
+        date: new Date(invoice.submitted_at).toISOString().split("T")[0],
+        modelerName:
+          user?.metadata?.title || user?.email?.split("@")[0] || "Modeler",
+        modelerEmail: user?.email || "",
+        period: `${new Date(invoice.period_start).toLocaleDateString()} - ${new Date(invoice.period_end).toLocaleDateString()}`,
+        periodDates: `${new Date(invoice.period_start).toLocaleDateString()} - ${new Date(invoice.period_end).toLocaleDateString()}`,
+        assets: invoice.metadata?.assets || [],
+        subtotal: invoice.subtotal,
+        bonusEarnings: invoice.bonus_earnings,
+        total: invoice.total_amount,
+        clients: invoice.metadata?.clients || [],
+        categories: invoice.metadata?.categories || [],
+        assetCount: invoice.metadata?.assetCount || 0,
+        bankDetails: {
+          bankName: invoice.bank_name || "",
+          bankAccountNr: invoice.bank_account_nr || "",
+          streetAddress: invoice.street_address || "",
+          cityStateZip: invoice.city_state_zip || "",
+          bicSwiftCode: invoice.bic_swift_code || "",
+        },
+      };
+
+      // Generate HTML content
+      const htmlContent = generateInvoiceHTML(invoiceData);
+
+      // Create and download the file
+      const blob = new Blob([htmlContent], { type: "text/html" });
+      const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = `invoice-${invoicePreview.invoiceNumber}.html`;
+      link.download = `${invoice.invoice_number}.html`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      URL.revokeObjectURL(url);
+      window.URL.revokeObjectURL(url);
 
-      toast.success("Invoice generated and downloaded successfully!");
-      setShowInvoiceDialog(false);
+      toast.success("Invoice downloaded successfully!");
     } catch (error) {
-      console.error("Error generating invoice:", error);
-      toast.error("Failed to generate invoice");
-    } finally {
-      setGeneratingInvoice(false);
+      console.error("Error downloading invoice:", error);
+      toast.error("Failed to download invoice");
     }
   };
 
@@ -1468,7 +1686,7 @@ export default function InvoicingPage() {
                       </TableCell>
                       <TableCell className="min-w-[120px] text-left">
                         <div className="text-xs sm:text-sm">
-                          {asset.approved_at ? (
+                          {isListCompletedBeforeDeadline(asset) ? (
                             <Badge variant="outline" className="text-xs">
                               <CheckCircle className="h-3 w-3 mr-1" />
                               Eligible
@@ -1480,9 +1698,13 @@ export default function InvoicingPage() {
                             </Badge>
                           )}
                           <div className="text-xs text-muted-foreground mt-1">
-                            {asset.approved_at ? (
+                            {isListCompletedBeforeDeadline(asset) ? (
                               <span className="text-green-600">
-                                ✓ List completed
+                                ✓ List completed before deadline
+                              </span>
+                            ) : asset.allocation_lists?.approved_at ? (
+                              <span className="text-red-600">
+                                ✗ Completed after deadline
                               </span>
                             ) : (
                               <span>(Bonus when list completes)</span>
@@ -1495,7 +1717,7 @@ export default function InvoicingPage() {
                           <Euro className="h-3 w-3 text-muted-foreground" />
                           <span className="font-medium text-xs sm:text-sm">
                             €
-                            {(asset.approved_at
+                            {(isListCompletedBeforeDeadline(asset)
                               ? asset.price *
                                 (1 + (asset.allocation_lists?.bonus || 0) / 100)
                               : asset.price
@@ -1503,7 +1725,7 @@ export default function InvoicingPage() {
                           </span>
                         </div>
                         <div className="text-xs text-muted-foreground text-center mt-1">
-                          {asset.approved_at ? (
+                          {isListCompletedBeforeDeadline(asset) ? (
                             <span>(Base + Bonus)</span>
                           ) : (
                             <span>(Base only)</span>
@@ -1512,16 +1734,29 @@ export default function InvoicingPage() {
                       </TableCell>
                       <TableCell className="min-w-[120px] text-left">
                         <div className="text-xs sm:text-sm text-muted-foreground">
-                          {asset.allocation_list_status === "approved" ? (
+                          {isListCompletedBeforeDeadline(asset) ? (
                             <div>
                               <div>
                                 List:{" "}
                                 {new Date(
-                                  asset.approved_at
+                                  asset.allocation_lists?.approved_at ||
+                                    asset.approved_at
                                 ).toLocaleDateString()}
                               </div>
                               <div className="text-xs text-green-600">
                                 ✓ Complete
+                              </div>
+                            </div>
+                          ) : asset.allocation_lists?.approved_at ? (
+                            <div>
+                              <div>
+                                List:{" "}
+                                {new Date(
+                                  asset.allocation_lists.approved_at
+                                ).toLocaleDateString()}
+                              </div>
+                              <div className="text-xs text-red-600">
+                                ✗ Late completion
                               </div>
                             </div>
                           ) : (
@@ -1543,9 +1778,161 @@ export default function InvoicingPage() {
         </CardContent>
       </Card>
 
+      {/* Submitted Invoices History */}
+      <Card>
+        <CardHeader className="p-4 sm:p-6">
+          <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+            <FileText className="h-4 w-4 sm:h-5 sm:w-5" />
+            My Submitted Invoices
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-4 sm:p-6">
+          {loadingInvoices ? (
+            <div className="text-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+              <p className="text-sm text-muted-foreground">
+                Loading invoices...
+              </p>
+            </div>
+          ) : submittedInvoices.length === 0 ? (
+            <div className="text-center py-8">
+              <FileText className="h-10 w-10 sm:h-12 sm:w-12 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-base sm:text-lg font-semibold mb-2">
+                No Invoices Submitted Yet
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                Submit your first invoice using the form above
+              </p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="text-xs sm:text-sm">
+                      Invoice #
+                    </TableHead>
+                    <TableHead className="text-xs sm:text-sm">Period</TableHead>
+                    <TableHead className="text-xs sm:text-sm text-right">
+                      Amount
+                    </TableHead>
+                    <TableHead className="text-xs sm:text-sm">Status</TableHead>
+                    <TableHead className="text-xs sm:text-sm">
+                      Submitted
+                    </TableHead>
+                    <TableHead className="text-xs sm:text-sm">
+                      Admin Comments
+                    </TableHead>
+                    <TableHead className="text-xs sm:text-sm">
+                      Actions
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {submittedInvoices.map((invoice) => (
+                    <TableRow key={invoice.id}>
+                      <TableCell className="font-mono text-xs sm:text-sm">
+                        {invoice.invoice_number}
+                      </TableCell>
+                      <TableCell className="text-xs sm:text-sm">
+                        {new Date(invoice.period_start).toLocaleDateString()} -{" "}
+                        {new Date(invoice.period_end).toLocaleDateString()}
+                      </TableCell>
+                      <TableCell className="text-right font-semibold text-xs sm:text-sm">
+                        €{invoice.total_amount.toFixed(2)}
+                      </TableCell>
+                      <TableCell>
+                        {invoice.status === "pending" && (
+                          <Badge
+                            variant="outline"
+                            className="bg-yellow-50 text-yellow-700 border-yellow-200 text-xs"
+                          >
+                            <Clock className="h-3 w-3 mr-1" />
+                            Pending
+                          </Badge>
+                        )}
+                        {invoice.status === "approved" && (
+                          <Badge
+                            variant="outline"
+                            className="bg-green-50 text-green-700 border-green-200 text-xs"
+                          >
+                            <CheckCircle className="h-3 w-3 mr-1" />
+                            Approved
+                          </Badge>
+                        )}
+                        {invoice.status === "rejected" && (
+                          <Badge
+                            variant="outline"
+                            className="bg-red-50 text-red-700 border-red-200 text-xs"
+                          >
+                            <XCircle className="h-3 w-3 mr-1" />
+                            Rejected
+                          </Badge>
+                        )}
+                        {invoice.status === "changes_requested" && (
+                          <Badge
+                            variant="outline"
+                            className="bg-orange-50 text-orange-700 border-orange-200 text-xs"
+                          >
+                            <AlertCircle className="h-3 w-3 mr-1" />
+                            Changes Requested
+                          </Badge>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-xs sm:text-sm text-muted-foreground">
+                        {new Date(invoice.submitted_at).toLocaleDateString()}
+                      </TableCell>
+                      <TableCell className="text-xs sm:text-sm">
+                        {invoice.admin_comments ? (
+                          <div
+                            className="max-w-xs truncate"
+                            title={invoice.admin_comments}
+                          >
+                            {invoice.admin_comments}
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-xs sm:text-sm">
+                        <div className="flex gap-2">
+                          {(invoice.status === "pending" ||
+                            invoice.status === "changes_requested") && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleEditInvoice(invoice)}
+                              className="h-8 px-2 text-xs"
+                            >
+                              <Edit className="h-3 w-3 mr-1" />
+                              Edit
+                            </Button>
+                          )}
+                          {invoice.status === "approved" && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleDownloadInvoice(invoice)}
+                              className="h-8 px-2 text-xs"
+                            >
+                              <Download className="h-3 w-3 mr-1" />
+                              Download
+                            </Button>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Invoice Generation Dialog */}
       <Dialog open={showInvoiceDialog} onOpenChange={setShowInvoiceDialog}>
-        <DialogContent className="w-[95vw] sm:w-full max-w-4xl max-h-[90vh] flex flex-col">
+        <DialogContent className="w-[95vw] sm:w-full min-w-4xl max-h-[90vh] flex flex-col">
           <DialogHeader className="pb-3 sm:pb-4 flex-shrink-0">
             <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
               <FileText className="h-4 w-4 sm:h-5 sm:w-5" />
@@ -1708,6 +2095,20 @@ export default function InvoicingPage() {
                   </div>
                 </div>
               </div>
+
+              {/* Notes to Admin */}
+              <div className="space-y-3 sm:space-y-4">
+                <h3 className="text-base sm:text-lg font-semibold">
+                  Notes to Admin (Optional)
+                </h3>
+                <Textarea
+                  value={modelerNotes}
+                  onChange={(e) => setModelerNotes(e.target.value)}
+                  placeholder="Add any notes or comments for the admin reviewer..."
+                  rows={4}
+                  className="w-full text-sm"
+                />
+              </div>
             </div>
           )}
 
@@ -1729,14 +2130,247 @@ export default function InvoicingPage() {
                 {generatingInvoice ? (
                   <>
                     <div className="animate-spin rounded-full h-3 w-3 sm:h-4 sm:w-4 border-b-2 border-white mr-2" />
-                    <span className="hidden sm:inline">Generating...</span>
-                    <span className="sm:hidden">Generating...</span>
+                    <span className="hidden sm:inline">Submitting...</span>
+                    <span className="sm:hidden">Submitting...</span>
                   </>
                 ) : (
                   <>
-                    <Download className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
-                    <span className="hidden sm:inline">Generate Invoice</span>
-                    <span className="sm:hidden">Generate</span>
+                    <FileText className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
+                    <span className="hidden sm:inline">
+                      Submit Invoice for Review
+                    </span>
+                    <span className="sm:hidden">Submit</span>
+                  </>
+                )}
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Invoice Dialog */}
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent className="w-[95vw] sm:w-full min-w-4xl max-h-[90vh] flex flex-col">
+          <DialogHeader className="pb-3 sm:pb-4 flex-shrink-0">
+            <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <Edit className="h-4 w-4 sm:h-5 sm:w-5" />
+              Edit Invoice
+            </DialogTitle>
+            <DialogDescription className="text-xs sm:text-sm">
+              Update your bank details and notes for invoice{" "}
+              {editingInvoice?.invoice_number}
+            </DialogDescription>
+          </DialogHeader>
+
+          {editingInvoice && (
+            <div className="flex-1 overflow-y-auto space-y-4 sm:space-y-6">
+              {/* Invoice Info */}
+              <div className="space-y-3 sm:space-y-4">
+                <h3 className="text-base sm:text-lg font-semibold">
+                  Invoice Information
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 p-3 sm:p-4 bg-muted/50 rounded-lg">
+                  <div>
+                    <div className="text-sm font-medium text-muted-foreground">
+                      Invoice Number
+                    </div>
+                    <div className="font-mono text-sm">
+                      {editingInvoice.invoice_number}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-sm font-medium text-muted-foreground">
+                      Total Amount
+                    </div>
+                    <div className="font-semibold text-lg">
+                      €{editingInvoice.total_amount.toFixed(2)}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-sm font-medium text-muted-foreground">
+                      Period
+                    </div>
+                    <div className="text-sm">
+                      {new Date(
+                        editingInvoice.period_start
+                      ).toLocaleDateString()}{" "}
+                      -{" "}
+                      {new Date(editingInvoice.period_end).toLocaleDateString()}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-sm font-medium text-muted-foreground">
+                      Status
+                    </div>
+                    <div className="text-sm">
+                      {editingInvoice.status === "pending" && (
+                        <Badge
+                          variant="outline"
+                          className="bg-yellow-50 text-yellow-700 border-yellow-200 text-xs"
+                        >
+                          <Clock className="h-3 w-3 mr-1" />
+                          Pending
+                        </Badge>
+                      )}
+                      {editingInvoice.status === "changes_requested" && (
+                        <Badge
+                          variant="outline"
+                          className="bg-orange-50 text-orange-700 border-orange-200 text-xs"
+                        >
+                          <AlertCircle className="h-3 w-3 mr-1" />
+                          Changes Requested
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Admin Comments (Read-only) */}
+              {editingInvoice.admin_comments && (
+                <div className="space-y-3 sm:space-y-4">
+                  <h3 className="text-base sm:text-lg font-semibold text-orange-800">
+                    Admin Comments
+                  </h3>
+                  <div className="p-3 sm:p-4 bg-orange-50 border border-orange-200 rounded-lg">
+                    <div className="text-sm text-orange-900 whitespace-pre-wrap">
+                      {editingInvoice.admin_comments}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Bank Details Form */}
+              <div className="space-y-3 sm:space-y-4">
+                <h3 className="text-base sm:text-lg font-semibold">
+                  Bank Transfer Details
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                  <div className="space-y-2">
+                    <label className="text-xs sm:text-sm font-medium">
+                      Bank Name
+                    </label>
+                    <Input
+                      value={editBankDetails.bankName}
+                      onChange={(e) =>
+                        setEditBankDetails((prev) => ({
+                          ...prev,
+                          bankName: e.target.value,
+                        }))
+                      }
+                      placeholder="Enter bank name"
+                      className="text-sm h-9 sm:h-10"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs sm:text-sm font-medium">
+                      Account Number
+                    </label>
+                    <Input
+                      value={editBankDetails.bankAccountNr}
+                      onChange={(e) =>
+                        setEditBankDetails((prev) => ({
+                          ...prev,
+                          bankAccountNr: e.target.value,
+                        }))
+                      }
+                      placeholder="Enter account number"
+                      className="text-sm h-9 sm:h-10"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs sm:text-sm font-medium">
+                      Street Address
+                    </label>
+                    <Input
+                      value={editBankDetails.streetAddress}
+                      onChange={(e) =>
+                        setEditBankDetails((prev) => ({
+                          ...prev,
+                          streetAddress: e.target.value,
+                        }))
+                      }
+                      placeholder="Enter street address"
+                      className="text-sm h-9 sm:h-10"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs sm:text-sm font-medium">
+                      City, State, ZIP
+                    </label>
+                    <Input
+                      value={editBankDetails.cityStateZip}
+                      onChange={(e) =>
+                        setEditBankDetails((prev) => ({
+                          ...prev,
+                          cityStateZip: e.target.value,
+                        }))
+                      }
+                      placeholder="Enter city, state, ZIP"
+                      className="text-sm h-9 sm:h-10"
+                    />
+                  </div>
+                  <div className="space-y-2 sm:col-span-2">
+                    <label className="text-xs sm:text-sm font-medium">
+                      BIC/SWIFT Code
+                    </label>
+                    <Input
+                      value={editBankDetails.bicSwiftCode}
+                      onChange={(e) =>
+                        setEditBankDetails((prev) => ({
+                          ...prev,
+                          bicSwiftCode: e.target.value,
+                        }))
+                      }
+                      placeholder="Enter BIC/SWIFT code"
+                      className="text-sm h-9 sm:h-10"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Notes to Admin */}
+              <div className="space-y-3 sm:space-y-4">
+                <h3 className="text-base sm:text-lg font-semibold">
+                  Notes to Admin (Optional)
+                </h3>
+                <Textarea
+                  value={editModelerNotes}
+                  onChange={(e) => setEditModelerNotes(e.target.value)}
+                  placeholder="Add any notes or comments for the admin reviewer..."
+                  rows={4}
+                  className="w-full text-sm"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Action Buttons */}
+          {editingInvoice && (
+            <div className="flex-shrink-0 flex flex-col sm:flex-row justify-end gap-3 pt-4 border-t bg-background">
+              <Button
+                variant="outline"
+                onClick={() => setShowEditDialog(false)}
+                className="w-full sm:w-auto text-sm h-9 sm:h-10"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleUpdateInvoice}
+                disabled={updatingInvoice}
+                className="w-full sm:w-auto text-sm h-9 sm:h-10 min-w-[140px]"
+              >
+                {updatingInvoice ? (
+                  <>
+                    <div className="animate-spin rounded-full h-3 w-3 sm:h-4 sm:w-4 border-b-2 border-white mr-2" />
+                    <span className="hidden sm:inline">Updating...</span>
+                    <span className="sm:hidden">Updating...</span>
+                  </>
+                ) : (
+                  <>
+                    <Edit className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
+                    <span className="hidden sm:inline">Update Invoice</span>
+                    <span className="sm:hidden">Update</span>
                   </>
                 )}
               </Button>

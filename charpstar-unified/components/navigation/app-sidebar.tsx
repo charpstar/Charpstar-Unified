@@ -20,6 +20,7 @@ import {
   ShieldCheck,
   Layers,
   Sparkles,
+  BarChart3,
 } from "lucide-react";
 
 import NavMain from "@/components/navigation/nav-main";
@@ -207,14 +208,20 @@ export default function AppSidebar({
         ...(role === "client" && user?.metadata?.onboarding === false
           ? [
               {
+                title: "Review Assets",
+                url: "/client-review",
+                icon: Eye,
+              },
+              {
                 title: "Add Products",
                 url: "/add-products",
                 icon: Package,
               },
+
               {
-                title: "Review Assets",
-                url: "/client-review",
-                icon: Eye,
+                title: "Integration Guide",
+                url: "/client-documentation",
+                icon: FileText,
               },
             ]
           : []),
@@ -262,6 +269,11 @@ export default function AppSidebar({
                 title: "Cost Tracking",
                 url: "/production/cost-tracking",
                 icon: DollarSign,
+              },
+              {
+                title: "Invoice Review",
+                url: "/production/invoice-review",
+                icon: FileText,
               },
               {
                 title: "QA Statistics",
@@ -366,6 +378,7 @@ export default function AppSidebar({
     // Client
     "Add Products": 15,
     "Client Review": 20,
+    "Integration Guide": 22,
     "Scene Render": 25,
     // Modeler
     "My Assignments": 10,
@@ -397,6 +410,18 @@ export default function AppSidebar({
             title: "Scene Render",
             url: "/scene-render",
             icon: Palette,
+          },
+        ]
+      : []),
+    // Analytics - for client users only (disabled with tooltip)
+    ...(role === "client"
+      ? [
+          {
+            title: "Analytics",
+            url: "#",
+            icon: BarChart3,
+            disabled: true,
+            tooltip: "Coming soon!",
           },
         ]
       : []),
