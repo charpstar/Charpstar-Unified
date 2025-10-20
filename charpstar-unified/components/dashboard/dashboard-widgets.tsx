@@ -2692,7 +2692,7 @@ export function QAStatisticsWidget() {
               hover:translate-y-[-2px]
               dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.05),inset_0_0_12px_rgba(0,0,0,0.2),0_2px_8px_rgba(0,0,0,0.3)]
               dark:hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.08),inset_0_0_16px_rgba(0,0,0,0.25),0_4px_16px_rgba(0,0,0,0.4)]
-              border border-border/50"
+              border border-border/20"
           >
             <div className="flex items-center gap-4">
               <div

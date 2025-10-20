@@ -3337,7 +3337,7 @@ export default function ReviewPage() {
           </div>
 
           {/* Skeleton Annotations Panel */}
-          <div className="w-143 bg-background/95 backdrop-blur-xl border-l border-border/50 shadow-xl overflow-y-auto">
+          <div className="w-143 bg-background/95 backdrop-blur-xl border-l border-border/20 shadow-xl overflow-y-auto">
             <div className="p-8">
               <div className="flex items-center justify-between mb-8">
                 <div className="flex items-center gap-4">
@@ -3352,7 +3352,7 @@ export default function ReviewPage() {
                 {[1, 2, 3].map((i) => (
                   <div
                     key={i}
-                    className="p-6 rounded-xl border border-border/50 bg-background animate-pulse"
+                    className="p-6 rounded-xl border border-border/20 bg-background animate-pulse"
                   >
                     <div className="flex items-start justify-between mb-4">
                       <div className="flex items-center gap-3">
@@ -4067,7 +4067,7 @@ export default function ReviewPage() {
           </div>
 
           {/* Right Panel - Switchable between Reference Images and Feedback */}
-          <div className="w-full xl:w-[510px] max-w-full flex flex-col bg-background border border-border/50 p-3 sm:p-6 h-[50vh] min-h-[500px] xl:h-auto xl:min-h-0 overflow-y-auto">
+          <div className="w-full xl:w-[510px] max-w-full flex flex-col bg-background border border-border/20 p-3 sm:p-6 h-[50vh] min-h-[500px] xl:h-auto xl:min-h-0 overflow-y-auto">
             {/* Tab Navigation */}
             <div className="flex items-center gap-1 mb-4 sm:mb-6 bg-muted/50 rounded-lg p-1">
               <button
@@ -4541,7 +4541,7 @@ export default function ReviewPage() {
                           <Card
                             key={`annotation-${item.id}`}
                             id={`annotation-${item.id}`}
-                            className={`p-3 sm:p-6 transition-all duration-200 rounded-xl border border-border/50 ${
+                            className={`p-3 sm:p-6 transition-all duration-200 rounded-xl border border-border/20 ${
                               selectedHotspotId === item.id
                                 ? "ring-2 ring-primary/15 ring-offset-2 bg-primary/3 shadow-lg"
                                 : highlightedAnnotationId === item.id
@@ -5102,7 +5102,7 @@ export default function ReviewPage() {
                         ) : (
                           <Card
                             key={`comment-${item.id}`}
-                            className="p-6 transition-all duration-200 rounded-xl border border-border/50 hover:shadow-md"
+                            className="p-6 transition-all duration-200 rounded-xl border border-border/20 hover:shadow-md"
                           >
                             <div className="flex items-start justify-between mb-4">
                               <div className="flex items-center gap-3">
