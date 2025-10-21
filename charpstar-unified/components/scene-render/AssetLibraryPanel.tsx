@@ -16,7 +16,15 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/interactive";
-import { Search, Filter, Download, Check, ChevronsUpDown } from "lucide-react";
+import {
+  Search,
+  Filter,
+  Download,
+  Check,
+  ChevronsUpDown,
+  ChevronRight,
+  ChevronLeft,
+} from "lucide-react";
 import {
   Command,
   CommandEmpty,
@@ -33,10 +41,14 @@ import { createClient } from "@/utils/supabase/client";
 
 interface AssetLibraryPanelProps {
   onAssetSelect?: (asset: any) => void;
+  isCollapsed?: boolean;
+  onToggleCollapse?: () => void;
 }
 
 export default function AssetLibraryPanel({
   onAssetSelect,
+  isCollapsed = false,
+  onToggleCollapse,
 }: AssetLibraryPanelProps) {
   const {
     assets,
@@ -225,28 +237,152 @@ export default function AssetLibraryPanel({
     }
   }, [selectedClient, availableCategories, selectedCategory, isAdmin]);
 
-  return (
-    <Card className="h-full flex flex-col overflow-hidden">
-      <CardHeader className="pb-2 sm:pb-3 flex-shrink-0">
-        <CardTitle className="text-base sm:text-lg">Asset Library</CardTitle>
-        <p className="text-xs text-muted-foreground">
-          Showing {paginatedAssets.length} of {displayedAssets.length} assets
+  // If collapsed, show minimal UI
+  if (isCollapsed) {
+    return (
+      <Card className="h-full flex flex-col overflow-hidden surface-elevated border border-light shadow-md rounded-xl items-center py-4 px-2 gap-4 transition-all duration-500 ease-out">
+        {/* Expand Button - at the top */}
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onToggleCollapse}
+          className="h-10 w-10 p-0 hover:bg-primary/10 flex-shrink-0 transition-colors duration-200"
+          title="Expand Asset Library"
+        >
+          <ChevronLeft className="h-5 w-5" />
+        </Button>
+
+        {/* Client Filter - Only for Admins */}
+        {isAdmin && (
+          <Popover open={clientOpen} onOpenChange={setClientOpen} modal={false}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-10 w-10 p-0 flex-shrink-0 transition-colors duration-200 hover:bg-primary/5"
+                title={
+                  selectedClient === "all"
+                    ? "All Clients"
+                    : filterOptions.clients.find((c) => c.id === selectedClient)
+                        ?.name || "All Clients"
+                }
+              >
+                <Filter className="h-4 w-4" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent
+              className="w-[250px] p-0 pointer-events-auto z-[100000] animate-in slide-in-from-right-2 duration-200"
+              align="start"
+              side="right"
+            >
+              <Command>
+                <CommandInput placeholder="Search clients..." />
+                <CommandList className="max-h-[300px] overflow-y-auto">
+                  <CommandEmpty>No client found.</CommandEmpty>
+                  <CommandGroup>
+                    <CommandItem
+                      value="all"
+                      onSelect={() => {
+                        setSelectedClient("all");
+                        setClientOpen(false);
+                      }}
+                    >
+                      <Check
+                        className={cn(
+                          "mr-2 h-4 w-4 transition-opacity duration-200",
+                          selectedClient === "all" ? "opacity-100" : "opacity-0"
+                        )}
+                      />
+                      All Clients
+                    </CommandItem>
+                    {filterOptions.clients
+                      .sort((a, b) => a.name.localeCompare(b.name))
+                      .map((client) => (
+                        <CommandItem
+                          key={client.id}
+                          value={client.id}
+                          onSelect={() => {
+                            setSelectedClient(client.id);
+                            setClientOpen(false);
+                          }}
+                        >
+                          <Check
+                            className={cn(
+                              "mr-2 h-4 w-4 transition-opacity duration-200",
+                              selectedClient === client.id
+                                ? "opacity-100"
+                                : "opacity-0"
+                            )}
+                          />
+                          {client.name}
+                        </CommandItem>
+                      ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
+        )}
+
+        {/* Asset Count with Icon */}
+        <div className="flex flex-col items-center gap-2 flex-shrink-0 transition-all duration-500 ease-out">
+          <span className="text-sm font-medium text-muted-foreground transition-colors duration-300">
+            {displayedAssets.length}
+          </span>
           {displayedAssets.length !== assets.length && (
-            <span> (filtered from {assets.length})</span>
+            <span className="text-xs text-muted-foreground transition-opacity duration-300">
+              /{assets.length}
+            </span>
           )}
-        </p>
+        </div>
+
+        {/* Vertical Text - rotated correctly */}
+        <div className="flex-1 flex items-center justify-center min-h-0 transition-all duration-500 ease-out">
+          <div className="text-sm font-medium tracking-wider [writing-mode:vertical-lr] transition-all duration-500 ease-out">
+            Asset Library
+          </div>
+        </div>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="h-full flex flex-col overflow-hidden surface-elevated border border-light shadow-md rounded-xl transition-all duration-500 ease-out">
+      <CardHeader className="pb-2 sm:pb-3 flex-shrink-0 transition-all duration-500 ease-out">
+        <div className="flex items-center justify-between">
+          <div className="flex-1 transition-all duration-500 ease-out">
+            <CardTitle className="text-base sm:text-lg transition-all duration-500 ease-out">
+              Asset Library
+            </CardTitle>
+            <p className="text-xs text-muted-foreground transition-all duration-500 ease-out">
+              Showing {paginatedAssets.length} of {displayedAssets.length}{" "}
+              assets
+              {displayedAssets.length !== assets.length && (
+                <span> (filtered from {assets.length})</span>
+              )}
+            </p>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onToggleCollapse}
+            className="h-8 w-8 p-0 ml-2 flex-shrink-0 transition-colors duration-200 hover:bg-primary/10"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
       </CardHeader>
 
-      <CardContent className="flex-1 flex flex-col space-y-2 sm:space-y-3 p-3 sm:p-4 min-h-0">
+      <CardContent className="flex-1 flex flex-col space-y-2 sm:space-y-3 p-3 sm:p-4 min-h-0 transition-all duration-500 ease-out">
         {/* Search */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <div className="relative transition-all duration-300">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground transition-colors duration-200" />
           <Input
             type="text"
             placeholder="Search by name, article ID, category..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 h-8 sm:h-9 text-sm"
+            className="pl-10 h-8 sm:h-9 text-sm transition-all duration-200 focus:ring-2 focus:ring-primary/20"
           />
         </div>
 
@@ -255,7 +391,7 @@ export default function AssetLibraryPanel({
           <PopoverTrigger asChild>
             <Button
               variant="outline"
-              className="w-full h-8 sm:h-9 justify-between"
+              className="w-full h-8 sm:h-9 justify-between transition-colors duration-200 hover:bg-primary/5 hover:border-primary/20"
             >
               <span className="flex items-center gap-1 sm:gap-2">
                 <Filter className="h-3 w-3 sm:h-4 sm:w-4" />
@@ -285,7 +421,10 @@ export default function AssetLibraryPanel({
               <ChevronsUpDown className="h-3 w-3 sm:h-4 sm:w-4 opacity-50" />
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-72 sm:w-80 p-3 sm:p-4" align="start">
+          <PopoverContent
+            className="w-72 sm:w-80 p-3 sm:p-4 animate-in slide-in-from-top-2 duration-200"
+            align="start"
+          >
             <div className="space-y-3 sm:space-y-4">
               {/* Client Filter - Only for Admins */}
               {isAdmin && (
@@ -599,28 +738,31 @@ export default function AssetLibraryPanel({
         </Popover>
 
         {/* Assets Grid */}
-        <ScrollArea className="flex-1 min-h-0">
+        <ScrollArea className="flex-1 min-h-0 transition-all duration-300">
           {loading ? (
-            <div className="grid grid-cols-3 xs:grid-cols-2 gap-2 sm:gap-3">
+            <div className="grid grid-cols-3 xs:grid-cols-2 gap-2 sm:gap-3 transition-all duration-300">
               {[...Array(6)].map((_, i) => (
-                <Card key={i} className="animate-pulse overflow-hidden">
-                  <div className="aspect-square bg-muted" />
+                <Card
+                  key={i}
+                  className="animate-pulse overflow-hidden transition-all duration-300"
+                >
+                  <div className="aspect-square bg-muted transition-colors duration-300" />
                   <div className="p-2 space-y-2">
-                    <div className="h-3 bg-muted rounded w-3/4" />
-                    <div className="h-2 bg-muted rounded w-1/2" />
+                    <div className="h-3 bg-muted rounded w-3/4 transition-colors duration-300" />
+                    <div className="h-2 bg-muted rounded w-1/2 transition-colors duration-300" />
                   </div>
                 </Card>
               ))}
             </div>
           ) : displayedAssets.length === 0 ? (
-            <div className="text-center py-8 sm:py-12">
-              <p className="text-xs sm:text-sm text-muted-foreground">
+            <div className="text-center py-8 sm:py-12 transition-all duration-300">
+              <p className="text-xs sm:text-sm text-muted-foreground transition-colors duration-300">
                 No assets found
               </p>
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-2 xs:grid-cols-2 gap-2 sm:gap-3 pb-4 p-1">
+              <div className="grid grid-cols-2 xs:grid-cols-2 gap-2 sm:gap-3 pb-4 p-1 transition-all duration-300">
                 {paginatedAssets.map((asset) => {
                   const handleClick = (e: React.MouseEvent) => {
                     // Prevent click during drag operations
@@ -641,7 +783,7 @@ export default function AssetLibraryPanel({
                   return (
                     <Card
                       key={asset.id}
-                      className={`overflow-hidden p-2 sm:p-4 rounded-lg cursor-grab active:cursor-grabbing hover:shadow-lg hover:ring-2 hover:ring-primary/50 hover:ring-offset-2 transition-all group ${
+                      className={`surface-elevated border border-light shadow-depth-sm hover-scale-lift overflow-hidden p-2 sm:p-4 rounded-lg cursor-grab active:cursor-grabbing transition-all duration-300 group animate-in fade-in-0 slide-in-from-bottom-2 ${
                         asset.active === false ? "opacity-60 border-dashed" : ""
                       }`}
                       onClick={handleClick}
@@ -747,12 +889,12 @@ export default function AssetLibraryPanel({
 
               {/* Pagination Controls */}
               {totalPages > 1 && (
-                <div className="sticky bottom-0 z-10  backdrop-blur-sm border-t pt-3 sm:pt-4 mt-2 sm:mt-3">
-                  <div className="flex flex-col xs:flex-row xs:items-center justify-between gap-2 px-1 sm:px-2">
-                    <div className="text-[10px] sm:text-xs text-muted-foreground text-center xs:text-left order-2 xs:order-1">
+                <div className="sticky bottom-0 z-10 backdrop-blur-sm border-t pt-3 sm:pt-4 mt-2 sm:mt-3 transition-all duration-300 animate-in slide-in-from-bottom-2">
+                  <div className="flex flex-col xs:flex-row xs:items-center justify-between gap-2 px-1 sm:px-2 transition-all duration-300">
+                    <div className="text-[10px] sm:text-xs text-muted-foreground text-center xs:text-left order-2 xs:order-1 transition-colors duration-200">
                       Page {currentPage} of {totalPages}
                     </div>
-                    <div className="flex gap-1 justify-center xs:justify-end order-1 xs:order-2">
+                    <div className="flex gap-1 justify-center xs:justify-end order-1 xs:order-2 transition-all duration-300">
                       <Button
                         variant="outline"
                         size="sm"
@@ -760,7 +902,7 @@ export default function AssetLibraryPanel({
                           setCurrentPage((p) => Math.max(1, p - 1))
                         }
                         disabled={currentPage === 1}
-                        className="h-6 sm:h-7 px-2 sm:px-3 text-[10px] sm:text-xs min-w-[60px] sm:min-w-[70px]"
+                        className="h-6 sm:h-7 px-2 sm:px-3 text-[10px] sm:text-xs min-w-[60px] sm:min-w-[70px] transition-colors duration-200 disabled:opacity-50"
                       >
                         <span className="hidden xs:inline">Prev</span>
                         <span className="xs:hidden">‹</span>
@@ -772,7 +914,7 @@ export default function AssetLibraryPanel({
                           setCurrentPage((p) => Math.min(totalPages, p + 1))
                         }
                         disabled={currentPage === totalPages}
-                        className="h-6 sm:h-7 px-2 sm:px-3 text-[10px] sm:text-xs min-w-[60px] sm:min-w-[70px]"
+                        className="h-6 sm:h-7 px-2 sm:px-3 text-[10px] sm:text-xs min-w-[60px] sm:min-w-[70px] transition-colors duration-200 disabled:opacity-50"
                       >
                         <span className="hidden xs:inline">Next</span>
                         <span className="xs:hidden">›</span>

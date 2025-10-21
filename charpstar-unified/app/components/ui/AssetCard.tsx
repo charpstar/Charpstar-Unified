@@ -379,7 +379,7 @@ export default function AssetCard({
                   onClick={handleViewAsset}
                   className="block w-full h-full cursor-pointer"
                 >
-                  <div className="relative rounded-xl overflow-hidden bg-white dark:bg-black w-full h-full cursor-pointer">
+                  <div className="relative rounded-xl overflow-hidden bg-white dark:bg-background w-full h-full cursor-pointer">
                     <motion.img
                       src={previewImageUrl}
                       alt={asset.product_name}
@@ -605,7 +605,7 @@ export default function AssetCard({
                   onClick={handleViewAsset}
                   className="block w-full h-full cursor-pointer"
                 >
-                  <div className="relative rounded-xl overflow-hidden bg-white dark:bg-black w-full h-full cursor-pointer">
+                  <div className="relative rounded-xl overflow-hidden bg-white dark:bg-background w-full h-full cursor-pointer">
                     <motion.img
                       src={previewImageUrl}
                       alt={asset.product_name}

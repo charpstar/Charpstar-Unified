@@ -169,31 +169,52 @@
   /* White for highlighted/foreground text */
 
   /* Depth & Layering Variables - Light Mode */
-  --surface-base: oklch(0.98 0 0);
-  --surface-raised: oklch(0.995 0 0);
-  --surface-elevated: oklch(1 0 0);
+  --surface-base: oklch(0.97 0 0);
+  --surface-raised: oklch(0.985 0 0);
+  --surface-elevated: oklch(0.995 0 0);
+  --surface-floating: oklch(1 0 0);
 
+  /* Enhanced shadow system with multiple layers */
   --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-md:
+    0 2px 4px -1px rgb(0 0 0 / 0.06), 0 4px 6px -1px rgb(0 0 0 / 0.08);
   --shadow-lg:
-    0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+    0 4px 6px -2px rgb(0 0 0 / 0.05), 0 10px 15px -3px rgb(0 0 0 / 0.1),
+    0 0 0 1px rgb(0 0 0 / 0.025);
   --shadow-xl:
-    0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
-  --shadow-inner: inset 0 2px 4px 0 rgb(0 0 0 / 0.05);
+    0 8px 10px -6px rgb(0 0 0 / 0.1), 0 20px 25px -5px rgb(0 0 0 / 0.1),
+    0 0 0 1px rgb(0 0 0 / 0.035);
+  --shadow-2xl:
+    0 12px 24px -8px rgb(0 0 0 / 0.12), 0 25px 50px -12px rgb(0 0 0 / 0.15),
+    0 0 0 1px rgb(0 0 0 / 0.04);
+  --shadow-inner: inset 0 2px 4px 0 rgb(0 0 0 / 0.06);
 
-  --glow-sm: 0 0 10px rgb(255 255 255 / 0.5);
-  --glow-md: 0 0 20px rgb(255 255 255 / 0.6);
+  /* Glow effects with subtle border highlight */
+  --glow-sm: 0 0 10px rgb(255 255 255 / 0.5), 0 0 0 1px rgb(255 255 255 / 0.3);
+  --glow-md: 0 0 20px rgb(255 255 255 / 0.6), 0 0 0 1px rgb(255 255 255 / 0.4);
+  --glow-lg: 0 0 30px rgb(255 255 255 / 0.7), 0 0 0 1px rgb(255 255 255 / 0.5);
 
+  /* Gradient overlays for depth */
   --gradient-shine: linear-gradient(
     135deg,
-    rgb(255 255 255 / 0.1) 0%,
-    rgb(255 255 255 / 0) 100%
+    rgb(255 255 255 / 0.15) 0%,
+    rgb(255 255 255 / 0) 50%,
+    rgb(255 255 255 / 0.05) 100%
   );
   --gradient-depth: linear-gradient(
     180deg,
-    rgb(0 0 0 / 0.02) 0%,
-    rgb(0 0 0 / 0) 100%
+    rgb(0 0 0 / 0) 0%,
+    rgb(0 0 0 / 0.03) 100%
   );
+  --gradient-subtle: linear-gradient(
+    to bottom,
+    rgb(255 255 255 / 0.5),
+    rgb(255 255 255 / 0)
+  );
+
+  /* Border highlights */
+  --border-light: oklch(0.95 0 0);
+  --border-highlight: oklch(0.98 0 0);
 }
 
 /* --- DARK MODE VARIABLES --- */
@@ -306,30 +327,53 @@
 
   /* Depth & Layering Variables - Dark Mode */
   --surface-base: oklch(0.145 0 0);
-  --surface-raised: oklch(0.195 0 0);
-  --surface-elevated: oklch(0.245 0 0);
+  --surface-raised: oklch(0.18 0 0);
+  --surface-elevated: oklch(0.22 0 0);
+  --surface-floating: oklch(0.26 0 0);
 
-  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
-  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.4), 0 2px 4px -2px rgb(0 0 0 / 0.3);
+  /* Enhanced shadow system with multiple layers for dark mode */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.4);
+  --shadow-md: 0 2px 4px -1px rgb(0 0 0 / 0.5), 0 4px 6px -1px rgb(0 0 0 / 0.4);
   --shadow-lg:
-    0 10px 15px -3px rgb(0 0 0 / 0.5), 0 4px 6px -4px rgb(0 0 0 / 0.4);
+    0 4px 6px -2px rgb(0 0 0 / 0.4), 0 10px 15px -3px rgb(0 0 0 / 0.6),
+    0 0 0 1px rgb(255 255 255 / 0.05);
   --shadow-xl:
-    0 20px 25px -5px rgb(0 0 0 / 0.6), 0 8px 10px -6px rgb(0 0 0 / 0.5);
-  --shadow-inner: inset 0 2px 4px 0 rgb(0 0 0 / 0.3);
+    0 8px 10px -6px rgb(0 0 0 / 0.5), 0 20px 25px -5px rgb(0 0 0 / 0.7),
+    0 0 0 1px rgb(255 255 255 / 0.07);
+  --shadow-2xl:
+    0 12px 24px -8px rgb(0 0 0 / 0.6), 0 25px 50px -12px rgb(0 0 0 / 0.8),
+    0 0 0 1px rgb(255 255 255 / 0.08);
+  --shadow-inner: inset 0 2px 4px 0 rgb(0 0 0 / 0.4);
 
-  --glow-sm: 0 0 10px rgb(255 255 255 / 0.05), 0 1px 0 rgb(255 255 255 / 0.1);
-  --glow-md: 0 0 20px rgb(255 255 255 / 0.08), 0 1px 0 rgb(255 255 255 / 0.15);
+  /* Glow effects with subtle border highlight for dark mode */
+  --glow-sm:
+    0 0 10px rgb(255 255 255 / 0.08), 0 0 0 1px rgb(255 255 255 / 0.12);
+  --glow-md:
+    0 0 20px rgb(255 255 255 / 0.12), 0 0 0 1px rgb(255 255 255 / 0.18);
+  --glow-lg:
+    0 0 30px rgb(255 255 255 / 0.15), 0 0 0 1px rgb(255 255 255 / 0.22);
 
+  /* Gradient overlays for depth in dark mode */
   --gradient-shine: linear-gradient(
     135deg,
-    rgb(255 255 255 / 0.05) 0%,
-    rgb(255 255 255 / 0) 100%
+    rgb(255 255 255 / 0.08) 0%,
+    rgb(255 255 255 / 0) 50%,
+    rgb(255 255 255 / 0.03) 100%
   );
   --gradient-depth: linear-gradient(
     180deg,
-    rgb(255 255 255 / 0.03) 0%,
-    rgb(0 0 0 / 0.1) 100%
+    rgb(255 255 255 / 0.04) 0%,
+    rgb(0 0 0 / 0.15) 100%
   );
+  --gradient-subtle: linear-gradient(
+    to bottom,
+    rgb(255 255 255 / 0.06),
+    rgb(255 255 255 / 0)
+  );
+
+  /* Border highlights for dark mode */
+  --border-light: oklch(0.28 0 0);
+  --border-highlight: oklch(0.32 0 0);
 }
 
 /* --- GLOBAL FONT FAMILY --- */
@@ -916,6 +960,9 @@ model-viewer::part(default-ar-button):focus-visible {
   .surface-elevated {
     background-color: var(--surface-elevated);
   }
+  .surface-floating {
+    background-color: var(--surface-floating);
+  }
 
   .shadow-depth-sm {
     box-shadow: var(--shadow-sm);
@@ -929,6 +976,9 @@ model-viewer::part(default-ar-button):focus-visible {
   .shadow-depth-xl {
     box-shadow: var(--shadow-xl);
   }
+  .shadow-depth-2xl {
+    box-shadow: var(--shadow-2xl);
+  }
   .shadow-depth-inner {
     box-shadow: var(--shadow-inner);
   }
@@ -939,6 +989,9 @@ model-viewer::part(default-ar-button):focus-visible {
   .glow-md {
     box-shadow: var(--glow-md);
   }
+  .glow-lg {
+    box-shadow: var(--glow-lg);
+  }
 
   .gradient-shine {
     background-image: var(--gradient-shine);
@@ -946,12 +999,31 @@ model-viewer::part(default-ar-button):focus-visible {
   .gradient-depth {
     background-image: var(--gradient-depth);
   }
+  .gradient-subtle {
+    background-image: var(--gradient-subtle);
+  }
+
+  /* Border utilities */
+  .border-light {
+    border-color: var(--border-light);
+  }
+  .border-highlight {
+    border-color: var(--border-highlight);
+  }
 
   /* Enhanced hover transitions */
   .hover-lift {
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
   .hover-lift:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-xl);
+  }
+
+  .hover-lift-subtle {
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .hover-lift-subtle:hover {
     transform: translateY(-2px);
     box-shadow: var(--shadow-lg);
   }
@@ -961,6 +1033,119 @@ model-viewer::part(default-ar-button):focus-visible {
   }
   .hover-glow:hover {
     box-shadow: var(--glow-md), var(--shadow-md);
+  }
+
+  .hover-scale {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .hover-scale:hover {
+    transform: scale(1.02);
+  }
+
+  .hover-scale-lift {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .hover-scale-lift:hover {
+    transform: translateY(-3px) scale(1.02);
+    box-shadow: var(--shadow-2xl);
+  }
+
+  /* Card enhancement utilities */
+  .card-enhanced {
+    position: relative;
+    background-color: var(--surface-elevated);
+    border: 1px solid var(--border-light);
+    box-shadow: var(--shadow-md);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .card-enhanced::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: var(--gradient-shine);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .card-enhanced:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-xl);
+    border-color: var(--border-highlight);
+  }
+
+  .card-enhanced:hover::before {
+    opacity: 1;
+  }
+
+  /* Layered card design */
+  .card-layered {
+    position: relative;
+    background: var(--surface-elevated);
+    border: 1px solid var(--border-light);
+    box-shadow:
+      var(--shadow-md),
+      inset 0 1px 0 0 var(--border-highlight);
+  }
+
+  .card-layered::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: var(--gradient-depth);
+    pointer-events: none;
+  }
+
+  /* Interactive element highlights */
+  .interactive-highlight {
+    position: relative;
+    background-color: var(--surface-raised);
+    border: 1px solid var(--border);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .interactive-highlight:hover {
+    background-color: var(--surface-elevated);
+    border-color: var(--border-highlight);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .interactive-highlight:active {
+    transform: scale(0.98);
+    box-shadow: var(--shadow-inner);
+  }
+
+  /* Stat card styling */
+  .stat-card {
+    background: var(--surface-elevated);
+    border: 1px solid var(--border-light);
+    box-shadow: var(--shadow-sm);
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .stat-card:hover {
+    background: var(--surface-floating);
+    border-color: var(--border-highlight);
+    box-shadow: var(--shadow-md);
+    transform: translateY(-2px);
+  }
+
+  /* Icon container with depth */
+  .icon-container {
+    background: var(--surface-raised);
+    border: 1px solid var(--border-light);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .icon-container-elevated {
+    background: var(--surface-elevated);
+    border: 1px solid var(--border-light);
+    box-shadow:
+      var(--shadow-md),
+      inset 0 1px 0 0 var(--border-highlight);
   }
 }
 

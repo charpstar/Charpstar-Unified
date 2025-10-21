@@ -209,7 +209,7 @@ export const AssetLibraryControlPanel: React.FC<
 
   return (
     <div
-      className={`sticky top-0 z-10 bg-background rounded-b-lg border-b border-border shadow-sm ${className}`}
+      className={`sticky top-0 z-10 bg-background rounded-b-lg border-b border-border shadow-md ${className}`}
     >
       {/* Compact Header with Breadcrumbs & Quick Actions */}
       <div className="bg-muted/30 border-b border-border/50 px-4 py-2">
@@ -385,6 +385,18 @@ export const AssetLibraryControlPanel: React.FC<
             <span>Filters</span>
           </div>
           <div className="flex flex-wrap gap-2">
+            {/* Debug info */}
+            {categories.length === 0 &&
+              materials.length === 0 &&
+              colors.length === 0 &&
+              companies.length === 0 && (
+                <span className="text-xs text-muted-foreground italic">
+                  No filter options available (Cat: {categories.length}, Mat:{" "}
+                  {materials.length}, Col: {colors.length}, Comp:{" "}
+                  {companies.length})
+                </span>
+              )}
+
             {/* Category Filter */}
             {categories.length > 0 && (
               <Popover modal={false}>

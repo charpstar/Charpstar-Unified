@@ -87,6 +87,9 @@ export default function SceneRenderPage() {
   const [isCapturingAssets, setIsCapturingAssets] = useState(false);
   const [isDoneCapturing, setIsDoneCapturing] = useState(false);
 
+  // Collapse state for asset library panel
+  const [isAssetPanelCollapsed, setIsAssetPanelCollapsed] = useState(false);
+
   // Fetch client viewer type based on user's client
   useEffect(() => {
     const fetchClientViewerType = async () => {
@@ -613,10 +616,16 @@ export default function SceneRenderPage() {
         </div>
       </div>
 
-      <div className="flex flex-col lg:grid lg:grid-cols-3 gap-3 flex-1 min-h-[100px] ">
+      <div
+        className={`flex flex-col lg:grid gap-3 flex-1 min-h-[100px] transition-all duration-500 ease-out ${
+          isAssetPanelCollapsed ? "lg:grid-cols-[1fr_80px]" : "lg:grid-cols-3"
+        }`}
+      >
         {/* Main Content Area - Left Side (2/3 width on desktop) */}
         <div
-          className="lg:col-span-2 order-1 lg:order-1 h-full overflow-hidden"
+          className={`order-1 lg:order-1 h-full overflow-hidden transition-all duration-500 ease-out ${
+            isAssetPanelCollapsed ? "" : "lg:col-span-2"
+          }`}
           onDragOver={(e) => {
             e.preventDefault();
             setIsDragging(true);
@@ -643,7 +652,7 @@ export default function SceneRenderPage() {
           }}
         >
           <Card
-            className={`h-full flex flex-col transition-all ${
+            className={`h-full flex flex-col surface-elevated border border-light shadow-md rounded-xl transition-all ${
               isDragging ? "ring-2 ring-primary bg-primary/5" : ""
             }`}
           >
@@ -669,7 +678,13 @@ export default function SceneRenderPage() {
 
         {/* Asset Library Panel - Right Side (1/3 width on desktop, full width on mobile) */}
         <div className="order-2 lg:order-2 h-full overflow-hidden">
-          <AssetLibraryPanel onAssetSelect={handleAssetSelect} />
+          <AssetLibraryPanel
+            onAssetSelect={handleAssetSelect}
+            isCollapsed={isAssetPanelCollapsed}
+            onToggleCollapse={() =>
+              setIsAssetPanelCollapsed(!isAssetPanelCollapsed)
+            }
+          />
         </div>
       </div>
     </div>
