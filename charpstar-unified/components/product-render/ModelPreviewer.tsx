@@ -1,6 +1,5 @@
 import React, { useRef, useEffect, useState } from "react";
 import Image from "next/image";
-import { Card } from "@/components/ui/containers/card";
 import { Button } from "@/components/ui/display/button";
 import {
   Dialog,
@@ -209,16 +208,6 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
     };
   }, []);
 
-  // Handle model loading errors
-  const handleModelError = (event: CustomEvent) => {
-    console.error("Model loading error:", event.detail);
-    setModelError("Failed to load 3D model. Please check the file format.");
-  };
-
-  // Handle model loading success
-  const handleModelLoad = () => {
-    setModelError(null);
-  };
 
   return (
     <div className="w-full h-full flex flex-col gap-4">
