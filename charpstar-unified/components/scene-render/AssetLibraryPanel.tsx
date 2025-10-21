@@ -41,10 +41,14 @@ import { createClient } from "@/utils/supabase/client";
 
 interface AssetLibraryPanelProps {
   onAssetSelect?: (asset: any) => void;
+  isCollapsed?: boolean;
+  onToggleCollapse?: () => void;
 }
 
 export default function AssetLibraryPanel({
   onAssetSelect,
+  isCollapsed = false,
+  onToggleCollapse,
 }: AssetLibraryPanelProps) {
   const {
     assets,
@@ -233,15 +237,15 @@ export default function AssetLibraryPanel({
     }
   }, [selectedClient, availableCategories, selectedCategory, isAdmin]);
 
-  // Removed collapsed UI functionality
-  if (false) {
+  // If collapsed, show minimal UI
+  if (isCollapsed) {
     return (
       <Card className="h-full flex flex-col overflow-hidden surface-elevated border border-light shadow-md rounded-xl items-center py-4 px-2 gap-4 transition-all duration-500 ease-out">
         {/* Expand Button - at the top */}
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => {}}
+          onClick={onToggleCollapse}
           className="h-10 w-10 p-0 hover:bg-primary/10 flex-shrink-0 transition-colors duration-200"
           title="Expand Asset Library"
         >
@@ -361,7 +365,7 @@ export default function AssetLibraryPanel({
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => {}}
+            onClick={onToggleCollapse}
             className="h-8 w-8 p-0 ml-2 flex-shrink-0 transition-colors duration-200 hover:bg-primary/10"
           >
             <ChevronRight className="h-4 w-4" />
@@ -758,52 +762,63 @@ export default function AssetLibraryPanel({
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-3 xs:grid-cols-3 gap-2 sm:gap-3 pb-4 p-1">
-                {paginatedAssets.map((asset) => (
-                  <Card
-                    key={asset.id}
-                    className={`overflow-hidden p-2 sm:p-4 rounded-lg cursor-grab active:cursor-grabbing hover:shadow-lg hover:ring-2 hover:ring-primary/50 hover:ring-offset-2 transition-all group ${
-                      asset.active === false ? "opacity-60 border-dashed" : ""
-                    }`}
-                    onClick={() => onAssetSelect?.(asset)}
-                    draggable
-                    onDragStart={(e) => {
-                      e.dataTransfer.setData(
-                        "application/json",
-                        JSON.stringify(asset)
-                      );
-                      e.dataTransfer.effectAllowed = "copy";
-                    }}
-                  >
-                    {/* Preview Image */}
-                    <div className="relative aspect-square ">
-                      {asset.preview_image && !imageErrors.has(asset.id) ? (
-                        <Image
-                          src={
-                            Array.isArray(asset.preview_image)
-                              ? asset.preview_image[0]
-                              : asset.preview_image
-                          }
-                          alt={asset.product_name}
-                          fill
-                          unoptimized
-                          className="object-contain group-hover:scale-105 transition-transform"
-                          sizes="(max-width: 768px) 50vw, 200px"
-                          onError={() => {
-                            setImageErrors((prev) =>
-                              new Set(prev).add(asset.id)
-                            );
-                          }}
-                        />
-                      ) : (
-                        <div className="absolute inset-0 flex items-center justify-center bg-muted">
-                          <p className="text-xs text-muted-foreground text-center px-2">
-                            {asset.product_name.substring(0, 20)}
-                            {asset.product_name.length > 20 ? "..." : ""}
-                          </p>
-                        </div>
-                      )}
-                    </div>
+              <div className="grid grid-cols-2 xs:grid-cols-2 gap-2 sm:gap-3 pb-4 p-1 transition-all duration-300">
+                {paginatedAssets.map((asset) => {
+                  const handleClick = (e: React.MouseEvent) => {
+                    // Prevent click during drag operations
+                    if ((e.target as HTMLElement).closest("button")) {
+                      return; // Let button click handlers work
+                    }
+                    onAssetSelect?.(asset);
+                  };
+
+                  const handleDragStart = (e: React.DragEvent) => {
+                    e.dataTransfer.setData(
+                      "application/json",
+                      JSON.stringify(asset)
+                    );
+                    e.dataTransfer.effectAllowed = "copy";
+                  };
+
+                  return (
+                    <Card
+                      key={asset.id}
+                      className={`surface-elevated border border-light shadow-depth-sm hover-scale-lift overflow-hidden p-2 sm:p-4 rounded-lg cursor-grab active:cursor-grabbing transition-all duration-300 group animate-in fade-in-0 slide-in-from-bottom-2 ${
+                        asset.active === false ? "opacity-60 border-dashed" : ""
+                      }`}
+                      onClick={handleClick}
+                      draggable
+                      onDragStart={handleDragStart}
+                    >
+                      {/* Preview Image */}
+                      <div className="relative aspect-square ">
+                        {asset.preview_image && !imageErrors.has(asset.id) ? (
+                          <Image
+                            src={
+                              Array.isArray(asset.preview_image)
+                                ? asset.preview_image[0]
+                                : asset.preview_image
+                            }
+                            alt={asset.product_name}
+                            fill
+                            unoptimized
+                            className="object-contain group-hover:scale-105 transition-transform"
+                            sizes="(max-width: 768px) 50vw, 200px"
+                            onError={() => {
+                              setImageErrors((prev) =>
+                                new Set(prev).add(asset.id)
+                              );
+                            }}
+                          />
+                        ) : (
+                          <div className="absolute inset-0 flex items-center justify-center bg-muted">
+                            <p className="text-xs text-muted-foreground text-center px-2">
+                              {asset.product_name.substring(0, 20)}
+                              {asset.product_name.length > 20 ? "..." : ""}
+                            </p>
+                          </div>
+                        )}
+                      </div>
 
                       {/* Asset Info */}
                       <div className="p-1 sm:p-2 space-y-1">
@@ -850,25 +865,26 @@ export default function AssetLibraryPanel({
                         )}
                       </div>
 
-                    {/* Quick Action */}
-                    {asset.glb_link && canDownloadGLB && (
-                      <div className="p-1 sm:p-2 pt-0">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="w-full h-6 sm:h-7 text-[10px] sm:text-xs"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            window.open(asset.glb_link, "_blank");
-                          }}
-                        >
-                          <Download className="h-2.5 w-2.5 sm:h-3 sm:w-3 mr-1" />
-                          GLB
-                        </Button>
-                      </div>
-                    )}
-                  </Card>
-                ))}
+                      {/* Quick Action */}
+                      {asset.glb_link && canDownloadGLB && (
+                        <div className="p-1 sm:p-2 pt-0">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full h-6 sm:h-7 text-[10px] sm:text-xs"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              window.open(asset.glb_link, "_blank");
+                            }}
+                          >
+                            <Download className="h-2.5 w-2.5 sm:h-3 sm:w-3 mr-1" />
+                            GLB
+                          </Button>
+                        </div>
+                      )}
+                    </Card>
+                  );
+                })}
               </div>
 
               {/* Pagination Controls */}

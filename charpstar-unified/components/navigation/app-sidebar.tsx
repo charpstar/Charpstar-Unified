@@ -296,11 +296,6 @@ export default function AppSidebar({
             icon: Palette,
           },
           {
-            title: "Product Render",
-            url: "/product-render",
-            icon: Camera,
-          },
-          {
             title: "Bug Reports",
             url: "/admin/bug-reports",
             icon: Bug,
@@ -383,7 +378,6 @@ export default function AppSidebar({
     "Client Review": 20,
     "Integration Guide": 22,
     "Scene Render": 25,
-    "Product Render": 26,
     // Modeler
     "My Assignments": 10,
     "3D Generator": 12,
@@ -414,11 +408,6 @@ export default function AppSidebar({
             title: "Scene Render",
             url: "/scene-render",
             icon: Palette,
-          },
-          {
-            title: "Product Render",
-            url: "/product-render",
-            icon: Camera,
           },
         ]
       : []),

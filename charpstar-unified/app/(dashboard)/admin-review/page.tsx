@@ -5683,7 +5683,7 @@ export default function AdminReviewPage() {
                   <Calendar
                     mode="single"
                     selected={new Date(allocationDeadline)}
-                    onSelect={(date: Date | undefined) => {
+                    onSelect={(date) => {
                       setAllocationDeadline(
                         format(date || new Date(), "yyyy-MM-dd")
                       );
@@ -5866,7 +5866,7 @@ export default function AdminReviewPage() {
                   <Calendar
                     mode="single"
                     selected={new Date(reallocationDeadline)}
-                    onSelect={(date: Date | undefined) => {
+                    onSelect={(date) => {
                       setReallocationDeadline(
                         format(date || new Date(), "yyyy-MM-dd")
                       );
@@ -6043,7 +6043,7 @@ export default function AdminReviewPage() {
                   <Calendar
                     mode="single"
                     selected={new Date(bulkReallocationDeadline)}
-                    onSelect={(date: Date | undefined) => {
+                    onSelect={(date) => {
                       setBulkReallocationDeadline(
                         format(date || new Date(), "yyyy-MM-dd")
                       );

@@ -2296,7 +2296,7 @@ export default function AllocateAssetsPage() {
                       <Calendar
                         mode="single"
                         selected={new Date(groupSettings.deadline)}
-                        onSelect={(date: Date | undefined) => {
+                        onSelect={(date) => {
                           setGroupSettings((prev) => ({
                             ...prev,
                             deadline: format(date || new Date(), "yyyy-MM-dd"),
