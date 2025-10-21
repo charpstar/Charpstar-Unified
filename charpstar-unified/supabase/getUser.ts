@@ -16,37 +16,40 @@ export async function getUserMetadata(
 ) {
   const { data, error } = await supabase
     .from("profiles")
-    .select(
-      `
-    id,
-    client,
-    role,
-    analytics_profile_id,
-    avatar_url,
-    analytics_profiles:analytics_profile_id (
-      projectid,
-      datasetid,
-      tablename,
-      monitoredsince,
-      name
-    ),
-    client_config,
-    title,
-    phone_number,
-    discord_name,
-    software_experience,
-    model_types,
-    daily_hours,
-    exclusive_work,
-    country,
-    portfolio_links,
-    onboarding,
-    csv_uploaded,
-    reference_images_uploaded
-  `
-    )
+    .select(`
+      id,
+      client,
+      role,
+      analytics_profile_id,
+      avatar_url,
+      analytics_profiles:analytics_profile_id (
+        projectid,
+        datasetid,
+        tablename,
+        monitoredsince,
+        name
+      ),
+      client_config,
+      title,
+      phone_number,
+      discord_name,
+      software_experience,
+      model_types,
+      daily_hours,
+      exclusive_work,
+      country,
+      portfolio_links,
+      onboarding,
+      csv_uploaded,
+      reference_images_uploaded
+    `)
     .eq("id", user_id)
     .single();
+
+  if (error) {
+    console.error("Error fetching user metadata:", error);
+    return null;
+  }
 
   return data as {
     id: string;
