@@ -22,7 +22,7 @@ export async function GET(
           'Content-Length': fileBuffer.length.toString(),
         },
       });
-    } catch (fileError) {
+    } catch {
       // If file doesn't exist, return a placeholder
       const placeholderContent = `File ${filename} not found. This would be the download for ${filename}`;
       

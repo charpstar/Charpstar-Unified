@@ -4,15 +4,8 @@ import React, { useState, useEffect } from "react";
 import { useUser } from "@/contexts/useUser";
 import { useLoadingState } from "@/hooks/useLoadingState";
 import { Button } from "@/components/ui/display";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/containers";
-import { ChevronLeft, Download, Eye, Settings, Play, Upload, Table } from "lucide-react";
+import { ChevronLeft, Download, Settings, Play } from "lucide-react";
 import { useRouter } from "next/navigation";
-import AssetLibraryPanel from "@/components/scene-render/AssetLibraryPanel";
 import { createClient } from "@/utils/supabase/client";
 
 type AppState = "select" | "configure" | "generating" | "results" | "error";
@@ -47,7 +40,7 @@ interface RenderJob {
 export default function ProductRenderPage() {
   const user = useUser();
   const router = useRouter();
-  const { startLoading, stopLoading, isLoading } = useLoadingState();
+  const { startLoading, stopLoading } = useLoadingState();
   
   const [appState, setAppState] = useState<AppState>("select");
   const [selectedProducts, setSelectedProducts] = useState<SelectedProduct[]>([]);
@@ -65,12 +58,10 @@ export default function ProductRenderPage() {
     cameraViews: ["front", "angled_side1", "side", "top"]
   });
   const [currentJob, setCurrentJob] = useState<RenderJob | null>(null);
-  const [jobs, setJobs] = useState<RenderJob[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  // Load existing jobs and products on mount
+  // Load user profile on mount
   useEffect(() => {
-    loadJobs();
     loadUserProfile();
   }, []);
 
@@ -81,17 +72,6 @@ export default function ProductRenderPage() {
     }
   }, [userProfile]);
 
-  const loadJobs = async () => {
-    try {
-      const response = await fetch("/api/product-render/jobs");
-      if (response.ok) {
-        const data = await response.json();
-        setJobs(data.jobs || []);
-      }
-    } catch (error) {
-      console.error("Error loading jobs:", error);
-    }
-  };
 
   const loadUserProfile = async () => {
     try {
