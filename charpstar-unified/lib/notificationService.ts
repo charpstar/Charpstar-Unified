@@ -26,7 +26,8 @@ export interface NotificationData {
     | "reply_rejected"
     | "subcategory_updated"
     | "invoice_deadline_reminder"
-    | "client_list_progress";
+    | "client_list_progress"
+    | "client_asset_update";
   title: string;
   message: string;
   metadata?: Record<string, any>;
@@ -95,6 +96,16 @@ export interface ReplyRejectedNotification {
   replyText: string;
 }
 
+export interface ClientAssetUpdateNotification {
+  assetId: string;
+  assetName: string;
+  clientName: string;
+  updateType: "measurements" | "images" | "files" | "references" | "other";
+  updatedFields: string[];
+  updatedBy: string;
+  updatedAt: string;
+}
+
 class NotificationService {
   private async createNotification(
     notification: Omit<NotificationData, "created_at">
@@ -130,6 +141,11 @@ class NotificationService {
 
       if (error) {
         console.error("Error creating notification:", error);
+        console.error("Notification data that failed:", {
+          type: notification.type,
+          title: notification.title,
+          recipient_id: notification.recipient_id,
+        });
         throw error;
       }
 
@@ -1629,6 +1645,185 @@ class NotificationService {
       throw error;
     }
     */
+  }
+
+  /**
+   * Send notification to QA users connected to modelers assigned to the asset and admin users when a client updates asset information
+   */
+  async sendClientAssetUpdateNotification(
+    data: ClientAssetUpdateNotification
+  ): Promise<void> {
+    console.log(
+      "🔔 [NotificationService] sendClientAssetUpdateNotification called with:",
+      {
+        assetId: data.assetId,
+        assetName: data.assetName,
+        clientName: data.clientName,
+        updateType: data.updateType,
+        updatedBy: data.updatedBy,
+      }
+    );
+
+    try {
+      // Get QAs connected to modelers who are assigned to this specific asset
+      let qaUsers: any[] = [];
+
+      // First, find which modelers are assigned to this asset
+      const { data: assetAssignments, error: assignmentError } = await supabase
+        .from("asset_assignments")
+        .select("user_id")
+        .eq("asset_id", data.assetId)
+        .eq("role", "modeler");
+
+      console.log(
+        "📊 [NotificationService] Asset assignments for asset",
+        data.assetId,
+        ":",
+        {
+          count: assetAssignments?.length || 0,
+          modelerIds: assetAssignments?.map((a) => a.user_id) || [],
+          error: assignmentError,
+        }
+      );
+
+      if (assignmentError) {
+        console.error("❌ Error fetching asset assignments:", assignmentError);
+        // Don't throw - we'll continue with admin notifications even if QA lookup fails
+      } else if (assetAssignments && assetAssignments.length > 0) {
+        const modelerIds = assetAssignments.map((a) => a.user_id);
+
+        // Find QAs who are allocated to these modelers
+        const { data: qaAllocations, error: qaAllocationError } = await supabase
+          .from("qa_allocations")
+          .select("qa_id")
+          .in("modeler_id", modelerIds);
+
+        console.log("📊 [NotificationService] QA allocations for modelers:", {
+          count: qaAllocations?.length || 0,
+          qaIds: qaAllocations?.map((a) => a.qa_id) || [],
+          error: qaAllocationError,
+        });
+
+        if (qaAllocationError) {
+          console.error("❌ Error fetching QA allocations:", qaAllocationError);
+        } else if (qaAllocations && qaAllocations.length > 0) {
+          const qaIds = qaAllocations.map((a) => a.qa_id);
+
+          // Get QA user details
+          const { data: allocatedQAUsers, error: qaError } = await supabase
+            .from("profiles")
+            .select("id, email")
+            .in("id", qaIds)
+            .eq("role", "qa");
+
+          console.log("📊 [NotificationService] Allocated QA users:", {
+            count: allocatedQAUsers?.length || 0,
+            error: qaError,
+          });
+
+          if (qaError) {
+            console.error("❌ Error fetching allocated QA users:", qaError);
+          } else {
+            qaUsers = allocatedQAUsers || [];
+          }
+        }
+      }
+
+      // Get all admin users
+      const { data: adminUsers, error: adminError } = await supabase
+        .from("profiles")
+        .select("id, email")
+        .eq("role", "admin");
+
+      console.log("📊 [NotificationService] Admin users:", {
+        count: adminUsers?.length || 0,
+        error: adminError,
+      });
+
+      if (adminError) {
+        console.error("❌ Error fetching admin users:", adminError);
+        throw adminError;
+      }
+
+      // Combine QA and admin users
+      const allUsers = [...(qaUsers || []), ...(adminUsers || [])];
+
+      console.log(
+        `📊 [NotificationService] Total users to notify: ${allUsers.length}`,
+        {
+          qa: qaUsers?.length || 0,
+          admin: adminUsers?.length || 0,
+        }
+      );
+
+      if (allUsers.length === 0) {
+        console.warn("⚠️ [NotificationService] No users to notify!");
+        return;
+      }
+
+      // Create appropriate title and message based on update type
+      const updateTypeText = {
+        measurements: "measurements",
+        images: "images",
+        files: "files",
+        references: "reference images",
+        other: "information",
+      };
+
+      const updateText = updateTypeText[data.updateType] || "information";
+      const fieldsText =
+        data.updatedFields.length > 0
+          ? ` (${data.updatedFields.join(", ")})`
+          : "";
+
+      // Create notifications for allocated QA and admin users
+      const notificationPromises = allUsers.map(async (user) => {
+        const notification: Omit<NotificationData, "created_at"> = {
+          recipient_id: user.id,
+          recipient_email: user.email,
+          type: "client_asset_update",
+          title: `Asset Updated by Client - ${data.assetName}`,
+          message: `${data.clientName} has updated ${updateText}${fieldsText} for "${data.assetName}".`,
+          metadata: {
+            assetId: data.assetId,
+            assetName: data.assetName,
+            clientName: data.clientName,
+            updateType: data.updateType,
+            updatedFields: data.updatedFields,
+            updatedBy: data.updatedBy,
+            updatedAt: data.updatedAt,
+            timestamp: new Date().toISOString(),
+          },
+          read: false,
+        };
+
+        try {
+          await this.createNotification(notification);
+          console.log(
+            `✅ Created client_asset_update notification for user: ${user.email}`
+          );
+        } catch (error) {
+          console.error(
+            `❌ Failed to create client_asset_update notification for user ${user.email}:`,
+            error
+          );
+          throw error; // Re-throw to let the calling code handle it
+        }
+      });
+
+      await Promise.all(notificationPromises);
+      console.log(
+        `✅ Successfully sent ${allUsers.length} client_asset_update notifications`
+      );
+
+      // Dispatch global event to refresh notification bells
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("notificationsUpdated"));
+      }
+    } catch (error) {
+      console.error("Failed to send client asset update notification:", error);
+      throw error;
+    }
   }
 }
 

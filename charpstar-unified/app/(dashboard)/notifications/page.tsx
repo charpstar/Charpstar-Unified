@@ -70,6 +70,7 @@ const NotificationIcon = ({ type }: { type: string }) => {
     allocation_list_declined: AlertTriangle,
     comment_reply: MessageSquare,
     annotation_reply: MessageSquare,
+    client_asset_update: FileText,
     default: Bell,
   };
 
@@ -104,6 +105,8 @@ const NotificationIcon = ({ type }: { type: string }) => {
         return "text-green-600 dark:text-green-400";
       case "allocation_list_declined":
         return "text-red-600 dark:text-red-400";
+      case "client_asset_update":
+        return "text-blue-600 dark:text-blue-400";
       default:
         return "text-gray-600 dark:text-gray-400";
     }
@@ -144,6 +147,8 @@ const getNotificationColor = (type: string) => {
       return "bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 border-green-200 dark:border-green-700";
     case "allocation_list_declined":
       return "bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 border-red-200 dark:border-red-700";
+    case "client_asset_update":
+      return "bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-700";
     default:
       return "bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-200 border-gray-200 dark:border-gray-700";
   }
@@ -176,6 +181,8 @@ const getLeftBorderColor = (type: string) => {
       return "border-l-green-500 dark:border-l-green-400";
     case "allocation_list_declined":
       return "border-l-red-500 dark:border-l-red-400";
+    case "client_asset_update":
+      return "border-l-blue-500 dark:border-l-blue-400";
     default:
       return "border-l-gray-500 dark:border-l-gray-400";
   }
@@ -267,6 +274,7 @@ export default function NotificationsPage() {
       pending_reply: "When QA replies to client comments need approval",
       reply_approved: "When your QA replies are approved",
       reply_rejected: "When your QA replies are rejected",
+      client_asset_update: "When clients add new information to assets",
     };
 
     // Filter based on role
@@ -290,6 +298,14 @@ export default function NotificationsPage() {
           annotation_reply: allTypes.annotation_reply,
           reply_approved: allTypes.reply_approved,
           reply_rejected: allTypes.reply_rejected,
+          client_asset_update: allTypes.client_asset_update,
+        };
+      case "production":
+        return {
+          status_change: allTypes.status_change,
+          comment_reply: allTypes.comment_reply,
+          annotation_reply: allTypes.annotation_reply,
+          client_asset_update: allTypes.client_asset_update,
         };
       case "client":
         return {
@@ -309,6 +325,7 @@ export default function NotificationsPage() {
           comment_reply: allTypes.comment_reply,
           annotation_reply: allTypes.annotation_reply,
           pending_reply: "When QA replies to client comments need approval",
+          client_asset_update: allTypes.client_asset_update,
         };
       default:
         return allTypes;

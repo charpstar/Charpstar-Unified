@@ -39,10 +39,7 @@ export async function getUserMetadata(
     daily_hours,
     exclusive_work,
     country,
-    portfolio_links,
-    onboarding,
-    csv_uploaded,
-    reference_images_uploaded
+    portfolio_links
   `
     )
     .eq("id", user_id)
@@ -71,9 +68,6 @@ export async function getUserMetadata(
     exclusive_work: boolean | null;
     country: string | null;
     portfolio_links: string[] | null;
-    onboarding: boolean;
-    csv_uploaded: boolean;
-    reference_images_uploaded: boolean;
   };
 }
 

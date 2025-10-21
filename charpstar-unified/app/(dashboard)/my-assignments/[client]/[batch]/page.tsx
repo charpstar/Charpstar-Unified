@@ -108,6 +108,7 @@ interface AllocationList {
   bonus: number;
   status: string;
   created_at: string;
+  correction_amount?: number;
   assets: BatchAsset[];
 }
 
@@ -478,6 +479,7 @@ export default function BatchDetailPage() {
           bonus,
           status,
           created_at,
+          correction_amount,
           asset_assignments!inner(
             asset_id,
             status,
@@ -498,7 +500,8 @@ export default function BatchDetailPage() {
               glb_link,
               product_link,
               reference,
-              pricing_comment
+              pricing_comment,
+              measurements
             )
           )
         `
@@ -535,6 +538,7 @@ export default function BatchDetailPage() {
             bonus: list.bonus,
             status: list.status,
             created_at: list.created_at,
+            correction_amount: list.correction_amount || 0,
             assets,
           };
         }
@@ -568,19 +572,29 @@ export default function BatchDetailPage() {
         (sum, asset) => sum + (asset.price || 0),
         0
       );
+
+      // Add correction amounts from allocation lists
+      const totalCorrections = processedLists.reduce(
+        (sum, list) => sum + (list.correction_amount || 0),
+        0
+      );
+
       const totalBonusEarnings = allAssets.reduce((sum, asset) => {
         const bonus = asset.bonus || 0;
         return sum + ((asset.price || 0) * bonus) / 100;
       }, 0);
-      const totalPotentialEarnings = totalBaseEarnings + totalBonusEarnings;
+
+      const totalPotentialEarnings =
+        totalBaseEarnings + totalBonusEarnings + totalCorrections;
 
       // Calculate earnings immediately for assets approved by client
-      const completedEarnings = allAssets
-        .filter((asset) => asset.status === "approved_by_client")
-        .reduce((sum, asset) => {
-          const bonus = asset.bonus || 0;
-          return sum + (asset.price || 0) * (1 + bonus / 100);
-        }, 0);
+      const completedEarnings =
+        allAssets
+          .filter((asset) => asset.status === "approved_by_client")
+          .reduce((sum, asset) => {
+            const bonus = asset.bonus || 0;
+            return sum + (asset.price || 0) * (1 + bonus / 100);
+          }, 0) + totalCorrections;
 
       // Pending earnings include everything that hasn't been approved by client yet
       const pendingEarnings = allAssets
@@ -661,18 +675,28 @@ export default function BatchDetailPage() {
       (sum, asset) => sum + (asset.price || 0),
       0
     );
+
+    // Add correction amounts from allocation lists
+    const totalCorrections = lists.reduce(
+      (sum, list) => sum + (list.correction_amount || 0),
+      0
+    );
+
     const totalBonusEarnings = allAssets.reduce((sum, asset) => {
       const bonus = asset.bonus || 0;
       return sum + ((asset.price || 0) * bonus) / 100;
     }, 0);
-    const totalPotentialEarnings = totalBaseEarnings + totalBonusEarnings;
 
-    const completedEarnings = allAssets
-      .filter((asset) => asset.status === "approved_by_client")
-      .reduce((sum, asset) => {
-        const bonus = asset.bonus || 0;
-        return sum + (asset.price || 0) * (1 + bonus / 100);
-      }, 0);
+    const totalPotentialEarnings =
+      totalBaseEarnings + totalBonusEarnings + totalCorrections;
+
+    const completedEarnings =
+      allAssets
+        .filter((asset) => asset.status === "approved_by_client")
+        .reduce((sum, asset) => {
+          const bonus = asset.bonus || 0;
+          return sum + (asset.price || 0) * (1 + bonus / 100);
+        }, 0) + totalCorrections;
 
     const pendingEarnings = allAssets
       .filter((asset) => asset.status !== "approved_by_client")
@@ -1301,7 +1325,7 @@ export default function BatchDetailPage() {
     try {
       const { data, error } = await supabase
         .from("onboarding_assets")
-        .select("reference, glb_link")
+        .select("reference, glb_link, measurements")
         .eq("id", assetId)
         .single();
 
@@ -1316,6 +1340,7 @@ export default function BatchDetailPage() {
                     ...asset,
                     reference: data.reference,
                     glb_link: data.glb_link,
+                    measurements: data.measurements,
                   }
                 : asset
             ),
@@ -1865,6 +1890,21 @@ export default function BatchDetailPage() {
                                     +{allocationList.bonus}% bonus
                                   </span>
                                 </div>
+                                {allocationList.correction_amount &&
+                                  allocationList.correction_amount > 0 && (
+                                    <div className="flex items-center gap-2">
+                                      <div className="p-1 bg-orange-100 rounded">
+                                        <Euro className="h-3 w-3 text-orange-600" />
+                                      </div>
+                                      <span className="font-medium text-orange-700">
+                                        +€
+                                        {allocationList.correction_amount.toFixed(
+                                          2
+                                        )}{" "}
+                                        correction
+                                      </span>
+                                    </div>
+                                  )}
                                 {clientGuideUrls.length > 0 ? (
                                   <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
                                     <div className="flex items-center gap-2">

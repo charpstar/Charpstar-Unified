@@ -72,6 +72,7 @@ interface ApprovedAsset {
     bonus: number;
     approved_at: string;
     deadline: string;
+    correction_amount?: number;
   };
 }
 
@@ -86,6 +87,7 @@ interface MonthlyStats {
   totalAssets: number;
   totalBaseEarnings: number;
   totalBonusEarnings: number;
+  totalCorrectionEarnings: number;
   totalPotential: number;
   clients: string[];
   categories: string[];
@@ -123,6 +125,7 @@ export default function InvoicingPage() {
     totalAssets: 0,
     totalBaseEarnings: 0,
     totalBonusEarnings: 0,
+    totalCorrectionEarnings: 0,
     totalPotential: 0,
     clients: [],
     categories: [],
@@ -141,6 +144,7 @@ export default function InvoicingPage() {
     assets: ApprovedAsset[];
     subtotal: number;
     bonusEarnings: number;
+    correctionEarnings: number;
     total: number;
     clients: string[];
     categories: string[];
@@ -264,7 +268,8 @@ export default function InvoicingPage() {
             status,
             approved_at,
             created_at,
-            deadline
+            deadline,
+            correction_amount
           ),
           onboarding_assets!inner(
             id,
@@ -532,7 +537,21 @@ export default function InvoicingPage() {
 
     // setFutureBonuses(futureBonusData);
 
-    const totalPotential = totalBaseEarnings + bonusEarnings;
+    // Calculate corrections: Include corrections from allocation lists that have assets approved in this period
+    const processedCorrectionLists = new Set<string>();
+    const correctionEarnings = assetsApprovedInPeriod.reduce((sum, asset) => {
+      // Only add correction once per allocation list to avoid double counting
+      if (processedCorrectionLists.has(asset.allocation_list_id)) {
+        return sum;
+      }
+      processedCorrectionLists.add(asset.allocation_list_id);
+
+      const correctionAmount = asset.allocation_lists?.correction_amount || 0;
+      return sum + correctionAmount;
+    }, 0);
+
+    const totalPotential =
+      totalBaseEarnings + bonusEarnings + correctionEarnings;
 
     // Get unique clients and categories from assets approved in this period
     const clients = [
@@ -546,6 +565,7 @@ export default function InvoicingPage() {
       totalAssets: assetsApprovedInPeriod.length, // Assets approved in this period
       totalBaseEarnings,
       totalBonusEarnings: bonusEarnings,
+      totalCorrectionEarnings: correctionEarnings,
       totalPotential,
       clients,
       categories,
@@ -591,7 +611,11 @@ export default function InvoicingPage() {
       assets: filteredAssets, // All approved assets
       subtotal: monthlyStats.totalBaseEarnings, // All approved assets base earnings
       bonusEarnings: monthlyStats.totalBonusEarnings, // Only from completed lists
-      total: monthlyStats.totalBaseEarnings + monthlyStats.totalBonusEarnings,
+      correctionEarnings: monthlyStats.totalCorrectionEarnings, // Correction amounts
+      total:
+        monthlyStats.totalBaseEarnings +
+        monthlyStats.totalBonusEarnings +
+        monthlyStats.totalCorrectionEarnings,
       clients: monthlyStats.clients,
       categories: monthlyStats.categories,
       assetCount: monthlyStats.totalAssets, // All approved assets count
@@ -784,6 +808,7 @@ export default function InvoicingPage() {
         assets: invoice.metadata?.assets || [],
         subtotal: invoice.subtotal,
         bonusEarnings: invoice.bonus_earnings,
+        correctionEarnings: invoice.correction_earnings || 0,
         total: invoice.total_amount,
         clients: invoice.metadata?.clients || [],
         categories: invoice.metadata?.categories || [],
@@ -828,6 +853,7 @@ export default function InvoicingPage() {
     assets: ApprovedAsset[];
     subtotal: number;
     bonusEarnings: number;
+    correctionEarnings?: number;
     total: number;
     clients: string[];
     categories: string[];
@@ -1139,6 +1165,16 @@ export default function InvoicingPage() {
           <span>Bonus Earnings:</span>
           <span>€${data.bonusEarnings.toFixed(2)}</span>
         </div>
+        ${
+          data.correctionEarnings && data.correctionEarnings > 0
+            ? `
+        <div class="total-row">
+          <span>Corrections:</span>
+          <span>€${data.correctionEarnings.toFixed(2)}</span>
+        </div>
+        `
+            : ""
+        }
         <div class="total-row">
           <span>Total Amount:</span>
           <span>€${data.total.toFixed(2)}</span>
@@ -1277,7 +1313,7 @@ export default function InvoicingPage() {
 
       {/* Monthly Statistics */}
       {selectedPeriod && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2 sm:gap-3">
           <Card>
             <CardContent className="p-4 sm:p-6">
               <div className="flex items-center gap-2 sm:gap-3">
@@ -1335,6 +1371,27 @@ export default function InvoicingPage() {
                   </p>
                   <p className="text-xs text-muted-foreground">
                     From {monthlyStats.completedLists} completed lists
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-4 sm:p-6">
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className="p-2 sm:p-3 bg-orange-50 rounded-xl">
+                  <Euro className="h-4 w-4 sm:h-5 sm:w-5 text-orange-600" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs sm:text-sm font-medium text-muted-foreground">
+                    Correction Earnings
+                  </p>
+                  <p className="text-lg sm:text-2xl font-semibold text-foreground">
+                    €{monthlyStats.totalCorrectionEarnings.toFixed(2)}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Additional compensation for corrections
                   </p>
                 </div>
               </div>
@@ -1951,7 +2008,7 @@ export default function InvoicingPage() {
                 <h3 className="text-base sm:text-lg font-semibold">
                   Invoice Summary
                 </h3>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4 p-3 sm:p-4 bg-muted/50 rounded-lg">
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 sm:gap-4 p-3 sm:p-4 bg-muted/50 rounded-lg">
                   <div className="text-center">
                     <div className="text-base sm:text-2xl font-bold text-blue-600">
                       {invoicePreview.assetCount}
@@ -1973,6 +2030,17 @@ export default function InvoicingPage() {
                     </div>
                     <div className="text-xs text-muted-foreground">Bonus</div>
                   </div>
+                  {invoicePreview.correctionEarnings &&
+                    invoicePreview.correctionEarnings > 0 && (
+                      <div className="text-center">
+                        <div className="text-base sm:text-2xl font-bold text-orange-600">
+                          €{invoicePreview.correctionEarnings.toFixed(2)}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          Corrections
+                        </div>
+                      </div>
+                    )}
                   <div className="text-center">
                     <div className="text-base sm:text-2xl font-bold text-purple-600">
                       €{invoicePreview.total.toFixed(2)}

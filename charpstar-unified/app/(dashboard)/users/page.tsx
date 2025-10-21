@@ -1299,7 +1299,7 @@ export default function UsersPage() {
         open={isCreateUserDialogOpen}
         onOpenChange={setIsCreateUserDialogOpen}
       >
-        <DialogContent className="w-[95vw] sm:w-full max-w-6xl h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[95vw] sm:w-full min-w-6xl h-[40vh] overflow-y-auto">
           <DialogHeader className="pb-3 sm:pb-4">
             <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
               <UserPlus className="h-4 w-4 sm:h-5 sm:w-5" />

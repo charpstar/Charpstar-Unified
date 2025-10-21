@@ -115,9 +115,6 @@ export async function POST(request: NextRequest) {
       country: country || null,
       portfolio_links:
         portfolioLinks?.filter((link: string) => link.trim()) || null,
-      onboarding: false,
-      csv_uploaded: false,
-      reference_images_uploaded: false,
     };
 
     const { error: profileError } = await adminClient

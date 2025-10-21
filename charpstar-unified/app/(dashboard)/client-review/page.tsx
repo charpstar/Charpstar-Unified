@@ -237,7 +237,7 @@ export default function ReviewDashboardPage() {
     try {
       const { data, error } = await supabase
         .from("onboarding_assets")
-        .select("reference, glb_link")
+        .select("reference, glb_link, measurements")
         .eq("id", assetId)
         .single();
 
@@ -245,7 +245,12 @@ export default function ReviewDashboardPage() {
         setAssets((prev) =>
           prev.map((asset) =>
             asset.id === assetId
-              ? { ...asset, reference: data.reference, glb_link: data.glb_link }
+              ? {
+                  ...asset,
+                  reference: data.reference,
+                  glb_link: data.glb_link,
+                  measurements: data.measurements,
+                }
               : asset
           )
         );
@@ -297,7 +302,7 @@ export default function ReviewDashboardPage() {
       const { data, error } = await supabase
         .from("onboarding_assets")
         .select(
-          "id, product_name, article_id, delivery_date, status, batch, priority, revision_count, product_link, glb_link, reference, client, upload_order, transferred"
+          "id, product_name, article_id, delivery_date, status, batch, priority, revision_count, product_link, glb_link, reference, client, upload_order, transferred, measurements"
         )
         .in("client", user.metadata.client)
         .eq("transferred", false) // Hide transferred assets

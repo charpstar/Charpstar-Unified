@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 import { cookies } from "next/headers";
 import { createAdminClient } from "@/utils/supabase/admin";
+import { notificationService } from "@/lib/notificationService";
 
 export async function POST(request: NextRequest) {
   try {
@@ -58,6 +59,13 @@ export async function POST(request: NextRequest) {
     if (!client) {
       return NextResponse.json({ error: "Client not found" }, { status: 400 });
     }
+
+    // Get asset details for notifications
+    const { data: assetDetails } = await supabase
+      .from("onboarding_assets")
+      .select("product_name, client")
+      .eq("id", assetId)
+      .single();
 
     // Update the asset with the new file URL
     const adminClient = createAdminClient();
@@ -199,6 +207,41 @@ export async function POST(request: NextRequest) {
 
     if (logError) {
       console.error("Error logging activity:", logError);
+    }
+
+    // Send notification to QA and production if updated by a client
+    if (profile?.role === "client") {
+      try {
+        const updateType =
+          fileType === "glb"
+            ? "files"
+            : fileType === "reference"
+              ? "references"
+              : "files";
+        await notificationService.sendClientAssetUpdateNotification({
+          assetId: assetId,
+          assetName: assetDetails?.product_name || "Unknown Asset",
+          clientName: assetDetails?.client || client || "Unknown Client",
+          updateType: updateType as
+            | "measurements"
+            | "images"
+            | "files"
+            | "references"
+            | "other",
+          updatedFields: [
+            fileType === "glb"
+              ? "glb_link"
+              : fileType === "reference"
+                ? "reference"
+                : fileType,
+          ],
+          updatedBy: user.email || "Unknown User",
+          updatedAt: new Date().toISOString(),
+        });
+      } catch (notificationError) {
+        console.error("Failed to send notification:", notificationError);
+        // Don't fail the request if notification fails
+      }
     }
 
     return NextResponse.json({

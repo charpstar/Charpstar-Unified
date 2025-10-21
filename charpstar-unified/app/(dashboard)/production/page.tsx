@@ -2836,12 +2836,11 @@ export default function ProductionDashboard() {
                   return (
                     <Card
                       key={client.name}
-                      className="group relative overflow-hidden transition-all duration-300 hover:shadow-xl hover:scale-[1.02] cursor-pointer border-0 bg-gradient-to-br from-background to-muted/30"
+                      className="card-enhanced group cursor-pointer rounded-xl"
                       onClick={() => handleClientSelect(client.name)}
                     >
                       {/* Background Pattern */}
-                      <div className="absolute inset-0 bg-grid-pattern opacity-5" />
-                      <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-primary/10 to-transparent rounded-full transform translate-x-16 -translate-y-16" />
+                      <div className="absolute inset-0 bg-grid-pattern opacity-5 pointer-events-none" />
 
                       <CardHeader className="relative z-10 pb-4">
                         <div className="flex items-start justify-between mb-4">
@@ -2884,10 +2883,10 @@ export default function ProductionDashboard() {
                                       </TooltipTrigger>
                                       <TooltipContent
                                         side="right"
-                                        className="max-w-2xl bg-background border border-border text-foreground p-6"
+                                        className="max-w-2xl surface-elevated border border-light shadow-depth-xl text-foreground p-6 rounded-xl"
                                       >
                                         <div className="space-y-4">
-                                          <div className="font-semibold text-base border-b border-border pb-2">
+                                          <div className="font-semibold text-base border-b border-light pb-2">
                                             Modeler Allocations - {client.name}
                                           </div>
 
@@ -2900,7 +2899,7 @@ export default function ProductionDashboard() {
                                                 (modeler, index) => (
                                                   <div
                                                     key={modeler.id}
-                                                    className="bg-muted/20 rounded-lg p-4 border border-border/50"
+                                                    className="surface-raised rounded-xl p-4 border border-light shadow-depth-sm hover-lift-subtle"
                                                   >
                                                     {/* Modeler Header */}
                                                     <div className="flex items-start justify-between mb-3">
@@ -2922,7 +2921,7 @@ export default function ProductionDashboard() {
 
                                                     {/* Status Breakdown */}
                                                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                                                      <div className="bg-gray-100 dark:bg-gray-800 rounded p-2 text-center">
+                                                      <div className="stat-card rounded-lg p-2 text-center">
                                                         <div className="text-xs font-medium text-muted-foreground mb-1">
                                                           Not Started
                                                         </div>
@@ -2934,7 +2933,7 @@ export default function ProductionDashboard() {
                                                         </div>
                                                       </div>
                                                       <div
-                                                        className="rounded p-2 text-center"
+                                                        className="stat-card rounded-lg p-2 text-center"
                                                         style={{
                                                           backgroundColor:
                                                             getStatusColor(
@@ -2961,7 +2960,7 @@ export default function ProductionDashboard() {
                                                         </div>
                                                       </div>
                                                       <div
-                                                        className="rounded p-2 text-center"
+                                                        className="stat-card rounded-lg p-2 text-center"
                                                         style={{
                                                           backgroundColor:
                                                             getStatusColor(
@@ -2988,7 +2987,7 @@ export default function ProductionDashboard() {
                                                         </div>
                                                       </div>
                                                       <div
-                                                        className="rounded p-2 text-center"
+                                                        className="stat-card rounded-lg p-2 text-center"
                                                         style={{
                                                           backgroundColor:
                                                             getStatusColor(
@@ -3039,9 +3038,9 @@ export default function ProductionDashboard() {
                                                           %
                                                         </span>
                                                       </div>
-                                                      <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                                                      <div className="h-1.5 surface-raised rounded-full overflow-hidden shadow-depth-inner">
                                                         <div
-                                                          className="h-full bg-green-500 rounded-full transition-all duration-300"
+                                                          className="h-full bg-gradient-to-r from-success via-success/90 to-success/70 rounded-full shadow-depth-sm"
                                                           style={{
                                                             width: `${
                                                               modeler.totalAssets >
@@ -3074,7 +3073,7 @@ export default function ProductionDashboard() {
                                           )}
 
                                           {/* Overall Summary */}
-                                          <div className="pt-3 border-t border-border">
+                                          <div className="pt-3 border-t border-light">
                                             <div className="text-sm text-muted-foreground">
                                               <strong>
                                                 {client.completedModels}
@@ -3087,7 +3086,7 @@ export default function ProductionDashboard() {
                                               {client.completionPercentage}%)
                                             </div>
                                             {client.unassignedAssets > 0 && (
-                                              <div className="text-sm text-orange-600 dark:text-orange-400 mt-1">
+                                              <div className="text-sm text-accent-orange mt-1">
                                                 {client.unassignedAssets} assets
                                                 still unassigned
                                               </div>
@@ -3102,9 +3101,9 @@ export default function ProductionDashboard() {
 
                               {/* Modern Progress Bar */}
                               <div className="relative">
-                                <div className="h-3 bg-muted/50 rounded-full overflow-hidden">
+                                <div className="h-3 surface-raised rounded-full overflow-hidden shadow-depth-inner border border-light/50">
                                   <div
-                                    className="h-full bg-gradient-to-r from-primary via-primary/90 to-primary/70 rounded-full transition-all duration-700 ease-out"
+                                    className="h-full bg-gradient-to-r from-primary via-primary/90 to-primary/70 rounded-full transition-all duration-700 ease-out shadow-depth-sm"
                                     style={{
                                       width: `${client.completionPercentage}%`,
                                     }}
@@ -3162,7 +3161,7 @@ export default function ProductionDashboard() {
                         {/* Action Button */}
                         <Button
                           variant="ghost"
-                          className="w-full h-11 "
+                          className="w-full h-11 interactive-highlight rounded-lg"
                           onClick={(e) => {
                             e.stopPropagation();
                             handleClientSelect(client.name);
@@ -3203,14 +3202,13 @@ export default function ProductionDashboard() {
                     return (
                       <Card
                         key={batch.id}
-                        className="group relative overflow-hidden transition-all duration-300 hover:shadow-xl hover:scale-[1.02] cursor-pointer border-0 bg-gradient-to-br from-background to-muted/30"
+                        className="card-enhanced group cursor-pointer rounded-xl"
                         onClick={() =>
                           handleAdminReview(batch.client, batch.batch)
                         }
                       >
                         {/* Background Pattern */}
-                        <div className="absolute inset-0 bg-grid-pattern opacity-5" />
-                        <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-primary/10 to-transparent rounded-full transform translate-x-16 -translate-y-16" />
+                        <div className="absolute inset-0 bg-grid-pattern opacity-5 pointer-events-none" />
 
                         <CardHeader className="relative z-10 pb-4">
                           <div className="flex items-start justify-between mb-4">
@@ -3306,16 +3304,16 @@ export default function ProductionDashboard() {
                                         </TooltipTrigger>
                                         <TooltipContent
                                           side="right"
-                                          className="max-w-2xl bg-background border border-border text-foreground p-6"
+                                          className="max-w-2xl surface-elevated border border-light shadow-depth-xl text-foreground p-6 rounded-xl"
                                         >
                                           <div className="space-y-4">
-                                            <div className="font-semibold text-base border-b border-border pb-2">
+                                            <div className="font-semibold text-base border-b border-light pb-2">
                                               Batch Team Status - {batch.client}{" "}
                                               Batch {batch.batch}
                                             </div>
 
                                             {/* Quick Stats */}
-                                            <div className="grid grid-cols-2 gap-4 p-3 bg-muted/20 rounded-lg">
+                                            <div className="grid grid-cols-2 gap-4 p-3 surface-raised rounded-lg shadow-depth-sm">
                                               <div className="text-center">
                                                 <div className="text-lg font-bold text-primary">
                                                   {(() => {
@@ -3506,7 +3504,7 @@ export default function ProductionDashboard() {
                                                       return (
                                                         <div
                                                           key={modeler.id}
-                                                          className="bg-muted/20 rounded-lg p-4 border border-border/50"
+                                                          className="surface-raised rounded-xl p-4 border border-light shadow-depth-sm hover-lift-subtle"
                                                         >
                                                           {/* Modeler Header */}
                                                           <div className="flex items-start justify-between mb-3">
@@ -3534,7 +3532,7 @@ export default function ProductionDashboard() {
 
                                                           {/* Status Breakdown for this batch only */}
                                                           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                                                            <div className="bg-gray-100 dark:bg-gray-800 rounded p-2 text-center">
+                                                            <div className="stat-card rounded-lg p-2 text-center">
                                                               <div className="text-xs font-medium text-muted-foreground mb-1">
                                                                 Not Started
                                                               </div>
@@ -3547,7 +3545,7 @@ export default function ProductionDashboard() {
                                                               </div>
                                                             </div>
                                                             <div
-                                                              className="rounded p-2 text-center"
+                                                              className="stat-card rounded-lg p-2 text-center"
                                                               style={{
                                                                 backgroundColor:
                                                                   getStatusColor(
@@ -3575,7 +3573,7 @@ export default function ProductionDashboard() {
                                                               </div>
                                                             </div>
                                                             <div
-                                                              className="rounded p-2 text-center"
+                                                              className="stat-card rounded-lg p-2 text-center"
                                                               style={{
                                                                 backgroundColor:
                                                                   getStatusColor(
@@ -3603,7 +3601,7 @@ export default function ProductionDashboard() {
                                                               </div>
                                                             </div>
                                                             <div
-                                                              className="rounded p-2 text-center"
+                                                              className="stat-card rounded-lg p-2 text-center"
                                                               style={{
                                                                 backgroundColor:
                                                                   getStatusColor(
@@ -3656,9 +3654,9 @@ export default function ProductionDashboard() {
                                                                 %
                                                               </span>
                                                             </div>
-                                                            <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                                                            <div className="h-1.5 surface-raised rounded-full overflow-hidden shadow-depth-inner border border-light/50">
                                                               <div
-                                                                className="h-full bg-green-500 rounded-full transition-all duration-300"
+                                                                className="h-full bg-gradient-to-r from-success via-success/90 to-success/70 rounded-full shadow-depth-sm"
                                                                 style={{
                                                                   width: `${
                                                                     modeler.totalAssets >
@@ -3693,7 +3691,7 @@ export default function ProductionDashboard() {
                                             })()}
 
                                             {/* Batch Summary */}
-                                            <div className="pt-3 border-t border-border">
+                                            <div className="pt-3 border-t border-light">
                                               <div className="text-sm text-muted-foreground">
                                                 <strong>Batch Summary:</strong>{" "}
                                                 {batch.statusCounts.approved} of{" "}
@@ -3702,7 +3700,7 @@ export default function ProductionDashboard() {
                                                 {batch.completionPercentage}%)
                                               </div>
                                               {batch.unassignedAssets > 0 && (
-                                                <div className="text-sm text-orange-600 dark:text-orange-400 mt-1">
+                                                <div className="text-sm text-accent-orange mt-1">
                                                   {batch.unassignedAssets}{" "}
                                                   assets in this batch still
                                                   unassigned
@@ -3718,9 +3716,9 @@ export default function ProductionDashboard() {
 
                                 {/* Modern Progress Bar */}
                                 <div className="relative">
-                                  <div className="h-3 bg-muted/50 rounded-full overflow-hidden">
+                                  <div className="h-3 surface-raised rounded-full overflow-hidden shadow-depth-inner border border-light/50">
                                     <div
-                                      className="h-full bg-gradient-to-r from-primary via-primary/90 to-primary/70 rounded-full transition-all duration-700 ease-out"
+                                      className="h-full bg-gradient-to-r from-primary via-primary/90 to-primary/70 rounded-full transition-all duration-700 ease-out shadow-depth-sm"
                                       style={{
                                         width: `${batch.completionPercentage}%`,
                                       }}
@@ -3867,32 +3865,32 @@ export default function ProductionDashboard() {
                             </h4>
                             <div className="grid grid-cols-1 gap-2">
                               {batch.unassignedAssets > 0 ? (
-                                <div className="flex items-center justify-between p-3 rounded-lg bg-orange-50 dark:bg-orange-950/20 dark:border-orange-800/50 transition-all hover:bg-orange-100 dark:hover:bg-orange-950/30">
+                                <div className="flex items-center justify-between p-3 rounded-lg surface-raised border border-light shadow-depth-sm hover-lift-subtle">
                                   <div className="flex items-center gap-3">
-                                    <div className="w-8 h-8 rounded-lg bg-orange-500/10 flex items-center justify-center">
-                                      <AlertCircle className="h-4 w-4 text-orange-600" />
+                                    <div className="icon-container-elevated w-8 h-8 rounded-lg flex items-center justify-center">
+                                      <AlertCircle className="h-4 w-4 text-accent-orange" />
                                     </div>
                                     <div>
-                                      <div className="font-medium text-sm text-orange-700 dark:text-orange-400">
+                                      <div className="font-medium text-sm text-accent-orange">
                                         {batch.unassignedAssets} Unassigned
                                       </div>
-                                      <div className="text-xs text-orange-600 dark:text-orange-500">
+                                      <div className="text-xs text-muted-foreground">
                                         Need team assignment
                                       </div>
                                     </div>
                                   </div>
                                 </div>
                               ) : (
-                                <div className="flex items-center justify-between p-3 rounded-lg bg-green-50 dark:bg-green-950/20 dark:border-green-800/50 transition-all hover:bg-green-100 dark:hover:bg-green-950/30">
+                                <div className="flex items-center justify-between p-3 rounded-lg surface-raised border border-light shadow-depth-sm hover-lift-subtle">
                                   <div className="flex items-center gap-3">
-                                    <div className="w-8 h-8 rounded-lg bg-green-500/10 flex items-center justify-center">
-                                      <CheckCircle className="h-4 w-4 text-green-600" />
+                                    <div className="icon-container-elevated w-8 h-8 rounded-lg flex items-center justify-center">
+                                      <CheckCircle className="h-4 w-4 text-success" />
                                     </div>
                                     <div>
-                                      <div className="font-medium text-sm text-green-700 dark:text-green-400">
+                                      <div className="font-medium text-sm text-success">
                                         All Assigned
                                       </div>
-                                      <div className="text-xs text-green-600 dark:text-green-500">
+                                      <div className="text-xs text-muted-foreground">
                                         Team fully allocated
                                       </div>
                                     </div>
@@ -3903,14 +3901,14 @@ export default function ProductionDashboard() {
                               {/* Team Info Section */}
                               {(batch.assignedUsers.modelers.length > 0 ||
                                 batch.assignedUsers.qa.length > 0) && (
-                                <div className="bg-muted/30 rounded-lg p-3 border border-border/50">
+                                <div className="surface-raised rounded-lg p-3 border border-light shadow-depth-sm">
                                   <TeamInfoTooltip
                                     modelers={batch.assignedUsers.modelers}
                                     qa={batch.assignedUsers.qa}
                                     clientName={batch.client}
                                     batchNumber={batch.batch}
                                   >
-                                    <div className="flex items-center justify-between cursor-pointer hover:bg-muted/20 rounded p-1 transition-colors">
+                                    <div className="flex items-center justify-between cursor-pointer interactive-highlight rounded p-1">
                                       <div className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
                                         <Users className="h-4 w-4" />
                                         <span className="font-medium">
@@ -3935,7 +3933,7 @@ export default function ProductionDashboard() {
                           {/* Action Button */}
                           <Button
                             variant="ghost"
-                            className="w-full h-11"
+                            className="w-full h-11 interactive-highlight rounded-lg"
                             onClick={(e) => {
                               e.stopPropagation();
                               handleAdminReview(batch.client, batch.batch);
@@ -3959,14 +3957,13 @@ export default function ProductionDashboard() {
                     return (
                       <Card
                         key={modeler.id}
-                        className="group relative overflow-hidden transition-all duration-300 hover:shadow-xl hover:scale-[1.02] cursor-pointer border-0 bg-gradient-to-br from-background to-muted/30"
+                        className="card-enhanced group cursor-pointer rounded-xl"
                         onClick={() =>
                           handleModelerAdminReview(modeler.id, modeler.email)
                         }
                       >
                         {/* Background Pattern */}
-                        <div className="absolute inset-0 bg-grid-pattern opacity-5" />
-                        <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-primary/10 to-transparent rounded-full transform translate-x-16 -translate-y-16" />
+                        <div className="absolute inset-0 bg-grid-pattern opacity-5 pointer-events-none" />
                         <CardHeader className="relative z-10 pb-4">
                           <div className="flex items-start justify-between mb-4">
                             <div className="flex-1 min-w-0">
@@ -4004,10 +4001,10 @@ export default function ProductionDashboard() {
                                         </TooltipTrigger>
                                         <TooltipContent
                                           side="right"
-                                          className="max-w-sm bg-background border border-border text-foreground p-4"
+                                          className="max-w-sm surface-elevated border border-light shadow-depth-xl text-foreground p-4 rounded-xl"
                                         >
                                           <div className="space-y-2">
-                                            <div className="font-semibold text-base border-b border-border pb-2">
+                                            <div className="font-semibold text-base border-b border-light pb-2">
                                               Completion Statistics
                                             </div>
                                             {modeler.completionStats
@@ -4058,9 +4055,9 @@ export default function ProductionDashboard() {
 
                                 {/* Modern Progress Bar */}
                                 <div className="relative">
-                                  <div className="h-3 bg-muted/50 rounded-full overflow-hidden">
+                                  <div className="h-3 surface-raised rounded-full overflow-hidden shadow-depth-inner border border-light/50">
                                     <div
-                                      className="h-full bg-gradient-to-r from-primary via-primary/90 to-primary/70 rounded-full transition-all duration-700 ease-out"
+                                      className="h-full bg-gradient-to-r from-primary via-primary/90 to-primary/70 rounded-full transition-all duration-700 ease-out shadow-depth-sm"
                                       style={{
                                         width: `${modeler.completionPercentage}%`,
                                       }}
@@ -4090,7 +4087,7 @@ export default function ProductionDashboard() {
                                   e.stopPropagation();
                                   handleViewProfile(modeler.id);
                                 }}
-                                className="h-8 px-3 text-xs"
+                                className="h-8 px-3 text-xs interactive-highlight rounded-lg"
                               >
                                 Profile
                               </Button>
@@ -4130,7 +4127,7 @@ export default function ProductionDashboard() {
                           {/* Action Button */}
                           <Button
                             variant="ghost"
-                            className="w-full h-11"
+                            className="w-full h-11 interactive-highlight rounded-lg"
                             onClick={(e) => {
                               e.stopPropagation();
                               handleModelerAdminReview(
@@ -4184,14 +4181,13 @@ export default function ProductionDashboard() {
                       return (
                         <Card
                           key={qaUser.id}
-                          className="group relative overflow-hidden transition-all duration-300 hover:shadow-xl hover:scale-[1.02] cursor-pointer border-0 bg-gradient-to-br from-background to-muted/30"
+                          className="card-enhanced group cursor-pointer rounded-xl"
                           onClick={() =>
                             handleModelerAdminReview(qaUser.id, qaUser.email)
                           }
                         >
                           {/* Background Pattern */}
-                          <div className="absolute inset-0 bg-grid-pattern opacity-5" />
-                          <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-primary/10 to-transparent rounded-full transform translate-x-16 -translate-y-16" />
+                          <div className="absolute inset-0 bg-grid-pattern opacity-5 pointer-events-none" />
                           <CardHeader className="relative z-10 pb-4">
                             <div className="flex items-start justify-between mb-4">
                               <div className="flex-1 min-w-0">
@@ -4247,9 +4243,9 @@ export default function ProductionDashboard() {
 
                                   {/* Modern Progress Bar */}
                                   <div className="relative">
-                                    <div className="h-3 bg-muted/50 rounded-full overflow-hidden">
+                                    <div className="h-3 surface-raised rounded-full overflow-hidden shadow-depth-inner border border-light/50">
                                       <div
-                                        className="h-full bg-gradient-to-r from-primary via-primary/90 to-primary/70 rounded-full transition-all duration-700 ease-out"
+                                        className="h-full bg-gradient-to-r from-primary via-primary/90 to-primary/70 rounded-full transition-all duration-700 ease-out shadow-depth-sm"
                                         style={{
                                           width: `${qaUser.modelerCompletionRate}%`,
                                         }}
@@ -4332,7 +4328,7 @@ export default function ProductionDashboard() {
                                     .map((modeler) => (
                                       <div
                                         key={modeler.id}
-                                        className="flex items-center justify-between p-2 rounded bg-muted/20 text-xs cursor-pointer hover:bg-muted/30 transition-colors"
+                                        className="flex items-center justify-between p-2 rounded-lg surface-raised text-xs cursor-pointer interactive-highlight"
                                         onClick={(e) => {
                                           e.stopPropagation();
                                           handleModelerAdminReview(
@@ -4385,7 +4381,7 @@ export default function ProductionDashboard() {
                             {/* Action Button */}
                             <Button
                               variant="ghost"
-                              className="w-full h-11"
+                              className="w-full h-11 interactive-highlight rounded-lg"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 handleModelerAdminReview(

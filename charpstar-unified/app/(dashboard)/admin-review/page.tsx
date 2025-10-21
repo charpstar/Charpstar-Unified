@@ -249,6 +249,12 @@ const calculateListStats = (list: any) => {
     0
   );
 
+  // Get correction amount (default to 0 if not set)
+  const correctionAmount = parseFloat(list.correction_amount || 0) || 0;
+
+  // Calculated total price including corrections
+  const totalPriceWithCorrections = totalPrice + correctionAmount;
+
   // Calculate price for only completed assets (for bonus calculation)
   const completedPrice = list.asset_assignments
     .filter(
@@ -263,9 +269,10 @@ const calculateListStats = (list: any) => {
     );
 
   // Calculate potential bonus (what could be earned if everything is completed on time)
+  // Note: Bonus is calculated on the base price, not including corrections
   let bonusAmount = 0;
-  let totalEarnings = totalPrice;
-  let potentialEarnings = totalPrice;
+  let totalEarnings = totalPriceWithCorrections;
+  let potentialEarnings = totalPriceWithCorrections;
 
   // Calculate actual earnings (for completed work only)
   if (list.approved_at && list.deadline && completedPrice > 0) {
@@ -275,14 +282,14 @@ const calculateListStats = (list: any) => {
     // Only apply bonus if work was completed before or on the deadline
     if (approvedDate <= deadlineDate) {
       bonusAmount = completedPrice * (list.bonus / 100);
-      totalEarnings = totalPrice + bonusAmount;
+      totalEarnings = totalPriceWithCorrections + bonusAmount;
     }
   }
 
   // Calculate potential earnings (full bonus on all assets if completed on time)
   if (list.bonus > 0) {
     const potentialBonus = totalPrice * (list.bonus / 100);
-    potentialEarnings = totalPrice + potentialBonus;
+    potentialEarnings = totalPriceWithCorrections + potentialBonus;
   }
 
   const completionPercentage =
@@ -291,7 +298,9 @@ const calculateListStats = (list: any) => {
   return {
     totalAssets,
     approvedAssets,
-    totalPrice,
+    totalPrice: totalPriceWithCorrections,
+    basePrice: totalPrice,
+    correctionAmount,
     bonusAmount,
     totalEarnings,
     potentialEarnings,
@@ -563,6 +572,14 @@ export default function AdminReviewPage() {
   const [showFixStuckDialog, setShowFixStuckDialog] = useState(false);
   const [fixingStuckAssets, setFixingStuckAssets] = useState(false);
   const [stuckAssetsCount, setStuckAssetsCount] = useState(0);
+
+  // Correction state
+  const [showCorrectionDialog, setShowCorrectionDialog] = useState(false);
+  const [selectedListForCorrection, setSelectedListForCorrection] = useState<
+    string | null
+  >(null);
+  const [correctionAmount, setCorrectionAmount] = useState<string>("");
+  const [addingCorrection, setAddingCorrection] = useState(false);
 
   // Count stuck assets when dialog opens or selection changes
   useEffect(() => {
@@ -1211,7 +1228,7 @@ export default function AdminReviewPage() {
     try {
       const { data, error } = await supabase
         .from("onboarding_assets")
-        .select("reference, glb_link, status, transferred")
+        .select("reference, glb_link, status, transferred, measurements")
         .eq("id", assetId)
         .eq("transferred", false)
         .single();
@@ -1226,6 +1243,7 @@ export default function AdminReviewPage() {
                   reference: data.reference,
                   glb_link: data.glb_link,
                   status: data.status || asset.status,
+                  measurements: data.measurements,
                 }
               : asset
           )
@@ -1245,6 +1263,7 @@ export default function AdminReviewPage() {
                       glb_link: data.glb_link,
                       status:
                         data.status || assignment.onboarding_assets.status,
+                      measurements: data.measurements,
                     },
                   }
                 : assignment
@@ -1261,6 +1280,7 @@ export default function AdminReviewPage() {
                   reference: data.reference,
                   glb_link: data.glb_link,
                   status: data.status || asset.status,
+                  measurements: data.measurements,
                 }
               : asset
           )
@@ -1567,6 +1587,7 @@ export default function AdminReviewPage() {
             bonus,
             created_at,
             status,
+            correction_amount,
             asset_assignments(
               asset_id,
               status,
@@ -1654,7 +1675,7 @@ export default function AdminReviewPage() {
       let query = supabase
         .from("onboarding_assets")
         .select(
-          "id, product_name, article_id, delivery_date, status, batch, priority, revision_count, client, reference, glb_link, product_link, upload_order, pricing_option_id, price, pricing_comment, transferred"
+          "id, product_name, article_id, delivery_date, status, batch, priority, revision_count, client, reference, glb_link, product_link, upload_order, pricing_option_id, price, pricing_comment, transferred, measurements"
         )
         .eq("transferred", false) // Exclude transferred assets
         .order("upload_order", { ascending: true });
@@ -2014,7 +2035,8 @@ export default function AdminReviewPage() {
               reference,
               glb_link,
               product_link,
-              created_at
+              created_at,
+              measurements
             )
           `
           )
@@ -2582,6 +2604,61 @@ export default function AdminReviewPage() {
 
   const getPricingOptionById = (id: string) => {
     return PRICING_OPTIONS.find((option) => option.id === id);
+  };
+
+  // Handle adding correction to allocation list
+  const handleAddCorrection = async () => {
+    if (!selectedListForCorrection || !correctionAmount.trim()) {
+      toast.error("Please enter a correction amount");
+      return;
+    }
+
+    const amount = parseFloat(correctionAmount);
+    if (isNaN(amount)) {
+      toast.error("Please enter a valid number");
+      return;
+    }
+
+    setAddingCorrection(true);
+
+    try {
+      const response = await fetch("/api/assets/add-correction", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          allocation_list_id: selectedListForCorrection,
+          correction_amount: amount,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to add correction");
+      }
+
+      // Update local state to refresh the list
+      setAllocationLists((prevLists) =>
+        prevLists.map((list) =>
+          list.id === selectedListForCorrection
+            ? { ...list, correction_amount: amount }
+            : list
+        )
+      );
+
+      toast.success(`Correction of €${amount.toFixed(2)} added successfully`);
+      setShowCorrectionDialog(false);
+      setCorrectionAmount("");
+      setSelectedListForCorrection(null);
+    } catch (error) {
+      console.error("Error adding correction:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Failed to add correction"
+      );
+    } finally {
+      setAddingCorrection(false);
+    }
   };
 
   // Enhanced drag and drop reordering functions
@@ -3747,7 +3824,7 @@ export default function AdminReviewPage() {
                       </div>
 
                       {/* Summary stats always visible */}
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 pt-3 sm:pt-4">
+                      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 sm:gap-4 pt-3 sm:pt-4">
                         <div className="text-center">
                           <p className="text-xs sm:text-sm font-medium text-muted-foreground">
                             Assets
@@ -3769,7 +3846,7 @@ export default function AdminReviewPage() {
                             Base Price
                           </p>
                           <p className="text-lg sm:text-2xl font-medium text-success">
-                            €{stats.totalPrice.toFixed(2)}
+                            €{stats.basePrice.toFixed(2)}
                           </p>
                         </div>
                         <div className="text-center">
@@ -3779,6 +3856,33 @@ export default function AdminReviewPage() {
                           <p className="text-lg sm:text-2xl font-medium text-primary">
                             €{stats.potentialEarnings.toFixed(2)}
                           </p>
+                        </div>
+                        <div className="text-center flex flex-col items-center gap-2">
+                          <div>
+                            <p className="text-xs sm:text-sm font-medium text-muted-foreground">
+                              Corrections
+                            </p>
+                            <p className="text-lg sm:text-2xl font-medium text-orange-600">
+                              €{stats.correctionAmount.toFixed(2)}
+                            </p>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-xs h-7 px-2"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedListForCorrection(list.id);
+                              setCorrectionAmount(
+                                stats.correctionAmount > 0
+                                  ? stats.correctionAmount.toString()
+                                  : ""
+                              );
+                              setShowCorrectionDialog(true);
+                            }}
+                          >
+                            Add Correction
+                          </Button>
                         </div>
                       </div>
                     </CardHeader>
@@ -6176,6 +6280,73 @@ export default function AdminReviewPage() {
                 <>
                   <RotateCcw className="h-4 w-4" />
                   Fix {stuckAssetsCount} Stuck Assets
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Correction Dialog */}
+      <Dialog
+        open={showCorrectionDialog}
+        onOpenChange={setShowCorrectionDialog}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Euro className="h-5 w-5" />
+              Add Correction
+            </DialogTitle>
+            <DialogDescription>
+              Add a correction amount to the allocation list. This will be added
+              to the total cost.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium flex items-center gap-2">
+                <Euro className="h-4 w-4" />
+                Correction Amount (€)
+              </label>
+              <Input
+                type="number"
+                step="0.01"
+                placeholder="0.00"
+                value={correctionAmount}
+                onChange={(e) => setCorrectionAmount(e.target.value)}
+                className="text-lg"
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowCorrectionDialog(false);
+                setCorrectionAmount("");
+                setSelectedListForCorrection(null);
+              }}
+              disabled={addingCorrection}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleAddCorrection}
+              disabled={!correctionAmount.trim() || addingCorrection}
+              className="flex items-center gap-2"
+            >
+              {addingCorrection ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  Adding...
+                </>
+              ) : (
+                <>
+                  <Euro className="h-4 w-4" />
+                  Add Correction
                 </>
               )}
             </Button>

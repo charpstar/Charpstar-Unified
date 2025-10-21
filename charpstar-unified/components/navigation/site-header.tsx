@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/feedback";
 
 import { useState, useEffect } from "react";
 import type { DateRange } from "react-day-picker";
-import { Bug, ExternalLink, Sparkle } from "lucide-react";
+import { Bug, ExternalLink } from "lucide-react";
 
 const TITLES = {
   "/dashboard": "Dashboard",
@@ -146,10 +146,6 @@ export default function SiteHeader() {
         {/* Beta Badge */}
         <Badge variant="outline" className="ml-2 text-xs">
           CharpstAR Platform
-        </Badge>
-        <Badge variant="purple" className="ml-2 text-xs">
-          Beta
-          <Sparkle className="h-3 w-3" />
         </Badge>
 
         <div className="ml-auto flex items-center gap-2">
