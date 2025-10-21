@@ -4,10 +4,16 @@ import React, { useState, useEffect } from "react";
 import { useUser } from "@/contexts/useUser";
 import { useLoadingState } from "@/hooks/useLoadingState";
 import { Button } from "@/components/ui/display";
-import { ChevronLeft, Download, Settings, Play } from "lucide-react";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/containers";
+import { ChevronLeft, Download, Eye, Settings, Play, Upload, Table } from "lucide-react";
 import { useRouter } from "next/navigation";
+import AssetLibraryPanel from "@/components/scene-render/AssetLibraryPanel";
 import { createClient } from "@/utils/supabase/client";
-import Image from "next/image";
 
 type AppState = "select" | "configure" | "generating" | "results" | "error";
 
@@ -41,7 +47,7 @@ interface RenderJob {
 export default function ProductRenderPage() {
   const user = useUser();
   const router = useRouter();
-  const { startLoading, stopLoading } = useLoadingState();
+  const { startLoading, stopLoading, isLoading } = useLoadingState();
   
   const [appState, setAppState] = useState<AppState>("select");
   const [selectedProducts, setSelectedProducts] = useState<SelectedProduct[]>([]);
@@ -59,6 +65,7 @@ export default function ProductRenderPage() {
     cameraViews: ["front", "angled_side1", "side", "top"]
   });
   const [currentJob, setCurrentJob] = useState<RenderJob | null>(null);
+  const [jobs, setJobs] = useState<RenderJob[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   // Load existing jobs and products on mount
@@ -79,7 +86,7 @@ export default function ProductRenderPage() {
       const response = await fetch("/api/product-render/jobs");
       if (response.ok) {
         const data = await response.json();
-        console.log("Jobs loaded:", data.jobs || []);
+        setJobs(data.jobs || []);
       }
     } catch (error) {
       console.error("Error loading jobs:", error);
@@ -394,11 +401,9 @@ export default function ProductRenderPage() {
                           {/* Product Image */}
                           <div className="w-full h-32 bg-gray-100 rounded-lg mb-3 flex items-center justify-center overflow-hidden">
                             {product.preview_image ? (
-                              <Image 
+                              <img 
                                 src={Array.isArray(product.preview_image) ? product.preview_image[0] : product.preview_image} 
                                 alt={product.product_name} 
-                                width={128}
-                                height={128}
                                 className="w-full h-full object-cover rounded-lg" 
                               />
                             ) : (

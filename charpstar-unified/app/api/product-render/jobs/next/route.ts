@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { jobStorage } from "@/lib/job-storage";
 
 export async function GET() {
