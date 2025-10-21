@@ -221,6 +221,11 @@ export default function AppSidebar({
                 url: "/client-documentation",
                 icon: FileText,
               },
+              {
+                title: "Product Render",
+                url: "/product-render",
+                icon: Camera,
+              },
             ]
           : []),
       ]
