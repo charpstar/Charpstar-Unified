@@ -33,10 +33,12 @@ import { createClient } from "@/utils/supabase/client";
 
 interface AssetLibraryPanelProps {
   onAssetSelect?: (asset: any) => void;
+  selectedAssets?: any[];
 }
 
 export default function AssetLibraryPanel({
   onAssetSelect,
+  selectedAssets = [],
 }: AssetLibraryPanelProps) {
   const {
     assets,
@@ -621,13 +623,22 @@ export default function AssetLibraryPanel({
           ) : (
             <>
               <div className="grid grid-cols-3 xs:grid-cols-3 gap-2 sm:gap-3 pb-4 p-1">
-                {paginatedAssets.map((asset) => (
+                {paginatedAssets.map((asset) => {
+                  const isSelected = selectedAssets.some(selected => selected.id === asset.id);
+                  return (
                   <Card
                     key={asset.id}
-                    className={`overflow-hidden p-2 sm:p-4 rounded-lg cursor-grab active:cursor-grabbing hover:shadow-lg hover:ring-2 hover:ring-primary/50 hover:ring-offset-2 transition-all group ${
+                    className={`overflow-hidden p-2 sm:p-4 rounded-lg cursor-pointer hover:shadow-lg hover:ring-2 hover:ring-primary/50 hover:ring-offset-2 transition-all group ${
                       asset.active === false ? "opacity-60 border-dashed" : ""
+                    } ${
+                      isSelected ? "ring-2 ring-primary bg-primary/5" : ""
                     }`}
-                    onClick={() => onAssetSelect?.(asset)}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      console.log("Asset card clicked:", asset);
+                      onAssetSelect?.(asset);
+                    }}
                     draggable
                     onDragStart={(e) => {
                       e.dataTransfer.setData(
@@ -727,8 +738,16 @@ export default function AssetLibraryPanel({
                         </Button>
                       </div>
                     )}
+
+                    {/* Selection Indicator */}
+                    {isSelected && (
+                      <div className="absolute top-2 right-2 bg-primary text-primary-foreground rounded-full p-1">
+                        <Check className="h-3 w-3" />
+                      </div>
+                    )}
                   </Card>
-                ))}
+                  );
+                })}
               </div>
 
               {/* Pagination Controls */}

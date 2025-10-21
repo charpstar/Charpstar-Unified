@@ -40,6 +40,7 @@ const TITLES = {
   "/invoicing": "Invoicing",
   "/notifications": "Notifications",
   "/qa-review": "QA Review",
+  "/product-render": "Product Render",
   "/production/cost-tracking": "Cost Tracking",
   "/admin/clients": "Client Information",
   "/admin/bug-reports": "Bug Reports",

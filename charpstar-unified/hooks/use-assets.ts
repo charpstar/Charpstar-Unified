@@ -160,6 +160,7 @@ const fetchPaginatedAssets = async (
     id,
     product_name,
     article_id,
+    glb_link,
     preview_image,
     category,
     subcategory,

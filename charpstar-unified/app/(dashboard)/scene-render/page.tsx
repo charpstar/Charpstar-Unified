@@ -144,11 +144,16 @@ export default function SceneRenderPage() {
 
   const handleAssetSelect = (asset: any) => {
     console.log("Asset selected:", asset);
+    console.log("Asset glb_link:", asset.glb_link);
+    
     if (asset.glb_link) {
       setError(null);
       setSelectedFile(null); // Clear file when using URL
       setSelectedModelUrl(asset.glb_link); // Use URL directly
       setAppState("preview");
+    } else {
+      console.warn("Asset has no glb_link:", asset);
+      setError("This asset doesn't have a 3D model file (GLB) available. Please select a different asset.");
     }
   };
 
