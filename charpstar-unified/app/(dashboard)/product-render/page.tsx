@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/display";
 import { ChevronLeft, Download, Settings, Play } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
+import Image from "next/image";
 
 type AppState = "select" | "configure" | "generating" | "results" | "error";
 
@@ -381,9 +382,11 @@ export default function ProductRenderPage() {
                           {/* Product Image */}
                           <div className="w-full h-32 bg-gray-100 rounded-lg mb-3 flex items-center justify-center overflow-hidden">
                             {product.preview_image ? (
-                              <img 
+                              <Image 
                                 src={Array.isArray(product.preview_image) ? product.preview_image[0] : product.preview_image} 
                                 alt={product.product_name} 
+                                width={200}
+                                height={128}
                                 className="w-full h-full object-cover rounded-lg" 
                               />
                             ) : (

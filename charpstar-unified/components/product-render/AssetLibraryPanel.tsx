@@ -11,7 +11,6 @@ import {
   List, 
   Download,
   Eye,
-  ExternalLink,
   Loader2
 } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
