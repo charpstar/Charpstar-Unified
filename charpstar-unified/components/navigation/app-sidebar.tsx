@@ -148,14 +148,22 @@ export default function AppSidebar({
           url: "/dashboard",
           icon: LayoutDashboard,
         },
-        // Hide Analytics and Asset Library for clients in onboarding, modelers, and QA
-        ...(role === "client" && user?.metadata?.onboarding === true
+        // Hide Analytics and Asset Library for modelers and QA
+        ...(role === "modeler"
           ? []
-          : role === "modeler"
+          : role === "qa"
             ? []
-            : role === "qa"
-              ? []
-              : role === "client"
+            : role === "client"
+              ? [
+                  {
+                    title: "My 3D Models",
+                    url: "/asset-library",
+                    icon: Folder,
+                    badge:
+                      assetCount !== null ? formatNumber(assetCount) : null,
+                  },
+                ]
+              : role === "admin"
                 ? [
                     {
                       title: "My 3D Models",
@@ -164,34 +172,24 @@ export default function AppSidebar({
                       badge:
                         assetCount !== null ? formatNumber(assetCount) : null,
                     },
+                    {
+                      title: "Texture Library",
+                      url: "/texture-library",
+                      icon: Layers,
+                    },
                   ]
-                : role === "admin"
-                  ? [
-                      {
-                        title: "My 3D Models",
-                        url: "/asset-library",
-                        icon: Folder,
-                        badge:
-                          assetCount !== null ? formatNumber(assetCount) : null,
-                      },
-                      {
-                        title: "Texture Library",
-                        url: "/texture-library",
-                        icon: Layers,
-                      },
-                    ]
-                  : [
-                      {
-                        title: "Asset Library",
-                        url: "/asset-library",
-                        icon: Folder,
-                      },
-                      {
-                        title: "Texture Library",
-                        url: "/texture-library",
-                        icon: Layers,
-                      },
-                    ]),
+                : [
+                    {
+                      title: "Asset Library",
+                      url: "/asset-library",
+                      icon: Folder,
+                    },
+                    {
+                      title: "Texture Library",
+                      url: "/texture-library",
+                      icon: Layers,
+                    },
+                  ]),
         // FAQ - available to all users except clients
         ...(role !== "client"
           ? [
@@ -205,7 +203,7 @@ export default function AppSidebar({
         // Bug Reports - available to all users
 
         // Add Products and Review pages for clients only
-        ...(role === "client" && user?.metadata?.onboarding === false
+        ...(role === "client"
           ? [
               {
                 title: "Review Assets",
@@ -404,7 +402,7 @@ export default function AppSidebar({
         ]
       : []),
     // Scene Render - for client users only
-    ...(role === "client" && user?.metadata?.onboarding === false
+    ...(role === "client"
       ? [
           {
             title: "Scene Render",
@@ -425,18 +423,14 @@ export default function AppSidebar({
           },
         ]
       : []),
-    // Notifications - moved to bottom for all roles
-    ...(role === "client" &&
-    (user?.metadata?.onboarding === true ||
-      user?.metadata?.csv_uploaded === false)
-      ? []
-      : [
-          {
-            title: "Notifications",
-            url: "/notifications",
-            icon: Bell,
-          },
-        ]),
+    // Notifications - available for all roles
+    ...[
+      {
+        title: "Notifications",
+        url: "/notifications",
+        icon: Bell,
+      },
+    ],
   ];
 
   const navMain = unsortedNavItems.sort((a, b) => {

@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/display";
-import { MoreVertical, LogOut, Settings } from "lucide-react";
+import { MoreVertical, LogOut, Settings, Sparkle } from "lucide-react";
+import { Badge } from "@/components/ui/feedback";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -219,7 +220,31 @@ export default function NavUser() {
   return (
     <>
       {/* Theme Toggle */}
-      <div className="px-3 py-2 border-b border-border/50">
+
+      <div className="px-3 py-4 text-center  border-t border-border/50  ">
+        <div className="flex flex-col items-center space-y-3">
+          <div className="relative">
+            <h2 className="text-sm font-semibold text-foreground tracking-tight">
+              Charpstar Platform
+            </h2>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.3, delay: 0.1 }}
+            >
+              <Badge
+                variant="secondary"
+                className=" text-[10px] px-2 py-0.5 bg-gradient-to-r from-blue-500 to-purple-500 text-white border-0 shadow-sm"
+              >
+                <Sparkle className="h-3 w-3 mr-1" />
+                Beta
+              </Badge>
+            </motion.div>
+          </div>
+        </div>
+      </div>
+
+      <div className="px-3 py-4 border-b border-t rounded-lg  border-border/50 ">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 pb-2">
             <Sun className="h-4 w-4 text-muted-foreground" />

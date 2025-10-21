@@ -43,13 +43,6 @@ export function NotificationBell({ className }: NotificationBellProps) {
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
 
-  // Check if user is in onboarding mode
-  const isInOnboarding =
-    user?.metadata?.onboarding === true && user?.metadata?.role === "client";
-  const hasCompletedCsvUpload = user?.metadata?.csv_uploaded === true;
-  const isOnboardingClient =
-    user?.metadata?.role === "client" && !hasCompletedCsvUpload;
-
   const fetchNotifications = async () => {
     if (!user?.id) return;
 
@@ -88,11 +81,6 @@ export function NotificationBell({ className }: NotificationBellProps) {
       );
     };
   }, [user?.id]);
-
-  // Hide notifications if user is in onboarding mode (after all hooks)
-  if (isInOnboarding || isOnboardingClient) {
-    return null;
-  }
 
   const markAsRead = async (notificationId: string) => {
     if (!notificationId) return;

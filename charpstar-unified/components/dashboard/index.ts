@@ -11,7 +11,6 @@ export {
   WidgetHeader,
   WidgetContainer,
 } from "./dashboard-widgets";
-export { OnboardingDashboard } from "./onboarding-dashboard";
 export {
   default as QAWidgets,
   PersonalMetricsWidget,

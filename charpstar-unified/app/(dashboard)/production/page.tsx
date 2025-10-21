@@ -2836,7 +2836,7 @@ export default function ProductionDashboard() {
                   return (
                     <Card
                       key={client.name}
-                      className="group relative overflow-hidden transition-all duration-300 hover:shadow-xl hover:scale-[1.02] cursor-pointer border-0 bg-gradient-to-br from-background to-muted/30"
+                      className="group relative overflow-hidden transition-all duration-300 hover:shadow-xl hover:scale-[1.02] cursor-pointer border-0 "
                       onClick={() => handleClientSelect(client.name)}
                     >
                       {/* Background Pattern */}
@@ -3203,7 +3203,7 @@ export default function ProductionDashboard() {
                     return (
                       <Card
                         key={batch.id}
-                        className="group relative overflow-hidden transition-all duration-300 hover:shadow-xl hover:scale-[1.02] cursor-pointer border-0 bg-gradient-to-br from-background to-muted/30"
+                        className="group relative overflow-hidden transition-all duration-300 hover:shadow-xl hover:scale-[1.02] cursor-pointer border-0 "
                         onClick={() =>
                           handleAdminReview(batch.client, batch.batch)
                         }
@@ -3959,7 +3959,7 @@ export default function ProductionDashboard() {
                     return (
                       <Card
                         key={modeler.id}
-                        className="group relative overflow-hidden transition-all duration-300 hover:shadow-xl hover:scale-[1.02] cursor-pointer border-0 bg-gradient-to-br from-background to-muted/30"
+                        className="group relative overflow-hidden transition-all duration-300 hover:shadow-xl hover:scale-[1.02] cursor-pointer border-0 "
                         onClick={() =>
                           handleModelerAdminReview(modeler.id, modeler.email)
                         }
@@ -4184,7 +4184,7 @@ export default function ProductionDashboard() {
                       return (
                         <Card
                           key={qaUser.id}
-                          className="group relative overflow-hidden transition-all duration-300 hover:shadow-xl hover:scale-[1.02] cursor-pointer border-0 bg-gradient-to-br from-background to-muted/30"
+                          className="group relative overflow-hidden transition-all duration-300 hover:shadow-xl hover:scale-[1.02] cursor-pointer border-0 "
                           onClick={() =>
                             handleModelerAdminReview(qaUser.id, qaUser.email)
                           }

@@ -10,6 +10,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/containers";
+import { Input } from "@/components/ui/inputs";
 import {
   Package,
   ExternalLink,
@@ -17,6 +18,9 @@ import {
   Download,
   ImageIcon,
   Link2,
+  Edit,
+  Save,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import Image from "next/image";
@@ -83,6 +87,11 @@ export function ViewReferencesDialog({
   onAddReference,
 }: ViewReferencesDialogProps) {
   const [isDownloading, setIsDownloading] = useState(false);
+  const [isEditingMeasurements, setIsEditingMeasurements] = useState(false);
+  const [height, setHeight] = useState("");
+  const [width, setWidth] = useState("");
+  const [depth, setDepth] = useState("");
+  const [isSavingMeasurements, setIsSavingMeasurements] = useState(false);
   const user = useUser();
   const isModeler = user?.metadata?.role === "modeler";
 
@@ -144,6 +153,112 @@ export function ViewReferencesDialog({
   });
 
   const hasAnyFiles = Object.values(categories).some((cat) => cat.length > 0);
+
+  // Function to handle editing measurements
+  const handleEditMeasurements = () => {
+    if (measurements) {
+      setHeight(measurements.h);
+      setWidth(measurements.w);
+      setDepth(measurements.d);
+    } else {
+      setHeight("");
+      setWidth("");
+      setDepth("");
+    }
+    setIsEditingMeasurements(true);
+  };
+
+  // Function to cancel editing
+  const handleCancelEdit = () => {
+    setIsEditingMeasurements(false);
+    setHeight("");
+    setWidth("");
+    setDepth("");
+  };
+
+  // Function to save measurements
+  const handleSaveMeasurements = async () => {
+    if (!asset?.id || !height.trim() || !width.trim() || !depth.trim()) {
+      toast.error("Please enter all measurements (H, W, D)");
+      return;
+    }
+
+    // Validate that inputs are numbers
+    const h = parseFloat(height);
+    const w = parseFloat(width);
+    const d = parseFloat(depth);
+
+    if (isNaN(h) || isNaN(w) || isNaN(d) || h <= 0 || w <= 0 || d <= 0) {
+      toast.error("Please enter valid positive numbers for measurements");
+      return;
+    }
+
+    setIsSavingMeasurements(true);
+
+    try {
+      const { supabase } = await import("@/lib/supabaseClient");
+
+      // Store measurements as "H,W,D" format in millimeters
+      const measurementsString = `${h},${w},${d}`;
+
+      const { error } = await supabase
+        .from("onboarding_assets")
+        .update({ measurements: measurementsString })
+        .eq("id", asset.id);
+
+      if (error) {
+        console.error("Error updating measurements:", error);
+        toast.error("Failed to save measurements");
+        return;
+      }
+
+      // Send notification to QA and admin if updated by a client
+      try {
+        const {
+          data: { user: currentUser },
+        } = await supabase.auth.getUser();
+
+        if (currentUser) {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("role, title")
+            .eq("id", currentUser.id)
+            .single();
+
+          if (profile?.role === "client") {
+            const { notificationService } = await import(
+              "@/lib/notificationService"
+            );
+
+            await notificationService.sendClientAssetUpdateNotification({
+              assetId: asset.id,
+              assetName: asset?.product_name || "Unknown Asset",
+              clientName: asset?.client || "Unknown Client",
+              updateType: "measurements",
+              updatedFields: ["measurements"],
+              updatedBy: profile.title || currentUser.email || "Unknown User",
+              updatedAt: new Date().toISOString(),
+            });
+          }
+        }
+      } catch (notificationError) {
+        console.error("Failed to send notification:", notificationError);
+      }
+
+      toast.success("Measurements saved successfully!");
+      setIsEditingMeasurements(false);
+
+      // Trigger refresh by closing and reopening dialog
+      if (onAddReference) {
+        onAddReference();
+      }
+    } catch (error) {
+      console.error("Error saving measurements:", error);
+      toast.error("Failed to save measurements");
+    } finally {
+      setIsSavingMeasurements(false);
+    }
+  };
 
   // Function to download all files
   const downloadAllFiles = async () => {
@@ -317,36 +432,163 @@ export function ViewReferencesDialog({
 
         <div className="flex-1 overflow-y-auto space-y-4 sm:space-y-6">
           {/* Measurements Section */}
-          {measurements && (
+          {(measurements || isEditingMeasurements) && (
             <div className="p-3 sm:p-4 bg-muted/30 dark:bg-muted/10 border border-border dark:border-border rounded-lg">
-              <div className="flex items-center gap-2 mb-2 sm:mb-3">
-                <Package className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
-                <h3 className="font-semibold text-foreground text-sm sm:text-base">
-                  Product Measurements
-                </h3>
+              <div className="flex items-center justify-between mb-2 sm:mb-3">
+                <div className="flex items-center gap-2">
+                  <Package className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+                  <h3 className="font-semibold text-foreground text-sm sm:text-base">
+                    Product Measurements
+                  </h3>
+                </div>
+                {!isEditingMeasurements && !isModeler && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleEditMeasurements}
+                    className="h-7 text-xs dark:hover:bg-muted/50"
+                  >
+                    <Edit className="h-3 w-3 mr-1" />
+                    Edit
+                  </Button>
+                )}
               </div>
-              <div className="grid grid-cols-3 gap-3 sm:gap-4">
-                <div className="text-center p-2 sm:p-3 bg-background dark:bg-background/50 rounded border border-border dark:border-border">
-                  <p className="text-xs text-muted-foreground mb-1">Height</p>
-                  <p className="text-lg sm:text-xl font-bold text-foreground">
-                    {measurements.h}
+
+              {isEditingMeasurements ? (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                    <div className="space-y-1">
+                      <label className="text-xs text-muted-foreground">
+                        Height (H)
+                      </label>
+                      <Input
+                        type="number"
+                        placeholder="0"
+                        value={height}
+                        onChange={(e) => setHeight(e.target.value)}
+                        min="0"
+                        step="0.1"
+                        className="border-border focus:border-primary dark:bg-background dark:border-border dark:text-foreground text-sm h-8 sm:h-9"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs text-muted-foreground">
+                        Width (W)
+                      </label>
+                      <Input
+                        type="number"
+                        placeholder="0"
+                        value={width}
+                        onChange={(e) => setWidth(e.target.value)}
+                        min="0"
+                        step="0.1"
+                        className="border-border focus:border-primary dark:bg-background dark:border-border dark:text-foreground text-sm h-8 sm:h-9"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs text-muted-foreground">
+                        Depth (D)
+                      </label>
+                      <Input
+                        type="number"
+                        placeholder="0"
+                        value={depth}
+                        onChange={(e) => setDepth(e.target.value)}
+                        min="0"
+                        step="0.1"
+                        className="border-border focus:border-primary dark:bg-background dark:border-border dark:text-foreground text-sm h-8 sm:h-9"
+                      />
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground dark:text-muted-foreground">
+                    💡 Enter all dimensions in millimeters (mm)
                   </p>
-                  <p className="text-xs text-muted-foreground">mm</p>
+                  <div className="flex gap-2 justify-end">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleCancelEdit}
+                      disabled={isSavingMeasurements}
+                      className="h-8 text-xs dark:border-border dark:hover:bg-muted/50"
+                    >
+                      <X className="h-3 w-3 mr-1" />
+                      Cancel
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={handleSaveMeasurements}
+                      disabled={
+                        isSavingMeasurements ||
+                        !height.trim() ||
+                        !width.trim() ||
+                        !depth.trim()
+                      }
+                      className="h-8 text-xs"
+                    >
+                      {isSavingMeasurements ? (
+                        <>
+                          <div className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent mr-1" />
+                          Saving...
+                        </>
+                      ) : (
+                        <>
+                          <Save className="h-3 w-3 mr-1" />
+                          Save
+                        </>
+                      )}
+                    </Button>
+                  </div>
                 </div>
-                <div className="text-center p-2 sm:p-3 bg-background dark:bg-background/50 rounded border border-border dark:border-border">
-                  <p className="text-xs text-muted-foreground mb-1">Width</p>
-                  <p className="text-lg sm:text-xl font-bold text-foreground">
-                    {measurements.w}
-                  </p>
-                  <p className="text-xs text-muted-foreground">mm</p>
+              ) : (
+                <div className="grid grid-cols-3 gap-3 sm:gap-4">
+                  <div className="text-center p-2 sm:p-3 bg-background dark:bg-background/50 rounded border border-border dark:border-border">
+                    <p className="text-xs text-muted-foreground mb-1">Height</p>
+                    <p className="text-lg sm:text-xl font-bold text-foreground">
+                      {measurements?.h || "—"}
+                    </p>
+                    <p className="text-xs text-muted-foreground">mm</p>
+                  </div>
+                  <div className="text-center p-2 sm:p-3 bg-background dark:bg-background/50 rounded border border-border dark:border-border">
+                    <p className="text-xs text-muted-foreground mb-1">Width</p>
+                    <p className="text-lg sm:text-xl font-bold text-foreground">
+                      {measurements?.w || "—"}
+                    </p>
+                    <p className="text-xs text-muted-foreground">mm</p>
+                  </div>
+                  <div className="text-center p-2 sm:p-3 bg-background dark:bg-background/50 rounded border border-border dark:border-border">
+                    <p className="text-xs text-muted-foreground mb-1">Depth</p>
+                    <p className="text-lg sm:text-xl font-bold text-foreground">
+                      {measurements?.d || "—"}
+                    </p>
+                    <p className="text-xs text-muted-foreground">mm</p>
+                  </div>
                 </div>
-                <div className="text-center p-2 sm:p-3 bg-background dark:bg-background/50 rounded border border-border dark:border-border">
-                  <p className="text-xs text-muted-foreground mb-1">Depth</p>
-                  <p className="text-lg sm:text-xl font-bold text-foreground">
-                    {measurements.d}
-                  </p>
-                  <p className="text-xs text-muted-foreground">mm</p>
+              )}
+            </div>
+          )}
+          {!measurements && !isEditingMeasurements && !isModeler && (
+            <div className="p-3 sm:p-4 bg-muted/30 dark:bg-muted/10 border border-dashed border-border dark:border-border rounded-lg">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Package className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
+                  <div>
+                    <h3 className="font-semibold text-foreground text-sm sm:text-base">
+                      Product Measurements
+                    </h3>
+                    <p className="text-xs text-muted-foreground">
+                      No measurements added yet
+                    </p>
+                  </div>
                 </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleEditMeasurements}
+                  className="h-7 text-xs dark:border-border dark:hover:bg-muted/50"
+                >
+                  <Edit className="h-3 w-3 mr-1" />
+                  Add
+                </Button>
               </div>
             </div>
           )}

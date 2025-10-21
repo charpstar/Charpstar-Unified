@@ -10,7 +10,6 @@ import { Suspense, useCallback, useEffect, useState } from "react";
 import React from "react";
 import { FixedDashboard } from "@/components/dashboard";
 import { DashboardSkeleton } from "@/components/ui/skeletons";
-import { OnboardingDashboard } from "@/components/dashboard/onboarding-dashboard";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ClientDashboardTour } from "@/components/dashboard/client-dashboard-tour";
 import { ModelerDashboardTour } from "@/components/dashboard/modeler-dashboard-tour";
@@ -186,27 +185,11 @@ export default function DashboardPage() {
     return <DashboardSkeleton />;
   }
 
-  // Show onboarding dashboard if user is still in onboarding (but skip for QA and modeler users)
-  if (
-    user?.metadata?.onboarding === true &&
-    user?.metadata?.role === "client"
-  ) {
-    return (
-      <Suspense fallback={<DashboardSkeleton />}>
-        <div className="container mx-auto p-6 space-y-6">
-          <OnboardingDashboard />
-        </div>
-      </Suspense>
-    );
-  }
-
   return (
     <Suspense fallback={<DashboardSkeleton />}>
       <div className="container mx-auto p-6 space-y-6">
         {/* Add the dashboard tour component for clients */}
-        {user?.metadata?.role === "client" && !user?.metadata?.onboarding && (
-          <ClientDashboardTour />
-        )}
+        {user?.metadata?.role === "client" && <ClientDashboardTour />}
         {/* Add the dashboard tour component for modelers */}
         {user?.metadata?.role === "modeler" && <ModelerDashboardTour />}
 

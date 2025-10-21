@@ -58,6 +58,7 @@ interface ProductForm {
   category: string;
   subcategory: string;
   references: { type: "url" | "file"; value: string; file?: File }[];
+  measurements?: { height: string; width: string; depth: string };
 }
 
 export default function AddProductsPage() {
@@ -75,6 +76,7 @@ export default function AddProductsPage() {
       category: "",
       subcategory: "",
       references: [],
+      measurements: undefined,
     },
   ]);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -146,6 +148,7 @@ export default function AddProductsPage() {
       subcategory: "",
       references: [],
       product_name: "",
+      measurements: undefined,
     }));
 
     setProducts((prev) => [...prev, ...newProducts]);
@@ -293,6 +296,7 @@ export default function AddProductsPage() {
         category: "",
         subcategory: "",
         references: [],
+        measurements: undefined,
       },
     ]);
   };
@@ -345,20 +349,33 @@ export default function AddProductsPage() {
         ? user.metadata.client[0]
         : user.metadata.client;
 
-      const productsToInsert = validProducts.map((product) => ({
-        client: clientName,
-        batch: currentBatch,
-        article_id: product.article_id.trim(),
-        product_name: product.product_name.trim(),
-        product_link: product.product_link.trim(),
-        glb_link: product.cad_file_link.trim() || null,
-        category: product.category.trim() || null,
-        subcategory: product.subcategory.trim() || null,
-        reference: null, // Will be updated if references exist
-        priority: 2, // Default medium priority
-        status: "not_started",
-        delivery_date: null,
-      }));
+      const productsToInsert = validProducts.map((product) => {
+        // Format measurements if they exist
+        let measurementsString = null;
+        if (
+          product.measurements?.height &&
+          product.measurements?.width &&
+          product.measurements?.depth
+        ) {
+          measurementsString = `${product.measurements.height},${product.measurements.width},${product.measurements.depth}`;
+        }
+
+        return {
+          client: clientName,
+          batch: currentBatch,
+          article_id: product.article_id.trim(),
+          product_name: product.product_name.trim(),
+          product_link: product.product_link.trim(),
+          glb_link: product.cad_file_link.trim() || null,
+          category: product.category.trim() || null,
+          subcategory: product.subcategory.trim() || null,
+          reference: null, // Will be updated if references exist
+          measurements: measurementsString,
+          priority: 2, // Default medium priority
+          status: "not_started",
+          delivery_date: null,
+        };
+      });
 
       const { data: insertedProducts, error } = await supabase
         .from("onboarding_assets")
@@ -476,6 +493,7 @@ export default function AddProductsPage() {
           category: "",
           subcategory: "",
           references: [],
+          measurements: undefined,
         },
       ]);
 
@@ -2078,7 +2096,7 @@ export default function AddProductsPage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <FileText className="h-5 w-5" />
-              Add References
+              Add References & Measurements
               {editingReferencesIndex !== null &&
                 ` - ${products[editingReferencesIndex]?.product_name || `Product ${editingReferencesIndex + 1}`}`}
             </DialogTitle>
@@ -2087,8 +2105,8 @@ export default function AddProductsPage() {
           {editingReferencesIndex !== null && (
             <div className="space-y-4">
               <div className="text-sm text-muted-foreground">
-                Add reference URLs or files that will be uploaded when you
-                submit this product.
+                Add reference URLs, files, and product measurements that will be
+                saved when you submit this product.
               </div>
 
               {/* Recent References */}
@@ -2266,6 +2284,108 @@ export default function AddProductsPage() {
                 />
                 <p className="text-xs text-muted-foreground">
                   Supported: Images (JPG, PNG, etc.) and PDF files
+                </p>
+              </div>
+
+              {/* Product Measurements */}
+              <div className="space-y-3 p-4 bg-muted/30 dark:bg-muted/10 border border-border dark:border-border rounded-lg">
+                <div className="flex items-center gap-2">
+                  <Package className="h-4 w-4 text-primary" />
+                  <Label className="text-sm font-medium">
+                    Product Measurements (Optional)
+                  </Label>
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">
+                      Height (mm)
+                    </Label>
+                    <Input
+                      type="number"
+                      placeholder="0"
+                      value={
+                        products[editingReferencesIndex]?.measurements
+                          ?.height || ""
+                      }
+                      onChange={(e) => {
+                        const updated = [...products];
+                        if (!updated[editingReferencesIndex].measurements) {
+                          updated[editingReferencesIndex].measurements = {
+                            height: "",
+                            width: "",
+                            depth: "",
+                          };
+                        }
+                        updated[editingReferencesIndex].measurements!.height =
+                          e.target.value;
+                        setProducts(updated);
+                      }}
+                      min="0"
+                      step="0.1"
+                      className="h-9"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">
+                      Width (mm)
+                    </Label>
+                    <Input
+                      type="number"
+                      placeholder="0"
+                      value={
+                        products[editingReferencesIndex]?.measurements?.width ||
+                        ""
+                      }
+                      onChange={(e) => {
+                        const updated = [...products];
+                        if (!updated[editingReferencesIndex].measurements) {
+                          updated[editingReferencesIndex].measurements = {
+                            height: "",
+                            width: "",
+                            depth: "",
+                          };
+                        }
+                        updated[editingReferencesIndex].measurements!.width =
+                          e.target.value;
+                        setProducts(updated);
+                      }}
+                      min="0"
+                      step="0.1"
+                      className="h-9"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">
+                      Depth (mm)
+                    </Label>
+                    <Input
+                      type="number"
+                      placeholder="0"
+                      value={
+                        products[editingReferencesIndex]?.measurements?.depth ||
+                        ""
+                      }
+                      onChange={(e) => {
+                        const updated = [...products];
+                        if (!updated[editingReferencesIndex].measurements) {
+                          updated[editingReferencesIndex].measurements = {
+                            height: "",
+                            width: "",
+                            depth: "",
+                          };
+                        }
+                        updated[editingReferencesIndex].measurements!.depth =
+                          e.target.value;
+                        setProducts(updated);
+                      }}
+                      min="0"
+                      step="0.1"
+                      className="h-9"
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  💡 Enter all dimensions in millimeters (mm)
                 </p>
               </div>
 

@@ -75,18 +75,17 @@ export function ClientDashboardTour() {
   useEffect(() => {
     if (!user?.id) return;
 
-    // Check if user has completed onboarding and hasn't seen the tour
+    // Check if user hasn't seen the tour
     const hasCompletedTour = localStorage.getItem(CLIENT_DASHBOARD_TOUR_KEY);
-    const isFirstTime = !user.metadata?.onboarding; // Just completed onboarding
 
-    if (!hasCompletedTour && isFirstTime) {
+    if (!hasCompletedTour) {
       // Delay to ensure DOM is fully rendered
       setTimeout(() => {
         setIsVisible(true);
         updateTargetElement();
       }, 1500);
     }
-  }, [user?.id, user?.metadata?.onboarding]);
+  }, [user?.id]);
 
   // Listen for reset tour event
   useEffect(() => {
