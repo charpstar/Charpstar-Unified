@@ -61,8 +61,9 @@ export default function ProductRenderPage() {
   const [currentJob, setCurrentJob] = useState<RenderJob | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Load user profile on mount
+  // Load existing jobs and products on mount
   useEffect(() => {
+    loadJobs();
     loadUserProfile();
   }, []);
 
@@ -73,6 +74,17 @@ export default function ProductRenderPage() {
     }
   }, [userProfile]);
 
+  const loadJobs = async () => {
+    try {
+      const response = await fetch("/api/product-render/jobs");
+      if (response.ok) {
+        const data = await response.json();
+        console.log("Jobs loaded:", data.jobs || []);
+      }
+    } catch (error) {
+      console.error("Error loading jobs:", error);
+    }
+  };
 
   const loadUserProfile = async () => {
     try {
@@ -385,7 +397,7 @@ export default function ProductRenderPage() {
                               <Image 
                                 src={Array.isArray(product.preview_image) ? product.preview_image[0] : product.preview_image} 
                                 alt={product.product_name} 
-                                width={200}
+                                width={128}
                                 height={128}
                                 className="w-full h-full object-cover rounded-lg" 
                               />

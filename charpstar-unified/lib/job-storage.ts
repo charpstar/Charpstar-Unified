@@ -46,7 +46,6 @@ class JobStorage {
 
 // Use a global variable to ensure the same instance across all API routes
 declare global {
-  // eslint-disable-next-line no-var
   var __jobStorage: JobStorage | undefined;
 }
 
