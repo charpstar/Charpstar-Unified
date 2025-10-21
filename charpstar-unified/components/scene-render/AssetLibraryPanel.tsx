@@ -233,15 +233,15 @@ export default function AssetLibraryPanel({
     }
   }, [selectedClient, availableCategories, selectedCategory, isAdmin]);
 
-  // If collapsed, show minimal UI
-  if (isCollapsed) {
+  // Removed collapsed UI functionality
+  if (false) {
     return (
       <Card className="h-full flex flex-col overflow-hidden surface-elevated border border-light shadow-md rounded-xl items-center py-4 px-2 gap-4 transition-all duration-500 ease-out">
         {/* Expand Button - at the top */}
         <Button
           variant="ghost"
           size="sm"
-          onClick={onToggleCollapse}
+          onClick={() => {}}
           className="h-10 w-10 p-0 hover:bg-primary/10 flex-shrink-0 transition-colors duration-200"
           title="Expand Asset Library"
         >
@@ -361,7 +361,7 @@ export default function AssetLibraryPanel({
           <Button
             variant="ghost"
             size="sm"
-            onClick={onToggleCollapse}
+            onClick={() => {}}
             className="h-8 w-8 p-0 ml-2 flex-shrink-0 transition-colors duration-200 hover:bg-primary/10"
           >
             <ChevronRight className="h-4 w-4" />

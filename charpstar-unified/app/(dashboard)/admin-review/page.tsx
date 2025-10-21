@@ -50,7 +50,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/containers";
 import { Input, Textarea } from "@/components/ui/inputs";
-import { Calendar } from "@/components/ui/utilities/calendar";
+import { Calendar } from "@/components/ui/utilities";
 import {
   Popover,
   PopoverContent,
