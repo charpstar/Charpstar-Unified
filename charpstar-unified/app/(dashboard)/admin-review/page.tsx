@@ -1228,7 +1228,7 @@ export default function AdminReviewPage() {
     try {
       const { data, error } = await supabase
         .from("onboarding_assets")
-        .select("reference, glb_link, status, transferred")
+        .select("reference, glb_link, status, transferred, measurements")
         .eq("id", assetId)
         .eq("transferred", false)
         .single();
@@ -1243,6 +1243,7 @@ export default function AdminReviewPage() {
                   reference: data.reference,
                   glb_link: data.glb_link,
                   status: data.status || asset.status,
+                  measurements: data.measurements,
                 }
               : asset
           )
@@ -1262,6 +1263,7 @@ export default function AdminReviewPage() {
                       glb_link: data.glb_link,
                       status:
                         data.status || assignment.onboarding_assets.status,
+                      measurements: data.measurements,
                     },
                   }
                 : assignment
@@ -1278,6 +1280,7 @@ export default function AdminReviewPage() {
                   reference: data.reference,
                   glb_link: data.glb_link,
                   status: data.status || asset.status,
+                  measurements: data.measurements,
                 }
               : asset
           )
@@ -1672,7 +1675,7 @@ export default function AdminReviewPage() {
       let query = supabase
         .from("onboarding_assets")
         .select(
-          "id, product_name, article_id, delivery_date, status, batch, priority, revision_count, client, reference, glb_link, product_link, upload_order, pricing_option_id, price, pricing_comment, transferred"
+          "id, product_name, article_id, delivery_date, status, batch, priority, revision_count, client, reference, glb_link, product_link, upload_order, pricing_option_id, price, pricing_comment, transferred, measurements"
         )
         .eq("transferred", false) // Exclude transferred assets
         .order("upload_order", { ascending: true });
@@ -2032,7 +2035,8 @@ export default function AdminReviewPage() {
               reference,
               glb_link,
               product_link,
-              created_at
+              created_at,
+              measurements
             )
           `
           )

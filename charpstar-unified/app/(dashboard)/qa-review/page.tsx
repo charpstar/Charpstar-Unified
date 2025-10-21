@@ -438,7 +438,8 @@ export default function QAReviewPage() {
           created_at,
           reference,
           pricing_comment,
-          upload_order
+          upload_order,
+          measurements
         )
       `
       )
@@ -487,7 +488,8 @@ export default function QAReviewPage() {
           created_at,
           reference,
           pricing_comment,
-          upload_order
+          upload_order,
+          measurements
         )
       `
         )

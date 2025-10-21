@@ -323,9 +323,7 @@ export default function AssetCard({
             ? "flex flex-row h-76 min-w-full"
             : "flex flex-col min-h-[220px] min-w-[220px]"
         } ${
-          !isActive
-            ? "bg-gray-50 dark:bg-gray-800/50 opacity-75"
-            : "bg-white dark:bg-black/90"
+          !isActive ? "bg-gray-50 dark:bg-gray-800/50 opacity-75" : "bg-card"
         }`}
       >
         {/* Selection checkbox */}

@@ -500,7 +500,8 @@ export default function BatchDetailPage() {
               glb_link,
               product_link,
               reference,
-              pricing_comment
+              pricing_comment,
+              measurements
             )
           )
         `
@@ -1324,7 +1325,7 @@ export default function BatchDetailPage() {
     try {
       const { data, error } = await supabase
         .from("onboarding_assets")
-        .select("reference, glb_link")
+        .select("reference, glb_link, measurements")
         .eq("id", assetId)
         .single();
 
@@ -1339,6 +1340,7 @@ export default function BatchDetailPage() {
                     ...asset,
                     reference: data.reference,
                     glb_link: data.glb_link,
+                    measurements: data.measurements,
                   }
                 : asset
             ),

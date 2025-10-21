@@ -187,7 +187,7 @@ export default function DashboardPage() {
 
   return (
     <Suspense fallback={<DashboardSkeleton />}>
-      <div className="container mx-auto p-6 space-y-6">
+      <div className="container mx-auto p-6 space-y-6 ">
         {/* Add the dashboard tour component for clients */}
         {user?.metadata?.role === "client" && <ClientDashboardTour />}
         {/* Add the dashboard tour component for modelers */}
