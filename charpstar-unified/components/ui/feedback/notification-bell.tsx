@@ -137,20 +137,24 @@ export function NotificationBell({ className }: NotificationBellProps) {
     setOpen(false);
 
     // Role-based routing override: if we have an asset id, send modelers to modeler-review and admins to client-review
-    try {
-      const role = (user as any)?.metadata?.role as string | undefined;
-      const assetId =
-        (notification.metadata as any)?.assetId ||
-        (notification.metadata as any)?.assetIds?.[0];
+    // Skip override for client_asset_update notifications to use type-specific routing
+    if (notification.type !== "client_asset_update") {
+      try {
+        const role = (user as any)?.metadata?.role as string | undefined;
+        const assetId =
+          (notification.metadata as any)?.assetId ||
+          (notification.metadata as any)?.assetIds?.[0];
 
-      if (assetId && (role === "modeler" || role === "admin")) {
-        const target = role === "modeler" ? "modeler-review" : "client-review";
-        router.push(`/${target}/${assetId}?from=notification`);
-        return;
+        if (assetId && (role === "modeler" || role === "admin")) {
+          const target =
+            role === "modeler" ? "modeler-review" : "client-review";
+          router.push(`/${target}/${assetId}?from=notification`);
+          return;
+        }
+        //eslint-disable-next-line @typescript-eslint/no-unused-vars
+      } catch (e) {
+        // Fallback to type-based routing below
       }
-      //eslint-disable-next-line @typescript-eslint/no-unused-vars
-    } catch (e) {
-      // Fallback to type-based routing below
     }
 
     // Smart navigation based on notification type:
@@ -251,6 +255,17 @@ export function NotificationBell({ className }: NotificationBellProps) {
             router.push("/admin-review");
           }
           break;
+        case "client_asset_update":
+          // Navigate to client-review page for the updated asset
+          if (notification.metadata?.assetId) {
+            router.push(
+              `/client-review/${notification.metadata.assetId}?from=client-update-notification`
+            );
+          } else {
+            // Fallback to client-review page
+            router.push("/client-review");
+          }
+          break;
         default:
           // Default to my-assignments page
           router.push("/my-assignments");
@@ -294,6 +309,8 @@ export function NotificationBell({ className }: NotificationBellProps) {
         return <CheckCircle className={iconClass} />;
       case "allocation_list_declined":
         return <X className={iconClass} />;
+      case "client_asset_update":
+        return <FileText className={iconClass} />;
       default:
         return <Bell className={iconClass} />;
     }
@@ -329,6 +346,8 @@ export function NotificationBell({ className }: NotificationBellProps) {
         return "bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 border-green-200 dark:border-green-700";
       case "allocation_list_declined":
         return "bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 border-red-200 dark:border-red-700";
+      case "client_asset_update":
+        return "bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-700";
       default:
         return "bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-200 border-gray-200 dark:border-gray-700";
     }
@@ -362,6 +381,8 @@ export function NotificationBell({ className }: NotificationBellProps) {
         return "text-green-600 dark:text-green-400";
       case "allocation_list_declined":
         return "text-red-600 dark:text-red-400";
+      case "client_asset_update":
+        return "text-blue-600 dark:text-blue-400";
       default:
         return "text-gray-600 dark:text-gray-400";
     }

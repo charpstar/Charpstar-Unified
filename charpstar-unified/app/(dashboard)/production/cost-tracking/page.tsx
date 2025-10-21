@@ -9,12 +9,7 @@ import {
   CardTitle,
 } from "@/components/ui/containers";
 import { Button } from "@/components/ui/display";
-import {
-  Badge,
-  Progress,
-  Alert,
-  AlertDescription,
-} from "@/components/ui/feedback";
+import { Badge, Alert, AlertDescription } from "@/components/ui/feedback";
 import { Input } from "@/components/ui/inputs";
 import {
   Select,
@@ -42,14 +37,25 @@ import {
   Package,
   CheckCircle,
   Clock,
-  DollarSign,
   BarChart3,
   Calendar,
   Filter,
   Download,
   ChevronDown,
   ChevronRight,
+  PieChart,
 } from "lucide-react";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  Cell,
+} from "recharts";
 
 interface CostSummary {
   totalBudget: number;
@@ -126,6 +132,54 @@ interface AssetCost {
   allocation_list_completed?: boolean;
 }
 
+interface PricingBreakdown {
+  name: string;
+  totalCost: number;
+  count: number;
+  color: string;
+}
+
+interface PricingOption {
+  id: string;
+  label: string;
+  price: number;
+  description: string;
+}
+
+// Pricing options matching admin-review page
+const PRICING_OPTIONS: PricingOption[] = [
+  {
+    id: "pbr_3d_model_after_second",
+    label: "PBR 3D Model (Premium)",
+    price: 30,
+    description: "Premium PBR 3D model creation",
+  },
+  {
+    id: "additional_colors_after_second",
+    label: "Additional Colors",
+    price: 1.5,
+    description: "Additional colors",
+  },
+  {
+    id: "additional_textures_after_second",
+    label: "Additional Textures",
+    price: 7,
+    description: "Additional textures/materials",
+  },
+  {
+    id: "additional_sizes_after_second",
+    label: "Additional Sizes",
+    price: 5,
+    description: "Additional sizes",
+  },
+  {
+    id: "custom_pricing",
+    label: "Custom Pricing",
+    price: 0,
+    description: "Custom pricing",
+  },
+];
+
 export default function CostTrackingPage() {
   const user = useUser();
   const router = useRouter();
@@ -143,6 +197,9 @@ export default function CostTrackingPage() {
   const [monthlyCosts, setMonthlyCosts] = useState<MonthlyCosts[]>([]);
   //eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [clientCosts, setClientCosts] = useState<ClientCosts[]>([]);
+  const [pricingBreakdown, setPricingBreakdown] = useState<PricingBreakdown[]>(
+    []
+  );
   const [selectedMonth, setSelectedMonth] = useState<string>("all");
   const [selectedModeler, setSelectedModeler] = useState<string>("all");
   const [searchTerm, setSearchTerm] = useState("");
@@ -471,6 +528,10 @@ export default function CostTrackingPage() {
       const clientCostsData = calculateClientCosts(processedAssets);
       setClientCosts(clientCostsData);
 
+      // Calculate pricing breakdown
+      const pricingBreakdownData = await calculatePricingBreakdown();
+      setPricingBreakdown(pricingBreakdownData);
+
       // Note: Budget thresholds are checked in the useEffect when totalSpent changes
     } catch (error) {
       console.error("Error fetching cost data:", error);
@@ -604,6 +665,95 @@ export default function CostTrackingPage() {
     // Sort clients by completed cost desc
     results.sort((a, b) => b.completedCost - a.completedCost);
     return results;
+  };
+
+  const calculatePricingBreakdown = async () => {
+    try {
+      // Fetch assets with pricing options
+      const { data: pricingAssets, error: pricingError } = await supabase
+        .from("onboarding_assets")
+        .select("pricing_option_id, price, status")
+        .not("pricing_option_id", "is", null);
+
+      if (pricingError) {
+        console.error("Error fetching pricing assets:", pricingError);
+        return [];
+      }
+
+      // Fetch allocation lists with corrections
+      const { data: corrections, error: correctionsError } = await supabase
+        .from("allocation_lists")
+        .select("correction_amount, status, approved_at")
+        .not("correction_amount", "is", null)
+        .gt("correction_amount", 0);
+
+      if (correctionsError) {
+        console.error("Error fetching corrections:", correctionsError);
+      }
+
+      // Define color palette
+      const colors = [
+        "#10b981",
+        "#3b82f6",
+        "#8b5cf6",
+        "#f59e0b",
+        "#ef4444",
+        "#6b7280",
+      ];
+      const breakdown = new Map<string, { totalCost: number; count: number }>();
+
+      // Process pricing options
+      pricingAssets?.forEach((asset) => {
+        const isCompleted =
+          asset.status === "approved" || asset.status === "approved_by_client";
+        if (!isCompleted) return; // Only count completed assets
+
+        const option = PRICING_OPTIONS.find(
+          (opt) => opt.id === asset.pricing_option_id
+        );
+        const label = option ? option.label : "Other";
+        const price = asset.price || 0;
+
+        if (!breakdown.has(label)) {
+          breakdown.set(label, { totalCost: 0, count: 0 });
+        }
+
+        const entry = breakdown.get(label)!;
+        entry.totalCost += price;
+        entry.count++;
+      });
+
+      // Process corrections
+      const completedCorrections =
+        corrections?.filter((c) => c.status === "approved" && c.approved_at) ||
+        [];
+
+      if (completedCorrections.length > 0) {
+        const totalCorrections = completedCorrections.reduce(
+          (sum, c) => sum + (c.correction_amount || 0),
+          0
+        );
+        breakdown.set("Corrections", {
+          totalCost: totalCorrections,
+          count: completedCorrections.length,
+        });
+      }
+
+      // Convert to array and add colors
+      const result: PricingBreakdown[] = Array.from(breakdown.entries())
+        .map(([name, { totalCost, count }], index) => ({
+          name,
+          totalCost: Math.round(totalCost * 100) / 100,
+          count,
+          color: colors[index % colors.length],
+        }))
+        .sort((a, b) => b.totalCost - a.totalCost);
+
+      return result;
+    } catch (error) {
+      console.error("Error calculating pricing breakdown:", error);
+      return [];
+    }
   };
 
   const getBudgetStatus = () => {
@@ -751,487 +901,333 @@ export default function CostTrackingPage() {
   const budgetStatus = getBudgetStatus();
 
   return (
-    <div className="container mx-auto p-3 sm:p-6 space-y-4 sm:space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2 sm:gap-3">
-            <h1 className="text-2xl sm:text-3xl font-semibold text-foreground">
-              Cost Tracking
-            </h1>
-            {/* Notifications are now handled by the notification service */}
-          </div>
-          <p className="text-muted-foreground mt-2 text-sm sm:text-base">
-            Monitor budget, modeler costs, and bonuses across all projects
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <Badge variant="outline" className="gap-1 text-xs sm:text-sm">
-            <DollarSign className="h-3 w-3" />
-            Admin Only
-          </Badge>
-        </div>
-      </div>
-
-      {/* Budget Threshold Notifications */}
-      {/* Notifications are now handled by the notification service */}
-
-      {/* Notification History */}
-      {/* Notifications are now handled by the notification service */}
-
-      {/* Budget Status Alert */}
-      <Alert
-        className={
-          budgetStatus.status === "critical"
-            ? "border-red-500 bg-red-50"
-            : budgetStatus.status === "warning"
-              ? "border-amber-500 bg-amber-50"
-              : "border-green-500 bg-green-50"
-        }
-      >
-        <AlertTriangle
-          className={`h-4 w-4 ${
-            budgetStatus.status === "critical"
-              ? "text-red-600"
-              : budgetStatus.status === "warning"
-                ? "text-amber-600"
-                : "text-green-600"
-          }`}
-        />
-        <AlertDescription
-          className={
-            budgetStatus.status === "critical"
-              ? "text-red-800"
-              : budgetStatus.status === "warning"
-                ? "text-amber-800"
-                : "text-green-800"
-          }
-        >
-          {budgetStatus.message}
-        </AlertDescription>
-      </Alert>
-
-      {/* Cost Breakdown Summary */}
-      <Card>
-        <CardHeader className="p-4 sm:p-6">
-          <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-            <BarChart3 className="h-4 w-4 sm:h-5 sm:w-5" />
-            Cost Breakdown Summary
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-4 sm:p-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-            <div className="text-center">
-              <div className="text-2xl sm:text-3xl font-bold text-green-600 mb-2">
-                €
-                {modelerCosts
-                  .reduce((sum, m) => sum + m.completedCost, 0)
-                  .toFixed(2)}
-              </div>
-              <div className="text-xs sm:text-sm text-muted-foreground">
-                Approved Costs
-              </div>
-              <div className="text-xs text-green-600 mt-1">
-                {(
-                  (modelerCosts.reduce((sum, m) => sum + m.completedCost, 0) /
-                    costSummary.totalBudget) *
-                  100
-                ).toFixed(1)}
-                % of budget
-              </div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl sm:text-3xl font-bold text-amber-600 mb-2">
-                €
-                {modelerCosts
-                  .reduce((sum, m) => sum + m.pendingCost, 0)
-                  .toFixed(2)}
-              </div>
-              <div className="text-xs sm:text-sm text-muted-foreground">
-                Pending Costs
-              </div>
-              <div className="text-xs text-amber-600 mt-1">
-                {(
-                  (modelerCosts.reduce((sum, m) => sum + m.pendingCost, 0) /
-                    costSummary.totalBudget) *
-                  100
-                ).toFixed(1)}
-                % of budget
-              </div>
-            </div>
-            <div className="text-center sm:col-span-2 lg:col-span-1">
-              <div className="text-2xl sm:text-3xl font-bold text-blue-600 mb-2">
-                €{costSummary.remainingBudget.toFixed(2)}
-              </div>
-              <div className="text-xs sm:text-sm text-muted-foreground">
-                Available Budget
-              </div>
-              <div className="text-xs text-blue-600 mt-1">
-                {(
-                  (costSummary.remainingBudget / costSummary.totalBudget) *
-                  100
-                ).toFixed(1)}
-                % of budget
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Monthly Cost Trends */}
-      <Card>
-        <CardHeader className="p-4 sm:p-6">
+    <div className="min-h-screen surface-base">
+      <div className="container mx-auto p-3 sm:p-6 space-y-4 sm:space-y-6">
+        {/* Header */}
+        <div className="surface-raised rounded-xl p-6 shadow-depth-md border border-border/50">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-              <Calendar className="h-4 w-4 sm:h-5 sm:w-5" />
-              Monthly Cost Trends
-            </CardTitle>
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-2">
-              <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-                <SelectTrigger className="w-full sm:w-40 text-sm">
-                  <SelectValue placeholder="All months" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All months</SelectItem>
-                  {monthlyCosts.map((month) => (
-                    <SelectItem key={month.monthYear} value={month.monthYear}>
-                      {month.monthYear}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Button
-                onClick={exportMonthlyData}
-                variant="outline"
-                className="gap-2 text-sm"
-              >
-                <Download className="h-3 w-3 sm:h-4 sm:w-4" />
-                <span className="hidden sm:inline">Export Monthly</span>
-                <span className="sm:hidden">Export</span>
-              </Button>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="p-4 sm:p-6">
-          {loading ? (
-            <div className="space-y-4">
-              {[...Array(3)].map((_, i) => (
-                <div
-                  key={i}
-                  className="grid grid-cols-2 sm:grid-cols-4 gap-4 py-3"
-                >
-                  {[...Array(4)].map((_, j) => (
-                    <div
-                      key={j}
-                      className="h-4 bg-muted animate-pulse rounded"
-                    />
-                  ))}
+            <div>
+              <div className="flex items-center gap-3">
+                <div className="p-3 rounded-xl bg-muted/50 border border-border">
+                  <BarChart3 className="h-6 w-6 text-foreground" />
                 </div>
-              ))}
-            </div>
-          ) : monthlyCosts.length === 0 ? (
-            <div className="text-center py-6 sm:py-8">
-              <Calendar className="h-8 w-8 sm:h-12 sm:w-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-base sm:text-lg font-semibold mb-2">
-                No Monthly Data
-              </h3>
-              <p className="text-muted-foreground text-sm sm:text-base">
-                No cost data available for monthly analysis.
-              </p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="text-xs sm:text-sm text-left">
-                      Month
-                    </TableHead>
-                    <TableHead className="text-xs sm:text-sm text-left">
-                      Total Assets
-                    </TableHead>
-                    <TableHead className="text-xs sm:text-sm text-left">
-                      Completed Cost
-                    </TableHead>
-                    <TableHead className="text-xs sm:text-sm text-left">
-                      Pending Cost
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {monthlyCosts
-                    .filter(
-                      (month) =>
-                        selectedMonth === "all" ||
-                        month.monthYear === selectedMonth
-                    )
-                    .map((month) => (
-                      <TableRow key={month.monthYear}>
-                        <TableCell className="text-left">
-                          <div>
-                            <div className="font-medium text-sm sm:text-base">
-                              {month.monthYear}
-                            </div>
-                            <div className="text-xs text-muted-foreground">
-                              {month.completedAssets} completed,{" "}
-                              {month.pendingAssets} pending
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-left">
-                          <div>
-                            <span className="font-medium text-sm sm:text-base">
-                              {month.assetCount}
-                            </span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-left">
-                          <div className="flex items-center gap-1">
-                            <Euro className="h-3 w-3 text-green-600" />
-                            <span className="font-medium text-green-700 text-sm sm:text-base">
-                              €{month.completedCost.toFixed(2)}
-                            </span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-left">
-                          <div className="flex items-center gap-1">
-                            <Euro className="h-3 w-3 text-amber-600" />
-                            <span className="font-medium text-amber-700 text-sm sm:text-base">
-                              €{month.pendingCost.toFixed(2)}
-                            </span>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Budget Overview */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-        {/* Total Budget */}
-        <Card className="hover:shadow-md transition">
-          <CardContent className="p-4 sm:p-5 flex items-center gap-3 sm:gap-4">
-            <div className="p-2 sm:p-3 rounded-full bg-blue-100">
-              <Euro className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
-            </div>
-            <div>
-              <p className="text-xs sm:text-sm text-muted-foreground">
-                Total Budget
-              </p>
-              <p className="text-xl sm:text-2xl font-bold">
-                €{costSummary.totalBudget.toFixed(2)}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Total Spent */}
-        <Card className="hover:shadow-md transition">
-          <CardContent className="p-4 sm:p-5 flex items-center gap-3 sm:gap-4">
-            <div className="p-2 sm:p-3 rounded-full bg-green-100">
-              <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-green-600" />
-            </div>
-            <div>
-              <p className="text-xs sm:text-sm text-muted-foreground">
-                Total Spent
-              </p>
-              <p className="text-xl sm:text-2xl font-bold">
-                €{costSummary.totalSpent.toFixed(2)}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {costSummary.spentPercentage.toFixed(1)}% of budget
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Remaining Budget */}
-        <Card className="hover:shadow-md transition">
-          <CardContent className="p-4 sm:p-5 flex items-center gap-3 sm:gap-4">
-            <div className="p-2 sm:p-3 rounded-full bg-amber-100">
-              <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-amber-600" />
-            </div>
-            <div>
-              <p className="text-xs sm:text-sm text-muted-foreground">
-                Remaining Budget
-              </p>
-              <p className="text-xl sm:text-2xl font-bold">
-                €{costSummary.remainingBudget.toFixed(2)}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Available for projects
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Active Modelers */}
-
-        {/* Completed Cost */}
-        <Card className="hover:shadow-md transition">
-          <CardContent className="p-4 sm:p-5 flex items-center gap-3 sm:gap-4">
-            <div className="p-2 sm:p-3 rounded-full bg-green-100">
-              <CheckCircle className="h-4 w-4 sm:h-5 sm:w-5 text-green-600" />
-            </div>
-            <div>
-              <p className="text-xs sm:text-sm text-muted-foreground">
-                Approved Cost
-              </p>
-              <p className="text-xl sm:text-2xl font-bold">
-                €
-                {modelerCosts
-                  .reduce((sum, m) => sum + m.completedCost, 0)
-                  .toFixed(2)}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Client approved & invoiced
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Pending Cost */}
-        <Card className="hover:shadow-md transition">
-          <CardContent className="p-4 sm:p-5 flex items-center gap-3 sm:gap-4">
-            <div className="p-2 sm:p-3 rounded-full bg-amber-100">
-              <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-amber-600" />
-            </div>
-            <div>
-              <p className="text-xs sm:text-sm text-muted-foreground">
-                Pending Cost
-              </p>
-              <p className="text-xl sm:text-2xl font-bold">
-                €
-                {modelerCosts
-                  .reduce((sum, m) => sum + m.pendingCost, 0)
-                  .toFixed(2)}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Committed, not spent
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* This Month */}
-        <Card className="hover:shadow-md transition">
-          <CardContent className="p-4 sm:p-5 flex items-center gap-3 sm:gap-4">
-            <div className="p-2 sm:p-3 rounded-full bg-indigo-100">
-              <Calendar className="h-4 w-4 sm:h-5 sm:w-5 text-indigo-600" />
-            </div>
-            <div>
-              <p className="text-xs sm:text-sm text-muted-foreground">
-                This Month (Completed)
-              </p>
-              <p className="text-xl sm:text-2xl font-bold">
-                €
-                {(() => {
-                  const currentMonth = new Date().toLocaleString("default", {
-                    month: "long",
-                  });
-                  const currentYear = new Date().getFullYear();
-                  const currentMonthKey = `${currentMonth} ${currentYear}`;
-                  const currentMonthData = monthlyCosts.find(
-                    (m) => m.monthYear === currentMonthKey
-                  );
-                  return currentMonthData
-                    ? currentMonthData.totalSpent.toFixed(2)
-                    : "0.00";
-                })()}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {(() => {
-                  const currentMonth = new Date().toLocaleString("default", {
-                    month: "long",
-                  });
-                  const currentYear = new Date().getFullYear();
-                  const currentMonthKey = `${currentMonth} ${currentYear}`;
-                  const currentMonthData = monthlyCosts.find(
-                    (m) => m.monthYear === currentMonthKey
-                  );
-                  return currentMonthData
-                    ? `${currentMonthData.completedAssets} completed assets`
-                    : "0 completed assets";
-                })()}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Budget Progress Bar */}
-      <Card>
-        <CardHeader className="p-4 sm:p-6">
-          <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-            <BarChart3 className="h-4 w-4 sm:h-5 sm:w-5" />
-            Budget Progress (Approved Costs Only)
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-4 sm:p-6">
-          <div className="space-y-3 sm:space-y-4">
-            <div className="flex justify-between text-xs sm:text-sm">
-              <span>€0</span>
-              <span>€{costSummary.warningThreshold}</span>
-              <span>€{costSummary.criticalThreshold}</span>
-              <span>€{costSummary.totalBudget}</span>
-            </div>
-            <Progress
-              value={costSummary.spentPercentage}
-              className="h-2 sm:h-3"
-              style={{
-                background: `linear-gradient(to right, 
-                  ${
-                    costSummary.totalSpent >= costSummary.criticalThreshold
-                      ? "#ef4444"
-                      : costSummary.totalSpent >= costSummary.warningThreshold
-                        ? "#f59e0b"
-                        : "#10b981"
-                  } 
-                  ${costSummary.spentPercentage}%, 
-                  #e5e7eb ${costSummary.spentPercentage}%)`,
-              }}
-            />
-            <div className="flex justify-between text-xs text-muted-foreground">
-              <span>Safe</span>
-              <span>Warning</span>
-              <span>Critical</span>
+                <div>
+                  <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+                    Cost Tracking
+                  </h1>
+                  <p className="text-muted-foreground mt-1 text-sm sm:text-base">
+                    Monitor budget, modeler costs, and bonuses across all
+                    projects
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
 
-      {/* Filters */}
-      <Card>
-        <CardHeader className="p-4 sm:p-6">
-          <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-            <Filter className="h-4 w-4 sm:h-5 sm:w-5" />
-            Filters & Search
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-4 sm:p-6">
-          <div className="flex flex-col gap-4">
-            <div className="flex-1">
-              <label className="text-xs sm:text-sm font-medium mb-2 block">
-                Search Assets
-              </label>
-              <Input
-                placeholder="Search by product, client, or article ID..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full text-sm sm:text-base"
+        {/* Budget Threshold Notifications */}
+        {/* Notifications are now handled by the notification service */}
+
+        {/* Notification History */}
+        {/* Notifications are now handled by the notification service */}
+
+        {/* Budget Status Alert */}
+        <Alert
+          className={`shadow-depth-md border-2 ${
+            budgetStatus.status === "critical"
+              ? "border-red-500/50 bg-red-50/50 dark:bg-red-950/20"
+              : budgetStatus.status === "warning"
+                ? "border-amber-500/50 bg-amber-50/50 dark:bg-amber-950/20"
+                : "border-green-500/50 bg-green-50/50 dark:bg-green-950/20"
+          }`}
+        >
+          <div className="flex items-start gap-3">
+            <div
+              className={`p-2 rounded-lg ${
+                budgetStatus.status === "critical"
+                  ? "bg-red-100/50 dark:bg-red-900/20"
+                  : budgetStatus.status === "warning"
+                    ? "bg-amber-100/50 dark:bg-amber-900/20"
+                    : "bg-green-100/50 dark:bg-green-900/20"
+              }`}
+            >
+              <AlertTriangle
+                className={`h-5 w-5 ${
+                  budgetStatus.status === "critical"
+                    ? "text-red-600 dark:text-red-400"
+                    : budgetStatus.status === "warning"
+                      ? "text-amber-600 dark:text-amber-400"
+                      : "text-green-600 dark:text-green-400"
+                }`}
               />
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="w-full">
-                <label className="text-xs sm:text-sm font-medium mb-2 block">
-                  Month
-                </label>
+            <AlertDescription
+              className={`font-medium ${
+                budgetStatus.status === "critical"
+                  ? "text-red-800 dark:text-red-300"
+                  : budgetStatus.status === "warning"
+                    ? "text-amber-800 dark:text-amber-300"
+                    : "text-green-800 dark:text-green-300"
+              }`}
+            >
+              {budgetStatus.message}
+            </AlertDescription>
+          </div>
+        </Alert>
+
+        {/* Cost Breakdown Summary */}
+        <Card className="surface-elevated shadow-depth-lg border border-border/50 overflow-hidden">
+          <CardHeader className="p-4 sm:p-6 border-b border-border/50">
+            <CardTitle className="flex items-center gap-2 text-lg sm:text-xl font-bold">
+              <div className="p-2 rounded-lg bg-muted/50 border border-border">
+                <BarChart3 className="h-5 w-5 text-foreground" />
+              </div>
+              Cost Breakdown Summary
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-4 sm:p-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+              <div className="surface-raised rounded-xl p-5 shadow-depth-md border border-border/30 hover-lift">
+                <div className="flex items-center justify-center mb-3">
+                  <div className="p-3 rounded-full bg-green-500/10 border border-green-500/30">
+                    <CheckCircle className="h-6 w-6 text-green-600 dark:text-green-400" />
+                  </div>
+                </div>
+                <div className="text-center">
+                  <div className="text-3xl sm:text-4xl font-bold text-green-600 dark:text-green-400 mb-2">
+                    €
+                    {modelerCosts
+                      .reduce((sum, m) => sum + m.completedCost, 0)
+                      .toFixed(2)}
+                  </div>
+                  <div className="text-sm font-medium text-muted-foreground mb-1">
+                    Approved Costs
+                  </div>
+                  <div className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-green-500/10 border border-green-500/20">
+                    <span className="text-xs font-semibold text-green-700 dark:text-green-400">
+                      {(
+                        (modelerCosts.reduce(
+                          (sum, m) => sum + m.completedCost,
+                          0
+                        ) /
+                          costSummary.totalBudget) *
+                        100
+                      ).toFixed(1)}
+                      % of budget
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <div className="surface-raised rounded-xl p-5 shadow-depth-md border border-border/30 hover-lift">
+                <div className="flex items-center justify-center mb-3">
+                  <div className="p-3 rounded-full bg-amber-500/10 border border-amber-500/30">
+                    <Clock className="h-6 w-6 text-amber-600 dark:text-amber-400" />
+                  </div>
+                </div>
+                <div className="text-center">
+                  <div className="text-3xl sm:text-4xl font-bold text-amber-600 dark:text-amber-400 mb-2">
+                    €
+                    {modelerCosts
+                      .reduce((sum, m) => sum + m.pendingCost, 0)
+                      .toFixed(2)}
+                  </div>
+                  <div className="text-sm font-medium text-muted-foreground mb-1">
+                    Pending Costs
+                  </div>
+                  <div className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-amber-500/10 border border-amber-500/20">
+                    <span className="text-xs font-semibold text-amber-700 dark:text-amber-400">
+                      {(
+                        (modelerCosts.reduce(
+                          (sum, m) => sum + m.pendingCost,
+                          0
+                        ) /
+                          costSummary.totalBudget) *
+                        100
+                      ).toFixed(1)}
+                      % of budget
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <div className="surface-raised rounded-xl p-5 shadow-depth-md border border-border/30 hover-lift sm:col-span-2 lg:col-span-1">
+                <div className="flex items-center justify-center mb-3">
+                  <div className="p-3 rounded-full bg-blue-500/10 border border-blue-500/30">
+                    <Euro className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                  </div>
+                </div>
+                <div className="text-center">
+                  <div className="text-3xl sm:text-4xl font-bold text-blue-600 dark:text-blue-400 mb-2">
+                    €{costSummary.remainingBudget.toFixed(2)}
+                  </div>
+                  <div className="text-sm font-medium text-muted-foreground mb-1">
+                    Available Budget
+                  </div>
+                  <div className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-blue-500/10 border border-blue-500/20">
+                    <span className="text-xs font-semibold text-blue-700 dark:text-blue-400">
+                      {(
+                        (costSummary.remainingBudget /
+                          costSummary.totalBudget) *
+                        100
+                      ).toFixed(1)}
+                      % of budget
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Pricing & Corrections Breakdown Chart */}
+        <Card className="surface-elevated shadow-depth-lg border border-border/50 overflow-hidden">
+          <CardHeader className="p-4 sm:p-6 border-b border-border/50">
+            <CardTitle className="flex items-center gap-2 text-lg sm:text-xl font-bold">
+              <div className="p-2 rounded-lg bg-muted/50 border border-border">
+                <PieChart className="h-5 w-5 text-foreground" />
+              </div>
+              Pricing Options & Corrections Breakdown
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-4 sm:p-6">
+            {loading ? (
+              <div className="h-80 flex items-center justify-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              </div>
+            ) : pricingBreakdown.length === 0 ? (
+              <div className="h-80 flex items-center justify-center text-center">
+                <div>
+                  <PieChart className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <p className="text-muted-foreground">
+                    No pricing data available
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="h-80">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={pricingBreakdown}>
+                      <CartesianGrid
+                        strokeDasharray="3 3"
+                        className="stroke-border/30"
+                      />
+                      <XAxis
+                        dataKey="name"
+                        angle={-45}
+                        textAnchor="end"
+                        height={100}
+                        className="text-xs"
+                      />
+                      <YAxis className="text-xs" />
+                      <Tooltip
+                        content={({ active, payload }) => {
+                          if (active && payload && payload.length) {
+                            const data = payload[0].payload as PricingBreakdown;
+                            return (
+                              <div className="surface-elevated shadow-depth-lg border border-border rounded-lg p-3">
+                                <p className="font-semibold mb-1">
+                                  {data.name}
+                                </p>
+                                <p className="text-sm text-green-600 dark:text-green-400">
+                                  Total: €{data.totalCost.toFixed(2)}
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  Count: {data.count}{" "}
+                                  {data.count === 1 ? "item" : "items"}
+                                </p>
+                              </div>
+                            );
+                          }
+                          return null;
+                        }}
+                      />
+                      <Legend />
+                      <Bar
+                        barSize={100}
+                        radius={[10, 10, 0, 0]}
+                        dataKey="totalCost"
+                        name="Total Cost (€)"
+                      >
+                        {pricingBreakdown.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {(() => {
+                    const totalCost = pricingBreakdown.reduce(
+                      (sum, item) => sum + item.totalCost,
+                      0
+                    );
+                    return pricingBreakdown.map((item) => {
+                      const percentage =
+                        totalCost > 0
+                          ? ((item.totalCost / totalCost) * 100).toFixed(1)
+                          : "0.0";
+                      return (
+                        <div
+                          key={item.name}
+                          className="surface-raised rounded-lg p-3 shadow-depth-sm border border-border/30"
+                        >
+                          <div className="flex items-center gap-2 mb-2">
+                            <div
+                              className="w-3 h-3 rounded-full shadow-depth-sm"
+                              style={{ backgroundColor: item.color }}
+                            ></div>
+                            <span className="text-sm font-semibold">
+                              {item.name}
+                            </span>
+                          </div>
+                          <div className="space-y-1">
+                            <div className="flex justify-between items-baseline">
+                              <span className="text-lg font-bold text-green-600 dark:text-green-400">
+                                €{item.totalCost.toFixed(2)}
+                              </span>
+                              <span className="text-xs text-muted-foreground">
+                                {item.count}{" "}
+                                {item.count === 1 ? "item" : "items"}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+                                <div
+                                  className="h-full transition-all duration-300"
+                                  style={{
+                                    width: `${percentage}%`,
+                                    backgroundColor: item.color,
+                                  }}
+                                ></div>
+                              </div>
+                              <span className="text-xs font-semibold text-muted-foreground min-w-[3rem] text-right">
+                                {percentage}%
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    });
+                  })()}
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Monthly Cost Trends */}
+        <Card className="surface-elevated shadow-depth-lg border border-border/50 overflow-hidden">
+          <CardHeader className="p-4 sm:p-6 border-b border-border/50">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <CardTitle className="flex items-center gap-2 text-lg sm:text-xl font-bold">
+                <div className="p-2 rounded-lg bg-muted/50 border border-border">
+                  <Calendar className="h-5 w-5 text-foreground" />
+                </div>
+                Monthly Cost Trends
+              </CardTitle>
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-2">
                 <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-                  <SelectTrigger className="text-sm">
+                  <SelectTrigger className="w-full sm:w-40 text-sm shadow-depth-sm hover-lift">
                     <SelectValue placeholder="All months" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1243,331 +1239,579 @@ export default function CostTrackingPage() {
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
-              <div className="w-full">
-                <label className="text-xs sm:text-sm font-medium mb-2 block">
-                  Modeler
-                </label>
-                <Select
-                  value={selectedModeler}
-                  onValueChange={setSelectedModeler}
+                <Button
+                  onClick={exportMonthlyData}
+                  variant="outline"
+                  className="gap-2 text-sm shadow-depth-sm hover-lift"
                 >
-                  <SelectTrigger className="text-sm">
-                    <SelectValue placeholder="All modelers" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All modelers</SelectItem>
-                    {modelerCosts.map((modeler) => (
-                      <SelectItem
-                        key={modeler.modelerId}
-                        value={modeler.modelerId}
-                      >
-                        {modeler.modelerEmail}
-                      </SelectItem>
+                  <Download className="h-3 w-3 sm:h-4 sm:w-4" />
+                  <span className="hidden sm:inline">Export Monthly</span>
+                  <span className="sm:hidden">Export</span>
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="p-4 sm:p-6">
+            {loading ? (
+              <div className="space-y-4">
+                {[...Array(3)].map((_, i) => (
+                  <div
+                    key={i}
+                    className="grid grid-cols-2 sm:grid-cols-4 gap-4 py-3"
+                  >
+                    {[...Array(4)].map((_, j) => (
+                      <div
+                        key={j}
+                        className="h-4 bg-muted animate-pulse rounded"
+                      />
                     ))}
-                  </SelectContent>
-                </Select>
+                  </div>
+                ))}
               </div>
-              <div className="w-full">
-                <label className="text-xs sm:text-sm font-medium mb-2 block">
-                  Sort By
-                </label>
-                <Select value={sortBy} onValueChange={setSortBy}>
-                  <SelectTrigger className="text-sm">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="totalCost">Total Cost</SelectItem>
-                    <SelectItem value="baseCost">Base Cost</SelectItem>
-                    <SelectItem value="bonusCost">Bonus Cost</SelectItem>
-                    <SelectItem value="totalAssets">Total Assets</SelectItem>
-                  </SelectContent>
-                </Select>
+            ) : monthlyCosts.length === 0 ? (
+              <div className="text-center py-6 sm:py-8">
+                <Calendar className="h-8 w-8 sm:h-12 sm:w-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-base sm:text-lg font-semibold mb-2">
+                  No Monthly Data
+                </h3>
+                <p className="text-muted-foreground text-sm sm:text-base">
+                  No cost data available for monthly analysis.
+                </p>
               </div>
-              <div className="w-full">
-                <label className="text-xs sm:text-sm font-medium mb-2 block">
-                  Order
-                </label>
-                <Select
-                  value={sortOrder}
-                  onValueChange={(value) =>
-                    setSortOrder(value as "asc" | "desc")
-                  }
-                >
-                  <SelectTrigger className="text-sm">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="desc">High to Low</SelectItem>
-                    <SelectItem value="asc">Low to High</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Modeler Cost Summary */}
-      <Card>
-        <CardHeader className="p-4 sm:p-6">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-              <Users className="h-4 w-4 sm:h-5 sm:w-5" />
-              Modeler Cost Summary
-            </CardTitle>
-            <Button
-              onClick={exportCostData}
-              variant="outline"
-              className="gap-2 text-sm w-full sm:w-auto"
-            >
-              <Download className="h-3 w-3 sm:h-4 sm:w-4" />
-              <span className="hidden sm:inline">Export CSV</span>
-              <span className="sm:hidden">Export</span>
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent className="p-4 sm:p-6">
-          {loading ? (
-            <div className="space-y-4">
-              {[...Array(3)].map((_, i) => (
-                <div
-                  key={i}
-                  className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-4 py-3"
-                >
-                  {[...Array(7)].map((_, j) => (
-                    <div
-                      key={j}
-                      className="h-4 bg-muted animate-pulse rounded"
-                    />
-                  ))}
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="text-xs sm:text-sm text-left">
-                      Modeler
-                    </TableHead>
-                    <TableHead className="text-xs sm:text-sm text-left">
-                      Total Assets
-                    </TableHead>
-                    <TableHead className="text-xs sm:text-sm text-left">
-                      Base Cost
-                    </TableHead>
-                    <TableHead className="text-xs sm:text-sm text-left">
-                      Bonus Cost
-                    </TableHead>
-                    <TableHead className="text-xs sm:text-sm text-left">
-                      Total Cost (Approved)
-                    </TableHead>
-                    <TableHead className="text-xs sm:text-sm text-left">
-                      Approved Cost
-                    </TableHead>
-                    <TableHead className="text-xs sm:text-sm text-left">
-                      Pending Cost
-                    </TableHead>
-                    <TableHead className="text-xs sm:text-sm text-left">
-                      Approved
-                    </TableHead>
-                    <TableHead className="text-xs sm:text-sm text-left">
-                      Pending
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredModelerCosts.map((modeler) => (
-                    <TableRow key={modeler.modelerId}>
-                      <TableCell className="text-left">
-                        <div>
-                          <div className="font-medium text-sm sm:text-base">
-                            {modeler.modelerEmail}
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            {modeler.totalAssets} assets
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-left">
-                        <div>
-                          <span className="font-medium text-sm sm:text-base">
-                            {modeler.totalAssets}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-left">
-                        <div className="flex items-center gap-1">
-                          <Euro className="h-3 w-3 text-muted-foreground" />
-                          <span className="font-medium text-sm sm:text-base">
-                            €{modeler.baseCost.toFixed(2)}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-left">
-                        <div className="flex items-center gap-1">
-                          <Euro className="h-3 w-3 text-muted-foreground" />
-                          <span className="font-medium text-sm sm:text-base">
-                            €{modeler.bonusCost.toFixed(2)}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-left">
-                        <div className="flex items-center gap-1">
-                          <Euro className="h-3 w-3 text-muted-foreground" />
-                          <span className="font-bold text-sm sm:text-lg">
-                            €{modeler.totalCost.toFixed(2)}
-                          </span>
-                          <div className="text-xs text-muted-foreground ml-1 hidden sm:block">
-                            (Approved)
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-left">
-                        <div className="flex items-center gap-1">
-                          <Euro className="h-3 w-3 text-green-600" />
-                          <span className="font-medium text-green-700 text-sm sm:text-base">
-                            €{modeler.completedCost.toFixed(2)}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-left">
-                        <div className="flex items-center gap-1">
-                          <Euro className="h-3 w-3 text-amber-600" />
-                          <span className="font-medium text-amber-700 text-sm sm:text-base">
-                            €{modeler.pendingCost.toFixed(2)}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-left">
-                        <div>
-                          <Badge
-                            variant="outline"
-                            className="bg-green-50 text-green-700 text-xs"
-                          >
-                            {modeler.completedAssets}
-                          </Badge>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-left">
-                        <div>
-                          <Badge
-                            variant="outline"
-                            className="bg-amber-50 text-amber-700 text-xs"
-                          >
-                            {modeler.pendingAssets}
-                          </Badge>
-                        </div>
-                      </TableCell>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-xs sm:text-sm text-left">
+                        Month
+                      </TableHead>
+                      <TableHead className="text-xs sm:text-sm text-left">
+                        Total Assets
+                      </TableHead>
+                      <TableHead className="text-xs sm:text-sm text-left">
+                        Completed Cost
+                      </TableHead>
+                      <TableHead className="text-xs sm:text-sm text-left">
+                        Pending Cost
+                      </TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                  </TableHeader>
+                  <TableBody>
+                    {monthlyCosts
+                      .filter(
+                        (month) =>
+                          selectedMonth === "all" ||
+                          month.monthYear === selectedMonth
+                      )
+                      .map((month) => (
+                        <TableRow key={month.monthYear}>
+                          <TableCell className="text-left">
+                            <div>
+                              <div className="font-medium text-sm sm:text-base">
+                                {month.monthYear}
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                {month.completedAssets} completed,{" "}
+                                {month.pendingAssets} pending
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-left">
+                            <div>
+                              <span className="font-medium text-sm sm:text-base">
+                                {month.assetCount}
+                              </span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-left">
+                            <div className="flex items-center gap-1">
+                              <Euro className="h-3 w-3 text-green-600" />
+                              <span className="font-medium text-green-700 text-sm sm:text-base">
+                                €{month.completedCost.toFixed(2)}
+                              </span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-left">
+                            <div className="flex items-center gap-1">
+                              <Euro className="h-3 w-3 text-amber-600" />
+                              <span className="font-medium text-amber-700 text-sm sm:text-base">
+                                €{month.pendingCost.toFixed(2)}
+                              </span>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
-      {/* Client Cost Overview */}
-      <Card>
-        <CardHeader className="p-4 sm:p-6">
-          <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-            <Package className="h-4 w-4 sm:h-5 sm:w-5" />
-            Client Cost Overview
-            <Badge variant="outline" className="ml-auto text-xs sm:text-sm">
-              {filteredClientCosts.length} clients
-            </Badge>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-4 sm:p-6">
-          {loading ? (
-            <div className="space-y-4">
-              {[...Array(4)].map((_, i) => (
-                <div
-                  key={i}
-                  className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 py-3"
-                >
-                  {[...Array(6)].map((_, j) => (
-                    <div
-                      key={j}
-                      className="h-4 bg-muted animate-pulse rounded"
-                    />
-                  ))}
+        {/* Budget Overview */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+          {/* Total Budget */}
+          <Card className="surface-elevated shadow-depth-md border border-border/50 overflow-hidden hover-lift">
+            <CardContent className="p-5 sm:p-6">
+              <div className="flex items-center gap-4">
+                <div className="p-3 rounded-xl bg-muted/50 border border-border shadow-depth-sm">
+                  <Euro className="h-6 w-6 text-foreground" />
                 </div>
-              ))}
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground mb-1">
+                    Total Budget
+                  </p>
+                  <p className="text-2xl sm:text-3xl font-bold text-foreground">
+                    €{costSummary.totalBudget.toFixed(2)}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Total Spent */}
+          <Card className="surface-elevated shadow-depth-md border border-border/50 overflow-hidden hover-lift">
+            <CardContent className="p-5 sm:p-6">
+              <div className="flex items-center gap-4">
+                <div className="p-3 rounded-xl bg-green-500/10 border border-green-500/30 shadow-depth-sm">
+                  <TrendingUp className="h-6 w-6 text-green-600 dark:text-green-400" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground mb-1">
+                    Total Spent
+                  </p>
+                  <p className="text-2xl sm:text-3xl font-bold text-green-600 dark:text-green-400">
+                    €{costSummary.totalSpent.toFixed(2)}
+                  </p>
+                  <p className="text-xs font-semibold text-green-700 dark:text-green-400 mt-1">
+                    {costSummary.spentPercentage.toFixed(1)}% of budget
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Remaining Budget */}
+          <Card className="surface-elevated shadow-depth-md border border-border/50 overflow-hidden hover-lift">
+            <CardContent className="p-5 sm:p-6">
+              <div className="flex items-center gap-4">
+                <div className="p-3 rounded-xl bg-muted/50 border border-border shadow-depth-sm">
+                  <Clock className="h-6 w-6 text-foreground" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground mb-1">
+                    Remaining Budget
+                  </p>
+                  <p className="text-2xl sm:text-3xl font-bold text-foreground">
+                    €{costSummary.remainingBudget.toFixed(2)}
+                  </p>
+                  <p className="text-xs font-semibold text-muted-foreground mt-1">
+                    Available for projects
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Completed Cost */}
+          <Card className="surface-elevated shadow-depth-md border border-border/50 overflow-hidden hover-lift">
+            <CardContent className="p-5 sm:p-6">
+              <div className="flex items-center gap-4">
+                <div className="p-3 rounded-xl bg-green-500/10 border border-green-500/30 shadow-depth-sm">
+                  <CheckCircle className="h-6 w-6 text-green-600 dark:text-green-400" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground mb-1">
+                    Approved Cost
+                  </p>
+                  <p className="text-2xl sm:text-3xl font-bold text-green-600 dark:text-green-400">
+                    €
+                    {modelerCosts
+                      .reduce((sum, m) => sum + m.completedCost, 0)
+                      .toFixed(2)}
+                  </p>
+                  <p className="text-xs font-semibold text-green-700 dark:text-green-400 mt-1">
+                    Client approved & invoiced
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Pending Cost */}
+          <Card className="surface-elevated shadow-depth-md border border-border/50 overflow-hidden hover-lift">
+            <CardContent className="p-5 sm:p-6">
+              <div className="flex items-center gap-4">
+                <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 shadow-depth-sm">
+                  <Clock className="h-6 w-6 text-amber-600 dark:text-amber-400" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground mb-1">
+                    Pending Cost
+                  </p>
+                  <p className="text-2xl sm:text-3xl font-bold text-amber-600 dark:text-amber-400">
+                    €
+                    {modelerCosts
+                      .reduce((sum, m) => sum + m.pendingCost, 0)
+                      .toFixed(2)}
+                  </p>
+                  <p className="text-xs font-semibold text-amber-700 dark:text-amber-400 mt-1">
+                    Committed, not spent
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* This Month */}
+          <Card className="surface-elevated shadow-depth-md border border-border/50 overflow-hidden hover-lift">
+            <CardContent className="p-5 sm:p-6">
+              <div className="flex items-center gap-4">
+                <div className="p-3 rounded-xl bg-muted/50 border border-border shadow-depth-sm">
+                  <Calendar className="h-6 w-6 text-foreground" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground mb-1">
+                    This Month (Completed)
+                  </p>
+                  <p className="text-2xl sm:text-3xl font-bold text-foreground">
+                    €
+                    {(() => {
+                      const currentMonth = new Date().toLocaleString(
+                        "default",
+                        {
+                          month: "long",
+                        }
+                      );
+                      const currentYear = new Date().getFullYear();
+                      const currentMonthKey = `${currentMonth} ${currentYear}`;
+                      const currentMonthData = monthlyCosts.find(
+                        (m) => m.monthYear === currentMonthKey
+                      );
+                      return currentMonthData
+                        ? currentMonthData.totalSpent.toFixed(2)
+                        : "0.00";
+                    })()}
+                  </p>
+                  <p className="text-xs font-semibold text-muted-foreground mt-1">
+                    {(() => {
+                      const currentMonth = new Date().toLocaleString(
+                        "default",
+                        {
+                          month: "long",
+                        }
+                      );
+                      const currentYear = new Date().getFullYear();
+                      const currentMonthKey = `${currentMonth} ${currentYear}`;
+                      const currentMonthData = monthlyCosts.find(
+                        (m) => m.monthYear === currentMonthKey
+                      );
+                      return currentMonthData
+                        ? `${currentMonthData.completedAssets} completed assets`
+                        : "0 completed assets";
+                    })()}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Budget Progress Bar */}
+        <Card className="surface-elevated shadow-depth-lg border border-border/50 overflow-hidden">
+          <CardHeader className="p-4 sm:p-6 border-b border-border/50">
+            <CardTitle className="flex items-center gap-2 text-lg sm:text-xl font-bold">
+              <div className="p-2 rounded-lg bg-muted/50 border border-border">
+                <BarChart3 className="h-5 w-5 text-foreground" />
+              </div>
+              Budget Progress (Approved Costs Only)
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-4 sm:p-6">
+            <div className="space-y-4 sm:space-y-5">
+              <div className="flex justify-between text-xs sm:text-sm font-semibold text-muted-foreground">
+                <span className="px-2 py-1 rounded-md bg-muted/50">€0</span>
+                <span className="px-2 py-1 rounded-md bg-amber-500/10 text-amber-700 dark:text-amber-400">
+                  €{costSummary.warningThreshold}
+                </span>
+                <span className="px-2 py-1 rounded-md bg-red-500/10 text-red-700 dark:text-red-400">
+                  €{costSummary.criticalThreshold}
+                </span>
+                <span className="px-2 py-1 rounded-md bg-muted/50">
+                  €{costSummary.totalBudget}
+                </span>
+              </div>
+              <div className="relative">
+                <div className="h-4 sm:h-5 rounded-full overflow-hidden bg-muted/30 border border-border/50 shadow-depth-inner">
+                  <div
+                    className={`h-full transition-all duration-500 ease-out shadow-depth-sm ${
+                      costSummary.totalSpent >= costSummary.criticalThreshold
+                        ? "bg-gradient-to-r from-red-500 to-red-600"
+                        : costSummary.totalSpent >= costSummary.warningThreshold
+                          ? "bg-gradient-to-r from-amber-500 to-orange-500"
+                          : "bg-gradient-to-r from-green-500 to-emerald-500"
+                    }`}
+                    style={{ width: `${costSummary.spentPercentage}%` }}
+                  >
+                    <div className="h-full w-full bg-gradient-to-b from-white/20 to-transparent"></div>
+                  </div>
+                </div>
+              </div>
+              <div className="flex justify-between text-xs font-medium">
+                <div className="flex items-center gap-1.5">
+                  <div className="w-3 h-3 rounded-full bg-gradient-to-r from-green-500 to-emerald-500 shadow-depth-sm"></div>
+                  <span className="text-muted-foreground">Safe</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-3 h-3 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 shadow-depth-sm"></div>
+                  <span className="text-muted-foreground">Warning</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-3 h-3 rounded-full bg-gradient-to-r from-red-500 to-red-600 shadow-depth-sm"></div>
+                  <span className="text-muted-foreground">Critical</span>
+                </div>
+              </div>
             </div>
-          ) : filteredClientCosts.length === 0 ? (
-            <div className="text-center py-6 sm:py-8">
-              <Package className="h-8 w-8 sm:h-12 sm:w-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-base sm:text-lg font-semibold mb-2">
-                No Clients Found
-              </h3>
-              <p className="text-muted-foreground text-sm sm:text-base">
-                No client cost data available.
-              </p>
+          </CardContent>
+        </Card>
+
+        {/* Filters */}
+        <Card className="surface-elevated shadow-depth-lg border border-border/50 overflow-hidden">
+          <CardHeader className="p-4 sm:p-6 border-b border-border/50">
+            <CardTitle className="flex items-center gap-2 text-lg sm:text-xl font-bold">
+              <div className="p-2 rounded-lg bg-muted/50 border border-border">
+                <Filter className="h-5 w-5 text-foreground" />
+              </div>
+              Filters & Search
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-4 sm:p-6">
+            <div className="flex flex-col gap-4">
+              <div className="flex-1">
+                <label className="text-xs sm:text-sm font-medium mb-2 block">
+                  Search Assets
+                </label>
+                <Input
+                  placeholder="Search by product, client, or article ID..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full text-sm sm:text-base"
+                />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="w-full">
+                  <label className="text-xs sm:text-sm font-medium mb-2 block">
+                    Month
+                  </label>
+                  <Select
+                    value={selectedMonth}
+                    onValueChange={setSelectedMonth}
+                  >
+                    <SelectTrigger className="text-sm">
+                      <SelectValue placeholder="All months" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All months</SelectItem>
+                      {monthlyCosts.map((month) => (
+                        <SelectItem
+                          key={month.monthYear}
+                          value={month.monthYear}
+                        >
+                          {month.monthYear}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="w-full">
+                  <label className="text-xs sm:text-sm font-medium mb-2 block">
+                    Modeler
+                  </label>
+                  <Select
+                    value={selectedModeler}
+                    onValueChange={setSelectedModeler}
+                  >
+                    <SelectTrigger className="text-sm">
+                      <SelectValue placeholder="All modelers" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All modelers</SelectItem>
+                      {modelerCosts.map((modeler) => (
+                        <SelectItem
+                          key={modeler.modelerId}
+                          value={modeler.modelerId}
+                        >
+                          {modeler.modelerEmail}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="w-full">
+                  <label className="text-xs sm:text-sm font-medium mb-2 block">
+                    Sort By
+                  </label>
+                  <Select value={sortBy} onValueChange={setSortBy}>
+                    <SelectTrigger className="text-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="totalCost">Total Cost</SelectItem>
+                      <SelectItem value="baseCost">Base Cost</SelectItem>
+                      <SelectItem value="bonusCost">Bonus Cost</SelectItem>
+                      <SelectItem value="totalAssets">Total Assets</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="w-full">
+                  <label className="text-xs sm:text-sm font-medium mb-2 block">
+                    Order
+                  </label>
+                  <Select
+                    value={sortOrder}
+                    onValueChange={(value) =>
+                      setSortOrder(value as "asc" | "desc")
+                    }
+                  >
+                    <SelectTrigger className="text-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="desc">High to Low</SelectItem>
+                      <SelectItem value="asc">Low to High</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
             </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="text-xs sm:text-sm text-left"></TableHead>
-                    <TableHead className="text-xs sm:text-sm text-left">
-                      Client
-                    </TableHead>
-                    <TableHead className="text-xs sm:text-sm text-left">
-                      Completed Cost
-                    </TableHead>
-                    <TableHead className="text-xs sm:text-sm text-left">
-                      Pending Cost
-                    </TableHead>
-                    <TableHead className="text-xs sm:text-sm text-left">
-                      Completed
-                    </TableHead>
-                    <TableHead className="text-xs sm:text-sm text-left">
-                      Pending
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredClientCosts.map((client) => (
-                    <React.Fragment key={client.client}>
-                      <TableRow>
-                        <TableCell className="w-8 sm:w-10 text-left">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="p-0 h-5 w-5 sm:h-6 sm:w-6"
-                            onClick={() =>
-                              setExpandedClients((prev) => ({
-                                ...prev,
-                                [client.client]: !prev[client.client],
-                              }))
-                            }
-                          >
-                            {expandedClients[client.client] ? (
-                              <ChevronDown className="h-3 w-3 sm:h-4 sm:w-4" />
-                            ) : (
-                              <ChevronRight className="h-3 w-3 sm:h-4 sm:w-4" />
-                            )}
-                          </Button>
+          </CardContent>
+        </Card>
+
+        {/* Modeler Cost Summary */}
+        <Card className="surface-elevated shadow-depth-lg border border-border/50 overflow-hidden">
+          <CardHeader className="p-4 sm:p-6 border-b border-border/50">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <CardTitle className="flex items-center gap-2 text-lg sm:text-xl font-bold">
+                <div className="p-2 rounded-lg bg-muted/50 border border-border">
+                  <Users className="h-5 w-5 text-foreground" />
+                </div>
+                Modeler Cost Summary
+              </CardTitle>
+              <Button
+                onClick={exportCostData}
+                variant="outline"
+                className="gap-2 text-sm w-full sm:w-auto shadow-depth-sm hover-lift"
+              >
+                <Download className="h-4 w-4" />
+                <span className="hidden sm:inline">Export CSV</span>
+                <span className="sm:hidden">Export</span>
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="p-4 sm:p-6">
+            {loading ? (
+              <div className="space-y-4">
+                {[...Array(3)].map((_, i) => (
+                  <div
+                    key={i}
+                    className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-4 py-3"
+                  >
+                    {[...Array(7)].map((_, j) => (
+                      <div
+                        key={j}
+                        className="h-4 bg-muted animate-pulse rounded"
+                      />
+                    ))}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-xs sm:text-sm text-left">
+                        Modeler
+                      </TableHead>
+                      <TableHead className="text-xs sm:text-sm text-left">
+                        Total Assets
+                      </TableHead>
+                      <TableHead className="text-xs sm:text-sm text-left">
+                        Base Cost
+                      </TableHead>
+                      <TableHead className="text-xs sm:text-sm text-left">
+                        Bonus Cost
+                      </TableHead>
+                      <TableHead className="text-xs sm:text-sm text-left">
+                        Total Cost (Approved)
+                      </TableHead>
+                      <TableHead className="text-xs sm:text-sm text-left">
+                        Approved Cost
+                      </TableHead>
+                      <TableHead className="text-xs sm:text-sm text-left">
+                        Pending Cost
+                      </TableHead>
+                      <TableHead className="text-xs sm:text-sm text-left">
+                        Approved
+                      </TableHead>
+                      <TableHead className="text-xs sm:text-sm text-left">
+                        Pending
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredModelerCosts.map((modeler) => (
+                      <TableRow key={modeler.modelerId}>
+                        <TableCell className="text-left">
+                          <div>
+                            <div className="font-medium text-sm sm:text-base">
+                              {modeler.modelerEmail}
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              {modeler.totalAssets} assets
+                            </div>
+                          </div>
                         </TableCell>
                         <TableCell className="text-left">
-                          <div className="font-medium text-sm sm:text-base">
-                            {client.client}
+                          <div>
+                            <span className="font-medium text-sm sm:text-base">
+                              {modeler.totalAssets}
+                            </span>
                           </div>
-                          <div className="text-xs text-muted-foreground">
-                            {client.completedAssets} completed,{" "}
-                            {client.pendingAssets} pending
+                        </TableCell>
+                        <TableCell className="text-left">
+                          <div className="flex items-center gap-1">
+                            <Euro className="h-3 w-3 text-muted-foreground" />
+                            <span className="font-medium text-sm sm:text-base">
+                              €{modeler.baseCost.toFixed(2)}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-left">
+                          <div className="flex items-center gap-1">
+                            <Euro className="h-3 w-3 text-muted-foreground" />
+                            <span className="font-medium text-sm sm:text-base">
+                              €{modeler.bonusCost.toFixed(2)}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-left">
+                          <div className="flex items-center gap-1">
+                            <Euro className="h-3 w-3 text-muted-foreground" />
+                            <span className="font-bold text-sm sm:text-lg">
+                              €{modeler.totalCost.toFixed(2)}
+                            </span>
+                            <div className="text-xs text-muted-foreground ml-1 hidden sm:block">
+                              (Approved)
+                            </div>
                           </div>
                         </TableCell>
                         <TableCell className="text-left">
                           <div className="flex items-center gap-1">
                             <Euro className="h-3 w-3 text-green-600" />
                             <span className="font-medium text-green-700 text-sm sm:text-base">
-                              €{client.completedCost.toFixed(2)}
+                              €{modeler.completedCost.toFixed(2)}
                             </span>
                           </div>
                         </TableCell>
@@ -1575,104 +1819,248 @@ export default function CostTrackingPage() {
                           <div className="flex items-center gap-1">
                             <Euro className="h-3 w-3 text-amber-600" />
                             <span className="font-medium text-amber-700 text-sm sm:text-base">
-                              €{client.pendingCost.toFixed(2)}
+                              €{modeler.pendingCost.toFixed(2)}
                             </span>
                           </div>
                         </TableCell>
                         <TableCell className="text-left">
-                          <Badge
-                            variant="outline"
-                            className="bg-green-50 text-green-700 text-xs"
-                          >
-                            {client.completedAssets}
-                          </Badge>
+                          <div>
+                            <Badge
+                              variant="outline"
+                              className="bg-green-50 text-green-700 text-xs"
+                            >
+                              {modeler.completedAssets}
+                            </Badge>
+                          </div>
                         </TableCell>
                         <TableCell className="text-left">
-                          <Badge
-                            variant="outline"
-                            className="bg-amber-50 text-amber-700 text-xs"
-                          >
-                            {client.pendingAssets}
-                          </Badge>
+                          <div>
+                            <Badge
+                              variant="outline"
+                              className="bg-amber-50 text-amber-700 text-xs"
+                            >
+                              {modeler.pendingAssets}
+                            </Badge>
+                          </div>
                         </TableCell>
                       </TableRow>
-                      {expandedClients[client.client] && (
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Client Cost Overview */}
+        <Card className="surface-elevated shadow-depth-lg border border-border/50 overflow-hidden">
+          <CardHeader className="p-4 sm:p-6 border-b border-border/50">
+            <CardTitle className="flex items-center gap-2 text-lg sm:text-xl font-bold">
+              <div className="p-2 rounded-lg bg-muted/50 border border-border">
+                <Package className="h-5 w-5 text-foreground" />
+              </div>
+              Client Cost Overview
+              <Badge
+                variant="outline"
+                className="ml-auto text-xs sm:text-sm shadow-depth-sm px-3 py-1"
+              >
+                {filteredClientCosts.length} clients
+              </Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-4 sm:p-6">
+            {loading ? (
+              <div className="space-y-4">
+                {[...Array(4)].map((_, i) => (
+                  <div
+                    key={i}
+                    className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 py-3"
+                  >
+                    {[...Array(6)].map((_, j) => (
+                      <div
+                        key={j}
+                        className="h-4 bg-muted animate-pulse rounded"
+                      />
+                    ))}
+                  </div>
+                ))}
+              </div>
+            ) : filteredClientCosts.length === 0 ? (
+              <div className="text-center py-6 sm:py-8">
+                <Package className="h-8 w-8 sm:h-12 sm:w-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-base sm:text-lg font-semibold mb-2">
+                  No Clients Found
+                </h3>
+                <p className="text-muted-foreground text-sm sm:text-base">
+                  No client cost data available.
+                </p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-xs sm:text-sm text-left"></TableHead>
+                      <TableHead className="text-xs sm:text-sm text-left">
+                        Client
+                      </TableHead>
+                      <TableHead className="text-xs sm:text-sm text-left">
+                        Completed Cost
+                      </TableHead>
+                      <TableHead className="text-xs sm:text-sm text-left">
+                        Pending Cost
+                      </TableHead>
+                      <TableHead className="text-xs sm:text-sm text-left">
+                        Completed
+                      </TableHead>
+                      <TableHead className="text-xs sm:text-sm text-left">
+                        Pending
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredClientCosts.map((client) => (
+                      <React.Fragment key={client.client}>
                         <TableRow>
-                          <TableCell colSpan={6}>
-                            <div className="p-3 rounded-md bg-muted/40">
-                              <div className="text-xs sm:text-sm font-medium mb-2">
-                                Modeler breakdown
-                              </div>
-                              <div className="overflow-x-auto">
-                                <Table>
-                                  <TableHeader>
-                                    <TableRow>
-                                      <TableHead className="text-xs sm:text-sm text-left">
-                                        Modeler
-                                      </TableHead>
-                                      <TableHead className="text-xs sm:text-sm text-left">
-                                        Assets
-                                      </TableHead>
-                                      <TableHead className="text-xs sm:text-sm text-left">
-                                        Base
-                                      </TableHead>
-                                      <TableHead className="text-xs sm:text-sm text-left">
-                                        Bonus
-                                      </TableHead>
-                                      <TableHead className="text-xs sm:text-sm text-left">
-                                        Completed
-                                      </TableHead>
-                                      <TableHead className="text-xs sm:text-sm text-left">
-                                        Pending
-                                      </TableHead>
-                                      <TableHead className="text-xs sm:text-sm text-left">
-                                        Total (Approved)
-                                      </TableHead>
-                                    </TableRow>
-                                  </TableHeader>
-                                  <TableBody>
-                                    {client.modelers.map((m) => (
-                                      <TableRow key={m.modelerEmail}>
-                                        <TableCell className="text-left">
-                                          <div className="text-xs sm:text-sm">
-                                            {m.modelerEmail}
-                                          </div>
-                                        </TableCell>
-                                        <TableCell className="text-left text-xs sm:text-sm">
-                                          {m.totalAssets}
-                                        </TableCell>
-                                        <TableCell className="text-left text-xs sm:text-sm">
-                                          €{m.baseCost.toFixed(2)}
-                                        </TableCell>
-                                        <TableCell className="text-left text-xs sm:text-sm">
-                                          €{m.bonusCost.toFixed(2)}
-                                        </TableCell>
-                                        <TableCell className="text-left text-green-700 text-xs sm:text-sm">
-                                          €{m.completedCost.toFixed(2)}
-                                        </TableCell>
-                                        <TableCell className="text-left text-amber-700 text-xs sm:text-sm">
-                                          €{m.pendingCost.toFixed(2)}
-                                        </TableCell>
-                                        <TableCell className="text-left font-medium text-xs sm:text-sm">
-                                          €{m.totalCost.toFixed(2)}
-                                        </TableCell>
-                                      </TableRow>
-                                    ))}
-                                  </TableBody>
-                                </Table>
-                              </div>
+                          <TableCell className="w-8 sm:w-10 text-left">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="p-0 h-5 w-5 sm:h-6 sm:w-6"
+                              onClick={() =>
+                                setExpandedClients((prev) => ({
+                                  ...prev,
+                                  [client.client]: !prev[client.client],
+                                }))
+                              }
+                            >
+                              {expandedClients[client.client] ? (
+                                <ChevronDown className="h-3 w-3 sm:h-4 sm:w-4" />
+                              ) : (
+                                <ChevronRight className="h-3 w-3 sm:h-4 sm:w-4" />
+                              )}
+                            </Button>
+                          </TableCell>
+                          <TableCell className="text-left">
+                            <div className="font-medium text-sm sm:text-base">
+                              {client.client}
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              {client.completedAssets} completed,{" "}
+                              {client.pendingAssets} pending
                             </div>
                           </TableCell>
+                          <TableCell className="text-left">
+                            <div className="flex items-center gap-1">
+                              <Euro className="h-3 w-3 text-green-600" />
+                              <span className="font-medium text-green-700 text-sm sm:text-base">
+                                €{client.completedCost.toFixed(2)}
+                              </span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-left">
+                            <div className="flex items-center gap-1">
+                              <Euro className="h-3 w-3 text-amber-600" />
+                              <span className="font-medium text-amber-700 text-sm sm:text-base">
+                                €{client.pendingCost.toFixed(2)}
+                              </span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-left">
+                            <Badge
+                              variant="outline"
+                              className="bg-green-50 text-green-700 text-xs"
+                            >
+                              {client.completedAssets}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-left">
+                            <Badge
+                              variant="outline"
+                              className="bg-amber-50 text-amber-700 text-xs"
+                            >
+                              {client.pendingAssets}
+                            </Badge>
+                          </TableCell>
                         </TableRow>
-                      )}
-                    </React.Fragment>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                        {expandedClients[client.client] && (
+                          <TableRow>
+                            <TableCell colSpan={6}>
+                              <div className="p-3 rounded-md bg-muted/40">
+                                <div className="text-xs sm:text-sm font-medium mb-2">
+                                  Modeler breakdown
+                                </div>
+                                <div className="overflow-x-auto">
+                                  <Table>
+                                    <TableHeader>
+                                      <TableRow>
+                                        <TableHead className="text-xs sm:text-sm text-left">
+                                          Modeler
+                                        </TableHead>
+                                        <TableHead className="text-xs sm:text-sm text-left">
+                                          Assets
+                                        </TableHead>
+                                        <TableHead className="text-xs sm:text-sm text-left">
+                                          Base
+                                        </TableHead>
+                                        <TableHead className="text-xs sm:text-sm text-left">
+                                          Bonus
+                                        </TableHead>
+                                        <TableHead className="text-xs sm:text-sm text-left">
+                                          Completed
+                                        </TableHead>
+                                        <TableHead className="text-xs sm:text-sm text-left">
+                                          Pending
+                                        </TableHead>
+                                        <TableHead className="text-xs sm:text-sm text-left">
+                                          Total (Approved)
+                                        </TableHead>
+                                      </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                      {client.modelers.map((m) => (
+                                        <TableRow key={m.modelerEmail}>
+                                          <TableCell className="text-left">
+                                            <div className="text-xs sm:text-sm">
+                                              {m.modelerEmail}
+                                            </div>
+                                          </TableCell>
+                                          <TableCell className="text-left text-xs sm:text-sm">
+                                            {m.totalAssets}
+                                          </TableCell>
+                                          <TableCell className="text-left text-xs sm:text-sm">
+                                            €{m.baseCost.toFixed(2)}
+                                          </TableCell>
+                                          <TableCell className="text-left text-xs sm:text-sm">
+                                            €{m.bonusCost.toFixed(2)}
+                                          </TableCell>
+                                          <TableCell className="text-left text-green-700 text-xs sm:text-sm">
+                                            €{m.completedCost.toFixed(2)}
+                                          </TableCell>
+                                          <TableCell className="text-left text-amber-700 text-xs sm:text-sm">
+                                            €{m.pendingCost.toFixed(2)}
+                                          </TableCell>
+                                          <TableCell className="text-left font-medium text-xs sm:text-sm">
+                                            €{m.totalCost.toFixed(2)}
+                                          </TableCell>
+                                        </TableRow>
+                                      ))}
+                                    </TableBody>
+                                  </Table>
+                                </div>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </React.Fragment>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

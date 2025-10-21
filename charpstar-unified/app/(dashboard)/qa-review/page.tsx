@@ -329,7 +329,7 @@ export default function QAReviewPage() {
     try {
       const { data, error } = await supabase
         .from("onboarding_assets")
-        .select("reference, glb_link")
+        .select("reference, glb_link, measurements")
         .eq("id", assetId)
         .single();
 
@@ -337,7 +337,12 @@ export default function QAReviewPage() {
         setAssets((prev) =>
           prev.map((asset) =>
             asset.id === assetId
-              ? { ...asset, reference: data.reference, glb_link: data.glb_link }
+              ? {
+                  ...asset,
+                  reference: data.reference,
+                  glb_link: data.glb_link,
+                  measurements: data.measurements,
+                }
               : asset
           )
         );

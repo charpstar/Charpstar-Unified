@@ -64,7 +64,7 @@ function DialogContent({
         }}
         data-slot="dialog-content"
         className={cn(
-          "bg-background data-[state=open]:animate-in min-h-[fit-content] data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100vw-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border p-4 sm:p-6 shadow-lg duration-200 sm:max-w-lg max-h-[90vh] overflow-y-auto",
+          "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-50 flex flex-col w-full max-w-[calc(100vw-2rem)] translate-x-[-50%] translate-y-[-50%] rounded-lg border shadow-lg duration-200 sm:max-w-lg max-h-[85vh] md:max-h-[90vh]",
           className
         )}
         onCloseAutoFocus={(e) => {
@@ -80,8 +80,10 @@ function DialogContent({
         }}
         {...props}
       >
-        {children}
-        <DialogPrimitive.Close className="bg-background dark:bg-background focus:ring-ring data-[state=open]:bg-accent data-[state=open]:text-muted-foreground absolute top-3 right-3 sm:top-4 sm:right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4">
+        <div className="flex flex-col gap-4 p-4 sm:p-6 overflow-y-auto max-h-full">
+          {children}
+        </div>
+        <DialogPrimitive.Close className="bg-background dark:bg-background focus:ring-ring data-[state=open]:bg-accent data-[state=open]:text-muted-foreground absolute top-3 right-3 sm:top-4 sm:right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 z-10">
           <XIcon />
           <span className="sr-only">Close</span>
         </DialogPrimitive.Close>
@@ -101,7 +103,7 @@ function EditProductDialogContent({
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(
-          "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100vw-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border p-4 sm:p-6 shadow-lg duration-200 sm:max-w-lg md:max-w-2xl lg:max-w-4xl xl:max-w-[1200px] h-fit max-h-[90vh] overflow-y-auto",
+          "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-50 flex flex-col w-full max-w-[calc(100vw-2rem)] translate-x-[-50%] translate-y-[-50%] rounded-lg border shadow-lg duration-200 sm:max-w-lg md:max-w-2xl lg:max-w-4xl xl:max-w-[1200px] max-h-[85vh] md:max-h-[90vh]",
           className
         )}
         onCloseAutoFocus={(e) => {
@@ -117,8 +119,10 @@ function EditProductDialogContent({
         }}
         {...props}
       >
-        {children}
-        <DialogPrimitive.Close className="bg-background dark:bg-background focus:ring-ring data-[state=open]:bg-accent data-[state=open]:text-muted-foreground absolute top-3 right-3 sm:top-4 sm:right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4">
+        <div className="flex flex-col gap-4 p-4 sm:p-6 overflow-y-auto max-h-full">
+          {children}
+        </div>
+        <DialogPrimitive.Close className="bg-background dark:bg-background focus:ring-ring data-[state=open]:bg-accent data-[state=open]:text-muted-foreground absolute top-3 right-3 sm:top-4 sm:right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 z-10">
           <XIcon />
           <span className="sr-only">Close</span>
         </DialogPrimitive.Close>
@@ -138,7 +142,7 @@ function UploadAssetDialogContent({
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(
-          "bg-background data-[state=open]:animate-in min-h-[60vh] data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100vw-2rem)] sm:min-w-[600px] md:min-w-[800px] lg:min-w-[1200px] lg:max-w-[1600px] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border p-4 sm:p-6 shadow-lg duration-200 h-fit max-h-[90vh] overflow-y-auto",
+          "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-50 flex flex-col w-full max-w-[calc(100vw-2rem)] sm:min-w-[600px] md:min-w-[800px] lg:min-w-[1200px] lg:max-w-[1600px] translate-x-[-50%] translate-y-[-50%] rounded-lg border shadow-lg duration-200 max-h-[85vh] md:max-h-[90vh]",
           className
         )}
         onCloseAutoFocus={(e) => {
@@ -154,8 +158,10 @@ function UploadAssetDialogContent({
         }}
         {...props}
       >
-        {children}
-        <DialogPrimitive.Close className="bg-background dark:bg-background focus:ring-ring data-[state=open]:bg-accent data-[state=open]:text-muted-foreground absolute top-3 right-3 sm:top-4 sm:right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4">
+        <div className="flex flex-col gap-4 p-4 sm:p-6 overflow-y-auto max-h-full">
+          {children}
+        </div>
+        <DialogPrimitive.Close className="bg-background dark:bg-background focus:ring-ring data-[state=open]:bg-accent data-[state=open]:text-muted-foreground absolute top-3 right-3 sm:top-4 sm:right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 z-10">
           <XIcon />
           <span className="sr-only">Close</span>
         </DialogPrimitive.Close>
@@ -175,7 +181,7 @@ function PreviewGeneratorDialogContent({
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(
-          "bg-background data-[state=open]:animate-in min-h-[60vh] data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100vw-2rem)] sm:min-w-[600px] md:min-w-[800px] lg:min-w-[1200px] lg:max-w-[1600px] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border p-4 sm:p-6 shadow-lg duration-200 h-fit max-h-[90vh] overflow-y-auto",
+          "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-50 flex flex-col w-full max-w-[calc(100vw-2rem)] sm:min-w-[600px] md:min-w-[800px] lg:min-w-[1200px] lg:max-w-[1600px] translate-x-[-50%] translate-y-[-50%] rounded-lg border shadow-lg duration-200 max-h-[85vh] md:max-h-[90vh]",
           className
         )}
         onCloseAutoFocus={(e) => {
@@ -191,8 +197,10 @@ function PreviewGeneratorDialogContent({
         }}
         {...props}
       >
-        {children}
-        <DialogPrimitive.Close className="bg-background dark:bg-background focus:ring-ring data-[state=open]:bg-accent data-[state=open]:text-muted-foreground absolute top-3 right-3 sm:top-4 sm:right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4">
+        <div className="flex flex-col gap-4 p-4 sm:p-6 overflow-y-auto max-h-full">
+          {children}
+        </div>
+        <DialogPrimitive.Close className="bg-background dark:bg-background focus:ring-ring data-[state=open]:bg-accent data-[state=open]:text-muted-foreground absolute top-3 right-3 sm:top-4 sm:right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 z-10">
           <XIcon />
           <span className="sr-only">Close</span>
         </DialogPrimitive.Close>
@@ -212,7 +220,7 @@ function EditUserDialogContent({
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(
-          "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100vw-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border p-4 sm:p-6 shadow-lg duration-200 max-h-[90vh] overflow-y-auto sm:min-w-[400px] sm:max-w-[1000px]",
+          "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-50 flex flex-col w-full max-w-[calc(100vw-2rem)] translate-x-[-50%] translate-y-[-50%] rounded-lg border shadow-lg duration-200 max-h-[85vh] md:max-h-[90vh] sm:min-w-[400px] sm:max-w-[1000px]",
           className
         )}
         onCloseAutoFocus={(e) => {
@@ -228,8 +236,10 @@ function EditUserDialogContent({
         }}
         {...props}
       >
-        {children}
-        <DialogPrimitive.Close className="bg-background dark:bg-background focus:ring-ring data-[state=open]:bg-accent data-[state=open]:text-muted-foreground absolute top-3 right-3 sm:top-4 sm:right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4">
+        <div className="flex flex-col gap-4 p-4 sm:p-6 overflow-y-auto max-h-full">
+          {children}
+        </div>
+        <DialogPrimitive.Close className="bg-background dark:bg-background focus:ring-ring data-[state=open]:bg-accent data-[state=open]:text-muted-foreground absolute top-3 right-3 sm:top-4 sm:right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 z-10">
           <XIcon />
           <span className="sr-only">Close</span>
         </DialogPrimitive.Close>

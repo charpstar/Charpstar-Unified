@@ -42,6 +42,18 @@ interface ViewReferencesDialogProps {
   onAddReference?: () => void;
 }
 
+// Helper function to parse measurements
+const parseMeasurements = (
+  measurements: string | null
+): { h: string; w: string; d: string } | null => {
+  if (!measurements) return null;
+  const parts = measurements.split(",").map((p) => p.trim());
+  if (parts.length === 3) {
+    return { h: parts[0], w: parts[1], d: parts[2] };
+  }
+  return null;
+};
+
 // Helper function to parse references
 const parseReferences = (
   referenceImages: string[] | string | null
@@ -77,6 +89,9 @@ export function ViewReferencesDialog({
   // Get all files (GLB + references)
   const allReferences = asset ? parseReferences(asset.reference) : [];
   const hasDirectGlb = asset?.glb_link;
+
+  // Get measurements if available
+  const measurements = asset ? parseMeasurements(asset.measurements) : null;
 
   // Categorize files
   const categories: Categories = {
@@ -301,6 +316,41 @@ export function ViewReferencesDialog({
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto space-y-4 sm:space-y-6">
+          {/* Measurements Section */}
+          {measurements && (
+            <div className="p-3 sm:p-4 bg-muted/30 dark:bg-muted/10 border border-border dark:border-border rounded-lg">
+              <div className="flex items-center gap-2 mb-2 sm:mb-3">
+                <Package className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+                <h3 className="font-semibold text-foreground text-sm sm:text-base">
+                  Product Measurements
+                </h3>
+              </div>
+              <div className="grid grid-cols-3 gap-3 sm:gap-4">
+                <div className="text-center p-2 sm:p-3 bg-background dark:bg-background/50 rounded border border-border dark:border-border">
+                  <p className="text-xs text-muted-foreground mb-1">Height</p>
+                  <p className="text-lg sm:text-xl font-bold text-foreground">
+                    {measurements.h}
+                  </p>
+                  <p className="text-xs text-muted-foreground">mm</p>
+                </div>
+                <div className="text-center p-2 sm:p-3 bg-background dark:bg-background/50 rounded border border-border dark:border-border">
+                  <p className="text-xs text-muted-foreground mb-1">Width</p>
+                  <p className="text-lg sm:text-xl font-bold text-foreground">
+                    {measurements.w}
+                  </p>
+                  <p className="text-xs text-muted-foreground">mm</p>
+                </div>
+                <div className="text-center p-2 sm:p-3 bg-background dark:bg-background/50 rounded border border-border dark:border-border">
+                  <p className="text-xs text-muted-foreground mb-1">Depth</p>
+                  <p className="text-lg sm:text-xl font-bold text-foreground">
+                    {measurements.d}
+                  </p>
+                  <p className="text-xs text-muted-foreground">mm</p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Header with Download All Button */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-border dark:border-border pb-3 sm:pb-4 gap-3">
             <div className="flex items-center gap-2 sm:gap-3">

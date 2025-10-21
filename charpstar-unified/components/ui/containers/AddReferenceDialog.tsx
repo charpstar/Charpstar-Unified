@@ -25,7 +25,9 @@ export function AddReferenceDialog({
   assetId,
   onUploadComplete,
 }: AddReferenceDialogProps) {
-  const [uploadMode, setUploadMode] = useState<"url" | "file">("url");
+  const [uploadMode, setUploadMode] = useState<"url" | "file" | "measurements">(
+    "url"
+  );
   const [referenceUrl, setReferenceUrl] = useState("");
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
@@ -39,6 +41,9 @@ export function AddReferenceDialog({
   const [draggedFileIndex, setDraggedFileIndex] = useState<number | null>(null);
   const [pastedImages, setPastedImages] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [height, setHeight] = useState("");
+  const [width, setWidth] = useState("");
+  const [depth, setDepth] = useState("");
 
   // Validate file types
   const validateFiles = (
@@ -201,12 +206,12 @@ export function AddReferenceDialog({
     setUploadProgress({ current: 0, total: allFiles.length, fileName: "" });
 
     try {
-      // First, fetch the asset to get the client name
+      // First, fetch the asset to get the client name and other details for notifications
       const { supabase } = await import("@/lib/supabaseClient");
 
       const { data: asset, error: assetError } = await supabase
         .from("onboarding_assets")
-        .select("client")
+        .select("client, product_name")
         .eq("id", assetId)
         .single();
 
@@ -295,6 +300,69 @@ export function AddReferenceDialog({
           .from("onboarding_assets")
           .update({ reference: allReferences.join("|||") })
           .eq("id", assetId);
+
+        // Send notification to QA, production, and admin if updated by a client
+        try {
+          // Get current user's profile to check if they're a client
+          const {
+            data: { user },
+          } = await supabase.auth.getUser();
+
+          console.log(
+            "📋 [AddReferenceDialog] Getting user profile for notification..."
+          );
+
+          if (user) {
+            const { data: profile, error: profileError } = await supabase
+              .from("profiles")
+              .select("role, title")
+              .eq("id", user.id)
+              .single();
+
+            console.log("📋 [AddReferenceDialog] User profile:", {
+              role: profile?.role,
+              title: profile?.title,
+              userId: user.id,
+              email: user.email,
+              profileError,
+            });
+
+            if (profile?.role === "client") {
+              console.log(
+                "🔔 [AddReferenceDialog] User is a client, sending notification..."
+              );
+
+              // Import notification service
+              const { notificationService } = await import(
+                "@/lib/notificationService"
+              );
+
+              await notificationService.sendClientAssetUpdateNotification({
+                assetId: assetId,
+                assetName: asset?.product_name || "Unknown Asset",
+                clientName: asset?.client || "Unknown Client",
+                updateType: "references",
+                updatedFields: ["reference"],
+                updatedBy: profile.title || user.email || "Unknown User",
+                updatedAt: new Date().toISOString(),
+              });
+
+              console.log(
+                "✅ [AddReferenceDialog] Successfully triggered notification service"
+              );
+            } else {
+              console.log(
+                `ℹ️ [AddReferenceDialog] Skipping notification - user role is '${profile?.role}', not 'client'`
+              );
+            }
+          }
+        } catch (notificationError) {
+          console.error(
+            "❌ [AddReferenceDialog] Failed to send notification:",
+            notificationError
+          );
+          // Don't fail the upload if notification fails
+        }
       }
 
       toast.success(
@@ -327,6 +395,97 @@ export function AddReferenceDialog({
     }
   };
 
+  // Handle adding measurements
+  const handleAddMeasurements = async () => {
+    if (!assetId || !height.trim() || !width.trim() || !depth.trim()) {
+      toast.error("Please enter all measurements (H, W, D)");
+      return;
+    }
+
+    // Validate that inputs are numbers
+    const h = parseFloat(height);
+    const w = parseFloat(width);
+    const d = parseFloat(depth);
+
+    if (isNaN(h) || isNaN(w) || isNaN(d) || h <= 0 || w <= 0 || d <= 0) {
+      toast.error("Please enter valid positive numbers for measurements");
+      return;
+    }
+
+    try {
+      const { supabase } = await import("@/lib/supabaseClient");
+
+      // Store measurements as "H,W,D" format in millimeters
+      const measurementsString = `${h},${w},${d}`;
+
+      const { error } = await supabase
+        .from("onboarding_assets")
+        .update({ measurements: measurementsString })
+        .eq("id", assetId);
+
+      if (error) {
+        console.error("Error updating measurements:", error);
+        toast.error("Failed to save measurements");
+        return;
+      }
+
+      // Send notification to QA and admin if updated by a client
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        if (user) {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("role, title")
+            .eq("id", user.id)
+            .single();
+
+          const { data: asset } = await supabase
+            .from("onboarding_assets")
+            .select("product_name, client")
+            .eq("id", assetId)
+            .single();
+
+          if (profile?.role === "client") {
+            const { notificationService } = await import(
+              "@/lib/notificationService"
+            );
+
+            await notificationService.sendClientAssetUpdateNotification({
+              assetId: assetId,
+              assetName: asset?.product_name || "Unknown Asset",
+              clientName: asset?.client || "Unknown Client",
+              updateType: "measurements",
+              updatedFields: ["measurements"],
+              updatedBy: profile.title || user.email || "Unknown User",
+              updatedAt: new Date().toISOString(),
+            });
+          }
+        }
+      } catch (notificationError) {
+        console.error("Failed to send notification:", notificationError);
+      }
+
+      toast.success("Measurements saved successfully!");
+
+      // Reset dialog state
+      setHeight("");
+      setWidth("");
+      setDepth("");
+      onOpenChange(false);
+
+      // Notify parent component
+      if (onUploadComplete) {
+        onUploadComplete();
+      }
+    } catch (error) {
+      console.error("Error saving measurements:", error);
+      toast.error("Failed to save measurements");
+    }
+  };
+
   const resetDialog = () => {
     setReferenceUrl("");
     setDroppedFiles([]);
@@ -334,6 +493,9 @@ export function AddReferenceDialog({
     setFileError(null);
     setUploadProgress(null);
     setDraggedFileIndex(null);
+    setHeight("");
+    setWidth("");
+    setDepth("");
     setUploadMode("url");
   };
 
@@ -346,10 +508,11 @@ export function AddReferenceDialog({
       >
         <DialogHeader className="pb-3 sm:pb-4">
           <DialogTitle className="text-lg sm:text-xl font-bold text-foreground dark:text-foreground">
-            Add Reference or GLB File
+            Add Reference, GLB File, or Measurements
           </DialogTitle>
           <DialogDescription className="text-xs sm:text-sm text-muted-foreground dark:text-muted-foreground">
-            Add a reference image URL or upload a reference/GLB file.
+            Add a reference image URL, upload a reference/GLB file, or enter
+            product measurements.
           </DialogDescription>
         </DialogHeader>
 
@@ -372,6 +535,15 @@ export function AddReferenceDialog({
             <span className="hidden sm:inline">File Upload</span>
             <span className="sm:hidden">Upload</span>
           </Button>
+          <Button
+            variant={uploadMode === "measurements" ? "default" : "ghost"}
+            size="sm"
+            onClick={() => setUploadMode("measurements")}
+            className="flex-1 dark:hover:bg-muted/50 text-xs sm:text-sm h-7 sm:h-8"
+          >
+            <span className="hidden sm:inline">Measurements</span>
+            <span className="sm:hidden">Size</span>
+          </Button>
         </div>
 
         <div className="space-y-3 sm:space-y-4">
@@ -392,6 +564,59 @@ export function AddReferenceDialog({
                 }}
                 className="border-border focus:border-primary dark:bg-background dark:border-border dark:text-foreground text-sm sm:text-base h-8 sm:h-9"
               />
+            </div>
+          ) : uploadMode === "measurements" ? (
+            <div className="space-y-3">
+              <label className="text-xs sm:text-sm font-semibold text-foreground dark:text-foreground">
+                Product Measurements (in millimeters) *
+              </label>
+              <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">
+                    Height (H)
+                  </label>
+                  <Input
+                    type="number"
+                    placeholder="0"
+                    value={height}
+                    onChange={(e) => setHeight(e.target.value)}
+                    min="0"
+                    step="0.1"
+                    className="border-border focus:border-primary dark:bg-background dark:border-border dark:text-foreground text-sm h-8 sm:h-9"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">
+                    Width (W)
+                  </label>
+                  <Input
+                    type="number"
+                    placeholder="0"
+                    value={width}
+                    onChange={(e) => setWidth(e.target.value)}
+                    min="0"
+                    step="0.1"
+                    className="border-border focus:border-primary dark:bg-background dark:border-border dark:text-foreground text-sm h-8 sm:h-9"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">
+                    Depth (D)
+                  </label>
+                  <Input
+                    type="number"
+                    placeholder="0"
+                    value={depth}
+                    onChange={(e) => setDepth(e.target.value)}
+                    min="0"
+                    step="0.1"
+                    className="border-border focus:border-primary dark:bg-background dark:border-border dark:text-foreground text-sm h-8 sm:h-9"
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground dark:text-muted-foreground">
+                💡 Enter all dimensions in millimeters (mm)
+              </p>
             </div>
           ) : (
             <div className="space-y-2">
@@ -596,13 +821,17 @@ export function AddReferenceDialog({
             onClick={
               uploadMode === "url"
                 ? handleAddReferenceUrl
-                : handleMultipleFileUpload
+                : uploadMode === "measurements"
+                  ? handleAddMeasurements
+                  : handleMultipleFileUpload
             }
             disabled={
               uploading ||
               (uploadMode === "url"
                 ? !referenceUrl.trim()
-                : droppedFiles.length === 0 && pastedImages.length === 0)
+                : uploadMode === "measurements"
+                  ? !height.trim() || !width.trim() || !depth.trim()
+                  : droppedFiles.length === 0 && pastedImages.length === 0)
             }
             className="cursor-pointer w-full sm:w-auto text-sm h-8 sm:h-9"
           >
@@ -620,6 +849,8 @@ export function AddReferenceDialog({
                     : "Uploading..."}
                 </span>
               </>
+            ) : uploadMode === "measurements" ? (
+              "Save Measurements"
             ) : (
               `Add ${uploadMode === "url" ? "URL" : droppedFiles.length + pastedImages.length > 1 ? `${droppedFiles.length + pastedImages.length} Files` : "File"}`
             )}
