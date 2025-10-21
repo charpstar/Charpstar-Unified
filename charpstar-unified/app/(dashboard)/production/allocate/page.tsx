@@ -21,7 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/inputs";
 
-import { Calendar } from "@/components/ui/utilities";
+import { Calendar } from "@/components/ui/utilities/calendar";
 import {
   Popover,
   PopoverContent,
@@ -2296,7 +2296,7 @@ export default function AllocateAssetsPage() {
                       <Calendar
                         mode="single"
                         selected={new Date(groupSettings.deadline)}
-                        onSelect={(date) => {
+                        onSelect={(date: Date | undefined) => {
                           setGroupSettings((prev) => ({
                             ...prev,
                             deadline: format(date || new Date(), "yyyy-MM-dd"),

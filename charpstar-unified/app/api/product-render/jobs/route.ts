@@ -56,7 +56,6 @@ export async function POST(request: NextRequest) {
       products,
       settings,
       createdAt: new Date().toISOString(),
-      downloadUrl: null,
       file_path: `/jobs/${jobId}/urls.txt`,
     };
 

@@ -50,7 +50,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/containers";
 import { Input, Textarea } from "@/components/ui/inputs";
-import { Calendar } from "@/components/ui/utilities";
+import { Calendar } from "@/components/ui/utilities/calendar";
 import {
   Popover,
   PopoverContent,
@@ -5579,7 +5579,7 @@ export default function AdminReviewPage() {
                   <Calendar
                     mode="single"
                     selected={new Date(allocationDeadline)}
-                    onSelect={(date) => {
+                    onSelect={(date: Date | undefined) => {
                       setAllocationDeadline(
                         format(date || new Date(), "yyyy-MM-dd")
                       );
@@ -5762,7 +5762,7 @@ export default function AdminReviewPage() {
                   <Calendar
                     mode="single"
                     selected={new Date(reallocationDeadline)}
-                    onSelect={(date) => {
+                    onSelect={(date: Date | undefined) => {
                       setReallocationDeadline(
                         format(date || new Date(), "yyyy-MM-dd")
                       );
@@ -5939,7 +5939,7 @@ export default function AdminReviewPage() {
                   <Calendar
                     mode="single"
                     selected={new Date(bulkReallocationDeadline)}
-                    onSelect={(date) => {
+                    onSelect={(date: Date | undefined) => {
                       setBulkReallocationDeadline(
                         format(date || new Date(), "yyyy-MM-dd")
                       );

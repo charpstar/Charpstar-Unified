@@ -2,8 +2,8 @@ import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/containers/card";
 import { Button } from "@/components/ui/display/button";
-import { Input } from "@/components/ui/forms/input";
-import { Badge } from "@/components/ui/display/badge";
+import { Input } from "@/components/ui/inputs/input";
+import { Badge } from "@/components/ui/feedback/badge";
 import { 
   Search, 
   Filter, 
