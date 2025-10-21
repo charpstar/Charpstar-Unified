@@ -44,7 +44,7 @@ export default function AssetLibraryPanel({
     filteredAssets,
 
     filterOptions,
-  } = useAssets();
+  } = useAssets(1, 30000); // Fetch up to 10,000 assets at once
 
   const user = useUser();
   const isAdmin = user?.metadata?.role === "admin";
@@ -620,115 +620,129 @@ export default function AssetLibraryPanel({
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-3 xs:grid-cols-3 gap-2 sm:gap-3 pb-4 p-1">
-                {paginatedAssets.map((asset) => (
-                  <Card
-                    key={asset.id}
-                    className={`overflow-hidden p-2 sm:p-4 rounded-lg cursor-grab active:cursor-grabbing hover:shadow-lg hover:ring-2 hover:ring-primary/50 hover:ring-offset-2 transition-all group ${
-                      asset.active === false ? "opacity-60 border-dashed" : ""
-                    }`}
-                    onClick={() => onAssetSelect?.(asset)}
-                    draggable
-                    onDragStart={(e) => {
-                      e.dataTransfer.setData(
-                        "application/json",
-                        JSON.stringify(asset)
-                      );
-                      e.dataTransfer.effectAllowed = "copy";
-                    }}
-                  >
-                    {/* Preview Image */}
-                    <div className="relative aspect-square ">
-                      {asset.preview_image && !imageErrors.has(asset.id) ? (
-                        <Image
-                          src={
-                            Array.isArray(asset.preview_image)
-                              ? asset.preview_image[0]
-                              : asset.preview_image
-                          }
-                          alt={asset.product_name}
-                          fill
-                          unoptimized
-                          className="object-contain group-hover:scale-105 transition-transform"
-                          sizes="(max-width: 768px) 50vw, 200px"
-                          onError={() => {
-                            setImageErrors((prev) =>
-                              new Set(prev).add(asset.id)
-                            );
-                          }}
-                        />
-                      ) : (
-                        <div className="absolute inset-0 flex items-center justify-center bg-muted">
-                          <p className="text-xs text-muted-foreground text-center px-2">
-                            {asset.product_name.substring(0, 20)}
-                            {asset.product_name.length > 20 ? "..." : ""}
-                          </p>
-                        </div>
-                      )}
-                    </div>
+              <div className="grid grid-cols-2 xs:grid-cols-2 gap-2 sm:gap-3 pb-4 p-1">
+                {paginatedAssets.map((asset) => {
+                  const handleClick = (e: React.MouseEvent) => {
+                    // Prevent click during drag operations
+                    if ((e.target as HTMLElement).closest("button")) {
+                      return; // Let button click handlers work
+                    }
+                    onAssetSelect?.(asset);
+                  };
 
-                    {/* Asset Info */}
-                    <div className="p-1 sm:p-2 space-y-1">
-                      <div className="flex items-center justify-between">
-                        <h4 className="text-xs font-medium line-clamp-1 group-hover:text-primary transition-colors">
-                          {asset.product_name}
-                        </h4>
-                        {asset.active === false && (
-                          <Badge
-                            variant="destructive"
-                            className="text-[10px] sm:text-xs px-1 sm:px-1.5 py-0"
-                          >
-                            Inactive
-                          </Badge>
+                  const handleDragStart = (e: React.DragEvent) => {
+                    e.dataTransfer.setData(
+                      "application/json",
+                      JSON.stringify(asset)
+                    );
+                    e.dataTransfer.effectAllowed = "copy";
+                  };
+
+                  return (
+                    <Card
+                      key={asset.id}
+                      className={`overflow-hidden p-2 sm:p-4 rounded-lg cursor-grab active:cursor-grabbing hover:shadow-lg hover:ring-2 hover:ring-primary/50 hover:ring-offset-2 transition-all group ${
+                        asset.active === false ? "opacity-60 border-dashed" : ""
+                      }`}
+                      onClick={handleClick}
+                      draggable
+                      onDragStart={handleDragStart}
+                    >
+                      {/* Preview Image */}
+                      <div className="relative aspect-square ">
+                        {asset.preview_image && !imageErrors.has(asset.id) ? (
+                          <Image
+                            src={
+                              Array.isArray(asset.preview_image)
+                                ? asset.preview_image[0]
+                                : asset.preview_image
+                            }
+                            alt={asset.product_name}
+                            fill
+                            unoptimized
+                            className="object-contain group-hover:scale-105 transition-transform"
+                            sizes="(max-width: 768px) 50vw, 200px"
+                            onError={() => {
+                              setImageErrors((prev) =>
+                                new Set(prev).add(asset.id)
+                              );
+                            }}
+                          />
+                        ) : (
+                          <div className="absolute inset-0 flex items-center justify-center bg-muted">
+                            <p className="text-xs text-muted-foreground text-center px-2">
+                              {asset.product_name.substring(0, 20)}
+                              {asset.product_name.length > 20 ? "..." : ""}
+                            </p>
+                          </div>
                         )}
                       </div>
-                      <p className="text-[10px] sm:text-xs text-muted-foreground line-clamp-1">
-                        {asset.category}
-                      </p>
-                      {(asset as any).article_id && (
-                        <p className="text-[10px] sm:text-xs text-muted-foreground line-clamp-1 font-mono">
-                          {(asset as any).article_id}
-                        </p>
-                      )}
-                      {asset.materials && asset.materials.length > 0 && (
-                        <div className="flex gap-1 flex-wrap">
-                          {asset.materials.slice(0, 2).map((material, idx) => (
+
+                      {/* Asset Info */}
+                      <div className="p-1 sm:p-2 space-y-1">
+                        <div className="flex items-center justify-between">
+                          <h4 className="text-xs font-medium line-clamp-1 group-hover:text-primary transition-colors">
+                            {asset.product_name}
+                          </h4>
+                          {asset.active === false && (
                             <Badge
-                              key={idx}
-                              variant="secondary"
-                              className="text-[10px] sm:text-xs px-1 py-0"
+                              variant="destructive"
+                              className="text-[10px] sm:text-xs px-1 sm:px-1.5 py-0"
                             >
-                              {material}
+                              Inactive
                             </Badge>
-                          ))}
-                          {asset.materials.length > 2 && (
-                            <span className="text-[10px] sm:text-xs text-muted-foreground">
-                              +{asset.materials.length - 2}
-                            </span>
                           )}
                         </div>
-                      )}
-                    </div>
-
-                    {/* Quick Action */}
-                    {asset.glb_link && canDownloadGLB && (
-                      <div className="p-1 sm:p-2 pt-0">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="w-full h-6 sm:h-7 text-[10px] sm:text-xs"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            window.open(asset.glb_link, "_blank");
-                          }}
-                        >
-                          <Download className="h-2.5 w-2.5 sm:h-3 sm:w-3 mr-1" />
-                          GLB
-                        </Button>
+                        <p className="text-[10px] sm:text-xs text-muted-foreground line-clamp-1">
+                          {asset.category}
+                        </p>
+                        {(asset as any).article_id && (
+                          <p className="text-[10px] sm:text-xs text-muted-foreground line-clamp-1 font-mono">
+                            {(asset as any).article_id}
+                          </p>
+                        )}
+                        {asset.materials && asset.materials.length > 0 && (
+                          <div className="flex gap-1 flex-wrap">
+                            {asset.materials
+                              .slice(0, 2)
+                              .map((material, idx) => (
+                                <Badge
+                                  key={idx}
+                                  variant="secondary"
+                                  className="text-[10px] sm:text-xs px-1 py-0"
+                                >
+                                  {material}
+                                </Badge>
+                              ))}
+                            {asset.materials.length > 2 && (
+                              <span className="text-[10px] sm:text-xs text-muted-foreground">
+                                +{asset.materials.length - 2}
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </Card>
-                ))}
+
+                      {/* Quick Action */}
+                      {asset.glb_link && canDownloadGLB && (
+                        <div className="p-1 sm:p-2 pt-0">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full h-6 sm:h-7 text-[10px] sm:text-xs"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              window.open(asset.glb_link, "_blank");
+                            }}
+                          >
+                            <Download className="h-2.5 w-2.5 sm:h-3 sm:w-3 mr-1" />
+                            GLB
+                          </Button>
+                        </div>
+                      )}
+                    </Card>
+                  );
+                })}
               </div>
 
               {/* Pagination Controls */}

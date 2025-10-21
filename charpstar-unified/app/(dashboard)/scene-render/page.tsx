@@ -149,6 +149,8 @@ export default function SceneRenderPage() {
       setSelectedFile(null); // Clear file when using URL
       setSelectedModelUrl(asset.glb_link); // Use URL directly
       setAppState("preview");
+    } else {
+      setError("This asset does not have a 3D model file available.");
     }
   };
 
@@ -619,7 +621,12 @@ export default function SceneRenderPage() {
             e.preventDefault();
             setIsDragging(true);
           }}
-          onDragLeave={() => setIsDragging(false)}
+          onDragLeave={(e) => {
+            // Only set dragging to false if we're actually leaving the drop zone
+            if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+              setIsDragging(false);
+            }
+          }}
           onDrop={(e) => {
             e.preventDefault();
             setIsDragging(false);
@@ -642,7 +649,7 @@ export default function SceneRenderPage() {
           >
             {/* Main Content Area */}
             <CardContent className="flex-1 flex items-center justify-center p-2 relative overflow-hidden">
-              {isDragging && appState === "upload" && (
+              {isDragging && (
                 <div className="absolute inset-0 flex items-center justify-center bg-primary/10 border-2 border-dashed border-primary rounded-lg z-10">
                   <div className="text-center">
                     <p className="text-lg font-semibold text-primary">

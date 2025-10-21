@@ -169,7 +169,8 @@ const fetchPaginatedAssets = async (
     tags,
     active,
     created_at,
-    updated_at
+    updated_at,
+    glb_link
   `.trim();
 
   // Build the query with filters
@@ -238,10 +239,13 @@ const fetchPaginatedAssets = async (
       query = query.order("product_name", { ascending: true });
   }
 
-  // Apply pagination
-  const from = (page - 1) * pageSize;
-  const to = from + pageSize - 1;
-  query = query.range(from, to);
+  // Apply pagination (skip if pageSize is very large to fetch all)
+  if (pageSize < 50000) {
+    // Only apply pagination for reasonable page sizes
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
+    query = query.range(from, to);
+  }
 
   const { data, count, error } = await query;
 
