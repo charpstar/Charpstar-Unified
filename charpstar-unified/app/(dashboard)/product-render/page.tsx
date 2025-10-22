@@ -683,12 +683,14 @@ export default function ProductRenderPage() {
                 {/* Camera Views */}
                 <div className="space-y-4 md:col-span-2">
                   <h3 className="text-sm font-medium">Camera Views</h3>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     {[
                       { id: "front", label: "Front" },
                       { id: "angled_side1", label: "45° Front-Side" },
+                      { id: "angled_side1_flat", label: "45° Front-Side (Flat)" },
                       { id: "side", label: "Side" },
                       { id: "angled_side2", label: "45° Back-Side" },
+                      { id: "angled_side2_flat", label: "45° Back-Side (Flat)" },
                       { id: "back", label: "Back" },
                       { id: "top", label: "Top" }
                     ].map((view) => (
