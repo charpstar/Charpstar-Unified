@@ -1,11 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { v4 as uuidv4 } from "uuid";
-import { jobStorage } from "@/lib/job-storage";
+import { createClient } from "@supabase/supabase-js";
+
+// Initialize Supabase client with service role for server-side operations
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 export async function GET() {
   try {
-    const jobsArray = jobStorage.getAll();
-    return NextResponse.json({ jobs: jobsArray });
+    const { data: jobs, error } = await supabase
+      .from('render_jobs')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    return NextResponse.json({ jobs: jobs || [] });
   } catch (error) {
     console.error("Error fetching jobs:", error);
     return NextResponse.json(
@@ -56,21 +67,29 @@ export async function POST(request: NextRequest) {
     const glbUrls = products.map(product => product.glb_link);
     console.log("[Product Render API] GLB URLs:", glbUrls);
 
-    // Create the job with URLs stored directly in memory
-    const job = {
-      id: jobId,
-      status: 'queued' as const,
-      progress: 0,
-      products,
-      settings,
-      createdAt: new Date().toISOString(),
-      downloadUrl: undefined,
-      glb_urls: glbUrls, // Store URLs directly in the job object
-    };
+    // Get user ID from request (you might need to get this from auth)
+    // For now, we'll use a placeholder - you should get this from your auth system
+    const userId = request.headers.get('x-user-id') || null;
 
-    // Store the job
-    console.log("[Product Render API] Storing job in memory");
-    jobStorage.set(jobId, job);
+    // Create the job in database
+    const { data: job, error: insertError } = await supabase
+      .from('render_jobs')
+      .insert({
+        id: jobId,
+        user_id: userId,
+        status: 'queued',
+        progress: 0,
+        products,
+        settings,
+        glb_urls: glbUrls,
+      })
+      .select()
+      .single();
+
+    if (insertError) {
+      console.error("[Product Render API] Database error:", insertError);
+      throw insertError;
+    }
 
     console.log("[Product Render API] Job created successfully:", jobId);
     return NextResponse.json({

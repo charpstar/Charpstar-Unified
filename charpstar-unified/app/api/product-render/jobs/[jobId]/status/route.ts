@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { jobStorage } from "@/lib/job-storage";
+import { createClient } from "@supabase/supabase-js";
+
+// Initialize Supabase client with service role
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 export async function PUT(
   request: NextRequest,
@@ -9,29 +14,47 @@ export async function PUT(
     const { jobId } = params;
     const data = await request.json();
 
-    const job = jobStorage.get(jobId);
-    if (!job) {
+    // Check if job exists
+    const { data: existingJob, error: fetchError } = await supabase
+      .from('render_jobs')
+      .select('id')
+      .eq('id', jobId)
+      .single();
+
+    if (fetchError || !existingJob) {
       return NextResponse.json(
         { error: "Job not found" },
         { status: 404 }
       );
     }
 
-    // Update job status
+    // Build update object
+    const updateData: any = {};
+    
     if (data.status) {
-      job.status = data.status;
+      updateData.status = data.status;
     }
 
     if (data.downloadUrl) {
-      job.downloadUrl = data.downloadUrl;
+      updateData.download_url = data.downloadUrl;
     }
 
-    // Update progress
     if (data.progress !== undefined) {
       const progress = parseInt(data.progress);
       if (progress >= 0 && progress <= 100) {
-        job.progress = progress;
+        updateData.progress = progress;
       }
+    }
+
+    // Update job in database
+    const { error: updateError } = await supabase
+      .from('render_jobs')
+      .update(updateData)
+      .eq('id', jobId);
+
+    if (updateError) {
+      console.error("Error updating job:", updateError);
+      throw updateError;
     }
 
     return NextResponse.json({ success: true });
@@ -52,8 +75,13 @@ export async function GET(
   try {
     const { jobId } = params;
 
-    const job = jobStorage.get(jobId);
-    if (!job) {
+    const { data: job, error: fetchError } = await supabase
+      .from('render_jobs')
+      .select('*')
+      .eq('id', jobId)
+      .single();
+
+    if (fetchError || !job) {
       console.log("[Job Status API] Job not found:", jobId);
       return NextResponse.json(
         { error: "Job not found" },
@@ -65,16 +93,16 @@ export async function GET(
       id: job.id,
       status: job.status,
       progress: job.progress,
-      downloadUrl: job.downloadUrl
+      downloadUrl: job.download_url
     });
 
     return NextResponse.json({
       id: job.id,
       status: job.status,
       progress: job.progress,
-      downloadUrl: job.downloadUrl,
+      downloadUrl: job.download_url,
       settings: job.settings,
-      createdAt: job.createdAt,
+      createdAt: job.created_at,
     });
 
   } catch (error) {

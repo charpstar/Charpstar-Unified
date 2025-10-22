@@ -1,14 +1,23 @@
 import { NextResponse } from "next/server";
-import { jobStorage } from "@/lib/job-storage";
+import { createClient } from "@supabase/supabase-js";
+
+// Initialize Supabase client with service role
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 export async function GET() {
   try {
     // Find the next queued job
-    const jobs = jobStorage.getAll();
-    console.log("[Jobs Next API] Total jobs:", jobs.length);
-    const queuedJob = jobs.find(job => job.status === 'queued');
+    const { data: queuedJob, error: fetchError } = await supabase
+      .from('render_jobs')
+      .select('*')
+      .eq('status', 'queued')
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .single();
 
-    if (!queuedJob) {
+    if (fetchError || !queuedJob) {
       console.log("[Jobs Next API] No queued jobs found");
       return NextResponse.json({ status: 'no_jobs' });
     }
@@ -17,9 +26,17 @@ export async function GET() {
     console.log("[Jobs Next API] GLB URLs:", queuedJob.glb_urls);
 
     // Update job status to processing
-    queuedJob.status = 'processing';
-    queuedJob.progress = 0;
-    jobStorage.set(queuedJob.id, queuedJob);
+    const { error: updateError } = await supabase
+      .from('render_jobs')
+      .update({ 
+        status: 'processing',
+        progress: 0 
+      })
+      .eq('id', queuedJob.id);
+
+    if (updateError) {
+      console.error("[Jobs Next API] Error updating job status:", updateError);
+    }
 
     const response = {
       job_id: queuedJob.id,
