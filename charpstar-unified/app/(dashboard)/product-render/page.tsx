@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useUser } from "@/contexts/useUser";
 import { useLoadingState } from "@/hooks/useLoadingState";
 import { Button } from "@/components/ui/display";
-import { ChevronLeft, Download, Settings, Play } from "lucide-react";
+import { ChevronLeft, Download, Settings, Play, X, Check } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import Image from "next/image";
@@ -339,56 +339,46 @@ export default function ProductRenderPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center">
-              <Button
-                onClick={() => router.back()}
-                variant="ghost"
-                size="sm"
-                className="mr-4"
-              >
-                <ChevronLeft className="h-4 w-4 mr-1" />
-                Back
-              </Button>
-              <h1 className="text-xl font-semibold text-gray-900">Product Render</h1>
-            </div>
-          </div>
+    <div className="container mx-auto p-6 space-y-6">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold">Product Render</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Select products and configure rendering settings
+          </p>
         </div>
       </div>
-
-      {/* Main Content */}
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <h1 className="text-2xl font-bold text-gray-900 mb-6">GLB Renderer</h1>
 
           {appState === "select" && (
             <div className="space-y-6">
               {/* Selected Products */}
               {selectedProducts.length > 0 && (
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-3">
-                    Selected Products ({selectedProducts.length})
-                  </h3>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                <div className="bg-card border border-border rounded-lg p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+                      Selected Products
+                    </h3>
+                    <span className="text-sm font-medium text-muted-foreground">
+                      {selectedProducts.length} {selectedProducts.length === 1 ? 'item' : 'items'}
+                    </span>
+                  </div>
+                  <div className="space-y-2 mb-6">
                     {selectedProducts.map((product) => (
-                      <div key={product.id} className="bg-white rounded p-2 flex items-center gap-2">
-                        <span className="text-sm font-medium truncate">{product.product_name}</span>
+                      <div key={product.id} className="flex items-center justify-between p-3 rounded-md border border-border hover:border-primary transition-colors group">
+                        <span className="text-sm font-medium flex-1">{product.product_name}</span>
                         <button
                           onClick={() => handleProductSelect({ id: product.id })}
-                          className="text-red-500 hover:text-red-700 ml-auto"
+                          className="ml-3 text-muted-foreground hover:text-destructive transition-colors opacity-0 group-hover:opacity-100"
                         >
-                          ×
+                          <X className="h-4 w-4" />
                         </button>
                       </div>
                     ))}
                   </div>
                   <Button 
                     onClick={() => setAppState("configure")}
-                    className="w-full mt-4"
+                    className="w-full"
+                    size="lg"
                   >
                     <Settings className="h-4 w-4 mr-2" />
                     Configure Render Settings
@@ -397,63 +387,61 @@ export default function ProductRenderPage() {
               )}
 
               {/* Asset Library */}
-              <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
-                <div className="p-6 border-b border-gray-200">
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">Asset Library</h3>
-                  <p className="text-sm text-gray-600">Select products to render</p>
+              <div className="bg-card rounded-lg border border-border shadow-sm">
+                <div className="p-6 border-b border-border">
+                  <h3 className="text-base font-semibold mb-1">Asset Library</h3>
+                  <p className="text-sm text-muted-foreground">Select products to render</p>
                 </div>
                 
                 <div className="p-6">
                   <div className="mb-4">
                     <div className="relative">
                       <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="h-5 w-5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                         </svg>
                       </div>
                       <input
                         type="text"
                         placeholder="Search by name, article ID, category..."
-                        className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="w-full pl-10 pr-4 py-3 border border-input rounded-lg focus:ring-2 focus:ring-ring bg-background"
                       />
                     </div>
                   </div>
 
                   <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center space-x-4">
-                      <button className="flex items-center px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200">
+                    <div className="flex items-center gap-2">
+                      <Button variant="outline" size="sm">
                         <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.707.293H3a1 1 0 01-1-1V4z" />
                         </svg>
                         Filters
-                        <span className="ml-1 px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full">1</span>
-                      </button>
+                      </Button>
                       
-                      <button className="flex items-center px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg">
+                      <Button variant="ghost" size="sm">
                         <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
                         </svg>
                         Sort
-                      </button>
+                      </Button>
                     </div>
                     
-                    <div className="text-sm text-gray-600">
+                    <div className="text-sm text-muted-foreground">
                       Showing {products.length} products
                     </div>
                   </div>
 
                   {/* Products Grid */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                    {/* Sample Products - Replace with actual data */}
                     {products.map((product) => {
                       const isSelected = selectedProducts.some(p => p.id === product.id);
                       return (
                         <div
                           key={product.id}
-                          className={`relative bg-white border-2 rounded-lg p-4 cursor-pointer transition-all duration-200 hover:shadow-md ${
+                          className={`relative bg-card border rounded-lg p-3 cursor-pointer transition-all duration-200 hover:shadow-lg ${
                             isSelected 
-                              ? 'border-blue-500 bg-blue-50' 
-                              : 'border-gray-200 hover:border-gray-300'
+                              ? 'ring-2 ring-primary shadow-md border-primary' 
+                              : 'border-border hover:border-muted-foreground'
                           }`}
                           onClick={() => handleProductSelect({
                             id: product.id,
@@ -464,7 +452,7 @@ export default function ProductRenderPage() {
                         >
                           {/* Selection Indicator */}
                           {isSelected && (
-                            <div className="absolute top-2 right-2 bg-blue-500 text-white rounded-full p-1">
+                            <div className="absolute top-2 right-2 bg-primary text-primary-foreground rounded-full p-1 z-10 shadow-sm">
                               <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
                                 <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                               </svg>
@@ -472,18 +460,18 @@ export default function ProductRenderPage() {
                           )}
 
                           {/* Product Image */}
-                          <div className="w-full h-32 bg-gray-100 rounded-lg mb-3 flex items-center justify-center overflow-hidden">
+                          <div className="w-full aspect-square bg-muted rounded-md mb-3 flex items-center justify-center overflow-hidden">
                             {product.preview_image ? (
                               <Image 
                                 src={Array.isArray(product.preview_image) ? product.preview_image[0] : product.preview_image} 
                                 alt={product.product_name} 
-                                width={128}
-                                height={128}
-                                className="w-full h-full object-cover rounded-lg" 
+                                width={200}
+                                height={200}
+                                className="w-full h-full object-cover" 
                               />
                             ) : (
-                              <div className="text-gray-400">
-                                <svg className="h-12 w-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <div className="text-muted-foreground">
+                                <svg className="h-8 w-8 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                 </svg>
                               </div>
@@ -491,16 +479,18 @@ export default function ProductRenderPage() {
                           </div>
 
                           {/* Product Info */}
-                          <div className="space-y-1">
-                            <h4 className="font-medium text-gray-900 text-sm leading-tight">
+                          <div className="space-y-1.5">
+                            <h4 className="font-medium text-sm leading-tight line-clamp-2">
                               {product.product_name}
                             </h4>
-                            <p className="text-xs text-gray-500">
-                              ID: {product.id}
+                            <p className="text-xs text-muted-foreground truncate">
+                              {product.id?.substring(0, 8)}...
                             </p>
-                            <span className="inline-block px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded">
-                              {product.category}
-                            </span>
+                            {product.category && (
+                              <span className="inline-block px-2 py-1 text-xs bg-secondary text-secondary-foreground rounded">
+                                {product.category}
+                              </span>
+                            )}
                           </div>
                         </div>
                       );
@@ -509,29 +499,27 @@ export default function ProductRenderPage() {
 
                   {/* Pagination */}
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
-                      <button 
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
                         onClick={() => handlePageChange(currentPage - 1)}
-                        disabled={currentPage <= 1}
-                        className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                        disabled={currentPage < 2}
                       >
-                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                        </svg>
-                      </button>
-                      <span className="text-sm text-gray-700">Page {currentPage} of {totalPages}</span>
-                      <button 
+                        <ChevronLeft className="h-4 w-4" />
+                      </Button>
+                      <span className="text-sm text-muted-foreground">Page {currentPage} of {totalPages}</span>
+                      <Button
+                        variant="outline"
+                        size="sm"
                         onClick={() => handlePageChange(currentPage + 1)}
-                        disabled={currentPage >= totalPages}
-                        className="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                        disabled={currentPage === totalPages}
                       >
-                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                        </svg>
-                      </button>
+                        <ChevronLeft className="h-4 w-4 rotate-180" />
+                      </Button>
                     </div>
                     
-                    <div className="text-sm text-gray-600">
+                    <div className="text-sm text-muted-foreground">
                       {selectedProducts.length} selected
                     </div>
                   </div>
@@ -542,25 +530,31 @@ export default function ProductRenderPage() {
 
           {appState === "configure" && (
             <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <h2 className="text-2xl font-bold text-gray-900">Rendering Settings</h2>
+              <div className="flex items-center justify-between mb-2">
+                <div>
+                  <h2 className="text-xl font-semibold">Rendering Settings</h2>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Configure render options for {selectedProducts.length} product{selectedProducts.length > 1 ? 's' : ''}
+                  </p>
+                </div>
                 <Button 
                   onClick={() => setAppState("select")} 
                   variant="outline"
-                  className="border-gray-300 text-gray-700 hover:bg-gray-50"
                 >
-                  Back to Selection
+                  <ChevronLeft className="h-4 w-4 mr-2" />
+                  Back
                 </Button>
               </div>
 
+              <div className="bg-card border border-border rounded-lg p-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Resolution */}
-                <div className="settings-item">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Resolution</label>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Resolution</label>
                   <select 
                     value={renderSettings.resolution}
                     onChange={(e) => setRenderSettings(prev => ({ ...prev, resolution: e.target.value }))}
-                    className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
                   >
                     <option value="1024x1024">1024×1024</option>
                     <option value="2048x2048">2048×2048</option>
@@ -571,12 +565,12 @@ export default function ProductRenderPage() {
                 </div>
 
                 {/* Image Format */}
-                <div className="settings-item">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Image Format</label>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Image Format</label>
                   <select 
                     value={renderSettings.imageFormat}
                     onChange={(e) => setRenderSettings(prev => ({ ...prev, imageFormat: e.target.value }))}
-                    className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
                   >
                     <option value="JPEG">JPEG (Smaller file size)</option>
                     <option value="PNG">PNG (Supports transparency)</option>
@@ -586,9 +580,9 @@ export default function ProductRenderPage() {
                 </div>
 
                 {/* Render Margin */}
-                <div className="settings-item">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Render Margin <span className="text-blue-600">{renderSettings.renderMargin}%</span>
+                <div className="space-y-2 md:col-span-2">
+                  <label className="text-sm font-medium">
+                    Render Margin <span className="text-primary font-semibold">{renderSettings.renderMargin}%</span>
                   </label>
                   <input
                     type="range"
@@ -597,46 +591,51 @@ export default function ProductRenderPage() {
                     step="5"
                     value={renderSettings.renderMargin}
                     onChange={(e) => setRenderSettings(prev => ({ ...prev, renderMargin: parseInt(e.target.value) }))}
-                    className="w-full slider"
+                    className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
                   />
-                  <div className="flex justify-between text-xs text-gray-500 mt-1">
-                    <span>Smaller (tight crop)</span>
-                    <span>Larger (more space)</span>
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>Tight crop</span>
+                    <span>More space</span>
                   </div>
                 </div>
 
                 {/* Background Color */}
-                <div className="settings-item">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Background Color</label>
+                <div className="space-y-2 md:col-span-2">
+                  <label className="text-sm font-medium">Background Color</label>
                   <div className="flex items-center gap-3">
                     <input
                       type="color"
                       value={renderSettings.bgColor}
                       onChange={(e) => setRenderSettings(prev => ({ ...prev, bgColor: e.target.value }))}
-                      className="w-10 h-10 border border-gray-300 rounded cursor-pointer"
+                      className="w-16 h-12 rounded-md border border-input cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                      disabled={renderSettings.transparentBg}
                     />
-                    <div className="flex items-center">
-                      <input
-                        type="checkbox"
-                        id="transparentBg"
-                        checked={renderSettings.transparentBg}
-                        onChange={(e) => setRenderSettings(prev => ({ ...prev, transparentBg: e.target.checked }))}
-                        className="mr-2"
-                      />
-                      <label htmlFor="transparentBg" className="text-sm text-gray-700">
+                    <label className="flex items-center gap-2 cursor-pointer group">
+                      <div className="relative">
+                        <input
+                          type="checkbox"
+                          id="transparentBg"
+                          checked={renderSettings.transparentBg}
+                          onChange={(e) => setRenderSettings(prev => ({ ...prev, transparentBg: e.target.checked }))}
+                          className="peer sr-only"
+                        />
+                        <div className="w-4 h-4 border-2 border-input rounded peer-checked:bg-primary peer-checked:border-primary transition-all"></div>
+                        <Check className="absolute top-0 left-0 h-4 w-4 text-primary-foreground opacity-0 peer-checked:opacity-100 transition-opacity pointer-events-none" />
+                      </div>
+                      <span className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">
                         Transparent background (PNG only)
-                      </label>
-                    </div>
+                      </span>
+                    </label>
                   </div>
                 </div>
 
                 {/* Quality */}
-                <div className="settings-item">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Render Quality</label>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Render Quality</label>
                   <select 
                     value={renderSettings.quality}
                     onChange={(e) => setRenderSettings(prev => ({ ...prev, quality: e.target.value }))}
-                    className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
                   >
                     <option value="low">Low (Faster)</option>
                     <option value="medium">Medium</option>
@@ -645,9 +644,9 @@ export default function ProductRenderPage() {
                 </div>
 
                 {/* Camera Views */}
-                <div className="settings-item md:col-span-2">
-                  <h3 className="text-sm font-medium text-gray-700 mb-3">Camera Views</h3>
-                  <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-4 md:col-span-2">
+                  <h3 className="text-sm font-medium">Camera Views</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                     {[
                       { id: "front", label: "Front" },
                       { id: "angled_side1", label: "45° Front-Side" },
@@ -656,46 +655,52 @@ export default function ProductRenderPage() {
                       { id: "back", label: "Back" },
                       { id: "top", label: "Top" }
                     ].map((view) => (
-                      <div key={view.id} className="flex items-center">
-                        <input
-                          type="checkbox"
-                          id={view.id}
-                          checked={renderSettings.cameraViews.includes(view.id)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setRenderSettings(prev => ({
-                                ...prev,
-                                cameraViews: [...prev.cameraViews, view.id]
-                              }));
-                            } else {
-                              setRenderSettings(prev => ({
-                                ...prev,
-                                cameraViews: prev.cameraViews.filter(v => v !== view.id)
-                              }));
-                            }
-                          }}
-                          className="mr-2"
-                        />
-                        <label htmlFor={view.id} className="text-sm text-gray-700">
+                      <label key={view.id} className="flex items-center gap-3 cursor-pointer group">
+                        <div className="relative">
+                          <input
+                            type="checkbox"
+                            id={view.id}
+                            checked={renderSettings.cameraViews.includes(view.id)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setRenderSettings(prev => ({
+                                  ...prev,
+                                  cameraViews: [...prev.cameraViews, view.id]
+                                }));
+                              } else {
+                                setRenderSettings(prev => ({
+                                  ...prev,
+                                  cameraViews: prev.cameraViews.filter(v => v !== view.id)
+                                }));
+                              }
+                            }}
+                            className="peer sr-only"
+                          />
+                          <div className="w-5 h-5 border-2 border-input rounded peer-checked:bg-primary peer-checked:border-primary transition-all"></div>
+                          <Check className="absolute top-0.5 left-0.5 h-4 w-4 text-primary-foreground opacity-0 peer-checked:opacity-100 transition-opacity pointer-events-none" />
+                        </div>
+                        <span className="text-sm group-hover:text-foreground transition-colors">
                           {view.label}
-                        </label>
-                      </div>
+                        </span>
+                      </label>
                     ))}
                   </div>
                 </div>
               </div>
+              </div>
 
-              <div className="flex gap-4">
+              <div className="flex gap-3">
                 <Button 
                   onClick={() => setAppState("select")} 
                   variant="outline"
-                  className="flex-1 h-12 text-gray-700 border-gray-300 hover:bg-gray-50"
+                  className="flex-1"
                 >
                   Back to Selection
                 </Button>
                 <Button 
                   onClick={handleSubmitJob} 
-                  className="flex-1 h-12 bg-blue-600 hover:bg-blue-700 text-white"
+                  className="flex-1"
+                  size="lg"
                 >
                   <Play className="h-4 w-4 mr-2" />
                   Start Rendering
@@ -706,137 +711,84 @@ export default function ProductRenderPage() {
 
           {appState === "generating" && (
             <div className="text-center py-12">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-              <h2 className="text-xl font-semibold mb-2">
-                {currentJob?.status === "queued" ? "Queued..." : "Rendering..."}
-              </h2>
-              <p className="text-gray-600 mb-4">
-                {currentJob?.status === "queued" 
-                  ? "Waiting for render client to pick up the job..."
-                  : "Please wait while we render your product..."}
-              </p>
-              {currentJob?.progress !== undefined && currentJob.progress > 0 && (
-                <div className="max-w-md mx-auto">
-                  <div className="w-full bg-gray-200 rounded-full h-2.5">
-                    <div 
-                      className="bg-blue-600 h-2.5 rounded-full transition-all duration-300" 
-                      style={{ width: `${currentJob.progress}%` }}
-                    ></div>
+              <div className="bg-card border border-border rounded-lg p-8 max-w-md mx-auto">
+                <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-primary mx-auto mb-6"></div>
+                <h2 className="text-xl font-semibold mb-2">
+                  {currentJob?.status === "queued" ? "Queued..." : "Rendering..."}
+                </h2>
+                <p className="text-muted-foreground mb-6">
+                  {currentJob?.status === "queued" 
+                    ? "Waiting for render client to pick up the job..."
+                    : "Please wait while we render your products..."}
+                </p>
+                {currentJob?.progress !== undefined && currentJob.progress > 0 && (
+                  <div>
+                    <div className="w-full bg-muted rounded-full h-2.5 mb-2">
+                      <div 
+                        className="bg-primary h-2.5 rounded-full transition-all duration-300" 
+                        style={{ width: `${currentJob.progress}%` }}
+                      ></div>
+                    </div>
+                    <p className="text-sm text-muted-foreground">{currentJob.progress}% complete</p>
                   </div>
-                  <p className="text-sm text-gray-500 mt-2">{currentJob.progress}% complete</p>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           )}
 
           {appState === "results" && currentJob && (
-            <div className="space-y-6">
-              <div className="text-center">
-                <h2 className="text-2xl font-bold text-gray-900 mb-2">Render Complete!</h2>
-                <p className="text-gray-600">
-                  Your render job has been completed successfully.
-                </p>
-              </div>
-
-              {currentJob.downloadUrl && (
-                <div className="text-center">
-                  <a
-                    href={currentJob.downloadUrl}
-                    className="inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                  >
-                    <Download className="h-5 w-5 mr-2" />
-                    Download Renders
-                  </a>
+            <div className="text-center py-12">
+              <div className="bg-card border border-border rounded-lg p-8 max-w-md mx-auto">
+                <div className="h-16 w-16 mx-auto bg-green-100 dark:bg-green-900 dark:opacity-20 rounded-full flex items-center justify-center mb-6">
+                  <svg className="h-8 w-8 text-green-600 dark:text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
                 </div>
-              )}
+                <h2 className="text-xl font-semibold mb-2">Render Complete!</h2>
+                <p className="text-muted-foreground mb-6">
+                  Your renders are ready to download
+                </p>
 
-              <div className="flex gap-4">
-                <Button 
-                  onClick={handleReset}
-                  className="flex-1 h-12 bg-blue-600 hover:bg-blue-700 text-white"
-                >
-                  Start New Render
-                </Button>
+                <div className="flex gap-3">
+                  {currentJob.downloadUrl && (
+                    <Button
+                      onClick={() => window.open(currentJob.downloadUrl, '_blank')}
+                      className="flex-1"
+                      size="lg"
+                    >
+                      <Download className="h-4 w-4 mr-2" />
+                      Download Results
+                    </Button>
+                  )}
+                  <Button 
+                    onClick={handleReset}
+                    variant="outline"
+                    className="flex-1"
+                  >
+                    Start New Render
+                  </Button>
+                </div>
               </div>
             </div>
           )}
 
           {appState === "error" && (
             <div className="text-center py-12">
-              <div className="text-red-500 mb-4">
-                <Settings className="h-12 w-12 mx-auto" />
+              <div className="bg-card border border-destructive rounded-lg p-8 max-w-md mx-auto">
+                <div className="h-16 w-16 mx-auto bg-destructive opacity-10 rounded-full flex items-center justify-center mb-6">
+                  <svg className="h-8 w-8 text-destructive" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </div>
+                <h2 className="text-xl font-semibold text-destructive mb-2">Error</h2>
+                <p className="text-muted-foreground mb-6">{error}</p>
+                <Button onClick={handleReset} variant="outline" className="w-full">
+                  Try Again
+                </Button>
               </div>
-              <h2 className="text-xl font-semibold text-red-600 mb-2">Error</h2>
-              <p className="text-gray-600 mb-4">{error}</p>
-              <Button onClick={handleReset} className="bg-blue-600 hover:bg-blue-700 text-white">
-                Try Again
-              </Button>
             </div>
           )}
 
-        </div>
-      </div>
-
-      <style jsx>{`
-        .slider {
-          -webkit-appearance: none;
-          appearance: none;
-          background: #e5e7eb;
-          outline: none;
-          border-radius: 8px;
-          height: 8px;
-        }
-
-        .slider::-webkit-slider-thumb {
-          -webkit-appearance: none;
-          appearance: none;
-          width: 20px;
-          height: 20px;
-          border-radius: 50%;
-          background: #3b82f6;
-          cursor: pointer;
-          border: 2px solid white;
-          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        }
-
-        .slider::-webkit-slider-thumb:hover {
-          background: #2563eb;
-          box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-        }
-
-        .slider::-moz-range-thumb {
-          width: 20px;
-          height: 20px;
-          border-radius: 50%;
-          background: #3b82f6;
-          cursor: pointer;
-          border: 2px solid white;
-          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        }
-
-        .slider::-moz-range-thumb:hover {
-          background: #2563eb;
-          box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-        }
-
-        .settings-item {
-          flex: 1;
-          min-width: 200px;
-        }
-
-        .settings-item label {
-          font-weight: 600;
-          font-size: 0.9rem;
-          color: #4c5a75;
-          margin-bottom: 5px;
-          display: block;
-        }
-
-        .form-select, .form-control {
-          background-color: #f8f9fa;
-          border: 1px solid #ced4da;
-        }
-      `}</style>
     </div>
   );
 }
