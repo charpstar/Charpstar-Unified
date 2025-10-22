@@ -64,7 +64,6 @@ export default function ProductRenderPage() {
   // Load existing jobs and products on mount
   useEffect(() => {
     loadJobs();
-    loadUserProfile();
     
     // Check for active job in localStorage on mount
     const savedJobId = localStorage.getItem('activeRenderJobId');
@@ -103,6 +102,13 @@ export default function ProductRenderPage() {
     }
   }, []);
 
+  // Load user profile when user becomes available
+  useEffect(() => {
+    if (user?.id) {
+      loadUserProfile();
+    }
+  }, [user?.id]);
+
   // Load products when user profile is available
   useEffect(() => {
     if (userProfile) {
@@ -123,12 +129,18 @@ export default function ProductRenderPage() {
   };
 
   const loadUserProfile = async () => {
+    // Don't load profile if user is not authenticated yet
+    if (!user?.id) {
+      console.log("User not loaded yet, skipping profile load");
+      return;
+    }
+
     try {
       const supabase = createClient();
       const { data, error } = await supabase
         .from('profiles')
         .select('role, client')
-        .eq('id', user?.id)
+        .eq('id', user.id)
         .single();
 
       if (error) {
