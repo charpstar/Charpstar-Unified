@@ -1,6 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { writeFile, mkdir } from "fs/promises";
-import { join } from "path";
 import { v4 as uuidv4 } from "uuid";
 import { jobStorage } from "@/lib/job-storage";
 
@@ -27,14 +25,6 @@ export async function POST(request: NextRequest) {
     const previewId = `preview_${uuidv4()}`;
     const jobId = `preview_${uuidv4()}`;
 
-    // Create job directory
-    const jobFolder = join(process.cwd(), "public", "jobs", jobId);
-    await mkdir(jobFolder, { recursive: true });
-
-    // Save the GLB URL to a file (mimicking the server behavior)
-    const filePath = join(jobFolder, "urls.txt");
-    await writeFile(filePath, product.glb_link);
-
     // Adjust settings for preview (front view only, faster render)
     const previewSettings = {
       ...settings,
@@ -42,11 +32,11 @@ export async function POST(request: NextRequest) {
       quality: settings.quality === "high" ? "low" : settings.quality, // Lower quality for preview
     };
 
-    // Store the job
+    // Store the job with GLB URL in memory
     jobStorage.set(jobId, {
       id: jobId,
       status: "queued",
-      file_path: `/jobs/${jobId}/urls.txt`,
+      glb_urls: [product.glb_link], // Store URL directly in memory
       progress: 0,
       settings: previewSettings,
       is_preview: true,
