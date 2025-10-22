@@ -144,6 +144,13 @@ export default function ProductRenderPage() {
   };
 
   const handleProductSelect = (product: any) => {
+    // Check if product has GLB link
+    if (!product.glb_link) {
+      setError(`Product "${product.product_name}" does not have a 3D model file (GLB)`);
+      setAppState("error");
+      return;
+    }
+
     const isAlreadySelected = selectedProducts.some(p => p.id === product.id);
     
     if (isAlreadySelected) {
