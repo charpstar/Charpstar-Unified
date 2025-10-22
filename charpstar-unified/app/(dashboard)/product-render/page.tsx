@@ -65,6 +65,42 @@ export default function ProductRenderPage() {
   useEffect(() => {
     loadJobs();
     loadUserProfile();
+    
+    // Check for active job in localStorage on mount
+    const savedJobId = localStorage.getItem('activeRenderJobId');
+    if (savedJobId) {
+      console.log("[Product Render] Restoring active job:", savedJobId);
+      // Restore the job and start polling
+      setAppState("generating");
+      startLoading();
+      
+      // Fetch the job details
+      fetch(`/api/product-render/jobs/${savedJobId}/status`)
+        .then(res => res.json())
+        .then(data => {
+          console.log("[Product Render] Restored job status:", data);
+          if (data.status === "completed") {
+            setCurrentJob({ ...data, id: savedJobId });
+            setAppState("results");
+            stopLoading();
+            localStorage.removeItem('activeRenderJobId');
+          } else if (data.status === "failed") {
+            setError("Job failed");
+            setAppState("error");
+            stopLoading();
+            localStorage.removeItem('activeRenderJobId');
+          } else {
+            // Job is still processing
+            setCurrentJob({ ...data, id: savedJobId });
+            pollJobStatus(savedJobId);
+          }
+        })
+        .catch(error => {
+          console.error("Error restoring job:", error);
+          localStorage.removeItem('activeRenderJobId');
+          stopLoading();
+        });
+    }
   }, []);
 
   // Load products when user profile is available
@@ -202,6 +238,10 @@ export default function ProductRenderPage() {
 
       const data = await response.json();
       setCurrentJob(data.job);
+      
+      // Save job ID to localStorage so it persists across page refreshes
+      localStorage.setItem('activeRenderJobId', data.job.id);
+      
       // Stay in "generating" state while job is being processed
       // pollJobStatus will update to "results" when complete
       
@@ -236,10 +276,12 @@ export default function ProductRenderPage() {
         if (data.status === "completed") {
           setCurrentJob(prev => prev ? { ...prev, status: "completed", downloadUrl: data.downloadUrl } : null);
           setAppState("results"); // Show results screen when complete
+          localStorage.removeItem('activeRenderJobId'); // Clear saved job
           stopLoading();
         } else if (data.status === "failed") {
           setError("Job failed");
           setAppState("error");
+          localStorage.removeItem('activeRenderJobId'); // Clear saved job
           stopLoading();
         } else {
           // Still processing, update progress and check again in 2 seconds
@@ -249,6 +291,7 @@ export default function ProductRenderPage() {
           if (data.status === "queued" && pollCount >= maxPollsBeforeWarning) {
             setError("Job has been queued for over 60 seconds. Make sure the render client is running.");
             setAppState("error");
+            localStorage.removeItem('activeRenderJobId'); // Clear saved job
             stopLoading();
             return;
           }
@@ -259,6 +302,7 @@ export default function ProductRenderPage() {
         console.error("Error checking job status:", error);
         setError("Failed to check job status");
         setAppState("error");
+        localStorage.removeItem('activeRenderJobId'); // Clear saved job
         stopLoading();
       }
     };
