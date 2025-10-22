@@ -1,6 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { writeFile, mkdir } from "fs/promises";
-import { join } from "path";
 import { v4 as uuidv4 } from "uuid";
 import { jobStorage } from "@/lib/job-storage";
 
@@ -54,18 +52,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create job directory
-    const jobFolder = join(process.cwd(), "public", "jobs", jobId);
-    console.log("[Product Render API] Creating job folder:", jobFolder);
-    await mkdir(jobFolder, { recursive: true });
+    // Extract GLB URLs from products
+    const glbUrls = products.map(product => product.glb_link);
+    console.log("[Product Render API] GLB URLs:", glbUrls);
 
-    // Save the GLB URLs to a file (one per line)
-    const filePath = join(jobFolder, "urls.txt");
-    const glbUrls = products.map(product => product.glb_link).join('\n');
-    console.log("[Product Render API] Writing GLB URLs to:", filePath);
-    await writeFile(filePath, glbUrls);
-
-    // Create the job
+    // Create the job with URLs stored directly in memory
     const job = {
       id: jobId,
       status: 'queued' as const,
@@ -74,7 +65,7 @@ export async function POST(request: NextRequest) {
       settings,
       createdAt: new Date().toISOString(),
       downloadUrl: undefined,
-      file_path: `/jobs/${jobId}/urls.txt`,
+      glb_urls: glbUrls, // Store URLs directly in the job object
     };
 
     // Store the job

@@ -19,7 +19,7 @@ export async function GET() {
     // Return job in the format expected by the client
     return NextResponse.json({
       job_id: queuedJob.id,
-      file_path: queuedJob.file_path,
+      glb_urls: queuedJob.glb_urls || [], // Array of GLB URLs to render
       options: queuedJob.settings, // Client expects 'options' not 'settings'
       settings: queuedJob.settings, // Also provide as 'settings' for compatibility
     });

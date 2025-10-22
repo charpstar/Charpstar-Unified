@@ -9,7 +9,7 @@ interface Job {
   settings?: any;
   createdAt: string;
   downloadUrl?: string;
-  file_path?: string;
+  glb_urls?: string[]; // Array of GLB URLs to render
   is_preview?: boolean;
   preview_for?: string;
   product_name?: string;
