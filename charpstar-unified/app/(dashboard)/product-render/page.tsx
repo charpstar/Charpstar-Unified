@@ -219,14 +219,19 @@ export default function ProductRenderPage() {
   };
 
   const pollJobStatus = async (jobId: string) => {
+    let pollCount = 0;
+    const maxPollsBeforeWarning = 30; // 30 polls * 2 seconds = 60 seconds
+    
     const checkStatus = async () => {
       try {
+        pollCount++;
         const response = await fetch(`/api/product-render/jobs/${jobId}/status`);
         if (!response.ok) {
           throw new Error("Failed to check job status");
         }
 
         const data = await response.json();
+        console.log("[Product Render] Job status:", data);
         
         if (data.status === "completed") {
           setCurrentJob(prev => prev ? { ...prev, status: "completed", downloadUrl: data.downloadUrl } : null);
@@ -239,6 +244,15 @@ export default function ProductRenderPage() {
         } else {
           // Still processing, update progress and check again in 2 seconds
           setCurrentJob(prev => prev ? { ...prev, status: data.status, progress: data.progress } : null);
+          
+          // Warn if job has been queued for too long
+          if (data.status === "queued" && pollCount >= maxPollsBeforeWarning) {
+            setError("Job has been queued for over 60 seconds. Make sure the render client is running.");
+            setAppState("error");
+            stopLoading();
+            return;
+          }
+          
           setTimeout(checkStatus, 2000);
         }
       } catch (error) {

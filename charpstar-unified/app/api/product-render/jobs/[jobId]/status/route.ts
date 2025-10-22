@@ -54,11 +54,19 @@ export async function GET(
 
     const job = jobStorage.get(jobId);
     if (!job) {
+      console.log("[Job Status API] Job not found:", jobId);
       return NextResponse.json(
         { error: "Job not found" },
         { status: 404 }
       );
     }
+
+    console.log("[Job Status API] Job status:", {
+      id: job.id,
+      status: job.status,
+      progress: job.progress,
+      downloadUrl: job.downloadUrl
+    });
 
     return NextResponse.json({
       id: job.id,
