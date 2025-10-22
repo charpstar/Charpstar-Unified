@@ -21,7 +21,6 @@ import {
   Layers,
   Sparkles,
   BarChart3,
-  UserPlus,
 } from "lucide-react";
 
 import NavMain from "@/components/navigation/nav-main";
