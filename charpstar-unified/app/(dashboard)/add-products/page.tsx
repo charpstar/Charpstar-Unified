@@ -31,6 +31,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/containers/dialog";
+import { ViewReferencesDialog } from "@/components/ui/containers/ViewReferencesDialog";
 import {
   Plus,
   ArrowLeft,
@@ -107,6 +108,11 @@ export default function AddProductsPage() {
     number | null
   >(null);
   const [showReferencesDialog, setShowReferencesDialog] = useState(false);
+  const [showViewReferencesDialog, setShowViewReferencesDialog] =
+    useState(false);
+  const [viewingReferencesIndex, setViewingReferencesIndex] = useState<
+    number | null
+  >(null);
   const [recentReferences, setRecentReferences] = useState<
     { type: "url" | "file"; value: string; file?: File }[]
   >([]);
@@ -1127,20 +1133,36 @@ export default function AddProductsPage() {
                           />
                         </TableCell>
                         <TableCell>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              setEditingReferencesIndex(index);
-                              setShowReferencesDialog(true);
-                            }}
-                            className="h-9 text-xs cursor-pointer"
-                          >
-                            <FileText className="h-3 w-3 mr-1" />
-                            {product.references.length > 0
-                              ? product.references.length
-                              : "Add"}
-                          </Button>
+                          <div className="flex gap-1">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setEditingReferencesIndex(index);
+                                setShowReferencesDialog(true);
+                              }}
+                              className="h-9 text-xs cursor-pointer"
+                            >
+                              <FileText className="h-3 w-3 mr-1" />
+                              {product.references.length > 0
+                                ? product.references.length
+                                : "Add"}
+                            </Button>
+                            {product.references.length > 0 && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setViewingReferencesIndex(index);
+                                  setShowViewReferencesDialog(true);
+                                }}
+                                className="h-9 text-xs cursor-pointer"
+                                title="View References"
+                              >
+                                <Eye className="h-3 w-3" />
+                              </Button>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell>
                           {products.length > 1 && (
@@ -2401,6 +2423,26 @@ export default function AddProductsPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* View References Dialog */}
+      {viewingReferencesIndex !== null && (
+        <ViewReferencesDialog
+          open={showViewReferencesDialog}
+          onOpenChange={setShowViewReferencesDialog}
+          asset={{
+            product_name:
+              products[viewingReferencesIndex]?.product_name ||
+              `Product ${viewingReferencesIndex + 1}`,
+            article_id: products[viewingReferencesIndex]?.article_id || "",
+            measurements: products[viewingReferencesIndex]?.measurements
+              ? `${products[viewingReferencesIndex].measurements.height},${products[viewingReferencesIndex].measurements.width},${products[viewingReferencesIndex].measurements.depth}`
+              : null,
+          }}
+          temporaryReferences={
+            products[viewingReferencesIndex]?.references || []
+          }
+        />
+      )}
     </div>
   );
 }

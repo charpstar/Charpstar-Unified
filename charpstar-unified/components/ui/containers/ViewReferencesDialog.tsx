@@ -44,6 +44,12 @@ interface ViewReferencesDialogProps {
   onOpenChange: (open: boolean) => void;
   asset: any;
   onAddReference?: () => void;
+  // Add support for temporary references from add-products page
+  temporaryReferences?: Array<{
+    type: "url" | "file";
+    value: string;
+    file?: File;
+  }>;
 }
 
 // Helper function to parse measurements
@@ -85,6 +91,7 @@ export function ViewReferencesDialog({
   onOpenChange,
   asset,
   onAddReference,
+  temporaryReferences = [],
 }: ViewReferencesDialogProps) {
   const [isDownloading, setIsDownloading] = useState(false);
   const [isEditingMeasurements, setIsEditingMeasurements] = useState(false);
@@ -95,9 +102,19 @@ export function ViewReferencesDialog({
   const user = useUser();
   const isModeler = user?.metadata?.role === "modeler";
 
-  // Get all files (GLB + references)
+  // Get all files (GLB + references + temporary references)
   const allReferences = asset ? parseReferences(asset.reference) : [];
   const hasDirectGlb = asset?.glb_link;
+
+  // Combine database references with temporary references
+  const allFiles = [
+    ...allReferences.map((ref) => ({
+      type: "url" as const,
+      value: ref,
+      file: undefined,
+    })),
+    ...temporaryReferences,
+  ];
 
   // Get measurements if available
   const measurements = asset ? parseMeasurements(asset.measurements) : null;
@@ -119,15 +136,21 @@ export function ViewReferencesDialog({
     });
   }
 
-  // Categorize references
-  allReferences.forEach((ref, index) => {
-    if (!hasDirectGlb || ref !== asset.glb_link) {
+  // Categorize all files (database + temporary)
+  allFiles.forEach((fileRef, index) => {
+    const ref = fileRef.value;
+    if (!hasDirectGlb || ref !== asset?.glb_link) {
       const extension = ref.toLowerCase().split(".").pop() || "";
-      const fileName = ref.split("/").pop() || `File ${index + 1}`;
+      const fileName = fileRef.file
+        ? fileRef.file.name
+        : ref.split("/").pop() || `File ${index + 1}`;
+
+      // Create preview URL for temporary files
+      const previewUrl = fileRef.file ? URL.createObjectURL(fileRef.file) : ref;
 
       if (extension === "glb") {
         categories.glb.push({
-          url: ref,
+          url: previewUrl,
           name: fileName,
           isDirect: false,
         });
@@ -135,17 +158,17 @@ export function ViewReferencesDialog({
         ["jpg", "jpeg", "png", "gif", "webp", "svg"].includes(extension)
       ) {
         categories.images.push({
-          url: ref,
+          url: previewUrl,
           name: fileName,
         });
       } else if (["pdf", "doc", "docx", "txt", "rtf"].includes(extension)) {
         categories.documents.push({
-          url: ref,
+          url: previewUrl,
           name: fileName,
         });
       } else {
         categories.other.push({
-          url: ref,
+          url: previewUrl,
           name: fileName,
         });
       }
@@ -296,13 +319,25 @@ export function ViewReferencesDialog({
           .replace(/:/g, "-");
         const fileName = `${baseName}_${file.type}_${timestamp}.${extension}`;
 
-        // Use fetch to get the file and then create a blob download
-        const response = await fetch(file.url);
-        if (!response.ok) {
-          throw new Error(`Failed to fetch ${file.name}`);
+        let blob: Blob;
+
+        // Check if this is a temporary file (blob URL)
+        if (file.url.startsWith("blob:")) {
+          // For temporary files, fetch the blob directly
+          const response = await fetch(file.url);
+          if (!response.ok) {
+            throw new Error(`Failed to fetch ${file.name}`);
+          }
+          blob = await response.blob();
+        } else {
+          // For regular URLs, fetch normally
+          const response = await fetch(file.url);
+          if (!response.ok) {
+            throw new Error(`Failed to fetch ${file.name}`);
+          }
+          blob = await response.blob();
         }
 
-        const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
 
         const link = document.createElement("a");
@@ -332,12 +367,25 @@ export function ViewReferencesDialog({
   // Function to download individual GLB file
   const downloadGlbFile = async (file: FileItem) => {
     try {
-      const response = await fetch(file.url);
-      if (!response.ok) {
-        throw new Error(`Failed to fetch ${file.name}`);
+      let blob: Blob;
+
+      // Check if this is a temporary file (blob URL)
+      if (file.url.startsWith("blob:")) {
+        // For temporary files, fetch the blob directly
+        const response = await fetch(file.url);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch ${file.name}`);
+        }
+        blob = await response.blob();
+      } else {
+        // For regular URLs, fetch normally
+        const response = await fetch(file.url);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch ${file.name}`);
+        }
+        blob = await response.blob();
       }
 
-      const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
 
       const link = document.createElement("a");
@@ -652,11 +700,18 @@ export function ViewReferencesDialog({
                         <p className="text-xs text-muted-foreground dark:text-muted-foreground truncate">
                           {file.url}
                         </p>
-                        {file.isDirect && (
-                          <Badge variant="outline" className="text-xs mt-1">
-                            Primary Model
-                          </Badge>
-                        )}
+                        <div className="flex gap-1 mt-1">
+                          {file.isDirect && (
+                            <Badge variant="outline" className="text-xs">
+                              Primary Model
+                            </Badge>
+                          )}
+                          {file.url.startsWith("blob:") && (
+                            <Badge variant="secondary" className="text-xs">
+                              Temporary
+                            </Badge>
+                          )}
+                        </div>
                       </div>
                     </div>
                     <Button
@@ -717,6 +772,11 @@ export function ViewReferencesDialog({
                         <p className="text-xs sm:text-sm font-medium truncate dark:text-foreground">
                           {file.name}
                         </p>
+                        {file.url.startsWith("blob:") && (
+                          <Badge variant="secondary" className="text-xs mt-1">
+                            Temporary
+                          </Badge>
+                        )}
                       </div>
                     </div>
                     <Button
@@ -761,6 +821,11 @@ export function ViewReferencesDialog({
                         <p className="text-xs text-muted-foreground dark:text-muted-foreground truncate">
                           {file.url}
                         </p>
+                        {file.url.startsWith("blob:") && (
+                          <Badge variant="secondary" className="text-xs mt-1">
+                            Temporary
+                          </Badge>
+                        )}
                       </div>
                     </div>
                     <Button
@@ -805,6 +870,11 @@ export function ViewReferencesDialog({
                         <p className="text-xs text-muted-foreground dark:text-muted-foreground truncate">
                           {file.url}
                         </p>
+                        {file.url.startsWith("blob:") && (
+                          <Badge variant="secondary" className="text-xs mt-1">
+                            Temporary
+                          </Badge>
+                        )}
                       </div>
                     </div>
                     <Button

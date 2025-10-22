@@ -127,12 +127,12 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
       <div className="w-full h-full flex flex-col items-center glass-card p-6 rounded-2xl shadow-2xl animate-fade-in overflow-hidden">
         <h2 className="text-2xl sm:text-3xl font-bold text-foreground mb-2">
           {showComparison
-            ? "Your AI-Upscaled Scene is Ready!"
+            ? "Your Upscaled Scene is Ready!"
             : "Your Premium Scene is Ready!"}
         </h2>
         <p className="text-sm text-muted-foreground mb-6">
           {showComparison
-            ? "High-quality AI-upscaled scene (4096x2048) generated and ready for download"
+            ? "High-quality upscaled scene (4096x2048) generated and ready for download"
             : "High-quality product scene generated and ready for download"}
         </p>
 
@@ -142,7 +142,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
             <div className="text-center mb-4">
               <span className="inline-flex items-center gap-2 px-3 py-1 bg-primary/10 text-primary rounded-full text-sm font-medium">
                 <div className="w-2 h-2 rounded-full bg-primary"></div>
-                AI Upscaled (4096x2048)
+                Upscaled Scene (4096x2048)
               </span>
             </div>
 
@@ -167,7 +167,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
 
               <Image
                 src={upscaledImageUrl}
-                alt="AI upscaled product scene"
+                alt="Upscaled Scene"
                 className={`w-full h-full object-contain bg-muted transition-all duration-300 h-auto  ${
                   isImageLoading
                     ? "opacity-0"
@@ -291,7 +291,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
           <div className="relative" onClick={(e) => e.stopPropagation()}>
             <Image
               src={upscaledImageUrl || imageUrl}
-              alt="AI upscaled product scene in fullscreen"
+              alt="Upscaled Scene in fullscreen"
               className="max-h-[90vh] max-w-[90vw] object-contain rounded-lg shadow-2xl"
               width={1920}
               height={1920}

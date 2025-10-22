@@ -2507,83 +2507,328 @@ export default function ProductionDashboard() {
         </div>
 
         {/* Cards Grid Skeleton */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div
-              key={i}
-              className="border rounded-lg p-0 bg-background shadow-sm"
-            >
-              {/* Card Header Skeleton */}
-              <div className="p-6 pb-3 space-y-3">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1 min-w-0 space-y-3">
-                    {/* Title */}
-                    <div className="h-6 w-3/4 bg-muted animate-pulse rounded" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+          {Array.from({ length: itemsPerPage }).map((_, i) => {
+            if (viewMode === "clients") {
+              return (
+                <Card
+                  key={i}
+                  className="card-enhanced group rounded-xl animate-pulse"
+                >
+                  {/* Background Pattern */}
+                  <div className="absolute inset-0 bg-grid-pattern opacity-5 pointer-events-none" />
 
-                    {/* Key Metrics Row */}
-                    <div className="grid grid-cols-3 gap-2">
-                      <div className="flex items-center gap-1">
-                        <div className="h-4 w-4 bg-muted animate-pulse rounded" />
-                        <div className="h-4 w-16 bg-muted animate-pulse rounded" />
+                  <CardHeader className="relative z-10 pb-4">
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-3 mb-3">
+                          <div>
+                            <div className="h-6 bg-muted rounded w-48 mb-1"></div>
+                            <div className="flex items-center gap-2">
+                              <div className="h-3 w-3 bg-muted rounded"></div>
+                              <div className="h-3 bg-muted rounded w-16"></div>
+                              <div className="h-3 bg-muted rounded w-1"></div>
+                              <div className="h-3 w-3 bg-muted rounded"></div>
+                              <div className="h-3 bg-muted rounded w-20"></div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Progress Section */}
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <div className="h-4 bg-muted rounded w-24"></div>
+                            <div className="flex items-center gap-2">
+                              <div className="h-8 bg-muted rounded w-12"></div>
+                              <div className="h-4 w-4 bg-muted rounded"></div>
+                            </div>
+                          </div>
+
+                          {/* Modern Progress Bar */}
+                          <div className="relative">
+                            <div className="h-3 bg-muted rounded-full"></div>
+                            <div className="flex justify-between text-xs text-muted-foreground mt-2">
+                              <div className="h-3 bg-muted rounded w-20"></div>
+                              <div className="h-3 bg-muted rounded w-16"></div>
+                            </div>
+                          </div>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-1">
-                        <div className="h-4 w-4 bg-muted animate-pulse rounded" />
-                        <div className="h-4 w-20 bg-muted animate-pulse rounded" />
+                    </div>
+                  </CardHeader>
+
+                  <CardContent className="relative z-10 pt-0">
+                    {/* Status Pills */}
+                    <div className="flex flex-wrap gap-2 mb-4">
+                      <div className="h-6 bg-muted rounded-full w-16"></div>
+                      <div className="h-6 bg-muted rounded-full w-20"></div>
+                      <div className="h-6 bg-muted rounded-full w-18"></div>
+                      <div className="h-6 bg-muted rounded-full w-14"></div>
+                    </div>
+
+                    {/* Action Button */}
+                    <div className="h-11 bg-muted rounded-lg"></div>
+                  </CardContent>
+                </Card>
+              );
+            } else if (viewMode === "batches") {
+              return (
+                <Card
+                  key={i}
+                  className="card-enhanced group rounded-xl animate-pulse"
+                >
+                  {/* Background Pattern */}
+                  <div className="absolute inset-0 bg-grid-pattern opacity-5 pointer-events-none" />
+
+                  <CardHeader className="relative z-10 pb-4">
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-3 mb-3">
+                          <div>
+                            <div className="h-6 bg-muted rounded w-56 mb-1"></div>
+                            <div className="flex items-center gap-2">
+                              <div className="h-3 w-3 bg-muted rounded"></div>
+                              <div className="h-3 bg-muted rounded w-16"></div>
+                              <div className="h-3 bg-muted rounded w-1"></div>
+                              <div className="h-3 w-3 bg-muted rounded"></div>
+                              <div className="h-3 bg-muted rounded w-24"></div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Progress Section */}
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <div className="h-4 bg-muted rounded w-16"></div>
+                            <div className="flex items-center gap-2">
+                              <div className="h-8 bg-muted rounded w-12"></div>
+                              <div className="h-4 w-4 bg-muted rounded"></div>
+                            </div>
+                          </div>
+
+                          {/* Modern Progress Bar */}
+                          <div className="relative">
+                            <div className="h-3 bg-muted rounded-full"></div>
+                            <div className="flex justify-between text-xs text-muted-foreground mt-2">
+                              <div className="h-3 bg-muted rounded w-20"></div>
+                              <div className="h-3 bg-muted rounded w-16"></div>
+                            </div>
+                          </div>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-1">
-                        <div className="h-4 w-4 bg-muted animate-pulse rounded" />
-                        <div className="h-4 w-18 bg-muted animate-pulse rounded" />
+                    </div>
+                  </CardHeader>
+
+                  <CardContent className="relative z-10 pt-0">
+                    {/* Status Pills */}
+                    <div className="flex flex-wrap gap-2 mb-4">
+                      <div className="h-6 bg-muted rounded-full w-16"></div>
+                      <div className="h-6 bg-muted rounded-full w-20"></div>
+                      <div className="h-6 bg-muted rounded-full w-18"></div>
+                      <div className="h-6 bg-muted rounded-full w-14"></div>
+                    </div>
+
+                    {/* Action Button */}
+                    <div className="h-11 bg-muted rounded-lg"></div>
+                  </CardContent>
+                </Card>
+              );
+            } else if (viewMode === "modelers") {
+              return (
+                <Card
+                  key={i}
+                  className="card-enhanced group rounded-xl animate-pulse"
+                >
+                  {/* Background Pattern */}
+                  <div className="absolute inset-0 bg-grid-pattern opacity-5 pointer-events-none" />
+
+                  <CardHeader className="relative z-10 pb-4">
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-3 mb-3">
+                          <div>
+                            <div className="h-6 bg-muted rounded w-40 mb-1"></div>
+                            <div className="flex items-center gap-2">
+                              <div className="h-3 w-3 bg-muted rounded"></div>
+                              <div className="h-3 bg-muted rounded w-16"></div>
+                              <div className="h-3 bg-muted rounded w-1"></div>
+                              <div className="h-3 w-3 bg-muted rounded"></div>
+                              <div className="h-3 bg-muted rounded w-32"></div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <div className="h-4 bg-muted rounded w-16"></div>
+                            <div className="flex items-center gap-2">
+                              <div className="h-8 bg-muted rounded w-12"></div>
+                              <div className="h-4 w-4 bg-muted rounded"></div>
+                            </div>
+                          </div>
+
+                          {/* Modern Progress Bar */}
+                          <div className="relative">
+                            <div className="h-3 bg-muted rounded-full"></div>
+                            <div className="flex justify-between text-xs text-muted-foreground mt-2">
+                              <div className="h-3 bg-muted rounded w-20"></div>
+                              <div className="h-3 bg-muted rounded w-16"></div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-start gap-2 ml-2 sm:ml-4">
+                        <div className="h-8 bg-muted rounded w-16"></div>
+                      </div>
+                    </div>
+                  </CardHeader>
+
+                  <CardContent className="relative z-10 pt-0">
+                    <div className="flex flex-wrap gap-2 mb-4">
+                      <div className="h-6 bg-muted rounded-full w-16"></div>
+                      <div className="h-6 bg-muted rounded-full w-20"></div>
+                      <div className="h-6 bg-muted rounded-full w-18"></div>
+                      <div className="h-6 bg-muted rounded-full w-14"></div>
+                    </div>
+
+                    {/* Action Button */}
+                    <div className="h-11 bg-muted rounded-lg"></div>
+                  </CardContent>
+                </Card>
+              );
+            } else if (viewMode === "qa") {
+              return (
+                <Card
+                  key={i}
+                  className="card-enhanced group rounded-xl animate-pulse"
+                >
+                  {/* Background Pattern */}
+                  <div className="absolute inset-0 bg-grid-pattern opacity-5 pointer-events-none" />
+
+                  <CardHeader className="relative z-10 pb-4">
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-3 mb-3">
+                          <div>
+                            <div className="h-6 bg-muted rounded w-40 mb-1"></div>
+                            <div className="flex items-center gap-2">
+                              <div className="h-3 w-3 bg-muted rounded"></div>
+                              <div className="h-3 bg-muted rounded w-16"></div>
+                              <div className="h-3 bg-muted rounded w-1"></div>
+                              <div className="h-3 w-3 bg-muted rounded"></div>
+                              <div className="h-3 bg-muted rounded w-24"></div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <div className="h-4 bg-muted rounded w-24"></div>
+                            <div className="flex items-center gap-2">
+                              <div className="h-8 bg-muted rounded w-12"></div>
+                            </div>
+                          </div>
+
+                          {/* Modern Progress Bar */}
+                          <div className="relative">
+                            <div className="h-3 bg-muted rounded-full"></div>
+                            <div className="flex justify-between text-xs text-muted-foreground mt-2">
+                              <div className="h-3 bg-muted rounded w-20"></div>
+                              <div className="h-3 bg-muted rounded w-16"></div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </CardHeader>
+
+                  <CardContent className="relative z-10 pt-0">
+                    <div className="flex flex-wrap gap-2 mb-4">
+                      <div className="h-6 bg-muted rounded-full w-16"></div>
+                      <div className="h-6 bg-muted rounded-full w-20"></div>
+                      <div className="h-6 bg-muted rounded-full w-18"></div>
+                      <div className="h-6 bg-muted rounded-full w-14"></div>
+                    </div>
+
+                    {/* Connected Modelers */}
+                    <div className="space-y-3 mb-4">
+                      <div className="h-4 bg-muted rounded w-32"></div>
+                      <div className="space-y-2">
+                        <div className="h-8 bg-muted rounded w-full"></div>
+                        <div className="h-8 bg-muted rounded w-full"></div>
+                        <div className="h-8 bg-muted rounded w-3/4"></div>
                       </div>
                     </div>
 
-                    {/* Progress Bar Section */}
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <div className="h-4 w-16 bg-muted animate-pulse rounded" />
-                        <div className="h-5 w-10 bg-muted animate-pulse rounded" />
+                    {/* Action Button */}
+                    <div className="h-11 bg-muted rounded-lg"></div>
+                  </CardContent>
+                </Card>
+              );
+            }
+
+            // Fallback skeleton
+            return (
+              <Card
+                key={i}
+                className="card-enhanced group rounded-xl animate-pulse"
+              >
+                {/* Background Pattern */}
+                <div className="absolute inset-0 bg-grid-pattern opacity-5 pointer-events-none" />
+
+                <CardHeader className="relative z-10 pb-4">
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-3 mb-3">
+                        <div>
+                          <div className="h-6 bg-muted rounded w-48 mb-1"></div>
+                          <div className="flex items-center gap-2">
+                            <div className="h-3 w-3 bg-muted rounded"></div>
+                            <div className="h-3 bg-muted rounded w-16"></div>
+                            <div className="h-3 bg-muted rounded w-1"></div>
+                            <div className="h-3 w-3 bg-muted rounded"></div>
+                            <div className="h-3 bg-muted rounded w-20"></div>
+                          </div>
+                        </div>
                       </div>
-                      <div className="h-2 w-full bg-muted animate-pulse rounded-full" />
-                      <div className="flex justify-between">
-                        <div className="h-3 w-20 bg-muted animate-pulse rounded" />
-                        <div className="h-3 w-16 bg-muted animate-pulse rounded" />
+
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="h-4 bg-muted rounded w-24"></div>
+                          <div className="flex items-center gap-2">
+                            <div className="h-8 bg-muted rounded w-12"></div>
+                            <div className="h-4 w-4 bg-muted rounded"></div>
+                          </div>
+                        </div>
+
+                        {/* Modern Progress Bar */}
+                        <div className="relative">
+                          <div className="h-3 bg-muted rounded-full"></div>
+                          <div className="flex justify-between text-xs text-muted-foreground mt-2">
+                            <div className="h-3 bg-muted rounded w-20"></div>
+                            <div className="h-3 bg-muted rounded w-16"></div>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              </div>
+                </CardHeader>
 
-              {/* Separator */}
-              <div className="mx-6 h-px bg-muted" />
-
-              {/* Card Content Skeleton */}
-              <div className="p-6 pt-4">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {/* Left Column - Chart */}
-                  <div className="flex items-center justify-center">
-                    <div className="w-32 h-32 bg-muted animate-pulse rounded-full" />
+                <CardContent className="relative z-10 pt-0">
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    <div className="h-6 bg-muted rounded-full w-16"></div>
+                    <div className="h-6 bg-muted rounded-full w-20"></div>
+                    <div className="h-6 bg-muted rounded-full w-18"></div>
+                    <div className="h-6 bg-muted rounded-full w-14"></div>
                   </div>
 
-                  {/* Right Column - Status/Batches */}
-                  <div className="space-y-3">
-                    <div className="h-4 w-24 bg-muted animate-pulse rounded" />
-                    <div className="space-y-2">
-                      {Array.from({ length: 3 }).map((_, j) => (
-                        <div
-                          key={j}
-                          className="h-8 w-full bg-muted animate-pulse rounded"
-                        />
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Action Button Skeleton */}
-                <div className="mt-6 pt-4 border-t">
-                  <div className="h-8 w-full bg-muted animate-pulse rounded" />
-                </div>
-              </div>
-            </div>
-          ))}
+                  {/* Action Button */}
+                  <div className="h-11 bg-muted rounded-lg"></div>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       </div>
     );
@@ -2812,19 +3057,327 @@ export default function ProductionDashboard() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
         {loading
           ? // Loading skeleton for current view
-            Array.from({ length: itemsPerPage }).map((_, i) => (
-              <div
-                key={i}
-                className="border rounded-lg p-6 bg-background shadow-sm animate-pulse"
-              >
-                <div className="space-y-4">
-                  <div className="h-6 bg-muted rounded w-3/4"></div>
-                  <div className="h-4 bg-muted rounded w-1/2"></div>
-                  <div className="h-2 bg-muted rounded w-full"></div>
-                  <div className="h-32 bg-muted rounded"></div>
-                </div>
-              </div>
-            ))
+            Array.from({ length: itemsPerPage }).map((_, i) => {
+              if (viewMode === "clients") {
+                return (
+                  <Card
+                    key={i}
+                    className="card-enhanced group rounded-xl animate-pulse"
+                  >
+                    {/* Background Pattern */}
+                    <div className="absolute inset-0 bg-grid-pattern opacity-5 pointer-events-none" />
+
+                    <CardHeader className="relative z-10 pb-4">
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-3 mb-3">
+                            <div>
+                              <div className="h-6 bg-muted rounded w-48 mb-1"></div>
+                              <div className="flex items-center gap-2">
+                                <div className="h-3 w-3 bg-muted rounded"></div>
+                                <div className="h-3 bg-muted rounded w-16"></div>
+                                <div className="h-3 bg-muted rounded w-1"></div>
+                                <div className="h-3 w-3 bg-muted rounded"></div>
+                                <div className="h-3 bg-muted rounded w-20"></div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Progress Section */}
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                              <div className="h-4 bg-muted rounded w-24"></div>
+                              <div className="flex items-center gap-2">
+                                <div className="h-8 bg-muted rounded w-12"></div>
+                                <div className="h-4 w-4 bg-muted rounded"></div>
+                              </div>
+                            </div>
+
+                            {/* Modern Progress Bar */}
+                            <div className="relative">
+                              <div className="h-3 bg-muted rounded-full"></div>
+                              <div className="flex justify-between text-xs text-muted-foreground mt-2">
+                                <div className="h-3 bg-muted rounded w-20"></div>
+                                <div className="h-3 bg-muted rounded w-16"></div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </CardHeader>
+
+                    <CardContent className="relative z-10 pt-0">
+                      {/* Status Pills */}
+                      <div className="flex flex-wrap gap-2 mb-4">
+                        <div className="h-6 bg-muted rounded-full w-16"></div>
+                        <div className="h-6 bg-muted rounded-full w-20"></div>
+                        <div className="h-6 bg-muted rounded-full w-18"></div>
+                        <div className="h-6 bg-muted rounded-full w-14"></div>
+                      </div>
+
+                      {/* Action Button */}
+                      <div className="h-11 bg-muted rounded-lg"></div>
+                    </CardContent>
+                  </Card>
+                );
+              } else if (viewMode === "batches") {
+                return (
+                  <Card
+                    key={i}
+                    className="card-enhanced group rounded-xl animate-pulse"
+                  >
+                    {/* Background Pattern */}
+                    <div className="absolute inset-0 bg-grid-pattern opacity-5 pointer-events-none" />
+
+                    <CardHeader className="relative z-10 pb-4">
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-3 mb-3">
+                            <div>
+                              <div className="h-6 bg-muted rounded w-56 mb-1"></div>
+                              <div className="flex items-center gap-2">
+                                <div className="h-3 w-3 bg-muted rounded"></div>
+                                <div className="h-3 bg-muted rounded w-16"></div>
+                                <div className="h-3 bg-muted rounded w-1"></div>
+                                <div className="h-3 w-3 bg-muted rounded"></div>
+                                <div className="h-3 bg-muted rounded w-24"></div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Progress Section */}
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                              <div className="h-4 bg-muted rounded w-16"></div>
+                              <div className="flex items-center gap-2">
+                                <div className="h-8 bg-muted rounded w-12"></div>
+                                <div className="h-4 w-4 bg-muted rounded"></div>
+                              </div>
+                            </div>
+
+                            {/* Modern Progress Bar */}
+                            <div className="relative">
+                              <div className="h-3 bg-muted rounded-full"></div>
+                              <div className="flex justify-between text-xs text-muted-foreground mt-2">
+                                <div className="h-3 bg-muted rounded w-20"></div>
+                                <div className="h-3 bg-muted rounded w-16"></div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </CardHeader>
+
+                    <CardContent className="relative z-10 pt-0">
+                      {/* Status Pills */}
+                      <div className="flex flex-wrap gap-2 mb-4">
+                        <div className="h-6 bg-muted rounded-full w-16"></div>
+                        <div className="h-6 bg-muted rounded-full w-20"></div>
+                        <div className="h-6 bg-muted rounded-full w-18"></div>
+                        <div className="h-6 bg-muted rounded-full w-14"></div>
+                      </div>
+
+                      {/* Action Button */}
+                      <div className="h-11 bg-muted rounded-lg"></div>
+                    </CardContent>
+                  </Card>
+                );
+              } else if (viewMode === "modelers") {
+                return (
+                  <Card
+                    key={i}
+                    className="card-enhanced group rounded-xl animate-pulse"
+                  >
+                    {/* Background Pattern */}
+                    <div className="absolute inset-0 bg-grid-pattern opacity-5 pointer-events-none" />
+
+                    <CardHeader className="relative z-10 pb-4">
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-3 mb-3">
+                            <div>
+                              <div className="h-6 bg-muted rounded w-40 mb-1"></div>
+                              <div className="flex items-center gap-2">
+                                <div className="h-3 w-3 bg-muted rounded"></div>
+                                <div className="h-3 bg-muted rounded w-16"></div>
+                                <div className="h-3 bg-muted rounded w-1"></div>
+                                <div className="h-3 w-3 bg-muted rounded"></div>
+                                <div className="h-3 bg-muted rounded w-32"></div>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                              <div className="h-4 bg-muted rounded w-16"></div>
+                              <div className="flex items-center gap-2">
+                                <div className="h-8 bg-muted rounded w-12"></div>
+                                <div className="h-4 w-4 bg-muted rounded"></div>
+                              </div>
+                            </div>
+
+                            {/* Modern Progress Bar */}
+                            <div className="relative">
+                              <div className="h-3 bg-muted rounded-full"></div>
+                              <div className="flex justify-between text-xs text-muted-foreground mt-2">
+                                <div className="h-3 bg-muted rounded w-20"></div>
+                                <div className="h-3 bg-muted rounded w-16"></div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-start gap-2 ml-2 sm:ml-4">
+                          <div className="h-8 bg-muted rounded w-16"></div>
+                        </div>
+                      </div>
+                    </CardHeader>
+
+                    <CardContent className="relative z-10 pt-0">
+                      <div className="flex flex-wrap gap-2 mb-4">
+                        <div className="h-6 bg-muted rounded-full w-16"></div>
+                        <div className="h-6 bg-muted rounded-full w-20"></div>
+                        <div className="h-6 bg-muted rounded-full w-18"></div>
+                        <div className="h-6 bg-muted rounded-full w-14"></div>
+                      </div>
+
+                      {/* Action Button */}
+                      <div className="h-11 bg-muted rounded-lg"></div>
+                    </CardContent>
+                  </Card>
+                );
+              } else if (viewMode === "qa") {
+                return (
+                  <Card
+                    key={i}
+                    className="card-enhanced group rounded-xl animate-pulse"
+                  >
+                    {/* Background Pattern */}
+                    <div className="absolute inset-0 bg-grid-pattern opacity-5 pointer-events-none" />
+
+                    <CardHeader className="relative z-10 pb-4">
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-3 mb-3">
+                            <div>
+                              <div className="h-6 bg-muted rounded w-40 mb-1"></div>
+                              <div className="flex items-center gap-2">
+                                <div className="h-3 w-3 bg-muted rounded"></div>
+                                <div className="h-3 bg-muted rounded w-16"></div>
+                                <div className="h-3 bg-muted rounded w-1"></div>
+                                <div className="h-3 w-3 bg-muted rounded"></div>
+                                <div className="h-3 bg-muted rounded w-24"></div>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                              <div className="h-4 bg-muted rounded w-24"></div>
+                              <div className="flex items-center gap-2">
+                                <div className="h-8 bg-muted rounded w-12"></div>
+                              </div>
+                            </div>
+
+                            {/* Modern Progress Bar */}
+                            <div className="relative">
+                              <div className="h-3 bg-muted rounded-full"></div>
+                              <div className="flex justify-between text-xs text-muted-foreground mt-2">
+                                <div className="h-3 bg-muted rounded w-20"></div>
+                                <div className="h-3 bg-muted rounded w-16"></div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </CardHeader>
+
+                    <CardContent className="relative z-10 pt-0">
+                      <div className="flex flex-wrap gap-2 mb-4">
+                        <div className="h-6 bg-muted rounded-full w-16"></div>
+                        <div className="h-6 bg-muted rounded-full w-20"></div>
+                        <div className="h-6 bg-muted rounded-full w-18"></div>
+                        <div className="h-6 bg-muted rounded-full w-14"></div>
+                      </div>
+
+                      {/* Connected Modelers */}
+                      <div className="space-y-3 mb-4">
+                        <div className="h-4 bg-muted rounded w-32"></div>
+                        <div className="space-y-2">
+                          <div className="h-8 bg-muted rounded w-full"></div>
+                          <div className="h-8 bg-muted rounded w-full"></div>
+                          <div className="h-8 bg-muted rounded w-3/4"></div>
+                        </div>
+                      </div>
+
+                      {/* Action Button */}
+                      <div className="h-11 bg-muted rounded-lg"></div>
+                    </CardContent>
+                  </Card>
+                );
+              }
+
+              // Fallback skeleton
+              return (
+                <Card
+                  key={i}
+                  className="card-enhanced group rounded-xl animate-pulse"
+                >
+                  {/* Background Pattern */}
+                  <div className="absolute inset-0 bg-grid-pattern opacity-5 pointer-events-none" />
+
+                  <CardHeader className="relative z-10 pb-4">
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-3 mb-3">
+                          <div>
+                            <div className="h-6 bg-muted rounded w-48 mb-1"></div>
+                            <div className="flex items-center gap-2">
+                              <div className="h-3 w-3 bg-muted rounded"></div>
+                              <div className="h-3 bg-muted rounded w-16"></div>
+                              <div className="h-3 bg-muted rounded w-1"></div>
+                              <div className="h-3 w-3 bg-muted rounded"></div>
+                              <div className="h-3 bg-muted rounded w-20"></div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <div className="h-4 bg-muted rounded w-24"></div>
+                            <div className="flex items-center gap-2">
+                              <div className="h-8 bg-muted rounded w-12"></div>
+                              <div className="h-4 w-4 bg-muted rounded"></div>
+                            </div>
+                          </div>
+
+                          {/* Modern Progress Bar */}
+                          <div className="relative">
+                            <div className="h-3 bg-muted rounded-full"></div>
+                            <div className="flex justify-between text-xs text-muted-foreground mt-2">
+                              <div className="h-3 bg-muted rounded w-20"></div>
+                              <div className="h-3 bg-muted rounded w-16"></div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </CardHeader>
+
+                  <CardContent className="relative z-10 pt-0">
+                    <div className="flex flex-wrap gap-2 mb-4">
+                      <div className="h-6 bg-muted rounded-full w-16"></div>
+                      <div className="h-6 bg-muted rounded-full w-20"></div>
+                      <div className="h-6 bg-muted rounded-full w-18"></div>
+                      <div className="h-6 bg-muted rounded-full w-14"></div>
+                    </div>
+
+                    {/* Action Button */}
+                    <div className="h-11 bg-muted rounded-lg"></div>
+                  </CardContent>
+                </Card>
+              );
+            })
           : viewMode === "clients"
             ? // Client Cards with pagination
               filteredClients

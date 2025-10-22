@@ -260,7 +260,9 @@ export default function SignupPage() {
             first_name: formData.firstName,
             last_name: formData.lastName,
             // Store basic info in user_metadata
-            client: invitationData?.client_name,
+            client: invitationData?.client_name
+              ? [invitationData.client_name]
+              : null,
             role: invitationData?.role,
             client_config: invitationData?.client_name,
           },
@@ -281,7 +283,9 @@ export default function SignupPage() {
               password: formData.password,
               firstName: formData.firstName,
               lastName: formData.lastName,
-              client: invitationData?.client_name,
+              client: invitationData?.client_name
+                ? [invitationData.client_name]
+                : null,
               role: invitationData?.role,
               title: formData.title,
               phoneNumber: formData.phoneNumber,
@@ -359,7 +363,9 @@ export default function SignupPage() {
             discordName: formData.discordName,
             softwareExperience: formData.softwareExperience,
             modelTypes: formData.modelTypes,
-            client: invitationData?.client_name,
+            client: invitationData?.client_name
+              ? [invitationData.client_name]
+              : null,
             role: invitationData?.role,
             // Modeler-specific fields (will be null for other roles)
             dailyHours: formData.dailyHours,

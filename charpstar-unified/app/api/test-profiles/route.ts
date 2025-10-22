@@ -33,8 +33,8 @@ export async function POST(request: NextRequest) {
         discord_name: discordName || null,
         software_experience: softwareExperience || null,
         model_types: modelTypes || null,
-        client: client || null,
-        role: role || null,
+        client: client ? (Array.isArray(client) ? client : [client]) : null, // Ensure client is an array
+        role: role || "user", // Default to user if not provided
         client_config: null, // Set to null to avoid foreign key constraint
         daily_hours: dailyHours || null,
         exclusive_work: exclusiveWork || false,

@@ -5,6 +5,7 @@ import WeeklyStatusSummaryEmail from "@/components/emails/WeeklyStatusSummaryEma
 import BatchCompletionEmail from "@/components/emails/BatchCompletionEmail";
 import StaleModelReminderEmail from "@/components/emails/StaleModelReminderEmail";
 import QaApprovalEmail from "@/components/emails/QaApprovalEmail";
+import TeamInvitationEmail from "@/components/emails/TeamInvitationEmail";
 
 export interface EmailConfig {
   from: string;
@@ -85,6 +86,15 @@ export interface QaApprovalData {
   deadline?: string;
 }
 
+export interface TeamInvitationData {
+  invitedEmail: string;
+  clientName: string;
+  role: string;
+  signupLink: string;
+  inviterName?: string;
+  expiresAt: string;
+}
+
 class EmailService {
   private fromEmail: string;
   private isDevelopmentMode: boolean;
@@ -92,8 +102,8 @@ class EmailService {
 
   constructor() {
     this.fromEmail = process.env.EMAIL_FROM || "noreply@mail.charpstar.co";
-    // TODO: Change to false when ready to send real emails
-    this.isDevelopmentMode = true; // Disabled - no emails will be sent
+    // Set to false to send real emails via Resend
+    this.isDevelopmentMode = false; // Enabled - emails will be sent
 
     // Always initialize Resend with the API key
     const apiKey =
@@ -339,6 +349,41 @@ class EmailService {
 
       const { data: result, error } =
         await this.resend.emails.send(emailOptions);
+
+      if (error) {
+        throw error;
+      }
+
+      return { success: true, messageId: result?.id };
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  /**
+   * Send team invitation email
+   */
+  async sendTeamInvitation(data: TeamInvitationData, config: EmailConfig) {
+    if (this.isDevelopmentMode || !this.resend) {
+      console.log(
+        "📧 [DEV MODE] Team invitation email would be sent to:",
+        data.invitedEmail
+      );
+      console.log("   Client:", data.clientName);
+      console.log("   Role:", data.role);
+      console.log("   Signup Link:", data.signupLink);
+      return { success: true, messageId: "dev-mode-simulated", devMode: true };
+    }
+
+    try {
+      const { data: result, error } = await this.resend.emails.send({
+        from: this.fromEmail,
+        to: [config.to],
+        subject:
+          config.subject ||
+          `You're invited to join ${data.clientName} on CharpstAR`,
+        html: await render(TeamInvitationEmail(data)),
+      });
 
       if (error) {
         throw error;

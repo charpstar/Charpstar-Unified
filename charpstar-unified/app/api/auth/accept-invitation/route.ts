@@ -93,7 +93,7 @@ export async function POST(request: NextRequest) {
         discord_name: discordName || null,
         software_experience: softwareExperience || null,
         model_types: modelTypes || null,
-        client: invitation.client_name,
+        client: [invitation.client_name], // client is a text array
         role: invitation.role,
         client_config: null,
         daily_hours: dailyHours || null,
