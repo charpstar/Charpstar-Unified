@@ -202,7 +202,8 @@ export default function ProductRenderPage() {
 
       const data = await response.json();
       setCurrentJob(data.job);
-      setAppState("results");
+      // Stay in "generating" state while job is being processed
+      // pollJobStatus will update to "results" when complete
       
       // Start polling for job status
       pollJobStatus(data.job.id);
@@ -229,13 +230,15 @@ export default function ProductRenderPage() {
         
         if (data.status === "completed") {
           setCurrentJob(prev => prev ? { ...prev, status: "completed", downloadUrl: data.downloadUrl } : null);
+          setAppState("results"); // Show results screen when complete
           stopLoading();
         } else if (data.status === "failed") {
           setError("Job failed");
           setAppState("error");
           stopLoading();
         } else {
-          // Still processing, check again in 2 seconds
+          // Still processing, update progress and check again in 2 seconds
+          setCurrentJob(prev => prev ? { ...prev, status: data.status, progress: data.progress } : null);
           setTimeout(checkStatus, 2000);
         }
       } catch (error) {
@@ -634,8 +637,25 @@ export default function ProductRenderPage() {
           {appState === "generating" && (
             <div className="text-center py-12">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-              <h2 className="text-xl font-semibold mb-2">Processing...</h2>
-              <p className="text-gray-600">Please wait while we process your request.</p>
+              <h2 className="text-xl font-semibold mb-2">
+                {currentJob?.status === "queued" ? "Queued..." : "Rendering..."}
+              </h2>
+              <p className="text-gray-600 mb-4">
+                {currentJob?.status === "queued" 
+                  ? "Waiting for render client to pick up the job..."
+                  : "Please wait while we render your product..."}
+              </p>
+              {currentJob?.progress !== undefined && currentJob.progress > 0 && (
+                <div className="max-w-md mx-auto">
+                  <div className="w-full bg-gray-200 rounded-full h-2.5">
+                    <div 
+                      className="bg-blue-600 h-2.5 rounded-full transition-all duration-300" 
+                      style={{ width: `${currentJob.progress}%` }}
+                    ></div>
+                  </div>
+                  <p className="text-sm text-gray-500 mt-2">{currentJob.progress}% complete</p>
+                </div>
+              )}
             </div>
           )}
 
