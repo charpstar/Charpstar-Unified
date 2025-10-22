@@ -30,6 +30,7 @@ const TITLES = {
   "/client-review": "Client Review",
   "/client-review/[id]": "Review Asset",
   "/add-products": "Add Products",
+  "/product-render": "Product Render",
   "/invite-members": "Invite Members",
   "/guidelines": "Guidelines",
   "/pending-assignments": "Pending Assignments",

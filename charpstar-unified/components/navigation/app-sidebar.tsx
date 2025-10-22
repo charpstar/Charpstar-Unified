@@ -22,6 +22,7 @@ import {
   Sparkles,
   BarChart3,
   UserPlus,
+  Monitor,
 } from "lucide-react";
 
 import NavMain from "@/components/navigation/nav-main";
@@ -217,6 +218,11 @@ export default function AppSidebar({
                 icon: Package,
               },
               {
+                title: "Product Render",
+                url: "/product-render",
+                icon: Monitor,
+              },
+              {
                 title: "Invite Members",
                 url: "/invite-members",
                 icon: UserPlus,
@@ -225,6 +231,16 @@ export default function AppSidebar({
                 title: "Integration Guide",
                 url: "/client-documentation",
                 icon: FileText,
+              },
+            ]
+          : []),
+        // Product Render for admins
+        ...(role === "admin"
+          ? [
+              {
+                title: "Product Render",
+                url: "/product-render",
+                icon: Monitor,
               },
             ]
           : []),
