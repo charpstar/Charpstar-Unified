@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { Button } from "@/components/ui/display/button";
+import { useEffect, useRef } from "react";
 
 interface ModelViewerProps {
   modelUrl: string;
@@ -9,7 +8,6 @@ interface ModelViewerProps {
 
 export function ModelViewer({ modelUrl }: ModelViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [bgColor, setBgColor] = useState("");
 
   useEffect(() => {
     // Dynamically load the model-viewer script once on component mount
@@ -51,9 +49,6 @@ export function ModelViewer({ modelUrl }: ModelViewerProps) {
     modelViewer.setAttribute("shadow-softness", "1");
     modelViewer.style.width = "100%";
     modelViewer.style.height = "100%";
-    if (bgColor) {
-      modelViewer.style.backgroundColor = bgColor;
-    }
 
     // Append the model-viewer to the container
     containerRef.current.appendChild(modelViewer);
@@ -64,11 +59,7 @@ export function ModelViewer({ modelUrl }: ModelViewerProps) {
         containerRef.current.innerHTML = "";
       }
     };
-  }, [modelUrl, bgColor]);
-
-  const handleBgColorChange = (color: string) => {
-    setBgColor(color);
-  };
+  }, [modelUrl]);
 
   if (!modelUrl) {
     return (
@@ -83,27 +74,6 @@ export function ModelViewer({ modelUrl }: ModelViewerProps) {
   return (
     <div className="relative w-full h-full overflow-hidden">
       <div ref={containerRef} className="w-full h-full overflow-hidden" />
-      {/* Background Color Control Panel */}
-      <div className="absolute top-4 right-4 flex flex-col gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => handleBgColorChange("")}
-          className="bg-background/90 backdrop-blur-sm"
-          title="Default Background"
-        >
-          Default BG
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => handleBgColorChange("#1a1a1a")}
-          className="bg-background/90 backdrop-blur-sm"
-          title="Dark Background"
-        >
-          Dark BG
-        </Button>
-      </div>
     </div>
   );
 }
