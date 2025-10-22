@@ -5,7 +5,6 @@ import { useUser } from "@/contexts/useUser";
 import { useLoadingState } from "@/hooks/useLoadingState";
 import { Button } from "@/components/ui/display";
 import { ChevronLeft, Download, Settings, Play, X, Check } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import Image from "next/image";
 
@@ -40,7 +39,6 @@ interface RenderJob {
 
 export default function ProductRenderPage() {
   const user = useUser();
-  const router = useRouter();
   const { startLoading, stopLoading } = useLoadingState();
   
   const [appState, setAppState] = useState<AppState>("select");
