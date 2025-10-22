@@ -924,6 +924,21 @@ export default function AssetDetailPage() {
                           {asset.client || "Not specified"}
                         </p>
                       </div>
+                      <div className="space-y-1">
+                        <p className="text-xs sm:text-sm font-medium">
+                          GLB Link
+                        </p>
+                        <p className="text-xs sm:text-sm text-muted-foreground">
+                          <a
+                            href={asset.glb_link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-500 hover:text-blue-600"
+                          >
+                            {asset.glb_link}
+                          </a>
+                        </p>
+                      </div>
                     </div>
                   </div>
 
