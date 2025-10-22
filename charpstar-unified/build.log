@@ -1,0 +1,10 @@
+
+> charpstar-unified@0.1.0 build
+> next build
+
+   ▲ Next.js 15.3.2
+   - Environments: .env.local
+
+   Creating an optimized production build ...
+ ✓ Compiled successfully in 110s
+   Linting and checking validity of types ...
