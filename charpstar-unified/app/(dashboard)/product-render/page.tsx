@@ -58,6 +58,7 @@ export default function ProductRenderPage() {
   });
   const [currentJob, setCurrentJob] = useState<RenderJob | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const pollingCleanupRef = React.useRef<(() => void) | null>(null);
 
   // Load existing jobs and products on mount
   useEffect(() => {
@@ -89,7 +90,8 @@ export default function ProductRenderPage() {
           } else {
             // Job is still processing
             setCurrentJob({ ...data, id: savedJobId });
-            pollJobStatus(savedJobId);
+            const cleanup = pollJobStatus(savedJobId);
+            pollingCleanupRef.current = cleanup;
           }
         })
         .catch(error => {
@@ -98,6 +100,14 @@ export default function ProductRenderPage() {
           stopLoading();
         });
     }
+    
+    // Cleanup polling when component unmounts
+    return () => {
+      if (pollingCleanupRef.current) {
+        console.log("[Product Render] Cleaning up polling on unmount");
+        pollingCleanupRef.current();
+      }
+    };
   }, []);
 
   // Load user profile when user becomes available
@@ -255,8 +265,9 @@ export default function ProductRenderPage() {
       // Stay in "generating" state while job is being processed
       // pollJobStatus will update to "results" when complete
       
-      // Start polling for job status
-      pollJobStatus(data.job.id);
+      // Start polling for job status and store cleanup function
+      const cleanup = pollJobStatus(data.job.id);
+      pollingCleanupRef.current = cleanup;
     } catch (error) {
       console.error("Error submitting job:", error);
       setError(
@@ -268,20 +279,32 @@ export default function ProductRenderPage() {
     }
   };
 
-  const pollJobStatus = async (jobId: string) => {
+  const pollJobStatus = (jobId: string) => {
     let pollCount = 0;
     const maxPollsBeforeWarning = 30; // 30 polls * 2 seconds = 60 seconds
+    const maxPolls = 300; // 300 polls * 2 seconds = 10 minutes max
+    let timeoutId: NodeJS.Timeout | null = null;
     
     const checkStatus = async () => {
       try {
         pollCount++;
+        
+        // Stop polling if we've exceeded the maximum
+        if (pollCount > maxPolls) {
+          console.error("[Product Render] Max polling attempts reached");
+          setError("Render job timed out after 10 minutes. Please check the render client.");
+          setAppState("error");
+          localStorage.removeItem('activeRenderJobId');
+          stopLoading();
+          return;
+        }
+        
         const response = await fetch(`/api/product-render/jobs/${jobId}/status`);
         if (!response.ok) {
           throw new Error("Failed to check job status");
         }
 
         const data = await response.json();
-        console.log("[Product Render] Job status:", data);
         
         if (data.status === "completed") {
           setCurrentJob(prev => prev ? { ...prev, status: "completed", downloadUrl: data.downloadUrl } : null);
@@ -306,7 +329,7 @@ export default function ProductRenderPage() {
             return;
           }
           
-          setTimeout(checkStatus, 2000);
+          timeoutId = setTimeout(checkStatus, 2000);
         }
       } catch (error) {
         console.error("Error checking job status:", error);
@@ -318,9 +341,25 @@ export default function ProductRenderPage() {
     };
 
     checkStatus();
+    
+    // Return cleanup function
+    return () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
   };
 
   const handleReset = () => {
+    // Clean up any active polling
+    if (pollingCleanupRef.current) {
+      pollingCleanupRef.current();
+      pollingCleanupRef.current = null;
+    }
+    
+    // Clear localStorage
+    localStorage.removeItem('activeRenderJobId');
+    
     setSelectedProducts([]);
     setCurrentJob(null);
     setError(null);

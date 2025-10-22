@@ -1,14 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
 import { v4 as uuidv4 } from "uuid";
 import { createClient } from "@supabase/supabase-js";
+import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
+import { cookies } from "next/headers";
 
-// Initialize Supabase client with service role for server-side operations
+// Initialize Supabase admin client for job creation (needed to bypass RLS when creating jobs)
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
+const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
 export async function GET() {
   try {
+    // Use authenticated client to respect RLS policies
+    const supabase = createRouteHandlerClient({ cookies });
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // RLS policies will automatically filter to only the user's jobs
     const { data: jobs, error } = await supabase
       .from('render_jobs')
       .select('*')
@@ -29,6 +42,17 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     console.log("[Product Render API] Received POST request");
+    
+    // Get authenticated user
+    const supabase = createRouteHandlerClient({ cookies });
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const body = await request.json();
     console.log("[Product Render API] Request body:", JSON.stringify(body, null, 2));
     const { products, settings } = body;
@@ -51,7 +75,7 @@ export async function POST(request: NextRequest) {
 
     // Generate a unique job ID
     const jobId = `job_${uuidv4()}`;
-    console.log("[Product Render API] Generated job ID:", jobId);
+    console.log("[Product Render API] Generated job ID:", jobId, "for user:", user.id);
 
     // Validate that all products have glb_link
     const invalidProducts = products.filter(p => !p.glb_link);
@@ -67,16 +91,13 @@ export async function POST(request: NextRequest) {
     const glbUrls = products.map(product => product.glb_link);
     console.log("[Product Render API] GLB URLs:", glbUrls);
 
-    // Get user ID from request (you might need to get this from auth)
-    // For now, we'll use a placeholder - you should get this from your auth system
-    const userId = request.headers.get('x-user-id') || null;
-
-    // Create the job in database
-    const { data: job, error: insertError } = await supabase
+    // Create the job in database with authenticated user's ID
+    // Use admin client to ensure the insert succeeds (RLS policy allows users to create their own jobs)
+    const { data: job, error: insertError } = await supabaseAdmin
       .from('render_jobs')
       .insert({
         id: jobId,
-        user_id: userId,
+        user_id: user.id, // Use authenticated user's ID
         status: 'queued',
         progress: 0,
         products,

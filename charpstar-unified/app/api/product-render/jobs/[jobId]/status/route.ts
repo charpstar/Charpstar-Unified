@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
+import { cookies } from "next/headers";
 
-// Initialize Supabase client with service role
+// Initialize Supabase admin client for updates from render client
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
+const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
 export async function PUT(
   request: NextRequest,
@@ -14,8 +16,8 @@ export async function PUT(
     const { jobId } = params;
     const data = await request.json();
 
-    // Check if job exists
-    const { data: existingJob, error: fetchError } = await supabase
+    // Check if job exists (use admin client for render client updates)
+    const { data: existingJob, error: fetchError } = await supabaseAdmin
       .from('render_jobs')
       .select('id')
       .eq('id', jobId)
@@ -46,8 +48,8 @@ export async function PUT(
       }
     }
 
-    // Update job in database
-    const { error: updateError } = await supabase
+    // Update job in database (use admin client for render client updates)
+    const { error: updateError } = await supabaseAdmin
       .from('render_jobs')
       .update(updateData)
       .eq('id', jobId);
@@ -75,6 +77,17 @@ export async function GET(
   try {
     const { jobId } = params;
 
+    // Get authenticated user
+    const supabase = createRouteHandlerClient({ cookies });
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Use authenticated client - RLS will ensure user can only see their own jobs
     const { data: job, error: fetchError } = await supabase
       .from('render_jobs')
       .select('*')
@@ -82,19 +95,20 @@ export async function GET(
       .single();
 
     if (fetchError || !job) {
-      console.log("[Job Status API] Job not found:", jobId);
+      console.log("[Job Status API] Job not found or access denied:", jobId);
       return NextResponse.json(
         { error: "Job not found" },
         { status: 404 }
       );
     }
 
-    console.log("[Job Status API] Job status:", {
-      id: job.id,
-      status: job.status,
-      progress: job.progress,
-      downloadUrl: job.download_url
-    });
+    // Only log if there's an important status change (not on every poll)
+    // console.log("[Job Status API] Job status:", {
+    //   id: job.id,
+    //   status: job.status,
+    //   progress: job.progress,
+    //   downloadUrl: job.download_url
+    // });
 
     return NextResponse.json({
       id: job.id,
