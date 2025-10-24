@@ -525,8 +525,8 @@ export default function AppSidebar({
               asChild
               className="data-[slot=sidebar-menu-button]:!p-1.5"
             >
-              <div className="flex items-center justify-center">
-                <Link href="/dashboard">
+              <Link href="/dashboard">
+                <div className="flex items-center justify-center">
                   <Image
                     src={
                       isDark
@@ -538,8 +538,8 @@ export default function AppSidebar({
                     height={150}
                     priority
                   />
-                </Link>
-              </div>
+                </div>
+              </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

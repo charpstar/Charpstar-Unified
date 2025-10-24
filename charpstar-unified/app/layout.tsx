@@ -48,9 +48,9 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        {/* Preload model-viewer script globally for instant 3D model rendering */}
+        {/* Preload custom model-viewer script globally for instant 3D model rendering */}
         <Script
-          src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"
+          src="/model-viewer.js"
           type="module"
           strategy="beforeInteractive"
         />

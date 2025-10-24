@@ -1,309 +1,233 @@
 import React, { useState } from "react";
-import Image from "next/image";
-import { Card } from "@/components/ui/containers/card";
 import { Button } from "@/components/ui/display/button";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/containers/dialog";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/utilities/command";
-import { Check, ChevronsUpDown } from "lucide-react";
-import sceneLibraryData from "@/lib/sceneLibrary.json";
-
-// Transform scene library data into the expected format
-const scenePresets = sceneLibraryData.map((scene: any) => ({
-  category: scene.category,
-  label: scene.name,
-  prompt: scene.description,
-  thumbnailUrl: scene.imageUrl,
-  id: scene.id,
-}));
-
-const fileToBase64 = (file: File): Promise<string> =>
-  new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = () => {
-      const result = reader.result as string;
-      resolve(result.split(",")[1]);
-    };
-    reader.onerror = (error) => reject(error);
-  });
+import { Check, ChevronLeft } from "lucide-react";
 
 interface ProductConfiguratorProps {
-  onGenerate: (
-    snapshots: string[],
-    objectSize: string,
-    objectType: string,
-    productDescription: string,
-    inspirationImage: string | null
-  ) => void;
+  onGenerate: (settings: {
+    resolution: string;
+    imageFormat: string;
+    quality: string;
+    renderMargin: number;
+    cameraViews: string[];
+  }) => void;
   onCancel: () => void;
-  capturedAssets?: Array<{
-    snapshot: string;
-    name: string;
-    dimensions: { x: number; y: number; z: number } | null;
+  selectedProducts: Array<{
+    id: string;
+    product_name: string;
+    glb_link: string;
+    category?: string;
   }>;
+  currentSettings: {
+    resolution: string;
+    imageFormat: string;
+    quality: string;
+    renderMargin: number;
+    cameraViews: string[];
+  };
 }
 
 const ProductConfigurator: React.FC<ProductConfiguratorProps> = ({
   onGenerate,
   onCancel,
-  capturedAssets = [],
+  selectedProducts,
+  currentSettings,
 }) => {
-  const [objectType, setObjectType] = useState("");
-  const [productDescription, setProductDescription] = useState(
-    scenePresets[0].prompt
-  );
-  const [isCustomScene, setIsCustomScene] = useState(false);
-  const [sceneDialogOpen, setSceneDialogOpen] = useState(false);
-  const [inspirationImage, setInspirationImage] = useState<File | null>(null);
-  const [inspirationImageUrl, setInspirationImageUrl] = useState<string | null>(
-    null
-  );
+  const [settings, setSettings] = useState(currentSettings);
 
-  const handleGenerate = async () => {
-    if (!objectType.trim()) return;
-
-    let inspirationBase64: string | null = null;
-    if (inspirationImage) {
-      inspirationBase64 = await fileToBase64(inspirationImage);
-    }
-
-    // Create size description for multiple assets using auto-extracted dimensions
-    let sizeDescription = "Multiple assets with varying sizes";
-    if (capturedAssets.length > 0) {
-      const sizeEntries = capturedAssets.map((asset, index) => {
-        if (asset.dimensions) {
-          const { x, y, z } = asset.dimensions;
-          const size = `Width: ${x.toFixed(2)}m, Height: ${y.toFixed(2)}m, Depth: ${z.toFixed(2)}m`;
-          return `Asset ${index + 1} (${asset.name}): ${size}`;
-        } else {
-          return `Asset ${index + 1} (${asset.name}): Dimensions could not be determined`;
-        }
-      });
-      sizeDescription = sizeEntries.join("; ");
-    }
-
-    // Pass empty snapshots array since assets are already captured
-    onGenerate(
-      [],
-      sizeDescription,
-      objectType,
-      productDescription,
-      inspirationBase64
-    );
+  const handleSubmit = () => {
+    onGenerate(settings);
   };
 
-  const handleInspirationImageChange = (
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setInspirationImage(file);
-      setInspirationImageUrl(URL.createObjectURL(file));
-    }
-  };
-
-  const handleRemoveInspirationImage = () => {
-    setInspirationImage(null);
-    setInspirationImageUrl(null);
-  };
-
-  const handleSceneSelect = (scene: any) => {
-    setProductDescription(scene.prompt);
-    setIsCustomScene(false);
-    setSceneDialogOpen(false);
-  };
-
-  const handleCustomSceneToggle = () => {
-    setIsCustomScene(!isCustomScene);
-    if (!isCustomScene) {
-      setProductDescription("");
-    } else {
-      setProductDescription(scenePresets[0].prompt);
-    }
-  };
+  const cameraViewOptions = [
+    { id: "front", label: "Front" },
+    { id: "angled_side1", label: "45° Front-Side" },
+    { id: "angled_side1_flat", label: "45° Front-Side (Flat)" },
+    { id: "side", label: "Side" },
+    { id: "angled_side2", label: "45° Back-Side" },
+    { id: "angled_side2_flat", label: "45° Back-Side (Flat)" },
+    { id: "back", label: "Back" },
+    { id: "top", label: "Top" },
+  ];
 
   return (
-    <Card className="w-full max-w-4xl mx-auto">
-      <div className="p-6 space-y-6">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">
-            Configure Product Render
-          </h2>
-          <p className="text-gray-600">
-            Set up your product render parameters and style preferences
+    <Dialog open={true} onOpenChange={() => onCancel()}>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
+        <DialogHeader className="flex-shrink-0">
+          <DialogTitle className="text-lg sm:text-xl font-semibold">
+            Rendering Settings
+          </DialogTitle>
+          <p className="text-sm text-muted-foreground">
+            Configure render options for {selectedProducts.length} product
+            {selectedProducts.length > 1 ? "s" : ""}
           </p>
-        </div>
+        </DialogHeader>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Object Type */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700">
-              Product Type *
-            </label>
-            <input
-              type="text"
-              value={objectType}
-              onChange={(e) => setObjectType(e.target.value)}
-              placeholder="e.g., Furniture, Electronics, Clothing"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-
-          {/* Scene Selection */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700">
-              Product Style
-            </label>
-            <Dialog open={sceneDialogOpen} onOpenChange={setSceneDialogOpen}>
-              <DialogTrigger asChild>
-                <Button
-                  variant="outline"
-                  className="w-full justify-between text-left"
+        <div className="flex-1 min-h-0 overflow-y-auto space-y-6">
+          {/* Configuration Settings */}
+          <div className="bg-card border border-border rounded-lg p-4 sm:p-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+              {/* Resolution */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Resolution</label>
+                <select
+                  value={settings.resolution}
+                  onChange={(e) =>
+                    setSettings((prev) => ({
+                      ...prev,
+                      resolution: e.target.value,
+                    }))
+                  }
+                  className="w-full px-3 py-2 bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring text-sm"
                 >
-                  {isCustomScene ? "Custom Description" : "Select Style"}
-                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-2xl">
-                <DialogHeader>
-                  <DialogTitle>Choose Product Style</DialogTitle>
-                </DialogHeader>
-                <Command>
-                  <CommandInput placeholder="Search styles..." />
-                  <CommandList>
-                    <CommandEmpty>No styles found.</CommandEmpty>
-                    <CommandGroup>
-                      {scenePresets.map((scene) => (
-                        <CommandItem
-                          key={scene.id}
-                          onSelect={() => handleSceneSelect(scene)}
-                          className="flex items-center space-x-2"
-                        >
-                          <Image
-                            src={scene.thumbnailUrl}
-                            alt={scene.label}
-                            width={40}
-                            height={40}
-                            className="rounded"
-                          />
-                          <div>
-                            <div className="font-medium">{scene.label}</div>
-                            <div className="text-sm text-gray-500">
-                              {scene.category}
-                            </div>
-                          </div>
-                          <Check className="ml-auto h-4 w-4" />
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
-              </DialogContent>
-            </Dialog>
-          </div>
-        </div>
+                  <option value="1024x1024">1024×1024</option>
+                  <option value="2048x2048">2048×2048</option>
+                  <option value="4096x4096">4096×4096</option>
+                  <option value="1920x1080">1920×1080 (16:9)</option>
+                  <option value="3840x2160">3840×2160 (4K)</option>
+                </select>
+              </div>
 
-        {/* Custom Scene Toggle */}
-        <div className="flex items-center space-x-4">
-          <Button
-            variant={isCustomScene ? "default" : "outline"}
-            onClick={handleCustomSceneToggle}
-          >
-            {isCustomScene ? "Using Custom Description" : "Use Custom Description"}
-          </Button>
-          {isCustomScene && (
-            <p className="text-sm text-gray-600">
-              You can now write your own product description below
-            </p>
-          )}
-        </div>
+              {/* Image Format */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Image Format</label>
+                <select
+                  value={settings.imageFormat}
+                  onChange={(e) =>
+                    setSettings((prev) => ({
+                      ...prev,
+                      imageFormat: e.target.value,
+                    }))
+                  }
+                  className="w-full px-3 py-2 bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring text-sm"
+                >
+                  <option value="JPEG">JPEG (Smaller file size)</option>
+                  <option value="PNG">PNG (Supports transparency)</option>
+                  <option value="WEBP">WebP (Modern format)</option>
+                  <option value="TIFF">TIFF (High quality)</option>
+                </select>
+              </div>
 
-        {/* Product Description */}
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">
-            Product Description
-          </label>
-          <textarea
-            value={productDescription}
-            onChange={(e) => setProductDescription(e.target.value)}
-            placeholder="Describe the product and desired render style..."
-            rows={4}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
+              {/* Quality */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Render Quality</label>
+                <select
+                  value={settings.quality}
+                  onChange={(e) =>
+                    setSettings((prev) => ({
+                      ...prev,
+                      quality: e.target.value,
+                    }))
+                  }
+                  className="w-full px-3 py-2 bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring text-sm"
+                >
+                  <option value="low">Low (Faster)</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High (Slower)</option>
+                </select>
+              </div>
 
-        {/* Inspiration Image */}
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">
-            Inspiration Image (Optional)
-          </label>
-          <div className="flex items-center space-x-4">
-            <input
-              type="file"
-              id="inspiration-image"
-              accept="image/*"
-              onChange={handleInspirationImageChange}
-              className="hidden"
-            />
-            <label
-              htmlFor="inspiration-image"
-              className="px-4 py-2 border border-gray-300 rounded-md cursor-pointer hover:bg-gray-50"
-            >
-              {inspirationImage ? "Change Image" : "Add Inspiration Image"}
-            </label>
-            {inspirationImage && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleRemoveInspirationImage}
-              >
-                Remove
-              </Button>
-            )}
-          </div>
-          {inspirationImageUrl && (
-            <div className="mt-4">
-              <Image
-                src={inspirationImageUrl}
-                alt="Inspiration"
-                width={200}
-                height={200}
-                className="rounded-lg object-cover"
-              />
+              {/* Render Margin */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">
+                  Render Margin{" "}
+                  <span className="text-primary font-semibold">
+                    {settings.renderMargin}%
+                  </span>
+                </label>
+                <input
+                  type="range"
+                  min="5"
+                  max="50"
+                  step="5"
+                  value={settings.renderMargin}
+                  onChange={(e) =>
+                    setSettings((prev) => ({
+                      ...prev,
+                      renderMargin: parseInt(e.target.value),
+                    }))
+                  }
+                  className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
+                />
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>Tight crop</span>
+                  <span>More space</span>
+                </div>
+              </div>
             </div>
-          )}
+
+            {/* Camera Views */}
+            <div className="space-y-4 mt-6">
+              <h3 className="text-sm font-medium">Camera Views</h3>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3">
+                {cameraViewOptions.map((view) => (
+                  <label
+                    key={view.id}
+                    className="flex items-center gap-3 cursor-pointer group"
+                  >
+                    <div className="relative">
+                      <input
+                        type="checkbox"
+                        id={view.id}
+                        checked={settings.cameraViews.includes(view.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSettings((prev) => ({
+                              ...prev,
+                              cameraViews: [...prev.cameraViews, view.id],
+                            }));
+                          } else {
+                            setSettings((prev) => ({
+                              ...prev,
+                              cameraViews: prev.cameraViews.filter(
+                                (v) => v !== view.id
+                              ),
+                            }));
+                          }
+                        }}
+                        className="peer sr-only"
+                      />
+                      <div className="w-5 h-5 border-2 border-input rounded peer-checked:bg-primary peer-checked:border-primary transition-all"></div>
+                      <Check className="absolute top-0.5 left-0.5 h-4 w-4 text-primary-foreground opacity-0 peer-checked:opacity-100 transition-opacity pointer-events-none" />
+                    </div>
+                    <span className="text-sm group-hover:text-foreground transition-colors">
+                      {view.label}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Action Buttons */}
-        <div className="flex gap-4 pt-4">
+        <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t flex-shrink-0">
           <Button
-            onClick={handleGenerate}
-            disabled={!objectType.trim()}
+            onClick={onCancel}
+            variant="outline"
             className="flex-1"
+            size="sm"
           >
-            Generate Product Render
-          </Button>
-          <Button variant="outline" onClick={onCancel}>
+            <ChevronLeft className="h-4 w-4 mr-2" />
             Cancel
           </Button>
+          <Button
+            onClick={handleSubmit}
+            className="flex-1"
+            size="sm"
+            disabled={settings.cameraViews.length === 0}
+          >
+            Start Rendering
+          </Button>
         </div>
-      </div>
-    </Card>
+      </DialogContent>
+    </Dialog>
   );
 };
 
 export default ProductConfigurator;
-

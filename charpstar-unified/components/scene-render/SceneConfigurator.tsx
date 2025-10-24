@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import Image from "next/image";
-import { Card } from "@/components/ui/containers/card";
 import { Button } from "@/components/ui/display/button";
 import {
   Dialog,
@@ -18,6 +17,7 @@ import {
   CommandList,
 } from "@/components/ui/utilities/command";
 import { Check, ChevronsUpDown } from "lucide-react";
+import { Input } from "@/components/ui/inputs";
 import sceneLibraryData from "@/lib/sceneLibrary.json";
 
 // Transform scene library data into the expected format
@@ -46,20 +46,35 @@ interface SceneConfiguratorProps {
     objectSize: string,
     objectType: string,
     sceneDescription: string,
-    inspirationImage: string | null
+    inspirationImage: string | null,
+    imageFormat: string,
+    customWidth?: string,
+    customHeight?: string
   ) => void;
   onCancel: () => void;
-  capturedAssets?: Array<{
-    snapshot: string;
+  selectedAssets: Array<{
+    id: string;
     name: string;
-    dimensions: { x: number; y: number; z: number } | null;
+    glb_link: string;
+    category?: string;
+    thumbnail?: string;
   }>;
+  imageFormat: string;
+  customWidth: string;
+  customHeight: string;
+  onImageFormatChange: (format: string) => void;
+  onCustomDimensionsChange: (width: string, height: string) => void;
 }
 
 const SceneConfigurator: React.FC<SceneConfiguratorProps> = ({
   onGenerate,
   onCancel,
-  capturedAssets = [],
+  selectedAssets,
+  imageFormat: propImageFormat,
+  customWidth: propCustomWidth,
+  customHeight: propCustomHeight,
+  onImageFormatChange,
+  onCustomDimensionsChange,
 }) => {
   const [objectType, setObjectType] = useState("");
   const [sceneDescription, setSceneDescription] = useState(
@@ -71,6 +86,67 @@ const SceneConfigurator: React.FC<SceneConfiguratorProps> = ({
   const [inspirationImageUrl, setInspirationImageUrl] = useState<string | null>(
     null
   );
+  const [imageFormat, setImageFormat] = useState(propImageFormat || "square");
+  const [customWidth, setCustomWidth] = useState(propCustomWidth || "1080");
+  const [customHeight, setCustomHeight] = useState(propCustomHeight || "1080");
+
+  // Image format options for social media
+  const formatOptions = [
+    {
+      value: "square",
+      label: "Square (1:1)",
+      description: "Instagram Feed, Facebook Posts",
+      dimensions: "1080x1080",
+      icon: "⬜",
+    },
+    {
+      value: "instagram_story",
+      label: "Instagram Story (9:16)",
+      description: "Instagram Stories, TikTok",
+      dimensions: "1080x1920",
+      icon: "📱",
+    },
+    {
+      value: "instagram_reel",
+      label: "Instagram Reel (9:16)",
+      description: "Instagram Reels, YouTube Shorts",
+      dimensions: "1080x1920",
+      icon: "🎬",
+    },
+    {
+      value: "facebook_cover",
+      label: "Facebook Cover (16:9)",
+      description: "Facebook Cover Photos",
+      dimensions: "1920x1080",
+      icon: "📺",
+    },
+    {
+      value: "pinterest",
+      label: "Pinterest (2:3)",
+      description: "Pinterest Pins",
+      dimensions: "1080x1620",
+      icon: "📌",
+    },
+    {
+      value: "custom",
+      label: "Custom",
+      description: "Custom dimensions",
+      dimensions:
+        imageFormat === "custom" ? `${customWidth}x${customHeight}` : "Custom",
+      icon: "⚙️",
+    },
+  ];
+
+  const handleInspirationImageChange = (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setInspirationImage(file);
+      const url = URL.createObjectURL(file);
+      setInspirationImageUrl(url);
+    }
+  };
 
   const handleGenerate = async () => {
     if (!objectType.trim()) return;
@@ -80,367 +156,300 @@ const SceneConfigurator: React.FC<SceneConfiguratorProps> = ({
       inspirationBase64 = await fileToBase64(inspirationImage);
     }
 
-    // Create size description for multiple assets using auto-extracted dimensions
-    let sizeDescription = "Multiple assets with varying sizes";
-    if (capturedAssets.length > 0) {
-      const sizeEntries = capturedAssets.map((asset, index) => {
-        if (asset.dimensions) {
-          const { x, y, z } = asset.dimensions;
-          const size = `Width: ${x.toFixed(2)}m, Height: ${y.toFixed(2)}m, Depth: ${z.toFixed(2)}m`;
-          return `Asset ${index + 1} (${asset.name}): ${size}`;
-        } else {
-          return `Asset ${index + 1} (${asset.name}): Dimensions could not be determined`;
-        }
+    // Create size description for multi-asset mode
+    let sizeDescription = "Unknown dimensions";
+    if (selectedAssets.length > 0) {
+      const sizeEntries = selectedAssets.map((asset, index) => {
+        return `Asset ${index + 1} (${asset.name}): Dimensions will be calculated from 3D model`;
       });
       sizeDescription = sizeEntries.join("; ");
     }
 
-    // Pass empty snapshots array since assets are already captured
     onGenerate(
       [],
       sizeDescription,
       objectType,
       sceneDescription,
-      inspirationBase64
+      inspirationBase64,
+      imageFormat,
+      customWidth,
+      customHeight
     );
   };
 
-  const handleInspirationImageChange = (
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setInspirationImage(file);
-      setInspirationImageUrl(URL.createObjectURL(file));
-    }
-  };
-
-  const handleRemoveInspirationImage = () => {
-    if (inspirationImageUrl) {
-      URL.revokeObjectURL(inspirationImageUrl);
-    }
-    setInspirationImage(null);
-    setInspirationImageUrl(null);
-  };
-
-  const presetCategories = [...new Set(scenePresets.map((p) => p.category))];
-  const productPresets = [
-    "Furniture",
-    "Home Decor",
-    "Electronics",
-    "Kitchenware",
-    "Lighting",
-    "Beauty & Cosmetics",
-    "Eyewear",
-    "Watches & Jewelry",
-    "Toys & Games",
-    "Sports Equipment",
-    "Pet Products",
-    "Office Supplies",
-  ];
-
   return (
-    <div className="w-full h-full flex flex-col gap-3 overflow-hidden min-h-[100px] max-h-[500px]">
-      {/* Configuration Controls in Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 flex-1 min-h-[100px] overflow-hidden ">
-        {/* Product Type */}
-        <Card className="p-4 hover:shadow-md transition-shadow">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">
-              1
-            </div>
-            <h3 className="text-sm font-semibold">Product Type</h3>
-          </div>
-          <div className="grid grid-cols-2 gap-1 mb-2 max-h-40 overflow-y-auto">
-            {productPresets.map((preset) => (
-              <button
-                key={preset}
-                onClick={() => setObjectType(preset)}
-                className={`px-2 py-1.5 text-xs font-medium rounded-md transition-all cursor-pointer ${
-                  objectType === preset
-                    ? "bg-primary text-primary-foreground shadow-sm ring-2 ring-primary/20"
-                    : "bg-muted text-muted-foreground hover:bg-muted/70 hover:text-foreground"
-                }`}
-              >
-                {preset}
-              </button>
-            ))}
-          </div>
-          <input
-            id="object-type"
-            type="text"
-            value={objectType}
-            onChange={(e) => setObjectType(e.target.value)}
-            placeholder="e.g., 'home furniture collection'"
-            className="w-full px-3 py-2 text-sm bg-background border border-input rounded-md focus:ring-2 focus:ring-primary focus:border-primary transition-shadow"
-            required
-          />
-        </Card>
+    <Dialog open={true} onOpenChange={() => onCancel()}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="text-lg font-semibold">
+            Configure Scene
+            {selectedAssets.length > 0 && (
+              <span className="text-sm font-normal text-muted-foreground ml-2">
+                ({selectedAssets.length} assets)
+              </span>
+            )}
+          </DialogTitle>
+        </DialogHeader>
 
-        {/* Asset Dimensions Display - Only show for multi-asset mode */}
-        {capturedAssets.length > 0 && (
-          <Card className="p-4 hover:shadow-md transition-shadow">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">
-                1.5
+        <div className="space-y-4">
+          {/* Simple Configuration */}
+          <div className="space-y-3">
+            {/* Product Type */}
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-gray-900">
+                Product Type
+              </label>
+              <input
+                type="text"
+                value={objectType}
+                onChange={(e) => setObjectType(e.target.value)}
+                placeholder="e.g., Furniture, Electronics, Clothing..."
+                className="w-full px-3 py-2 text-sm border border-input rounded-md focus:ring-2 focus:ring-primary focus:border-primary"
+                required
+              />
+            </div>
+
+            {/* Asset Count Display - Only show for multi-asset mode */}
+            {selectedAssets.length > 0 && (
+              <div className="p-3 bg-muted/50 rounded-md">
+                <p className="text-sm text-muted-foreground">
+                  <span className="font-medium">
+                    {selectedAssets.length} assets
+                  </span>{" "}
+                  ready for scene generation
+                </p>
               </div>
-              <h3 className="text-sm font-semibold">Asset Dimensions</h3>
-            </div>
-            <div className="space-y-3 max-h-40 overflow-y-auto">
-              {capturedAssets.map((asset, index) => (
-                <div key={index} className="space-y-1">
-                  <label className="text-xs font-medium text-muted-foreground">
-                    {asset.name}
-                  </label>
-                  <div className="px-2 py-1.5 text-xs bg-muted rounded-md font-mono">
-                    {asset.dimensions ? (
-                      <>
-                        W: {asset.dimensions.x.toFixed(2)}m × H:{" "}
-                        {asset.dimensions.y.toFixed(2)}m × D:{" "}
-                        {asset.dimensions.z.toFixed(2)}m
-                      </>
-                    ) : (
-                      "Dimensions could not be determined"
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </Card>
-        )}
+            )}
 
-        {/* Scene Description */}
-        <Card className="p-4 hover:shadow-md transition-shadow">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">
-              2
-            </div>
-            <h3 className="text-sm font-semibold">Scene</h3>
-          </div>
-          <div className="space-y-2">
-            <Dialog open={sceneDialogOpen} onOpenChange={setSceneDialogOpen}>
-              <DialogTrigger asChild>
-                <button
-                  className="w-full px-3 cursor-pointer py-2 text-sm bg-background border border-input rounded-md focus:ring-2 focus:ring-primary focus:border-primary transition-shadow text-left flex items-center justify-between hover:bg-muted/50"
-                  aria-expanded={sceneDialogOpen}
-                >
-                  <span className="truncate">
-                    {!isCustomScene &&
-                    scenePresets.find((p) => p.prompt === sceneDescription)
-                      ? scenePresets.find((p) => p.prompt === sceneDescription)
-                          ?.label
-                      : "Browse Scene Presets"}
-                  </span>
-                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                </button>
-              </DialogTrigger>
-              <DialogContent className="min-w-6xl max-h-[85vh] p-0">
-                <DialogHeader className="px-6 py-4 border-b">
-                  <DialogTitle>Choose a Scene</DialogTitle>
-                </DialogHeader>
-                <div className="p-6">
+            {/* Scene Selection */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Scene Style</label>
+              <Dialog open={sceneDialogOpen} onOpenChange={setSceneDialogOpen}>
+                <DialogTrigger asChild>
+                  <button className="w-full px-3 py-2 text-sm bg-background border border-input rounded-md text-left flex items-center justify-between hover:bg-muted/50">
+                    <span className="truncate">
+                      {!isCustomScene &&
+                      scenePresets.find((p) => p.prompt === sceneDescription)
+                        ? scenePresets.find(
+                            (p) => p.prompt === sceneDescription
+                          )?.label
+                        : "Browse Scene Presets"}
+                    </span>
+                    <ChevronsUpDown className="h-4 w-4 opacity-50" />
+                  </button>
+                </DialogTrigger>
+                <DialogContent className="max-w-2xl max-h-[80vh]">
+                  <DialogHeader>
+                    <DialogTitle>Choose Scene Style</DialogTitle>
+                  </DialogHeader>
                   <Command>
                     <CommandInput placeholder="Search scenes..." />
-                    <CommandList className="max-h-[65vh] overflow-y-auto">
+                    <CommandList className="max-h-[60vh]">
                       <CommandEmpty>No scene found.</CommandEmpty>
-                      {presetCategories.map((category) => (
+                      {Object.entries(
+                        scenePresets.reduce(
+                          (acc, preset) => {
+                            if (!acc[preset.category]) {
+                              acc[preset.category] = [];
+                            }
+                            acc[preset.category].push(preset);
+                            return acc;
+                          },
+                          {} as Record<string, typeof scenePresets>
+                        )
+                      ).map(([category, presets]) => (
                         <CommandGroup key={category} heading={category}>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
-                            {scenePresets
-                              .filter((p) => p.category === category)
-                              .map((preset: any) => (
-                                <CommandItem
-                                  key={preset.id}
-                                  onSelect={() => {
-                                    setIsCustomScene(false);
-                                    setSceneDescription(preset.prompt);
-                                    setSceneDialogOpen(false);
-                                  }}
-                                  className="flex items-center gap-3 p-4 rounded-lg border hover:bg-muted/50 transition-colors"
-                                >
-                                  <Check
-                                    className={`h-5 w-5 ${
-                                      !isCustomScene &&
-                                      sceneDescription === preset.prompt
-                                        ? "opacity-100"
-                                        : "opacity-0"
-                                    }`}
-                                  />
-                                  {preset.thumbnailUrl ? (
-                                    <Image
-                                      src={preset.thumbnailUrl}
-                                      alt={preset.label}
-                                      width={64}
-                                      height={64}
-                                      className="w-16 h-16 object-cover rounded-lg border shadow-sm"
-                                      unoptimized
-                                    />
-                                  ) : (
-                                    <div className="w-16 h-16 bg-muted rounded-lg flex items-center justify-center">
-                                      <span className="text-lg">🎨</span>
-                                    </div>
-                                  )}
-                                  <div className="flex-1 min-w-0">
-                                    <div className="font-medium truncate">
-                                      {preset.label}
-                                    </div>
-                                    <div className="text-sm text-muted-foreground line-clamp-2">
-                                      {preset.prompt}
-                                    </div>
-                                  </div>
-                                </CommandItem>
-                              ))}
-                          </div>
+                          {presets.map((preset) => (
+                            <CommandItem
+                              key={preset.id}
+                              value={preset.label}
+                              onSelect={() => {
+                                setIsCustomScene(false);
+                                setSceneDescription(preset.prompt);
+                                setSceneDialogOpen(false);
+                              }}
+                              className="flex items-center gap-3 p-3"
+                            >
+                              <Check
+                                className={`h-4 w-4 ${
+                                  sceneDescription === preset.prompt
+                                    ? "opacity-100"
+                                    : "opacity-0"
+                                }`}
+                              />
+                              <div className="flex-1">
+                                <div className="font-medium">
+                                  {preset.label}
+                                </div>
+                                <div className="text-xs text-muted-foreground truncate">
+                                  {preset.prompt}
+                                </div>
+                              </div>
+                            </CommandItem>
+                          ))}
                         </CommandGroup>
                       ))}
                     </CommandList>
                   </Command>
+                </DialogContent>
+              </Dialog>
+
+              {isCustomScene && (
+                <textarea
+                  value={sceneDescription}
+                  onChange={(e) => setSceneDescription(e.target.value)}
+                  placeholder="Describe your custom scene..."
+                  className="w-full px-3 py-2 text-sm border border-input rounded-md focus:ring-2 focus:ring-primary focus:border-primary"
+                  rows={2}
+                />
+              )}
+            </div>
+
+            {/* Image Format */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Image Format</label>
+              <div className="grid grid-cols-2 gap-1.5">
+                {formatOptions.slice(0, 4).map((format) => (
+                  <button
+                    key={format.value}
+                    onClick={() => {
+                      setImageFormat(format.value);
+                      onImageFormatChange?.(format.value);
+                    }}
+                    className={`p-1.5 rounded-md border text-left text-xs ${
+                      imageFormat === format.value
+                        ? "border-primary bg-primary/5"
+                        : "border-input hover:bg-muted/50"
+                    }`}
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs">{format.icon}</span>
+                      <div className="min-w-0 flex-1">
+                        <div className="font-medium truncate">
+                          {format.label}
+                        </div>
+                        <div className="text-muted-foreground text-xs truncate">
+                          {format.dimensions}
+                        </div>
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+
+              {/* Custom Size Inputs */}
+              {imageFormat === "custom" && (
+                <div className="mt-3 p-2 bg-muted/30 rounded-md border border-border">
+                  <div className="space-y-2">
+                    <div className="text-xs font-medium text-foreground">
+                      Custom Dimensions
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <label className="text-xs text-muted-foreground">
+                          Width (px)
+                        </label>
+                        <Input
+                          type="number"
+                          value={customWidth}
+                          onChange={(e) => {
+                            setCustomWidth(e.target.value);
+                            onCustomDimensionsChange?.(
+                              e.target.value,
+                              customHeight
+                            );
+                          }}
+                          placeholder="1080"
+                          className="text-xs h-7"
+                          min="100"
+                          max="4000"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs text-muted-foreground">
+                          Height (px)
+                        </label>
+                        <Input
+                          type="number"
+                          value={customHeight}
+                          onChange={(e) => {
+                            setCustomHeight(e.target.value);
+                            onCustomDimensionsChange?.(
+                              customWidth,
+                              e.target.value
+                            );
+                          }}
+                          placeholder="1080"
+                          className="text-xs h-7"
+                          min="100"
+                          max="4000"
+                        />
+                      </div>
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      Aspect ratio:{" "}
+                      {customWidth && customHeight
+                        ? (
+                            parseFloat(customWidth) / parseFloat(customHeight)
+                          ).toFixed(2)
+                        : "1.00"}
+                      :1
+                    </div>
+                  </div>
                 </div>
-              </DialogContent>
-            </Dialog>
-
-            <button
-              onClick={() => {
-                setIsCustomScene(true);
-                setSceneDescription("");
-              }}
-              className={`w-full px-3 cursor-pointer py-2 text-sm border rounded-md focus:ring-2 focus:ring-primary focus:border-primary transition-shadow text-left flex items-center justify-between hover:bg-muted/50 ${
-                isCustomScene
-                  ? "border-primary bg-primary/10 text-primary"
-                  : "border-input bg-background"
-              }`}
-            >
-              <span className="truncate flex items-center gap-2">
-                <span className="text-lg">✏️</span>
-                {isCustomScene
-                  ? "Custom Scene (Active)"
-                  : "Create Custom Scene"}
-              </span>
-              {isCustomScene && <Check className="h-4 w-4 text-primary" />}
-            </button>
-          </div>
-
-          {!isCustomScene && sceneDescription && (
-            <div className="mt-3 p-3 bg-muted/30 rounded-md border">
-              <div className="text-xs font-medium text-muted-foreground mb-1">
-                Selected Scene Description:
-              </div>
-              <div className="text-sm text-foreground">{sceneDescription}</div>
+              )}
             </div>
-          )}
 
-          {isCustomScene && (
-            <textarea
-              id="scene-description"
-              value={sceneDescription}
-              onChange={(e) => setSceneDescription(e.target.value)}
-              placeholder="e.g., 'modern minimalist studio with soft lighting'"
-              className="w-full px-3 py-2 text-sm bg-background border border-input rounded-md resize-none h-20 focus:ring-2 focus:ring-primary focus:border-primary transition-shadow mt-2"
-            />
-          )}
-        </Card>
-
-        {/* Inspiration Image */}
-        <Card className="p-4 hover:shadow-md transition-shadow">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="w-6 h-6 rounded-full bg-muted text-muted-foreground flex items-center justify-center text-xs font-bold">
-              3
-            </div>
-            <h3 className="text-sm font-semibold">
-              Inspiration{" "}
-              <span className="text-xs text-muted-foreground font-normal">
-                (Optional)
-              </span>
-            </h3>
-          </div>
-          {inspirationImageUrl ? (
-            <div className="relative group">
-              <Image
-                src={inspirationImageUrl}
-                alt="Inspiration"
-                className="w-full h-[180px] object-contain rounded-md border shadow-sm"
-                width={320}
-                height={180}
-              />
-              <button
-                onClick={handleRemoveInspirationImage}
-                className="absolute top-1 right-1 p-1 bg-destructive/90 rounded-full text-destructive-foreground hover:bg-destructive transition-colors shadow-md"
-                aria-label="Remove"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-3 w-3"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-              </button>
-            </div>
-          ) : (
-            <label
-              htmlFor="inspiration-upload"
-              className="flex flex-col items-center justify-center h-[180px] border-2 border-dashed border-muted-foreground/30 rounded-md cursor-pointer hover:border-primary/50 hover:bg-muted/50 transition-all group"
-            >
-              <div className="text-center">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-5 w-5 mx-auto mb-1 text-muted-foreground group-hover:text-primary transition-colors"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                  />
-                </svg>
-                <p className="text-xs text-muted-foreground">Upload image</p>
-              </div>
+            {/* Inspiration Image */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">
+                Inspiration Image (Optional)
+              </label>
               <input
-                id="inspiration-upload"
                 type="file"
-                className="hidden"
+                accept="image/*"
                 onChange={handleInspirationImageChange}
-                accept="image/png, image/jpeg, image/webp"
+                className="w-full px-3 py-2 text-sm border border-input rounded-md"
               />
-            </label>
-          )}
-        </Card>
-      </div>
+              {inspirationImageUrl && (
+                <div className="flex items-center gap-2">
+                  <Image
+                    src={inspirationImageUrl}
+                    alt="Inspiration"
+                    width={40}
+                    height={40}
+                    className="w-10 h-10 object-cover rounded"
+                  />
+                  <button
+                    onClick={() => {
+                      setInspirationImage(null);
+                      setInspirationImageUrl(null);
+                    }}
+                    className="text-xs text-destructive hover:underline"
+                  >
+                    Remove
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
 
-      {/* Action Buttons */}
-      <div className="flex gap-2">
-        <Button
-          onClick={onCancel}
-          variant="secondary"
-          size="sm"
-          className="flex-1"
-        >
-          Back to Assets
-        </Button>
-        <Button
-          onClick={handleGenerate}
-          variant="default"
-          size="sm"
-          className="flex-1"
-          disabled={!objectType.trim()}
-          title={
-            !objectType.trim()
-              ? "Please describe the product type first"
-              : "Generate scene with all assets"
-          }
-        >
-          Generate Scene
-        </Button>
-      </div>
-    </div>
+          {/* Action Buttons */}
+          <div className="flex gap-2 pt-4 border-t">
+            <Button onClick={onCancel} variant="outline" className="flex-1">
+              Cancel
+            </Button>
+            <Button
+              onClick={handleGenerate}
+              disabled={!objectType.trim()}
+              className="flex-1"
+            >
+              Generate Scene
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 };
 

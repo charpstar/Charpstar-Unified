@@ -178,6 +178,7 @@ interface AssignedAsset {
   price: number;
   pricing_comment?: string;
   model_updated_at?: string; // New field for GLB upload date
+  measurements?: any; // Add measurements field
   modeler?: {
     id: string;
     email: string;
@@ -594,6 +595,7 @@ export default function QAReviewPage() {
         price: assignment.price || 0,
         pricing_comment: asset.pricing_comment,
         model_updated_at: modelUpdatedAt,
+        measurements: asset.measurements,
         modeler: modeler
           ? {
               id: modeler.id,
@@ -715,6 +717,7 @@ export default function QAReviewPage() {
         price: assignment.price || 0,
         pricing_comment: asset.pricing_comment,
         model_updated_at: modelUpdatedAt,
+        measurements: asset.measurements,
         modeler: modeler
           ? {
               id: modeler.id,

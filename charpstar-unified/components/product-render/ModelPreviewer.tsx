@@ -201,13 +201,14 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
 
     return () => {
       // Cleanup script on unmount
-      const existingScript = document.querySelector('script[src="/model-viewer.js"]');
+      const existingScript = document.querySelector(
+        'script[src="/model-viewer.js"]'
+      );
       if (existingScript) {
         existingScript.remove();
       }
     };
   }, []);
-
 
   return (
     <div className="w-full h-full flex flex-col gap-4">
@@ -421,4 +422,3 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
 };
 
 export default ModelPreviewer;
-

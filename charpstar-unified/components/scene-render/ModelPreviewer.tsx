@@ -17,7 +17,21 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/utilities/command";
-import { Check, ChevronsUpDown } from "lucide-react";
+import {
+  Check,
+  ChevronsUpDown,
+  Tag,
+  CheckCircle,
+  Palette,
+  Ruler,
+  FileImage,
+} from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/display";
+import { Input } from "@/components/ui/inputs";
 import sceneLibraryData from "@/lib/sceneLibrary.json";
 
 // Add type declaration for model-viewer element
@@ -78,7 +92,10 @@ interface ModelPreviewerProps {
     objectSize: string,
     objectType: string,
     sceneDescription: string,
-    inspirationImage: string | null
+    inspirationImage: string | null,
+    imageFormat: string,
+    customWidth?: string,
+    customHeight?: string
   ) => void;
   onCancel: () => void;
   environmentImage?: string;
@@ -90,6 +107,12 @@ interface ModelPreviewerProps {
     snapshot: string,
     dimensions: { x: number; y: number; z: number } | null
   ) => void;
+  // Image format props
+  imageFormat?: string;
+  customWidth?: string;
+  customHeight?: string;
+  onImageFormatChange?: (format: string) => void;
+  onCustomDimensionsChange?: (width: string, height: string) => void;
 }
 
 const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
@@ -103,6 +126,11 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
   captureMode = false,
   captureButtonText = "Generate Scene",
   onCaptureAsset,
+  imageFormat: propImageFormat,
+  customWidth: propCustomWidth,
+  customHeight: propCustomHeight,
+  onImageFormatChange,
+  onCustomDimensionsChange,
 }) => {
   const modelViewerRef = useRef<HTMLElement>(null);
   const [objectSize, setObjectSize] = useState("");
@@ -121,7 +149,63 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
   const [inspirationImageUrl, setInspirationImageUrl] = useState<string | null>(
     null
   );
+  const [imageFormat, setImageFormat] = useState(propImageFormat || "square");
+  const [showConfigDialog, setShowConfigDialog] = useState(false);
   const [modelError, setModelError] = useState<string | null>(null);
+  const [customWidth, setCustomWidth] = useState(propCustomWidth || "1080");
+  const [customHeight, setCustomHeight] = useState(propCustomHeight || "1080");
+
+  // Sync with props
+  useEffect(() => {
+    if (propImageFormat) {
+      setImageFormat(propImageFormat);
+    }
+  }, [propImageFormat]);
+
+  useEffect(() => {
+    if (propCustomWidth) {
+      setCustomWidth(propCustomWidth);
+    }
+  }, [propCustomWidth]);
+
+  useEffect(() => {
+    if (propCustomHeight) {
+      setCustomHeight(propCustomHeight);
+    }
+  }, [propCustomHeight]);
+
+  // Image format options for social media
+  const formatOptions = [
+    {
+      value: "square",
+      label: "Square (1:1)",
+      description: "Instagram Feed, Facebook Posts",
+      dimensions: "1080x1080",
+      icon: "⬜",
+    },
+    {
+      value: "instagram_story",
+      label: "Instagram Story (9:16)",
+      description: "Instagram Stories, TikTok",
+      dimensions: "1080x1920",
+      icon: "📱",
+    },
+    {
+      value: "instagram_reel",
+      label: "Instagram Reel (9:16)",
+      description: "Instagram Reels, YouTube Shorts",
+      dimensions: "1080x1920",
+      icon: "🎬",
+    },
+    {
+      value: "custom",
+      label: "Custom Size",
+      description: "Specify your own dimensions",
+      dimensions:
+        imageFormat === "custom" ? `${customWidth}x${customHeight}` : "Custom",
+      icon: "⚙️",
+    },
+  ];
   const [isModelLoading, setIsModelLoading] = useState(false);
   const [fileUrl, setFileUrl] = useState<string | null>(null);
   const [isCapturing, setIsCapturing] = useState(false);
@@ -131,6 +215,7 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
     total: 3,
   });
   const [currentAngle, setCurrentAngle] = useState<string | null>(null);
+  //eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [isTestingAngles, setIsTestingAngles] = useState(false);
   //eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [testAngleIndex, setTestAngleIndex] = useState(0);
@@ -246,45 +331,6 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
     };
   }, [fileUrl]);
 
-  const testOptimalAngle = async () => {
-    const modelViewer = modelViewerRef.current as any;
-    if (!modelViewer) return;
-
-    // Test the optimal hero shot angle
-    const optimalAngle = { orbit: "0deg 75deg 2.5m", name: "Hero Shot" };
-
-    setIsTestingAngles(true);
-    setCurrentAngle(optimalAngle.name);
-
-    try {
-      // Set camera position
-      modelViewer.cameraOrbit = optimalAngle.orbit;
-
-      // Force a re-render
-      modelViewer.dispatchEvent(new CustomEvent("camera-change"));
-
-      // Wait for camera to settle
-      await new Promise((resolve) => {
-        const checkCamera = () => {
-          const currentOrbit = modelViewer.cameraOrbit;
-          if (currentOrbit === optimalAngle.orbit) {
-            resolve(undefined);
-          } else {
-            setTimeout(checkCamera, 100);
-          }
-        };
-        setTimeout(checkCamera, 200);
-        setTimeout(resolve, 2000);
-      });
-
-      // Hold the view for a moment
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-    } finally {
-      setIsTestingAngles(false);
-      setCurrentAngle(null);
-    }
-  };
-
   const handleCapture = async () => {
     // In capture mode, skip validation - just capture the model
     if (!captureMode && !objectType.trim()) return;
@@ -328,7 +374,10 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
             finalObjectSize,
             objectType || "Product",
             sceneDescription,
-            inspirationBase64
+            inspirationBase64,
+            imageFormat,
+            customWidth,
+            customHeight
           );
         }
       } finally {
@@ -356,22 +405,6 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
     setInspirationImage(null);
     setInspirationImageUrl(null);
   };
-
-  const presetCategories = [...new Set(scenePresets.map((p) => p.category))];
-  const productPresets = [
-    "Furniture",
-    "Home Decor",
-    "Electronics",
-    "Kitchenware",
-    "Lighting",
-    "Beauty & Cosmetics",
-    "Eyewear",
-    "Watches & Jewelry",
-    "Toys & Games",
-    "Sports Equipment",
-    "Pet Products",
-    "Office Supplies",
-  ];
 
   // Don't render if fileUrl is empty
   if (!fileUrl) {
@@ -411,432 +444,819 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
   }
 
   return (
-    <div className="w-full h-full flex flex-col gap-3 p-2 animate-fade-in overflow-hidden">
-      {/* Top: 3D Model Viewer */}
-      <div className="h-[650px] rounded-lg overflow-hidden bg-gray-900/50 relative cursor-grab active:cursor-grabbing border border-white/10 shadow-lg">
-        {/* Capture Progress Overlay */}
-        {(isCapturing || isTestingAngles) && (
-          <div className="absolute top-4 left-4 right-4 z-10 bg-black/80 backdrop-blur-sm rounded-lg p-3 text-white">
-            <div className="flex items-center justify-center gap-2">
-              <div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
-              <span className="text-sm font-medium">
-                {isTestingAngles
-                  ? "Previewing optimal angle..."
-                  : "Capturing hero shot..."}
-              </span>
-            </div>
-            {currentAngle && (
-              <div className="text-center text-sm font-medium text-blue-400 mt-2">
-                {currentAngle}
-              </div>
-            )}
+    <div className="w-full h-full flex flex-col">
+      {/* Header with Compact Config */}
+      <div className="flex items-center justify-between p-2 sm:p-3 border-b bg-background/80 backdrop-blur-sm gap-2">
+        <div className="flex items-center gap-3">
+          <div className="w-6 h-6 rounded-lg bg-primary/10 flex items-center justify-center">
+            <span className="text-primary font-bold text-xs">🎯</span>
           </div>
-        )}
-        {/* Loading overlay */}
-        {isModelLoading && (
-          <div className="absolute inset-0 flex items-center justify-center bg-gray-900/50 backdrop-blur-sm z-10">
-            <div className="text-center">
-              <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-              <p className="text-sm text-white">Loading 3D model...</p>
-            </div>
+          <div>
+            <h3 className="font-semibold text-sm">3D Model Preview</h3>
+            <p className="text-xs text-muted-foreground">
+              {captureMode ? "Capture Asset" : "Configure Scene"}
+            </p>
           </div>
-        )}
+        </div>
 
-        {/* Error overlay */}
-        {modelError && (
-          <div className="absolute inset-0 flex items-center justify-center bg-gray-900/80 backdrop-blur-sm z-10">
-            <div className="text-center p-6">
-              <div className="text-red-400 text-lg font-semibold mb-2">
-                Model Loading Error
-              </div>
-              <div className="text-gray-300 text-sm mb-4">{modelError}</div>
-              <Button
-                variant="default"
-                size="sm"
-                onClick={() => {
-                  setModelError(null);
-                  // The model will retry automatically when fileUrl changes
-                }}
-              >
-                Retry
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {/* Persistent model-viewer element - never unmounted */}
-        {/* @ts-expect-error -- model-viewer is a custom element */}
-        <model-viewer
-          key="viewer"
-          ref={modelViewerRef}
-          src={fileUrl || ""}
-          alt="3D Model Preview"
-          camera-controls
-          shadow-intensity="0.5"
-          environment-image={environmentImage}
-          exposure={exposure}
-          tone-mapping={toneMapping}
-          shadow-softness="1"
-          min-field-of-view="5deg"
-          max-field-of-view="35deg"
-          camera-orbit="0deg 75deg 2.5m"
-          max-camera-orbit="auto 100deg auto"
-          touch-action="pan-y"
-          style={{
-            width: "100%",
-            height: "100%",
-            backgroundColor: "#fafafa",
-          }}
-        />
-      </div>
-
-      {/* Bottom: Compact Controls in Grid */}
-      <div
-        className={`grid grid-cols-1 md:grid-cols-2 ${captureMode ? "lg:grid-cols-2" : "lg:grid-cols-4"} gap-3 flex-1 min-h-fit `}
-      >
-        {/* Dimensions - hide in capture mode */}
-        {!captureMode && (
-          <Card className="p-4 hover:shadow-md transition-shadow">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">
-                1
-              </div>
-              <h3 className="text-sm font-semibold">Dimensions</h3>
-            </div>
-            <div className="px-3 py-4 bg-muted rounded-md text-center font-mono">
-              {isModelLoading ? (
-                <div className="flex items-center justify-center gap-3">
-                  <div className="w-4 h-4 border border-primary border-t-transparent rounded-full animate-spin"></div>
-                  <span className="text-muted-foreground text-sm">
-                    Loading...
-                  </span>
-                </div>
-              ) : modelDimensions ? (
-                <div className="space-y-2">
-                  <div className="text-lg">
-                    W: {modelDimensions.x.toFixed(2)}m
-                  </div>
-                  <div className="text-lg ">
-                    H: {modelDimensions.y.toFixed(2)}m
-                  </div>
-                  <div className="text-lg ">
-                    D: {modelDimensions.z.toFixed(2)}m
-                  </div>
-                </div>
-              ) : (
-                <span className="text-muted-foreground text-sm">
-                  Calculating...
-                </span>
-              )}
-            </div>
-          </Card>
-        )}
-
-        {/* Product Type */}
-        <Card className="p-4 hover:shadow-md transition-shadow">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">
-              {captureMode ? "1" : "2"}
-            </div>
-            <h3 className="text-sm font-semibold">
-              Product Type{" "}
-              {captureMode && (
-                <span className="text-xs text-muted-foreground font-normal">
-                  (Optional)
-                </span>
-              )}
-            </h3>
-          </div>
-          <div className="grid grid-cols-2 gap-1 mb-2 h-full overflow-y-auto">
-            {productPresets.map((preset) => (
-              <button
-                key={preset}
-                onClick={() => setObjectType(preset)}
-                className={`px-2 py-1.5 text-xs font-medium rounded-md transition-all cursor-pointer ${
-                  objectType === preset
-                    ? "bg-primary text-primary-foreground shadow-sm ring-2 ring-primary/20"
-                    : "bg-muted text-muted-foreground hover:bg-muted/70 hover:text-foreground"
+        {/* Compact Configuration Status - Icons Only */}
+        <div className="flex items-center gap-1 flex-shrink-0">
+          {/* Product Type Status */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div
+                className={`w-6 h-6 rounded-full flex items-center justify-center border text-xs ${
+                  objectType
+                    ? "bg-green-100 border-green-300 text-green-600"
+                    : "bg-gray-100 border-gray-300 text-gray-400"
                 }`}
               >
-                {preset}
-              </button>
-            ))}
-          </div>
-          <input
-            id="object-type"
-            type="text"
-            value={objectType}
-            onChange={(e) => setObjectType(e.target.value)}
-            placeholder="e.g., 'leather armchair'"
-            className="w-full px-3 py-2 text-sm bg-background border border-input rounded-md focus:ring-2 focus:ring-primary focus:border-primary transition-shadow"
-            required
-          />
-        </Card>
-
-        {/* Scene Description - hide in capture mode */}
-        {!captureMode && (
-          <Card className="p-4 hover:shadow-md transition-shadow">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">
-                3
+                {objectType ? (
+                  <CheckCircle className="w-3 h-3" />
+                ) : (
+                  <Tag className="w-3 h-3" />
+                )}
               </div>
-              <h3 className="text-sm font-semibold">Scene</h3>
-            </div>
-            {/* Two Button Layout */}
-            <div className="space-y-2">
-              {/* Scene Dialog Button */}
-              <Dialog open={sceneDialogOpen} onOpenChange={setSceneDialogOpen}>
-                <DialogTrigger asChild>
-                  <button
-                    className="w-full px-3 cursor-pointer py-2 text-sm bg-background border border-input rounded-md focus:ring-2 focus:ring-primary focus:border-primary transition-shadow text-left flex items-center justify-between hover:bg-muted/50"
-                    aria-expanded={sceneDialogOpen}
-                  >
-                    <span className="truncate">
-                      {!isCustomScene &&
-                      scenePresets.find((p) => p.prompt === sceneDescription)
-                        ? scenePresets.find(
-                            (p) => p.prompt === sceneDescription
-                          )?.label
-                        : "Browse Scene Presets"}
-                    </span>
-                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                  </button>
-                </DialogTrigger>
-                <DialogContent className="min-w-6xl max-h-[85vh] p-0">
-                  <DialogHeader className="px-6 py-4 border-b">
-                    <DialogTitle>Choose a Scene</DialogTitle>
-                  </DialogHeader>
-                  <div className="p-6">
-                    <Command>
-                      <CommandInput
-                        placeholder="Search scenes..."
-                        className=""
-                      />
-                      <CommandList className="max-h-[65vh] overflow-y-auto">
-                        <CommandEmpty>No scene found.</CommandEmpty>
-                        {presetCategories.map((category) => (
-                          <CommandGroup key={category} heading={category}>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
-                              {scenePresets
-                                .filter((p) => p.category === category)
-                                .map((preset: any) => (
-                                  <CommandItem
-                                    key={preset.id}
-                                    onSelect={() => {
-                                      setIsCustomScene(false);
-                                      setSceneDescription(preset.prompt);
-                                      setSceneDialogOpen(false);
-                                    }}
-                                    className="flex items-center gap-3 p-4 rounded-lg border hover:bg-muted/50 transition-colors"
-                                  >
-                                    <Check
-                                      className={`h-5 w-5 ${
-                                        !isCustomScene &&
-                                        sceneDescription === preset.prompt
-                                          ? "opacity-100"
-                                          : "opacity-0"
-                                      }`}
-                                    />
-                                    {preset.thumbnailUrl ? (
-                                      <Image
-                                        src={preset.thumbnailUrl}
-                                        alt={preset.label}
-                                        width={64}
-                                        height={64}
-                                        className="w-16 h-16 object-cover rounded-lg border shadow-sm"
-                                        unoptimized
-                                      />
-                                    ) : (
-                                      <div className="w-16 h-16 bg-muted rounded-lg flex items-center justify-center">
-                                        <span className="text-lg">🎨</span>
-                                      </div>
-                                    )}
-                                    <div className="flex-1 min-w-0">
-                                      <div className="font-medium truncate">
-                                        {preset.label}
-                                      </div>
-                                      <div className="text-sm text-muted-foreground line-clamp-2">
-                                        {preset.prompt}
-                                      </div>
-                                    </div>
-                                  </CommandItem>
-                                ))}
-                            </div>
-                          </CommandGroup>
-                        ))}
-                      </CommandList>
-                    </Command>
-                  </div>
-                </DialogContent>
-              </Dialog>
-
-              {/* Custom Scene Button */}
-              <button
-                onClick={() => {
-                  setIsCustomScene(true);
-                  setSceneDescription("");
-                }}
-                className={`w-full px-3 cursor-pointer py-2 text-sm border rounded-md focus:ring-2 focus:ring-primary focus:border-primary transition-shadow text-left flex items-center justify-between hover:bg-muted/50 ${
-                  isCustomScene
-                    ? "border-primary bg-primary/10 text-primary"
-                    : "border-input bg-background"
-                }`}
-              >
-                <span className="truncate flex items-center gap-2">
-                  <span className="text-lg">✏️</span>
-                  {isCustomScene
-                    ? "Custom Scene (Active)"
-                    : "Create Custom Scene"}
-                </span>
-                {isCustomScene && <Check className="h-4 w-4 text-primary" />}
-              </button>
-            </div>
-
-            {/* Display chosen preset scene description */}
-            {!isCustomScene && sceneDescription && (
-              <div className="mt-3 p-3 bg-muted/30 rounded-md border">
-                <div className="text-xs font-medium text-muted-foreground mb-1">
-                  Selected Scene Description:
-                </div>
-                <div className="text-sm text-foreground">
-                  {sceneDescription}
-                </div>
+            </TooltipTrigger>
+            <TooltipContent>
+              <div className="text-center">
+                <p className="font-semibold">
+                  Product Type <span className="text-red-500">*</span>
+                </p>
+                <p className="text-sm">
+                  {objectType ? objectType : "Not set (Required)"}
+                </p>
               </div>
-            )}
+            </TooltipContent>
+          </Tooltip>
 
-            {isCustomScene && (
-              <textarea
-                id="scene-description"
-                value={sceneDescription}
-                onChange={(e) => setSceneDescription(e.target.value)}
-                placeholder="e.g., 'modern minimalist studio with soft lighting'"
-                className="w-full px-3 py-2 text-sm bg-background border border-input rounded-md resize-none h-20 focus:ring-2 focus:ring-primary focus:border-primary transition-shadow"
-              />
-            )}
-          </Card>
-        )}
-
-        {/* Inspiration Image - hide in capture mode */}
-        {!captureMode && (
-          <Card className="p-4 hover:shadow-md transition-shadow">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-6 h-6 rounded-full bg-muted text-muted-foreground flex items-center justify-center text-xs font-bold">
-                4
-              </div>
-              <h3 className="text-sm font-semibold">
-                Inspiration{" "}
-                <span className="text-xs text-muted-foreground font-normal">
-                  (Optional)
-                </span>
-              </h3>
-            </div>
-            {inspirationImageUrl ? (
-              <div className="relative group h-full">
-                <Image
-                  src={inspirationImageUrl}
-                  alt="Inspiration"
-                  className="w-full  h-[220px] object-contain rounded-md border shadow-sm"
-                  width={320}
-                  height={180}
-                />
-                <button
-                  onClick={handleRemoveInspirationImage}
-                  className="absolute top-1 right-1 p-1 bg-destructive/90 rounded-full text-destructive-foreground hover:bg-destructive transition-colors shadow-md"
-                  aria-label="Remove"
+          {/* Scene Style Status */}
+          {!captureMode && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div
+                  className={`w-6 h-6 rounded-full flex items-center justify-center border text-xs ${
+                    sceneDescription
+                      ? "bg-green-100 border-green-300 text-green-600"
+                      : "bg-gray-100 border-gray-300 text-gray-400"
+                  }`}
                 >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-3 w-3"
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                  >
-                    <path
-                      fillRule="evenodd"
-                      d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                </button>
-                <div className="absolute  p-2 bg-black/50 text-white text-sm rounded-b-md">
-                  {inspirationImage?.name}
+                  {sceneDescription ? (
+                    <CheckCircle className="w-3 h-3" />
+                  ) : (
+                    <Palette className="w-3 h-3" />
+                  )}
                 </div>
-              </div>
-            ) : (
-              <label
-                htmlFor="inspiration-upload"
-                className="flex flex-col items-center justify-center h-full border-2 border-dashed border-muted-foreground/30 rounded-md cursor-pointer hover:border-primary/50 hover:bg-muted/50 transition-all group"
-              >
+              </TooltipTrigger>
+              <TooltipContent>
                 <div className="text-center">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-5 w-5 mx-auto mb-1 text-muted-foreground group-hover:text-primary transition-colors"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                    />
-                  </svg>
-                  <p className="text-xs text-muted-foreground">Upload image</p>
+                  <p className="font-semibold">Scene Style</p>
+                  <p className="text-sm">
+                    {sceneDescription
+                      ? isCustomScene
+                        ? "Custom Scene"
+                        : scenePresets.find(
+                            (p) => p.prompt === sceneDescription
+                          )?.label || "Custom"
+                      : "Not set"}
+                  </p>
                 </div>
-                <input
-                  id="inspiration-upload"
-                  type="file"
-                  className="hidden"
-                  onChange={handleInspirationImageChange}
-                  accept="image/png, image/jpeg, image/webp"
-                />
-              </label>
-            )}
-          </Card>
-        )}
+              </TooltipContent>
+            </Tooltip>
+          )}
+
+          {/* Image Format Status */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="w-6 h-6 rounded-full flex items-center justify-center border text-xs bg-green-100 border-green-300 text-green-600">
+                <CheckCircle className="w-3 h-3" />
+              </div>
+            </TooltipTrigger>
+            <TooltipContent>
+              <div className="text-center">
+                <p className="font-semibold">Image Format</p>
+                <p className="text-sm">
+                  {formatOptions.find((f) => f.value === imageFormat)?.label}
+                </p>
+              </div>
+            </TooltipContent>
+          </Tooltip>
+
+          {/* Dimensions Status */}
+          {!captureMode && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div
+                  className={`w-6 h-6 rounded-full flex items-center justify-center border text-xs hidden md:flex ${
+                    modelDimensions
+                      ? "bg-green-100 border-green-300 text-green-600"
+                      : "bg-gray-100 border-gray-300 text-gray-400"
+                  }`}
+                >
+                  {modelDimensions ? (
+                    <CheckCircle className="w-3 h-3" />
+                  ) : (
+                    <Ruler className="w-3 h-3" />
+                  )}
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>
+                <div className="text-center">
+                  <p className="font-semibold">Model Dimensions</p>
+                  <p className="text-sm">
+                    {modelDimensions
+                      ? `${modelDimensions.x.toFixed(1)}×${modelDimensions.y.toFixed(1)}×${modelDimensions.z.toFixed(1)}m`
+                      : "Loading..."}
+                  </p>
+                </div>
+              </TooltipContent>
+            </Tooltip>
+          )}
+
+          {/* Inspiration Image Status */}
+          {!captureMode && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div
+                  className={`w-6 h-6 rounded-full flex items-center justify-center border text-xs hidden lg:flex ${
+                    inspirationImageUrl
+                      ? "bg-green-100 border-green-300 text-green-600"
+                      : "bg-gray-100 border-gray-300 text-gray-400"
+                  }`}
+                >
+                  {inspirationImageUrl ? (
+                    <CheckCircle className="w-3 h-3" />
+                  ) : (
+                    <FileImage className="w-3 h-3" />
+                  )}
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>
+                <div className="text-center">
+                  <p className="font-semibold">Inspiration Image</p>
+                  <p className="text-sm">
+                    {inspirationImageUrl
+                      ? inspirationImage?.name || "Image uploaded"
+                      : "Not set"}
+                  </p>
+                </div>
+              </TooltipContent>
+            </Tooltip>
+          )}
+        </div>
+
+        {/* Action Buttons - Responsive */}
+        <div className="flex items-center gap-1 flex-shrink-0">
+          <Button
+            onClick={() => setShowConfigDialog(true)}
+            variant="default"
+            size="lg"
+            className="text-xs px-2 py-1 h-6 lg:h-11 lg:px-8"
+          >
+            <span className="hidden sm:inline">Configure Scene</span>
+            <span className="sm:hidden">⚙️</span>
+          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span>
+                <Button
+                  onClick={handleCapture}
+                  variant="default"
+                  size="lg"
+                  className="text-xs px-2 py-1 h-6 lg:h-11 lg:px-8"
+                  disabled={
+                    (!objectType.trim() && !captureMode) ||
+                    isCapturing ||
+                    isTestingAngles
+                  }
+                >
+                  <span className="hidden sm:inline">
+                    {isCapturing ? "..." : captureButtonText}
+                  </span>
+                  <span className="sm:hidden">
+                    {isCapturing ? "..." : "▶"}
+                  </span>
+                </Button>
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>
+              <div className="text-center">
+                {isCapturing || isTestingAngles ? (
+                  <p className="text-sm">
+                    {isTestingAngles
+                      ? "Rendering preview..."
+                      : "Rendering scene..."}
+                  </p>
+                ) : !objectType.trim() && !captureMode ? (
+                  <div>
+                    <p className="font-semibold text-sm">
+                      Missing Configuration
+                    </p>
+                    <p className="text-xs">
+                      Please set a product type to generate scene
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-sm">Ready to generate scene</p>
+                )}
+              </div>
+            </TooltipContent>
+          </Tooltip>
+          <Button
+            onClick={onCancel}
+            variant="outline"
+            size="lg"
+            className="text-xs px-2 py-1 h-6 lg:h-11 lg:px-8"
+          >
+            <span className="hidden sm:inline">Cancel</span>
+            <span className="sm:hidden">✕</span>
+          </Button>
+        </div>
       </div>
 
-      {/* Action Buttons - Full Width Bottom */}
-      <div className="flex gap-2">
-        <Button
-          onClick={onCancel}
-          variant="secondary"
-          size="sm"
-          className="flex-1"
-        >
-          Cancel
-        </Button>
-        <Button
-          onClick={testOptimalAngle}
-          variant="outline"
-          size="sm"
-          className="flex-1"
-          disabled={isCapturing || isTestingAngles}
-          title="Preview optimal camera angle"
-        >
-          {isTestingAngles ? "Previewing..." : "Preview Angle"}
-        </Button>
-        <Button
-          onClick={handleCapture}
-          variant="default"
-          size="sm"
-          className="flex-1"
-          disabled={
-            (!objectType.trim() && !captureMode) ||
-            isCapturing ||
-            isTestingAngles
-          }
-          title={
-            !objectType.trim() && !captureMode
-              ? "Please describe the object first"
-              : captureMode
-                ? "Capture this asset"
-                : "Generate high-quality scene"
-          }
-        >
-          {isCapturing ? "Capturing..." : captureButtonText}
-        </Button>
+      {/* 3D Viewer - Full Space */}
+      <div className="flex-1 p-4 min-h-0">
+        <div className="w-full h-full rounded-lg overflow-hidden  relative cursor-grab active:cursor-grabbing">
+          {/* Capture Progress Overlay */}
+          {(isCapturing || isTestingAngles) && (
+            <div className="absolute top-4 left-4 right-4 z-10 bg-black/80 backdrop-blur-sm rounded-lg p-3 text-white">
+              <div className="flex items-center justify-center gap-2">
+                <div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
+                <span className="text-sm font-medium">
+                  {isTestingAngles
+                    ? "Rendering preview..."
+                    : "Rendering image..."}
+                </span>
+              </div>
+              {currentAngle && (
+                <div className="text-center text-sm font-medium text-blue-400 mt-2">
+                  {currentAngle}
+                </div>
+              )}
+            </div>
+          )}
+          {/* Loading overlay */}
+          {isModelLoading && (
+            <div className="absolute inset-0 flex items-center justify-center bg-gray-900/50 backdrop-blur-sm z-10">
+              <div className="text-center">
+                <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                <p className="text-sm text-white">Loading 3D model...</p>
+              </div>
+            </div>
+          )}
+
+          {/* Error overlay */}
+          {modelError && (
+            <div className="absolute inset-0 flex items-center justify-center bg-gray-900/80 backdrop-blur-sm z-10">
+              <div className="text-center p-6">
+                <div className="text-red-400 text-lg font-semibold mb-2">
+                  Model Loading Error
+                </div>
+                <div className="text-gray-300 text-sm mb-4">{modelError}</div>
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={() => {
+                    setModelError(null);
+                    // The model will retry automatically when fileUrl changes
+                  }}
+                >
+                  Retry
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Persistent model-viewer element - never unmounted */}
+          {/* @ts-expect-error -- model-viewer is a custom element */}
+          <model-viewer
+            key="viewer"
+            ref={modelViewerRef}
+            src={fileUrl || ""}
+            alt="3D Model Preview"
+            camera-controls
+            shadow-intensity="0.5"
+            environment-image={environmentImage}
+            exposure={exposure}
+            tone-mapping={toneMapping}
+            shadow-softness="1"
+            min-field-of-view="5deg"
+            max-field-of-view="35deg"
+            camera-orbit="0deg 75deg 2.5m"
+            max-camera-orbit="auto 100deg auto"
+            touch-action="pan-y"
+            style={{
+              width: "100%",
+              height: "100%",
+              backgroundColor: "#fafafa",
+            }}
+          />
+        </div>
       </div>
+
+      {/* Configuration Dialog */}
+      {showConfigDialog && (
+        <Dialog open={showConfigDialog} onOpenChange={setShowConfigDialog}>
+          <DialogContent className="min-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-semibold">
+                Configure Scene
+              </DialogTitle>
+            </DialogHeader>
+
+            <div className="space-y-6">
+              {/* Configuration Cards Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Dimensions Card */}
+                {!captureMode && (
+                  <Card className="p-6 hover:shadow-lg transition-all duration-200 border-primary/20">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                        <span className="text-primary font-bold text-lg">
+                          📏
+                        </span>
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-semibold">
+                          Model Dimensions
+                        </h3>
+                        <p className="text-sm text-muted-foreground">
+                          Automatically calculated from your 3D model
+                        </p>
+                      </div>
+                    </div>
+                    <div className="p-4 bg-gradient-to-r from-primary/5 to-primary/10 rounded-lg text-center">
+                      {isModelLoading ? (
+                        <div className="flex items-center justify-center gap-3">
+                          <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+                          <span className="text-muted-foreground">
+                            Loading dimensions...
+                          </span>
+                        </div>
+                      ) : modelDimensions ? (
+                        <div className="space-y-2">
+                          <div className="text-2xl font-bold text-primary">
+                            {modelDimensions.x.toFixed(2)}m ×{" "}
+                            {modelDimensions.y.toFixed(2)}m ×{" "}
+                            {modelDimensions.z.toFixed(2)}m
+                          </div>
+                          <div className="text-sm text-muted-foreground">
+                            Width × Height × Depth
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-muted-foreground">
+                          <div className="w-6 h-6 border-2 border-muted-foreground border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+                          Calculating dimensions...
+                        </div>
+                      )}
+                    </div>
+                  </Card>
+                )}
+
+                {/* Product Type Card */}
+                <Card className="p-6 hover:shadow-lg transition-all duration-200 border-primary/20">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                      <span className="text-primary font-bold text-lg">🏷️</span>
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold">Product Type</h3>
+                      <p className="text-sm text-muted-foreground">
+                        {captureMode
+                          ? "Optional - helps with scene generation"
+                          : "Required - describes your product"}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="space-y-3">
+                    <input
+                      type="text"
+                      value={objectType}
+                      onChange={(e) => setObjectType(e.target.value)}
+                      placeholder="e.g., Furniture, Electronics, Clothing, Jewelry..."
+                      className="w-full px-4 py-3 text-sm border border-input rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-all"
+                      required
+                    />
+                    <div className="flex flex-wrap gap-2">
+                      {[
+                        "Furniture",
+                        "Electronics",
+                        "Clothing",
+                        "Jewelry",
+                        "Home Decor",
+                        "Beauty",
+                      ].map((preset) => (
+                        <button
+                          key={preset}
+                          onClick={() => setObjectType(preset)}
+                          className={`px-3 py-1.5 text-xs font-medium rounded-full transition-all ${
+                            objectType === preset
+                              ? "bg-primary text-primary-foreground shadow-md"
+                              : "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+                          }`}
+                        >
+                          {preset}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </Card>
+
+                {/* Scene Style Card - hide in capture mode */}
+                {!captureMode && (
+                  <Card className="p-6 hover:shadow-lg transition-all duration-200 border-primary/20">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                        <span className="text-primary font-bold text-lg">
+                          🎨
+                        </span>
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-semibold">Scene Style</h3>
+                        <p className="text-sm text-muted-foreground">
+                          Choose the environment for your product
+                        </p>
+                      </div>
+                    </div>
+                    <div className="space-y-3">
+                      <Dialog
+                        open={sceneDialogOpen}
+                        onOpenChange={setSceneDialogOpen}
+                      >
+                        <DialogTrigger asChild>
+                          <button className="w-full px-4 py-3 text-sm bg-background border border-input rounded-lg text-left flex items-center justify-between hover:bg-muted/50 transition-all">
+                            <span className="truncate">
+                              {!isCustomScene &&
+                              scenePresets.find(
+                                (p) => p.prompt === sceneDescription
+                              )
+                                ? scenePresets.find(
+                                    (p) => p.prompt === sceneDescription
+                                  )?.label
+                                : "Browse Scene Presets"}
+                            </span>
+                            <ChevronsUpDown className="h-4 w-4 opacity-50" />
+                          </button>
+                        </DialogTrigger>
+                        <DialogContent className="min-w-6xl w-[95vw] h-[90vh] p-0">
+                          <DialogHeader className="px-6 py-4 border-b bg-background/95 backdrop-blur-sm sticky top-0 z-10">
+                            <DialogTitle className="text-xl font-semibold">
+                              Choose Scene Style
+                            </DialogTitle>
+                          </DialogHeader>
+                          <div className="flex-1 overflow-hidden">
+                            <Command className="h-full">
+                              <div className="px-6 py-4 border-b">
+                                <CommandInput
+                                  placeholder="Search scenes..."
+                                  className="text-base"
+                                />
+                              </div>
+                              <CommandList className="h-full overflow-y-auto">
+                                <CommandEmpty className="py-8 text-center text-muted-foreground">
+                                  No scene found. Try a different search term.
+                                </CommandEmpty>
+                                <div className="p-6">
+                                  {/* Custom Scene Option */}
+                                  <CommandGroup
+                                    heading="Custom Scene"
+                                    className="mb-8"
+                                  >
+                                    <div className="grid grid-cols-1 gap-4 mt-4">
+                                      <CommandItem
+                                        value="custom-scene"
+                                        onSelect={() => {
+                                          setIsCustomScene(true);
+                                          setSceneDescription("");
+                                          setSceneDialogOpen(false);
+                                        }}
+                                        className="flex flex-row items-center gap-6 p-6 rounded-lg border-2 border-dashed border-primary/30 hover:border-primary/50 hover:bg-primary/5 transition-all cursor-pointer group"
+                                      >
+                                        <Check
+                                          className={`h-6 w-6 flex-shrink-0 ${
+                                            isCustomScene
+                                              ? "opacity-100 text-primary"
+                                              : "opacity-0 group-hover:opacity-50"
+                                          }`}
+                                        />
+                                        <div className="w-20 h-20 bg-gradient-to-br from-primary/20 to-primary/30 rounded-lg flex items-center justify-center flex-shrink-0">
+                                          <span className="text-3xl">✏️</span>
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                          <div className="font-bold text-xl mb-2 text-primary">
+                                            Create Custom Scene
+                                          </div>
+                                          <div className="text-base text-muted-foreground leading-relaxed">
+                                            Write your own scene description for
+                                            a completely custom environment.
+                                            Perfect for unique or specific
+                                            requirements that aren&apos;t
+                                            covered by our preset scenes.
+                                          </div>
+                                        </div>
+                                      </CommandItem>
+                                    </div>
+                                  </CommandGroup>
+
+                                  {Object.entries(
+                                    scenePresets.reduce(
+                                      (acc, preset) => {
+                                        if (!acc[preset.category]) {
+                                          acc[preset.category] = [];
+                                        }
+                                        acc[preset.category].push(preset);
+                                        return acc;
+                                      },
+                                      {} as Record<string, typeof scenePresets>
+                                    )
+                                  ).map(([category, presets]) => (
+                                    <CommandGroup
+                                      key={category}
+                                      heading={category}
+                                      className="mb-8"
+                                    >
+                                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
+                                        {presets.map((preset) => (
+                                          <CommandItem
+                                            key={preset.id}
+                                            value={preset.label}
+                                            onSelect={() => {
+                                              setIsCustomScene(false);
+                                              setSceneDescription(
+                                                preset.prompt
+                                              );
+                                              setSceneDialogOpen(false);
+                                            }}
+                                            className="flex flex-col gap-3 p-4 rounded-lg border hover:bg-muted/50 transition-all cursor-pointer group"
+                                          >
+                                            <div className="flex items-start gap-3">
+                                              <Check
+                                                className={`h-5 w-5 mt-1 flex-shrink-0 ${
+                                                  !isCustomScene &&
+                                                  sceneDescription ===
+                                                    preset.prompt
+                                                    ? "opacity-100 text-primary"
+                                                    : "opacity-0 group-hover:opacity-50"
+                                                }`}
+                                              />
+                                              {preset.thumbnailUrl ? (
+                                                <Image
+                                                  src={preset.thumbnailUrl}
+                                                  alt={preset.label}
+                                                  width={64}
+                                                  height={64}
+                                                  className="w-16 h-16 object-cover rounded-lg border shadow-sm flex-shrink-0"
+                                                  unoptimized
+                                                />
+                                              ) : (
+                                                <div className="w-16 h-16 bg-gradient-to-br from-primary/10 to-primary/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                                                  <span className="text-2xl">
+                                                    🎨
+                                                  </span>
+                                                </div>
+                                              )}
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                              <div className="font-semibold text-base mb-2">
+                                                {preset.label}
+                                              </div>
+                                              <div className="text-sm text-muted-foreground line-clamp-3 leading-relaxed">
+                                                {preset.prompt}
+                                              </div>
+                                            </div>
+                                          </CommandItem>
+                                        ))}
+                                      </div>
+                                    </CommandGroup>
+                                  ))}
+                                </div>
+                              </CommandList>
+                            </Command>
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+
+                      {isCustomScene && (
+                        <textarea
+                          value={sceneDescription}
+                          onChange={(e) => setSceneDescription(e.target.value)}
+                          placeholder="Describe your custom scene... (e.g., modern minimalist studio with soft lighting)"
+                          className="w-full px-4 py-3 text-sm border border-input rounded-lg focus:ring-2 focus:ring-primary focus:border-primary resize-none"
+                          rows={3}
+                        />
+                      )}
+                    </div>
+                  </Card>
+                )}
+
+                {/* Image Format Card */}
+                <Card className="p-6 hover:shadow-lg transition-all duration-200 border-primary/20">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                      <span className="text-primary font-bold text-lg">📐</span>
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold">Image Format</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Choose the best format for your use case
+                      </p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {formatOptions.map((format) => (
+                      <button
+                        key={format.value}
+                        onClick={() => {
+                          setImageFormat(format.value);
+                          onImageFormatChange?.(format.value);
+                        }}
+                        className={`p-2 rounded-md border text-left transition-all duration-200 ${
+                          imageFormat === format.value
+                            ? "border-primary bg-primary/5 ring-1 ring-primary/20"
+                            : "border-input hover:border-primary/50 hover:bg-muted/50"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm">{format.icon}</span>
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium text-xs truncate">
+                              {format.label}
+                            </div>
+                            <div className="text-xs text-muted-foreground truncate">
+                              {format.dimensions}
+                            </div>
+                          </div>
+                          {imageFormat === format.value && (
+                            <Check className="h-3 w-3 text-primary flex-shrink-0" />
+                          )}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Custom Size Inputs */}
+                  {imageFormat === "custom" && (
+                    <div className="mt-4 p-3 bg-muted/30 rounded-lg border border-border">
+                      <div className="space-y-3">
+                        <div className="text-sm font-medium text-foreground">
+                          Custom Dimensions
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1">
+                            <label className="text-xs text-muted-foreground">
+                              Width (px)
+                            </label>
+                            <Input
+                              type="number"
+                              value={customWidth}
+                              onChange={(e) => {
+                                setCustomWidth(e.target.value);
+                                onCustomDimensionsChange?.(
+                                  e.target.value,
+                                  customHeight
+                                );
+                              }}
+                              placeholder="1080"
+                              className="text-xs h-8"
+                              min="100"
+                              max="4000"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-xs text-muted-foreground">
+                              Height (px)
+                            </label>
+                            <Input
+                              type="number"
+                              value={customHeight}
+                              onChange={(e) => {
+                                setCustomHeight(e.target.value);
+                                onCustomDimensionsChange?.(
+                                  customWidth,
+                                  e.target.value
+                                );
+                              }}
+                              placeholder="1080"
+                              className="text-xs h-8"
+                              min="100"
+                              max="4000"
+                            />
+                          </div>
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          Aspect ratio:{" "}
+                          {customWidth && customHeight
+                            ? (
+                                parseFloat(customWidth) /
+                                parseFloat(customHeight)
+                              ).toFixed(2)
+                            : "1.00"}
+                          :1
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </Card>
+
+                {/* Inspiration Image Card - hide in capture mode */}
+                {!captureMode && (
+                  <Card className="p-6 hover:shadow-lg transition-all grid-span-2 duration-200 border-primary/20">
+                    <div className="space-y-3">
+                      {inspirationImageUrl ? (
+                        <div className="relative group">
+                          <Image
+                            src={inspirationImageUrl}
+                            alt="Inspiration"
+                            width={320}
+                            height={180}
+                            className="w-full h-32 object-cover rounded-lg border shadow-sm"
+                          />
+                          <button
+                            onClick={handleRemoveInspirationImage}
+                            className="absolute top-2 right-2 p-2 bg-destructive/90 rounded-full text-destructive-foreground hover:bg-destructive transition-all shadow-lg"
+                          >
+                            <svg
+                              className="h-4 w-4"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M6 18L18 6M6 6l12 12"
+                              />
+                            </svg>
+                          </button>
+                          <div className="absolute bottom-2 left-2 right-2 p-2 bg-black/70 text-white text-xs rounded">
+                            {inspirationImage?.name}
+                          </div>
+                        </div>
+                      ) : (
+                        <label
+                          htmlFor="inspiration-upload"
+                          className="flex flex-col items-center justify-center h-32 border-2 border-dashed border-muted-foreground/30 rounded-lg cursor-pointer hover:border-primary/50 hover:bg-muted/50 transition-all group"
+                        >
+                          <div className="text-center">
+                            <svg
+                              className="h-8 w-8 mx-auto mb-2 text-muted-foreground group-hover:text-primary transition-colors"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                              />
+                            </svg>
+                            <p className="text-sm text-muted-foreground group-hover:text-primary">
+                              Click to upload inspiration image
+                            </p>
+                          </div>
+                          <input
+                            id="inspiration-upload"
+                            type="file"
+                            className="hidden"
+                            onChange={handleInspirationImageChange}
+                            accept="image/png, image/jpeg, image/webp"
+                          />
+                        </label>
+                      )}
+                    </div>
+                  </Card>
+                )}
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-3 pt-6 border-t">
+                <Button
+                  onClick={() => setShowConfigDialog(false)}
+                  variant="outline"
+                  size="lg"
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={() => {
+                    setShowConfigDialog(false);
+                    handleCapture();
+                  }}
+                  disabled={!objectType.trim()}
+                  size="lg"
+                  className="flex-1"
+                >
+                  {captureButtonText}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 };

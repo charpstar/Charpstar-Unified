@@ -43,12 +43,22 @@ interface AssetLibraryPanelProps {
   onAssetSelect?: (asset: any) => void;
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
+  multiAssetMode?: boolean;
+  selectedAssets?: Array<{
+    id: string;
+    name: string;
+    glb_link: string;
+    category?: string;
+    thumbnail?: string;
+  }>;
 }
 
 export default function AssetLibraryPanel({
   onAssetSelect,
   isCollapsed = false,
   onToggleCollapse,
+  multiAssetMode = false,
+  selectedAssets = [],
 }: AssetLibraryPanelProps) {
   const {
     assets,
@@ -240,16 +250,16 @@ export default function AssetLibraryPanel({
   // If collapsed, show minimal UI
   if (isCollapsed) {
     return (
-      <Card className="h-full flex flex-col overflow-hidden surface-elevated border border-light shadow-md rounded-xl items-center py-4 px-2 gap-4 transition-all duration-500 ease-out">
+      <Card className="h-full max-h-[calc(90vh-100px)] flex flex-col overflow-hidden surface-elevated border border-light shadow-md rounded-xl items-center py-2 sm:py-4 px-1 sm:px-2 gap-2 sm:gap-4 transition-all duration-500 ease-out">
         {/* Expand Button - at the top */}
         <Button
           variant="ghost"
           size="sm"
           onClick={onToggleCollapse}
-          className="h-10 w-10 p-0 hover:bg-primary/10 flex-shrink-0 transition-colors duration-200"
+          className="h-8 w-8 sm:h-10 sm:w-10 p-0 hover:bg-primary/10 flex-shrink-0 transition-colors duration-200"
           title="Expand Asset Library"
         >
-          <ChevronLeft className="h-5 w-5" />
+          <ChevronLeft className="h-4 w-4 sm:h-5 sm:w-5" />
         </Button>
 
         {/* Client Filter - Only for Admins */}
@@ -325,12 +335,12 @@ export default function AssetLibraryPanel({
         )}
 
         {/* Asset Count with Icon */}
-        <div className="flex flex-col items-center gap-2 flex-shrink-0 transition-all duration-500 ease-out">
-          <span className="text-sm font-medium text-muted-foreground transition-colors duration-300">
+        <div className="flex flex-col items-center gap-1 sm:gap-2 flex-shrink-0 transition-all duration-500 ease-out">
+          <span className="text-xs sm:text-sm font-medium text-muted-foreground transition-colors duration-300">
             {displayedAssets.length}
           </span>
           {displayedAssets.length !== assets.length && (
-            <span className="text-xs text-muted-foreground transition-opacity duration-300">
+            <span className="text-[10px] sm:text-xs text-muted-foreground transition-opacity duration-300">
               /{assets.length}
             </span>
           )}
@@ -338,7 +348,7 @@ export default function AssetLibraryPanel({
 
         {/* Vertical Text - rotated correctly */}
         <div className="flex-1 flex items-center justify-center min-h-0 transition-all duration-500 ease-out">
-          <div className="text-sm font-medium tracking-wider [writing-mode:vertical-lr] transition-all duration-500 ease-out">
+          <div className="text-xs sm:text-sm font-medium tracking-wider [writing-mode:vertical-lr] transition-all duration-500 ease-out">
             Asset Library
           </div>
         </div>
@@ -347,7 +357,7 @@ export default function AssetLibraryPanel({
   }
 
   return (
-    <Card className="h-full flex flex-col overflow-hidden surface-elevated border border-light shadow-md rounded-xl transition-all duration-500 ease-out">
+    <Card className="h-full max-h-[calc(90vh-100px)] flex flex-col overflow-hidden surface-elevated border border-light shadow-md rounded-xl transition-all duration-500 ease-out">
       <CardHeader className="pb-2 sm:pb-3 flex-shrink-0 transition-all duration-500 ease-out">
         <div className="flex items-center justify-between">
           <div className="flex-1 transition-all duration-500 ease-out">
@@ -373,7 +383,7 @@ export default function AssetLibraryPanel({
         </div>
       </CardHeader>
 
-      <CardContent className="flex-1 flex flex-col space-y-2 sm:space-y-3 p-3 sm:p-4 min-h-0 transition-all duration-500 ease-out">
+      <CardContent className="flex-1 flex flex-col space-y-2 sm:space-y-3 p-3 sm:p-4 min-h-0 overflow-hidden transition-all duration-500 ease-out">
         {/* Search */}
         <div className="relative transition-all duration-300">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground transition-colors duration-200" />
@@ -738,9 +748,9 @@ export default function AssetLibraryPanel({
         </Popover>
 
         {/* Assets Grid */}
-        <ScrollArea className="flex-1 min-h-0 transition-all duration-300">
+        <ScrollArea className="flex-1 min-h-0">
           {loading ? (
-            <div className="grid grid-cols-3 xs:grid-cols-2 gap-2 sm:gap-3 transition-all duration-300">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3 p-1">
               {[...Array(6)].map((_, i) => (
                 <Card
                   key={i}
@@ -762,8 +772,12 @@ export default function AssetLibraryPanel({
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-2 xs:grid-cols-2 gap-2 sm:gap-3 pb-4 p-1 transition-all duration-300">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3 pb-4 p-1 transition-all duration-300">
                 {paginatedAssets.map((asset) => {
+                  const isSelected =
+                    multiAssetMode &&
+                    selectedAssets.some((a) => a.id === asset.id);
+
                   const handleClick = (e: React.MouseEvent) => {
                     // Prevent click during drag operations
                     if ((e.target as HTMLElement).closest("button")) {
@@ -783,8 +797,12 @@ export default function AssetLibraryPanel({
                   return (
                     <Card
                       key={asset.id}
-                      className={`surface-elevated border border-light shadow-depth-sm hover-scale-lift overflow-hidden p-2 sm:p-4 rounded-lg cursor-grab active:cursor-grabbing transition-all duration-300 group animate-in fade-in-0 slide-in-from-bottom-2 ${
+                      className={`surface-elevated border shadow-depth-sm hover-scale-lift overflow-hidden p-1 sm:p-2 rounded-lg cursor-grab active:cursor-grabbing transition-all duration-300 group animate-in fade-in-0 slide-in-from-bottom-2 ${
                         asset.active === false ? "opacity-60 border-dashed" : ""
+                      } ${
+                        isSelected
+                          ? "border-primary bg-primary/5 ring-2 ring-primary/20"
+                          : "border-light"
                       }`}
                       onClick={handleClick}
                       draggable
@@ -818,47 +836,54 @@ export default function AssetLibraryPanel({
                             </p>
                           </div>
                         )}
+
+                        {/* Selection Indicator */}
+                        {isSelected && (
+                          <div className="absolute top-2 right-2 w-6 h-6 bg-primary rounded-full flex items-center justify-center shadow-lg">
+                            <Check className="w-4 h-4 text-primary-foreground" />
+                          </div>
+                        )}
                       </div>
 
                       {/* Asset Info */}
-                      <div className="p-1 sm:p-2 space-y-1">
+                      <div className="p-1 space-y-1">
                         <div className="flex items-center justify-between">
-                          <h4 className="text-xs font-medium line-clamp-1 group-hover:text-primary transition-colors">
+                          <h4 className="text-[10px] sm:text-xs font-medium line-clamp-1 group-hover:text-primary transition-colors">
                             {asset.product_name}
                           </h4>
                           {asset.active === false && (
                             <Badge
                               variant="destructive"
-                              className="text-[10px] sm:text-xs px-1 sm:px-1.5 py-0"
+                              className="text-[8px] sm:text-[10px] px-1 py-0"
                             >
                               Inactive
                             </Badge>
                           )}
                         </div>
-                        <p className="text-[10px] sm:text-xs text-muted-foreground line-clamp-1">
+                        <p className="text-[8px] sm:text-[10px] text-muted-foreground line-clamp-1">
                           {asset.category}
                         </p>
                         {(asset as any).article_id && (
-                          <p className="text-[10px] sm:text-xs text-muted-foreground line-clamp-1 font-mono">
+                          <p className="text-[8px] sm:text-[10px] text-muted-foreground line-clamp-1 font-mono">
                             {(asset as any).article_id}
                           </p>
                         )}
                         {asset.materials && asset.materials.length > 0 && (
-                          <div className="flex gap-1 flex-wrap">
+                          <div className="flex gap-0.5 flex-wrap">
                             {asset.materials
-                              .slice(0, 2)
+                              .slice(0, 1)
                               .map((material, idx) => (
                                 <Badge
                                   key={idx}
                                   variant="secondary"
-                                  className="text-[10px] sm:text-xs px-1 py-0"
+                                  className="text-[8px] sm:text-[10px] px-1 py-0"
                                 >
                                   {material}
                                 </Badge>
                               ))}
-                            {asset.materials.length > 2 && (
-                              <span className="text-[10px] sm:text-xs text-muted-foreground">
-                                +{asset.materials.length - 2}
+                            {asset.materials.length > 1 && (
+                              <span className="text-[8px] sm:text-[10px] text-muted-foreground">
+                                +{asset.materials.length - 1}
                               </span>
                             )}
                           </div>
@@ -867,17 +892,17 @@ export default function AssetLibraryPanel({
 
                       {/* Quick Action */}
                       {asset.glb_link && canDownloadGLB && (
-                        <div className="p-1 sm:p-2 pt-0">
+                        <div className="p-1 pt-0">
                           <Button
                             variant="outline"
                             size="sm"
-                            className="w-full h-6 sm:h-7 text-[10px] sm:text-xs"
+                            className="w-full h-5 sm:h-6 text-[8px] sm:text-[10px]"
                             onClick={(e) => {
                               e.stopPropagation();
                               window.open(asset.glb_link, "_blank");
                             }}
                           >
-                            <Download className="h-2.5 w-2.5 sm:h-3 sm:w-3 mr-1" />
+                            <Download className="h-2 w-2 sm:h-2.5 sm:w-2.5 mr-1" />
                             GLB
                           </Button>
                         </div>
@@ -887,14 +912,14 @@ export default function AssetLibraryPanel({
                 })}
               </div>
 
-              {/* Pagination Controls */}
+              {/* Pagination Controls - Only show if there are multiple pages */}
               {totalPages > 1 && (
-                <div className="sticky bottom-0 z-10 backdrop-blur-sm border-t pt-3 sm:pt-4 mt-2 sm:mt-3 transition-all duration-300 animate-in slide-in-from-bottom-2">
-                  <div className="flex flex-col xs:flex-row xs:items-center justify-between gap-2 px-1 sm:px-2 transition-all duration-300">
-                    <div className="text-[10px] sm:text-xs text-muted-foreground text-center xs:text-left order-2 xs:order-1 transition-colors duration-200">
+                <div className="sticky bottom-0 bg-background/95 backdrop-blur-sm border-t pt-2 pb-1 mt-2">
+                  <div className="flex flex-col xs:flex-row xs:items-center justify-between gap-2 px-1">
+                    <div className="text-[10px] sm:text-xs text-muted-foreground text-center xs:text-left order-2 xs:order-1">
                       Page {currentPage} of {totalPages}
                     </div>
-                    <div className="flex gap-1 justify-center xs:justify-end order-1 xs:order-2 transition-all duration-300">
+                    <div className="flex gap-1 justify-center xs:justify-end order-1 xs:order-2">
                       <Button
                         variant="outline"
                         size="sm"
@@ -902,7 +927,7 @@ export default function AssetLibraryPanel({
                           setCurrentPage((p) => Math.max(1, p - 1))
                         }
                         disabled={currentPage === 1}
-                        className="h-6 sm:h-7 px-2 sm:px-3 text-[10px] sm:text-xs min-w-[60px] sm:min-w-[70px] transition-colors duration-200 disabled:opacity-50"
+                        className="h-6 sm:h-7 px-2 sm:px-3 text-[10px] sm:text-xs min-w-[60px] sm:min-w-[70px] disabled:opacity-50"
                       >
                         <span className="hidden xs:inline">Prev</span>
                         <span className="xs:hidden">‹</span>
@@ -914,7 +939,7 @@ export default function AssetLibraryPanel({
                           setCurrentPage((p) => Math.min(totalPages, p + 1))
                         }
                         disabled={currentPage === totalPages}
-                        className="h-6 sm:h-7 px-2 sm:px-3 text-[10px] sm:text-xs min-w-[60px] sm:min-w-[70px] transition-colors duration-200 disabled:opacity-50"
+                        className="h-6 sm:h-7 px-2 sm:px-3 text-[10px] sm:text-xs min-w-[60px] sm:min-w-[70px] disabled:opacity-50"
                       >
                         <span className="hidden xs:inline">Next</span>
                         <span className="xs:hidden">›</span>

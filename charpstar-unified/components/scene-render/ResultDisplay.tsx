@@ -1,14 +1,22 @@
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import { Button } from "@/components/ui/display/button";
-import { Download, Loader2, Maximize2 } from "lucide-react";
+import { Download, Loader2, Maximize2, Save } from "lucide-react";
 import { toast } from "sonner";
+import SaveSceneDialog from "./SaveSceneDialog";
 
 interface ResultDisplayProps {
   images: string[];
   upscaledImages?: string[];
   showComparison?: boolean;
   onReset: () => void;
+  imageFormat?: string;
+  customWidth?: string;
+  customHeight?: string;
+  sceneDescription?: string;
+  objectType?: string;
+  sourceModelId?: string;
+  sourceModelUrl?: string;
 }
 
 const ResultDisplay: React.FC<ResultDisplayProps> = ({
@@ -16,15 +24,68 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
   upscaledImages,
   showComparison,
   onReset,
+  imageFormat = "square",
+  customWidth = "1080",
+  customHeight = "1080",
+  sceneDescription,
+  objectType,
+  sourceModelId,
+  sourceModelUrl,
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isImageLoading, setIsImageLoading] = useState(true);
+  const [imageAspectRatio, setImageAspectRatio] = useState<number | null>(null);
+  const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Get dimensions based on image format
+  const getImageDimensions = () => {
+    if (imageFormat === "custom") {
+      return `${customWidth}x${customHeight}`;
+    }
+
+    const formatDimensions = {
+      square: "1080x1080",
+      instagram_story: "1080x1920",
+      instagram_reel: "1080x1920",
+      facebook_cover: "1920x1080",
+      pinterest: "1080x1620",
+    };
+
+    return (
+      formatDimensions[imageFormat as keyof typeof formatDimensions] ||
+      "1080x1080"
+    );
+  };
 
   const imageData = images[0]; // Single image
   // Check if it's already a URL or base64 data
   const imageUrl = imageData.startsWith("http")
     ? imageData
     : `data:image/png;base64,${imageData}`;
+
+  // Function to calculate aspect ratio from image URL or data
+  const calculateAspectRatio = (url: string) => {
+    return new Promise<number>((resolve) => {
+      const img = new window.Image();
+      img.onload = () => {
+        const aspectRatio = img.width / img.height;
+        setImageAspectRatio(aspectRatio);
+        resolve(aspectRatio);
+      };
+      img.onerror = () => {
+        // Fallback to square if we can't determine aspect ratio
+        setImageAspectRatio(1);
+        resolve(1);
+      };
+      img.src = url;
+    });
+  };
+
+  // Calculate aspect ratio when component mounts
+  useEffect(() => {
+    calculateAspectRatio(imageUrl);
+  }, [imageUrl]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -100,6 +161,61 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
     }
   };
 
+  const handleSaveToLibrary = async (formData: {
+    product_name: string;
+    category: string;
+    description: string;
+    client: string;
+  }) => {
+    setIsSaving(true);
+    try {
+      // Save to asset library with base64 image data
+      const saveResponse = await fetch("/api/assets/save-scene", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          ...formData,
+          // Use Cloudinary URL if available, otherwise use base64 data
+          scene_image_url: imageData.startsWith("http") ? imageData : null,
+          scene_image_data: imageData.startsWith("http")
+            ? null
+            : imageData.startsWith("data:image/")
+              ? imageData
+              : `data:image/png;base64,${imageData}`,
+          original_images: images,
+          objectType: "Generated Scene",
+          sceneDescription: formData.description,
+          sourceModelId: sourceModelId,
+          sourceModelUrl: sourceModelUrl,
+          // Pass image format information
+          imageFormat: imageFormat,
+          customWidth: customWidth,
+          customHeight: customHeight,
+        }),
+      });
+
+      if (!saveResponse.ok) {
+        const errorData = await saveResponse.json();
+        console.error("Save scene error:", errorData);
+        throw new Error(
+          errorData.details ||
+            errorData.error ||
+            "Failed to save to asset library"
+        );
+      }
+
+      toast.success("Scene saved to asset library!");
+    } catch (error) {
+      console.error("Error saving scene:", error);
+      toast.error("Failed to save scene to library");
+      throw error;
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const upscaledImageData = upscaledImages?.[0];
   const upscaledImageUrl = upscaledImageData
     ? upscaledImageData.startsWith("http")
@@ -124,74 +240,93 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
 
   return (
     <>
-      <div className="w-full h-full flex flex-col items-center glass-card p-6 rounded-2xl shadow-2xl animate-fade-in overflow-hidden">
-        <h2 className="text-2xl sm:text-3xl font-bold text-foreground mb-2">
+      <div className="w-full h-full flex flex-col items-center p-3 sm:p-6 rounded-2xl shadow-2xl animate-fade-in overflow-hidden">
+        <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-foreground mb-2 text-center">
           {showComparison
-            ? "Your Upscaled Scene is Ready!"
+            ? "Your Scene is Ready!"
             : "Your Premium Scene is Ready!"}
         </h2>
-        <p className="text-sm text-muted-foreground mb-6">
+        <p className="text-xs sm:text-sm text-muted-foreground mb-4 sm:mb-6 text-center px-2">
           {showComparison
-            ? "High-quality upscaled scene (4096x2048) generated and ready for download"
+            ? `High-quality upscaled scene (${getImageDimensions()}) generated and ready for download`
             : "High-quality product scene generated and ready for download"}
         </p>
 
         {showComparison && upscaledImageUrl ? (
           // Show only the upscaled image
-          <div className="w-full max-w-4xl mb-6 flex-1 min-h-0 overflow-hidden">
-            <div className="text-center mb-4">
-              <span className="inline-flex items-center gap-2 px-3 py-1 bg-primary/10 text-primary rounded-full text-sm font-medium">
+          <div className="w-full max-w-4xl h-full mb-4 sm:mb-6 flex-1 min-h-0 overflow-hidden">
+            <div className="text-center mb-2 sm:mb-4">
+              <span className="inline-flex items-center gap-2 px-2 sm:px-3 py-1 bg-primary/10 text-primary rounded-full text-xs sm:text-sm font-medium">
                 <div className="w-2 h-2 rounded-full bg-primary"></div>
-                Upscaled Scene (4096x2048)
+                Upscaled Scene ({getImageDimensions()})
               </span>
             </div>
 
-            <div
-              className="w-full aspect-ratio-1/2 rounded-lg overflow-hidden border-2 border-border shadow-lg cursor-zoom-in group relative"
-              onClick={() => setIsModalOpen(true)}
-              title="Click to view fullscreen"
-              role="button"
-              aria-label="View upscaled image fullscreen"
-            >
-              {/* Loading overlay */}
-              {isImageLoading && (
-                <div className="absolute inset-0 bg-muted/50 flex items-center justify-center z-10">
-                  <div className="flex flex-col items-center gap-3">
-                    <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-                    <span className="text-sm text-muted-foreground">
-                      Processing image...
-                    </span>
+            {imageAspectRatio ? (
+              <div
+                className=" w-full max-h-[200px] sm:max-h-[300px] rounded-lg overflow-hidden cursor-zoom-in group relative"
+                style={{
+                  aspectRatio: `${imageAspectRatio}`,
+                  maxHeight: "50vh",
+                }}
+                onClick={() => setIsModalOpen(true)}
+                title="Click to view fullscreen"
+                role="button"
+                aria-label="View upscaled image fullscreen"
+              >
+                {/* Loading overlay */}
+                {isImageLoading && (
+                  <div className="absolute inset-0 bg-muted/50 flex items-center justify-center z-10">
+                    <div className="flex flex-col items-center gap-3">
+                      <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+                      <span className="text-sm text-muted-foreground">
+                        Rendering image...
+                      </span>
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
 
-              <Image
-                src={upscaledImageUrl}
-                alt="Upscaled Scene"
-                className={`w-full h-full object-contain bg-muted transition-all duration-300 h-auto  ${
-                  isImageLoading
-                    ? "opacity-0"
-                    : "opacity-100 group-hover:scale-105"
-                }`}
-                width={1024}
-                height={1024}
-                unoptimized
-                onLoad={handleImageLoad}
-                onError={handleImageError}
-              />
+                <Image
+                  src={upscaledImageUrl}
+                  alt={`Upscaled Scene (${getImageDimensions()})`}
+                  className={` h-full max-h-[calc(70vh-100px)] object-contain transition-all duration-300 ${
+                    isImageLoading
+                      ? "opacity-0"
+                      : "opacity-100 group-hover:scale-105"
+                  }`}
+                  fill
+                  unoptimized
+                  onLoad={handleImageLoad}
+                  onError={handleImageError}
+                />
 
-              {!isImageLoading && (
-                <div className="absolute top-2 right-2 bg-black/50 text-white px-2 py-1 rounded-md text-xs backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Maximize2 className="h-3 w-3 inline mr-1" />
-                  Click to enlarge
+                {!isImageLoading && (
+                  <div className="absolute top-2 right-2 bg-black/50 text-white px-2 py-1 rounded-md text-xs backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Maximize2 className="h-3 w-3 inline mr-1" />
+                    Click to enlarge
+                  </div>
+                )}
+              </div>
+            ) : (
+              // Loading state while calculating aspect ratio
+              <div className="w-full h-full rounded-lg border-2 border-border flex items-center justify-center bg-muted">
+                <div className="flex flex-col items-center gap-3">
+                  <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+                  <span className="text-sm text-muted-foreground">
+                    Loading image...
+                  </span>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
           </div>
-        ) : (
-          // Single image display
+        ) : // Single image display
+        imageAspectRatio ? (
           <div
-            className="w-full max-w-2xl aspect-square rounded-lg overflow-hidden border-2 border-border mb-6 shadow-lg cursor-zoom-in group relative flex-1 min-h-0"
+            className="w-full max-w-2xl rounded-lg overflow-hidden border-2 border-border mb-4 sm:mb-6 shadow-lg cursor-zoom-in group relative flex-1 min-h-0"
+            style={{
+              aspectRatio: `${imageAspectRatio}`,
+              maxHeight: "50vh",
+            }}
             onClick={() => setIsModalOpen(true)}
             title="Click to view fullscreen"
             role="button"
@@ -200,9 +335,8 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
             <Image
               src={imageUrl}
               alt="Generated product scene"
-              className="w-full h-full object-contain bg-muted transition-transform duration-300 group-hover:scale-105"
-              width={1024}
-              height={1024}
+              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+              fill
               unoptimized
             />
             <div className="absolute top-2 right-2 bg-black/50 text-white px-2 py-1 rounded-md text-xs backdrop-blur-sm">
@@ -210,26 +344,36 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
               Click to enlarge
             </div>
           </div>
+        ) : (
+          // Loading state while calculating aspect ratio
+          <div className="w-full max-w-2xl h-48 sm:h-64 rounded-lg border-2 border-border mb-4 sm:mb-6 flex items-center justify-center bg-muted">
+            <div className="flex flex-col items-center gap-3">
+              <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+              <span className="text-sm text-muted-foreground">
+                Loading image...
+              </span>
+            </div>
+          </div>
         )}
 
-        <div className="flex flex-col gap-3 w-full max-w-2xl">
+        <div className="flex flex-col gap-2 sm:gap-3 w-full max-w-2xl">
           {showComparison && upscaledImageUrl ? (
             // Single download button for upscaled image
             <Button
               onClick={handleDownloadUpscaled}
-              className="bg-primary hover:bg-primary/90 text-primary-foreground"
-              size="lg"
+              className="bg-primary hover:bg-primary/90 text-primary-foreground text-sm sm:text-base"
+              size="sm"
               disabled={isImageLoading}
             >
               {isImageLoading ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Processing...
+                  Rendering...
                 </>
               ) : (
                 <>
                   <Download className="h-4 w-4 mr-2" />
-                  Download HD Image (4096x2048)
+                  Download HD Image ({getImageDimensions()})
                 </>
               )}
             </Button>
@@ -244,7 +388,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
               {isImageLoading ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Processing...
+                  Rendering...
                 </>
               ) : (
                 <>
@@ -255,19 +399,30 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
             </Button>
           )}
 
-          <Button
-            onClick={onReset}
-            variant="outline"
-            size="lg"
-            className="w-full"
-          >
-            Create Another Scene
-          </Button>
+          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full">
+            <Button
+              onClick={() => setIsSaveDialogOpen(true)}
+              variant="outline"
+              size="sm"
+              className="flex-1 text-sm sm:text-base"
+            >
+              <Save className="h-4 w-4 mr-2" />
+              Save to Library
+            </Button>
+            <Button
+              onClick={onReset}
+              variant="outline"
+              size="sm"
+              className="flex-1 text-sm sm:text-base"
+            >
+              Create Another Scene
+            </Button>
+          </div>
 
           {isImageLoading && (
             <div className="text-center mt-2">
               <p className="text-xs text-muted-foreground animate-pulse">
-                Cloudinary is processing your image to 4096x2048 resolution...
+                Rendering high-resolution image ({getImageDimensions()})...
               </p>
             </div>
           )}
@@ -291,34 +446,59 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
           <div className="relative" onClick={(e) => e.stopPropagation()}>
             <Image
               src={upscaledImageUrl || imageUrl}
-              alt="Upscaled Scene in fullscreen"
+              alt={`Upscaled Scene (${getImageDimensions()}) in fullscreen`}
               className="max-h-[90vh] max-w-[90vw] object-contain rounded-lg shadow-2xl"
+              style={{
+                aspectRatio: imageAspectRatio ? `${imageAspectRatio}` : "1",
+              }}
               width={1920}
-              height={1920}
+              height={imageAspectRatio ? 1920 / imageAspectRatio : 1920}
               unoptimized
             />
-            <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex gap-2">
+            <div className="absolute bottom-2 sm:bottom-4 left-1/2 transform -translate-x-1/2 flex gap-1 sm:gap-2">
               {showComparison && upscaledImageUrl ? (
                 <Button
                   onClick={handleDownloadUpscaled}
-                  className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg"
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg text-xs sm:text-sm"
+                  size="sm"
                 >
-                  <Download className="h-4 w-4 mr-2" />
-                  Download HD (4096x2048)
+                  <Download className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                  <span className="hidden sm:inline">
+                    Download HD ({getImageDimensions()})
+                  </span>
+                  <span className="sm:hidden">Download</span>
                 </Button>
               ) : (
                 <Button
                   onClick={handleDownloadOriginal}
-                  className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg"
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg text-xs sm:text-sm"
+                  size="sm"
                 >
-                  <Download className="h-4 w-4 mr-2" />
-                  Download
+                  <Download className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                  <span className="hidden sm:inline">
+                    Download HD ({getImageDimensions()})
+                  </span>
+                  <span className="sm:hidden">Download</span>
                 </Button>
               )}
             </div>
           </div>
         </div>
       )}
+
+      <SaveSceneDialog
+        isOpen={isSaveDialogOpen}
+        onClose={() => setIsSaveDialogOpen(false)}
+        onSave={handleSaveToLibrary}
+        isLoading={isSaving}
+        initialData={{
+          product_name: `${objectType || "Generated"} Scene - ${new Date().toLocaleDateString()}`,
+          category: "Generated Scene",
+          description:
+            sceneDescription || `AI-generated ${objectType || "product"} scene`,
+          client: "Generated Content",
+        }}
+      />
     </>
   );
 };

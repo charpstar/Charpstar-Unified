@@ -15,6 +15,7 @@ import { createClient } from "@/utils/supabase/client";
 import { useUser } from "@/contexts/useUser";
 
 import { ModelViewer } from "@/components/asset-library/viewers/model-viewer";
+import RelatedScenesSection from "@/components/asset-library/RelatedScenesSection";
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
@@ -961,6 +962,13 @@ export default function AssetDetailPage() {
                       </div>
                     </div>
                   )}
+
+                  {/* Generated Scenes Section */}
+                  <RelatedScenesSection
+                    articleId={asset.article_id}
+                    modelUrl={asset.glb_link}
+                    productName={asset.product_name}
+                  />
                 </div>
               )}
 

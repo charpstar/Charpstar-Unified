@@ -62,10 +62,10 @@ export async function upscaleImage(
         {
           width: width,
           height: height,
-          crop: "pad",
+          crop: "fill",
           quality: "auto:best",
           format: "auto",
-          background: "black",
+          gravity: "center",
         },
       ],
     });

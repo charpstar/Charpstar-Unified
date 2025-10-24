@@ -20,6 +20,7 @@ import SceneConfigurator from "@/components/scene-render/SceneConfigurator";
 import Loader from "@/components/scene-render/Loader";
 import ResultDisplay from "@/components/scene-render/ResultDisplay";
 import AssetLibraryPanel from "@/components/scene-render/AssetLibraryPanel";
+import MultiAssetSnapshotCapture from "@/components/scene-render/MultiAssetSnapshotCapture";
 import { createClient } from "@/utils/supabase/client";
 
 type AppState = "upload" | "preview" | "generating" | "results" | "error";
@@ -77,18 +78,37 @@ export default function SceneRenderPage() {
 
   // Multi-asset mode states
   const [multiAssetMode, setMultiAssetMode] = useState(false);
-  const [capturedAssets, setCapturedAssets] = useState<
+  const [selectedAssets, setSelectedAssets] = useState<
     Array<{
-      snapshot: string;
+      id: string;
       name: string;
-      dimensions: { x: number; y: number; z: number } | null;
+      glb_link: string;
+      category?: string;
+      thumbnail?: string;
     }>
   >([]);
-  const [isCapturingAssets, setIsCapturingAssets] = useState(false);
-  const [isDoneCapturing, setIsDoneCapturing] = useState(false);
+
+  // Image format states
+  const [imageFormat, setImageFormat] = useState("square");
+  const [customWidth, setCustomWidth] = useState("1080");
+  const [customHeight, setCustomHeight] = useState("1080");
 
   // Collapse state for asset library panel
   const [isAssetPanelCollapsed, setIsAssetPanelCollapsed] = useState(false);
+
+  // Dialog state for scene configuration
+  const [showSceneConfigDialog, setShowSceneConfigDialog] = useState(false);
+
+  // Multi-asset snapshot capture state
+  const [isCapturingSnapshots, setIsCapturingSnapshots] = useState(false);
+  //eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [capturedSnapshots, setCapturedSnapshots] = useState<string[]>([]);
+
+  // Scene generation metadata
+  const [lastSceneDescription, setLastSceneDescription] = useState<string>("");
+  const [lastObjectType, setLastObjectType] = useState<string>("");
+  const [currentModelId, setCurrentModelId] = useState<string | null>(null);
+  const [currentModelUrl, setCurrentModelUrl] = useState<string | null>(null);
 
   // Fetch client viewer type based on user's client
   useEffect(() => {
@@ -147,34 +167,44 @@ export default function SceneRenderPage() {
 
   const handleAssetSelect = (asset: any) => {
     console.log("Asset selected:", asset);
-    if (asset.glb_link) {
-      setError(null);
-      setSelectedFile(null); // Clear file when using URL
-      setSelectedModelUrl(asset.glb_link); // Use URL directly
-      setAppState("preview");
+
+    if (multiAssetMode) {
+      // Multi-asset mode: add/remove from selection
+      const isAlreadySelected = selectedAssets.some((a) => a.id === asset.id);
+
+      if (isAlreadySelected) {
+        // Remove from selection
+        setSelectedAssets((prev) => prev.filter((a) => a.id !== asset.id));
+      } else {
+        // Add to selection
+        if (asset.glb_link) {
+          setSelectedAssets((prev) => [
+            ...prev,
+            {
+              id: asset.id,
+              name: asset.product_name || asset.name || "Unnamed Asset",
+              glb_link: asset.glb_link,
+              category: asset.category,
+              thumbnail: asset.thumbnail_url,
+            },
+          ]);
+        } else {
+          setError("This asset does not have a 3D model file available.");
+        }
+      }
     } else {
-      setError("This asset does not have a 3D model file available.");
+      // Single asset mode: load for preview
+      if (asset.glb_link) {
+        setError(null);
+        setSelectedFile(null); // Clear file when using URL
+        setSelectedModelUrl(asset.glb_link); // Use URL directly
+        setCurrentModelId(asset.id); // Store model ID for scene saving
+        setCurrentModelUrl(asset.glb_link); // Store model URL for scene saving
+        setAppState("preview");
+      } else {
+        setError("This asset does not have a 3D model file available.");
+      }
     }
-  };
-
-  const handleCaptureAsset = (
-    snapshot: string,
-    dimensions: { x: number; y: number; z: number } | null
-  ) => {
-    // Add captured asset to the list
-    const assetName =
-      selectedFile?.name ||
-      selectedModelUrl?.split("/").pop() ||
-      `Asset ${capturedAssets.length + 1}`;
-    setCapturedAssets([
-      ...capturedAssets,
-      { snapshot, name: assetName, dimensions },
-    ]);
-
-    // Reset for next asset selection
-    setSelectedFile(null);
-    setSelectedModelUrl(null);
-    setAppState("upload");
   };
 
   const handleGenerate = async (
@@ -182,24 +212,27 @@ export default function SceneRenderPage() {
     objectSize: string,
     objectType: string,
     sceneDescription: string,
-    inspirationImage: string | null
+    inspirationImage: string | null,
+    imageFormat?: string,
+    customWidth?: string,
+    customHeight?: string
   ) => {
-    // Multi-asset mode: capture each asset
-    if (multiAssetMode && isCapturingAssets) {
-      handleCaptureAsset(snapshots[0], null);
+    // Store scene metadata for later use
+    setLastSceneDescription(sceneDescription);
+    setLastObjectType(objectType);
+
+    // If in multi-asset mode and we have selected assets, start snapshot capture
+    if (multiAssetMode && selectedAssets.length > 0) {
+      setIsCapturingSnapshots(true);
+      setAppState("generating");
       return;
     }
 
+    // Single asset mode or multi-asset with captured snapshots
     try {
       setAppState("generating");
       startLoading();
       setError(null);
-
-      // Combine snapshots if in multi-asset mode
-      const finalSnapshots =
-        multiAssetMode && capturedAssets.length > 0
-          ? [...capturedAssets.map((a) => a.snapshot), ...snapshots]
-          : snapshots;
 
       const response = await fetch("/api/scene-render", {
         method: "POST",
@@ -207,11 +240,14 @@ export default function SceneRenderPage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          base64Images: finalSnapshots,
+          base64Images: snapshots,
           objectSize,
           objectType,
           sceneDescription,
           inspirationImage,
+          imageFormat: imageFormat || "square",
+          customWidth: customWidth || "1080",
+          customHeight: customHeight || "1080",
         }),
       });
 
@@ -244,14 +280,6 @@ export default function SceneRenderPage() {
   };
 
   const handleCancel = () => {
-    // If in done capturing state, go back to capturing mode
-    if (isDoneCapturing) {
-      setIsDoneCapturing(false);
-      setIsCapturingAssets(true);
-      setAppState("upload");
-      return;
-    }
-
     setSelectedFile(null);
     setSelectedModelUrl(null);
     setError(null);
@@ -266,24 +294,81 @@ export default function SceneRenderPage() {
     setUpscaledImages([]);
     setShowComparison(false);
     setMultiAssetMode(false);
-    setCapturedAssets([]);
-    setIsCapturingAssets(false);
-    setIsDoneCapturing(false);
+    setSelectedAssets([]);
+    setIsCapturingSnapshots(false);
+    setCapturedSnapshots([]);
     setAppState("upload");
   };
 
-  const handleRemoveAsset = (index: number) => {
-    setCapturedAssets(capturedAssets.filter((_, i) => i !== index));
+  const handleRemoveAsset = (assetId: string) => {
+    setSelectedAssets((prev) => prev.filter((asset) => asset.id !== assetId));
   };
 
-  const handleDoneCapturing = () => {
-    if (capturedAssets.length === 0) {
-      setError("Please capture at least one asset");
-      return;
+  const handleAllSnapshotsCaptured = async (snapshots: string[]) => {
+    setCapturedSnapshots(snapshots);
+    setIsCapturingSnapshots(false);
+
+    // Now generate the scene with the captured snapshots
+    try {
+      setAppState("generating");
+      startLoading();
+      setError(null);
+
+      // Create size description for multi-asset mode
+      const sizeDescription = selectedAssets
+        .map(
+          (asset, index) =>
+            `Asset ${index + 1} (${asset.name}): Dimensions calculated from 3D model`
+        )
+        .join("; ");
+
+      const response = await fetch("/api/scene-render", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          base64Images: snapshots,
+          objectSize: sizeDescription,
+          objectType: "Multiple Products", // You might want to make this configurable
+          sceneDescription: "Professional product scene with multiple items",
+          inspirationImage: null,
+          imageFormat: imageFormat,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to generate scenes");
+      }
+
+      const data = await response.json();
+
+      if (data.scenes && data.scenes.length > 0) {
+        setGeneratedImages(data.scenes);
+        if (data.upscaledScenes && data.comparison) {
+          setUpscaledImages(data.upscaledScenes);
+          setShowComparison(true);
+        }
+        setAppState("results");
+      } else {
+        throw new Error("The AI did not return any images. Please try again.");
+      }
+    } catch (error) {
+      console.error("Error generating scenes:", error);
+      setError(
+        error instanceof Error ? error.message : "An unknown error occurred."
+      );
+      setAppState("error");
+    } finally {
+      stopLoading();
     }
-    setIsDoneCapturing(true);
-    setIsCapturingAssets(false);
-    setAppState("preview");
+  };
+
+  const handleSnapshotError = (error: string) => {
+    setIsCapturingSnapshots(false);
+    setError(error);
+    setAppState("error");
   };
 
   // Show loading state while user context is initializing
@@ -309,7 +394,7 @@ export default function SceneRenderPage() {
           <CardHeader className="pb-3">
             <CardTitle className="text-lg">Access Denied</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="h-full">
             <p className="text-sm text-muted-foreground">
               This page is only available for clients and administrators.
             </p>
@@ -323,170 +408,153 @@ export default function SceneRenderPage() {
     switch (appState) {
       case "upload":
         return (
-          <div className="w-full h-full flex flex-col items-center justify-center gap-4 p-4">
-            {multiAssetMode &&
-              isCapturingAssets &&
-              capturedAssets.length > 0 && (
-                <div className="w-full max-w-2xl mb-4">
-                  <div className="p-3 sm:p-4 bg-primary/10 border border-primary rounded-lg">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 gap-2">
-                      <p className="text-sm font-semibold text-primary">
-                        Captured Assets ({capturedAssets.length})
-                      </p>
-                      <Button
-                        onClick={handleDoneCapturing}
-                        variant="default"
-                        size="sm"
-                        className="w-full sm:w-auto"
-                      >
-                        Done Adding Assets
-                      </Button>
+          <div className="w-full h-full flex flex-col items-center justify-center gap-6 p-6">
+            {multiAssetMode && selectedAssets.length > 0 && (
+              <div className="w-full max-w-4xl">
+                <Card className="p-6 bg-gradient-to-r from-primary/5 to-primary/10 border-primary/20">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
+                        <span className="text-primary font-bold text-sm">
+                          {selectedAssets.length}
+                        </span>
+                      </div>
+                      <div>
+                        <p className="text-lg font-semibold text-primary">
+                          Selected Assets
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          Click Configure Scene to continue
+                        </p>
+                      </div>
                     </div>
-                    <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 gap-2">
-                      {capturedAssets.map((asset, index) => (
-                        <div
-                          key={index}
-                          className="relative group bg-muted rounded-lg p-2"
-                        >
+                    <Button
+                      onClick={() => setShowSceneConfigDialog(true)}
+                      variant="default"
+                      size="sm"
+                      className="w-full sm:w-auto"
+                    >
+                      Configure Scene
+                    </Button>
+                  </div>
+                  <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
+                    {selectedAssets.map((asset) => (
+                      <div
+                        key={asset.id}
+                        className="relative group bg-background/50 rounded-xl p-3 hover:bg-background/80 transition-all duration-200"
+                      >
+                        {asset.thumbnail ? (
                           <Image
                             width={320}
                             height={180}
-                            src={`data:image/png;base64,${asset.snapshot}`}
+                            src={asset.thumbnail}
                             alt={asset.name}
-                            className="w-full h-20 sm:h-24 object-contain rounded"
+                            className="w-full h-20 sm:h-24 object-cover rounded-lg"
                           />
-                          <p className="text-xs mt-1 truncate">{asset.name}</p>
-                          <button
-                            onClick={() => handleRemoveAsset(index)}
-                            className="absolute top-1 right-1 p-1 bg-destructive/90 rounded-full text-destructive-foreground hover:bg-destructive transition-colors shadow-md opacity-0 group-hover:opacity-100"
-                            aria-label="Remove"
-                          >
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              className="h-3 w-3"
-                              viewBox="0 0 20 20"
-                              fill="currentColor"
-                            >
-                              <path
-                                fillRule="evenodd"
-                                d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
-                                clipRule="evenodd"
-                              />
-                            </svg>
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-            <FileUploader onFileSelect={handleFileSelect} error={error} />
-
-            {!isCapturingAssets && (
-              <div className="flex flex-col items-center gap-2 mt-4">
-                <Button
-                  onClick={() => {
-                    setMultiAssetMode(!multiAssetMode);
-                    if (!multiAssetMode) {
-                      setIsCapturingAssets(true);
-                      setCapturedAssets([]);
-                    } else {
-                      setIsCapturingAssets(false);
-                      setCapturedAssets([]);
-                    }
-                  }}
-                  variant={multiAssetMode ? "default" : "outline"}
-                  size="sm"
-                >
-                  {multiAssetMode
-                    ? "✓ Multi-Asset Mode Active"
-                    : "Render Scene from Multiple Assets"}
-                </Button>
-                {multiAssetMode && (
-                  <p className="text-xs text-muted-foreground text-center max-w-sm">
-                    Capture multiple assets, then configure one shared
-                    environment for all
-                  </p>
-                )}
-              </div>
-            )}
-          </div>
-        );
-      case "preview":
-        // If done capturing in multi-asset mode, show config UI without model viewer
-        if (isDoneCapturing && multiAssetMode) {
-          return (
-            <div className="w-full h-full p-2 sm:p-4">
-              <div className="max-w-4xl mx-auto">
-                <div className="mb-4 p-3 sm:p-4 bg-primary/10 border border-primary rounded-lg">
-                  <p className="text-sm font-semibold text-primary mb-2">
-                    Configure Scene for {capturedAssets.length} Assets
-                  </p>
-                  <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
-                    {capturedAssets.map((asset, index) => (
-                      <div key={index} className="bg-muted rounded p-2">
-                        <Image
-                          width={320}
-                          height={180}
-                          src={`data:image/png;base64,${asset.snapshot}`}
-                          alt={asset.name}
-                          className="w-full h-12 sm:h-16 object-contain rounded"
-                        />
-                        <p className="text-xs mt-1 truncate text-center">
+                        ) : (
+                          <div className="w-full h-20 sm:h-24 bg-muted rounded-lg flex items-center justify-center">
+                            <span className="text-2xl">📦</span>
+                          </div>
+                        )}
+                        <p className="text-xs mt-2 truncate font-medium">
                           {asset.name}
                         </p>
+                        <button
+                          onClick={() => handleRemoveAsset(asset.id)}
+                          className="absolute top-2 right-2 p-1.5 bg-destructive/90 rounded-full text-destructive-foreground hover:bg-destructive transition-all duration-200 shadow-lg opacity-0 group-hover:opacity-100"
+                          aria-label="Remove"
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="h-3 w-3"
+                            viewBox="0 0 20 20"
+                            fill="currentColor"
+                          >
+                            <path
+                              fillRule="evenodd"
+                              d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                              clipRule="evenodd"
+                            />
+                          </svg>
+                        </button>
                       </div>
                     ))}
                   </div>
-                </div>
-
-                <SceneConfigurator
-                  onGenerate={handleGenerate}
-                  onCancel={handleCancel}
-                  capturedAssets={capturedAssets}
-                />
+                </Card>
               </div>
-            </div>
-          );
-        }
+            )}
 
+            <FileUploader onFileSelect={handleFileSelect} error={error} />
+
+            <div className="flex flex-col items-center gap-4 mt-6">
+              <Button
+                onClick={() => {
+                  setMultiAssetMode(!multiAssetMode);
+                  if (multiAssetMode) {
+                    setSelectedAssets([]);
+                  }
+                }}
+                variant={multiAssetMode ? "default" : "outline"}
+                size="lg"
+                className="px-8 py-3"
+              >
+                {multiAssetMode
+                  ? "✓ Multi-Asset Mode Active"
+                  : "Render Scene from Multiple Assets"}
+              </Button>
+              {multiAssetMode && (
+                <p className="text-sm text-muted-foreground text-center max-w-md">
+                  Click on assets in the library to select them for your scene
+                </p>
+              )}
+            </div>
+          </div>
+        );
+      case "preview":
         return (
           (selectedFile || selectedModelUrl) && (
-            <div className="w-full h-full flex flex-col gap-3">
-              {multiAssetMode && isCapturingAssets && (
-                <div className="p-3 bg-primary/10 border border-primary rounded-lg">
-                  <p className="text-sm font-semibold text-primary">
-                    Capturing Asset {capturedAssets.length + 1}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Click &quot;Capture Asset&quot; to add this model to your
-                    scene
-                  </p>
-                </div>
-              )}
-              <ModelPreviewer
-                file={selectedFile}
-                modelUrl={selectedModelUrl}
-                onGenerate={handleGenerate}
-                onCancel={handleCancel}
-                environmentImage={
-                  getViewerParameters(clientViewerType).environmentImage
-                }
-                exposure={getViewerParameters(clientViewerType).exposure}
-                toneMapping={getViewerParameters(clientViewerType).toneMapping}
-                captureMode={multiAssetMode && isCapturingAssets}
-                captureButtonText={
-                  multiAssetMode && isCapturingAssets
-                    ? "Capture Asset"
-                    : "Generate Scene"
-                }
-                onCaptureAsset={handleCaptureAsset}
-              />
+            <div className="h-full flex flex-col">
+              <div className="flex-1 min-h-0">
+                <ModelPreviewer
+                  file={selectedFile}
+                  modelUrl={selectedModelUrl}
+                  onGenerate={handleGenerate}
+                  onCancel={handleCancel}
+                  environmentImage={
+                    getViewerParameters(clientViewerType).environmentImage
+                  }
+                  exposure={getViewerParameters(clientViewerType).exposure}
+                  toneMapping={
+                    getViewerParameters(clientViewerType).toneMapping
+                  }
+                  imageFormat={imageFormat}
+                  customWidth={customWidth}
+                  customHeight={customHeight}
+                  onImageFormatChange={setImageFormat}
+                  onCustomDimensionsChange={(width, height) => {
+                    setCustomWidth(width);
+                    setCustomHeight(height);
+                  }}
+                />
+              </div>
             </div>
           )
         );
       case "generating":
+        if (isCapturingSnapshots) {
+          return (
+            <MultiAssetSnapshotCapture
+              selectedAssets={selectedAssets}
+              onAllSnapshotsCaptured={handleAllSnapshotsCaptured}
+              onError={handleSnapshotError}
+              environmentImage={
+                getViewerParameters(clientViewerType).environmentImage
+              }
+              exposure={getViewerParameters(clientViewerType).exposure}
+              toneMapping={getViewerParameters(clientViewerType).toneMapping}
+            />
+          );
+        }
         return <Loader />;
       case "results":
         return (
@@ -496,6 +564,13 @@ export default function SceneRenderPage() {
               upscaledImages={upscaledImages}
               showComparison={showComparison}
               onReset={handleReset}
+              imageFormat={imageFormat}
+              customWidth={customWidth}
+              customHeight={customHeight}
+              sceneDescription={lastSceneDescription}
+              objectType={lastObjectType}
+              sourceModelId={currentModelId || undefined}
+              sourceModelUrl={currentModelUrl || undefined}
             />
           )
         );
@@ -519,111 +594,95 @@ export default function SceneRenderPage() {
   };
 
   return (
-    <div className="w-full h-full flex flex-col p-2 overflow-hidden">
-      {/* Responsive Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4 mb-2 flex-shrink-0">
-        <div className="flex items-center gap-2">
+    <div className="w-full h-full flex flex-col bg-gradient-to-br from-background to-muted/20 overflow-hidden">
+      {/* Modern Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 bg-background/80 backdrop-blur-sm border-b">
+        <div className="flex items-center gap-3">
           <Button
             variant="ghost"
             size="sm"
             onClick={() => router.push("/dashboard")}
-            className="gap-1 h-7 text-xs"
+            className="gap-2 hover:bg-muted/50 transition-colors"
           >
-            <ChevronLeft className="h-3 w-3" />
-            <span className="hidden xs:inline">Back</span>
+            <ChevronLeft className="h-4 w-4" />
+            <span className="hidden xs:inline">Back to Dashboard</span>
           </Button>
-          <h1 className="text-base sm:text-lg font-semibold">
-            3D Product Stager
-          </h1>
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+              <span className="text-primary font-bold text-sm">3D</span>
+            </div>
+            <div>
+              <h1 className="text-xl font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+                3D Product Stager
+              </h1>
+              <p className="text-sm text-muted-foreground">
+                Create stunning product scenes
+              </p>
+            </div>
+          </div>
         </div>
 
-        {/* Responsive Progress Indicator */}
-        <div className="flex items-center gap-1 sm:gap-2 text-xs">
-          <div
-            className={`flex items-center gap-1 ${
-              appState === "upload"
-                ? "text-primary"
-                : ["preview", "generating", "results"].includes(appState)
-                  ? "text-green-600"
-                  : "text-muted-foreground"
-            }`}
-          >
-            <div
-              className={`w-4 h-4 sm:w-5 sm:h-5 rounded-full border flex items-center justify-center text-xs ${
-                appState === "upload"
-                  ? "border-primary bg-primary/10"
-                  : ["preview", "generating", "results"].includes(appState)
-                    ? "border-green-600 bg-green-600/10"
-                    : "border-muted-foreground"
-              }`}
-            >
-              {["preview", "generating", "results"].includes(appState)
-                ? "✓"
-                : "1"}
-            </div>
-            <span className="hidden xs:inline sm:inline">Upload</span>
-          </div>
+        {/* Modern Progress Indicator */}
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2">
+            {[
+              { key: "upload", label: "Upload", step: 1 },
+              { key: "preview", label: "Configure", step: 2 },
+              { key: "generating", label: "Generate", step: 3 },
+            ].map((step, index) => {
+              const isActive = appState === step.key;
+              const isCompleted =
+                ["preview", "generating", "results"].includes(appState) &&
+                (step.key === "upload" ||
+                  (step.key === "preview" &&
+                    ["generating", "results"].includes(appState)));
 
-          <div className="w-4 sm:w-6 h-px bg-border"></div>
-
-          <div
-            className={`flex items-center gap-1 ${
-              appState === "preview"
-                ? "text-primary"
-                : ["generating", "results"].includes(appState)
-                  ? "text-green-600"
-                  : "text-muted-foreground"
-            }`}
-          >
-            <div
-              className={`w-4 h-4 sm:w-5 sm:h-5 rounded-full border flex items-center justify-center text-xs ${
-                appState === "preview"
-                  ? "border-primary bg-primary/10"
-                  : ["generating", "results"].includes(appState)
-                    ? "border-green-600 bg-green-600/10"
-                    : "border-muted-foreground"
-              }`}
-            >
-              {["generating", "results"].includes(appState) ? "✓" : "2"}
-            </div>
-            <span className="hidden xs:inline sm:inline">Configure</span>
-          </div>
-
-          <div className="w-4 sm:w-6 h-px bg-border"></div>
-
-          <div
-            className={`flex items-center gap-1 ${
-              appState === "generating"
-                ? "text-primary"
-                : appState === "results"
-                  ? "text-green-600"
-                  : "text-muted-foreground"
-            }`}
-          >
-            <div
-              className={`w-4 h-4 sm:w-5 sm:h-5 rounded-full border flex items-center justify-center text-xs ${
-                appState === "generating"
-                  ? "border-primary bg-primary/10"
-                  : appState === "results"
-                    ? "border-green-600 bg-green-600/10"
-                    : "border-muted-foreground"
-              }`}
-            >
-              {appState === "results" ? "✓" : "3"}
-            </div>
-            <span className="hidden xs:inline sm:inline">Generate</span>
+              return (
+                <div key={step.key} className="flex items-center gap-2">
+                  <div
+                    className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-all duration-200 ${
+                      isActive
+                        ? "bg-primary text-primary-foreground shadow-lg"
+                        : isCompleted
+                          ? "bg-green-500 text-white shadow-lg"
+                          : "bg-muted text-muted-foreground"
+                    }`}
+                  >
+                    {isCompleted ? "✓" : step.step}
+                  </div>
+                  <span
+                    className={`text-sm font-medium hidden sm:inline ${
+                      isActive
+                        ? "text-primary"
+                        : isCompleted
+                          ? "text-green-600"
+                          : "text-muted-foreground"
+                    }`}
+                  >
+                    {step.label}
+                  </span>
+                  {index < 2 && (
+                    <div
+                      className={`w-6 h-px ${
+                        isCompleted ? "bg-green-500" : "bg-border"
+                      }`}
+                    />
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
 
       <div
-        className={`flex flex-col lg:grid gap-3 flex-1 min-h-[100px] transition-all duration-500 ease-out ${
+        className={`flex flex-col lg:grid gap-6 flex-1 p-6 transition-all duration-500 ease-out ${
           isAssetPanelCollapsed ? "lg:grid-cols-[1fr_80px]" : "lg:grid-cols-3"
         }`}
       >
         {/* Main Content Area - Left Side (2/3 width on desktop) */}
         <div
-          className={`order-1 lg:order-1 h-full overflow-hidden transition-all duration-500 ease-out ${
+          className={`order-1 lg:order-1 h-full overflow-hidden transition-all bg-background duration-500 ease-out ${
             isAssetPanelCollapsed ? "" : "lg:col-span-2"
           }`}
           onDragOver={(e) => {
@@ -652,15 +711,32 @@ export default function SceneRenderPage() {
           }}
         >
           <Card
-            className={`h-full flex flex-col surface-elevated border border-light shadow-md rounded-xl transition-all ${
-              isDragging ? "ring-2 ring-primary bg-primary/5" : ""
+            className={`h-full flex flex-col p-0  bg-background border-0 transition-all duration-300 ${
+              isDragging
+                ? "ring-2 ring-primary bg-primary/5 scale-[1.02]"
+                : "hover:shadow-3xl"
             }`}
           >
             {/* Main Content Area */}
-            <CardContent className="flex-1 flex items-center justify-center p-2 relative overflow-hidden">
+            <CardContent className="  relative h-full">
               {isDragging && (
-                <div className="absolute inset-0 flex items-center justify-center bg-primary/10 border-2 border-dashed border-primary rounded-lg z-10">
-                  <div className="text-center">
+                <div className="absolute inset-0 flex items-center justify-center bg-primary/10 border-2 border-dashed border-primary rounded-2xl z-10 backdrop-blur-sm">
+                  <div className="text-center space-y-2">
+                    <div className="w-16 h-16 mx-auto bg-primary/20 rounded-full flex items-center justify-center">
+                      <svg
+                        className="w-8 h-8 text-primary"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                        />
+                      </svg>
+                    </div>
                     <p className="text-lg font-semibold text-primary">
                       Drop asset here
                     </p>
@@ -677,16 +753,35 @@ export default function SceneRenderPage() {
         </div>
 
         {/* Asset Library Panel - Right Side (1/3 width on desktop, full width on mobile) */}
-        <div className="order-2 lg:order-2 h-full overflow-hidden">
+        <div className="order-2 lg:order-2 h-full ">
           <AssetLibraryPanel
             onAssetSelect={handleAssetSelect}
             isCollapsed={isAssetPanelCollapsed}
             onToggleCollapse={() =>
               setIsAssetPanelCollapsed(!isAssetPanelCollapsed)
             }
+            multiAssetMode={multiAssetMode}
+            selectedAssets={selectedAssets}
           />
         </div>
       </div>
+
+      {/* Scene Configuration Dialog */}
+      {showSceneConfigDialog && (
+        <SceneConfigurator
+          onGenerate={handleGenerate}
+          onCancel={() => setShowSceneConfigDialog(false)}
+          selectedAssets={selectedAssets}
+          imageFormat={imageFormat}
+          customWidth={customWidth}
+          customHeight={customHeight}
+          onImageFormatChange={setImageFormat}
+          onCustomDimensionsChange={(width, height) => {
+            setCustomWidth(width);
+            setCustomHeight(height);
+          }}
+        />
+      )}
     </div>
   );
 }

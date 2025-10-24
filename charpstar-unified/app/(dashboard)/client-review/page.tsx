@@ -37,6 +37,7 @@ import {
   X,
   Activity,
   Plus,
+  Trash2,
 } from "lucide-react";
 
 import { useRouter, useSearchParams } from "next/navigation";
@@ -231,6 +232,11 @@ export default function ReviewDashboardPage() {
 
   // Activity logs dialog state
   const [showLogsDialog, setShowLogsDialog] = useState(false);
+
+  // Delete confirmation dialog state
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [assetToDelete, setAssetToDelete] = useState<any>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Function to refresh a specific asset's reference data
   const refreshAssetReferenceData = async (assetId: string) => {
@@ -664,6 +670,46 @@ export default function ReviewDashboardPage() {
     }
   };
 
+  // Handle delete asset
+  const handleDeleteAsset = async () => {
+    if (!assetToDelete) return;
+
+    setIsDeleting(true);
+    try {
+      const { error } = await supabase
+        .from("onboarding_assets")
+        .delete()
+        .eq("id", assetToDelete.id);
+
+      if (error) {
+        console.error("Error deleting asset:", error);
+        toast.error("Failed to delete product");
+        return;
+      }
+
+      // Remove from local state
+      setAssets((prev) =>
+        prev.filter((asset) => asset.id !== assetToDelete.id)
+      );
+
+      // Clear selection if the deleted asset was selected
+      setSelected((prev) => {
+        const next = new Set(prev);
+        next.delete(assetToDelete.id);
+        return next;
+      });
+
+      toast.success("Product deleted successfully");
+      setShowDeleteDialog(false);
+      setAssetToDelete(null);
+    } catch (error) {
+      console.error("Error in delete asset:", error);
+      toast.error("Failed to delete product");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   return (
     <div className="container mx-auto p-3 sm:p-6 space-y-4 sm:space-y-6">
       <Card className="p-3 sm:p-6 flex-1 flex flex-col border-0 shadow-none">
@@ -1008,13 +1054,16 @@ export default function ReviewDashboardPage() {
                       <TableHead className="dark:text-foreground text-center">
                         View
                       </TableHead>
+                      <TableHead className="dark:text-foreground text-center">
+                        Actions
+                      </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody className="pt-16">
                     {paged.length === 0 ? (
                       <TableRow className="dark:border-border">
                         <TableCell
-                          colSpan={9}
+                          colSpan={10}
                           className="text-center dark:text-muted-foreground py-8"
                         >
                           {statusFilters.length > 0 ||
@@ -1281,6 +1330,20 @@ export default function ReviewDashboardPage() {
                                   <Eye className="h-5 w-5" />
                                 </Button>
                               )}
+                            </TableCell>
+                            <TableCell className="text-center w-16 pr-6">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => {
+                                  setAssetToDelete(asset);
+                                  setShowDeleteDialog(true);
+                                }}
+                                className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                title="Delete product"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
                             </TableCell>
                           </TableRow>
                         );
@@ -1553,6 +1616,18 @@ export default function ReviewDashboardPage() {
                                 Download GLB
                               </Button>
                             )}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="flex-1 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                              onClick={() => {
+                                setAssetToDelete(asset);
+                                setShowDeleteDialog(true);
+                              }}
+                            >
+                              <Trash2 className="mr-1 h-3 w-3" />
+                              Delete
+                            </Button>
                           </div>
                         </div>
                       </Card>
@@ -1647,6 +1722,72 @@ export default function ReviewDashboardPage() {
         onOpenChange={setShowLogsDialog}
         assetIds={assets.map((asset) => asset.id)}
       />
+
+      {/* Delete Confirmation Dialog */}
+      {showDeleteDialog && assetToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
+          <div className="bg-white dark:bg-background rounded-lg p-6 max-w-md w-full mx-4">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 bg-red-100 dark:bg-red-900/20 rounded-lg">
+                <Trash2 className="h-5 w-5 text-red-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold dark:text-foreground">
+                  Delete Product
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  This action cannot be undone
+                </p>
+              </div>
+            </div>
+
+            <div className="mb-6">
+              <p className="text-sm dark:text-foreground mb-2">
+                Are you sure you want to delete this product?
+              </p>
+              <div className="bg-muted dark:bg-muted/20 rounded-lg p-3">
+                <p className="font-medium text-sm dark:text-foreground">
+                  {assetToDelete.product_name}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Article ID: {assetToDelete.article_id}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-3 justify-end">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowDeleteDialog(false);
+                  setAssetToDelete(null);
+                }}
+                disabled={isDeleting}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleDeleteAsset}
+                disabled={isDeleting}
+                className="bg-red-600 hover:bg-red-700"
+              >
+                {isDeleting ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete Product
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

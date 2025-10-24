@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import Script from "next/script";
 import { AlertCircle, Loader2 } from "lucide-react";
 
 interface ModelViewerProps {
@@ -228,7 +227,6 @@ export function ModelViewer({
 
   return (
     <>
-      <Script src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js" />
       <div className="relative w-full h-full">
         {/* @ts-expect-error -- model-viewer is a custom element */}
         <model-viewer
