@@ -1050,7 +1050,7 @@ export default function ReviewDashboardPage() {
           ) : (
             <>
               {/* Desktop Table View */}
-              <div className="hidden md:block min-w-[1200px]">
+              <div className="hidden lg:block min-w-[1000px]">
                 <Table>
                   <TableHeader className="sticky top-0 bg-white dark:bg-slate-950 z-20 border-b border-border dark:border-border shadow-sm">
                     <TableRow className="dark:border-border">
@@ -1069,28 +1069,28 @@ export default function ReviewDashboardPage() {
                           />
                         </div>
                       </TableHead>
-                      <TableHead className="dark:text-foreground text-left">
+                      <TableHead className="dark:text-foreground text-left w-32 max-w-32">
                         Model Name
                       </TableHead>
-                      <TableHead className="dark:text-foreground text-left">
+                      <TableHead className="dark:text-foreground text-left w-20 max-w-20">
                         Article ID
                       </TableHead>
-                      <TableHead className="dark:text-foreground text-center">
+                      <TableHead className="dark:text-foreground text-center w-24">
                         Priority
                       </TableHead>
-                      <TableHead className="dark:text-foreground text-center">
+                      <TableHead className="dark:text-foreground text-center w-32">
                         Status
                       </TableHead>
-                      <TableHead className="dark:text-foreground text-center">
-                        Product Link
+                      <TableHead className="dark:text-foreground text-center w-20">
+                        Link
                       </TableHead>
-                      <TableHead className="dark:text-foreground text-center">
-                        References
+                      <TableHead className="dark:text-foreground text-center w-20">
+                        Refs
                       </TableHead>
-                      <TableHead className="dark:text-foreground text-center">
+                      <TableHead className="dark:text-foreground text-center w-16">
                         View
                       </TableHead>
-                      <TableHead className="dark:text-foreground text-center">
+                      <TableHead className="dark:text-foreground text-center w-16">
                         Actions
                       </TableHead>
                     </TableRow>
@@ -1161,40 +1161,39 @@ export default function ReviewDashboardPage() {
                                 className="bg-background dark:bg-background dark:border-border"
                               />
                             </TableCell>
-                            <TableCell className="text-left">
-                              <div className="flex flex-col gap-1">
+                            <TableCell className="text-left w-32 max-w-32">
+                              <div className="flex flex-col gap-1 min-w-0">
                                 <span
-                                  className="font-medium dark:text-foreground max-w-[200px] cursor-help"
+                                  className="font-medium dark:text-foreground truncate cursor-help"
                                   title={asset.product_name}
                                 >
-                                  {asset.product_name.length > 45
-                                    ? asset.product_name.substring(0, 45) +
-                                      "..."
-                                    : asset.product_name}
+                                  {asset.product_name}
                                 </span>
-                                <div className="flex items-center gap-2">
-                                  <span className="text-xs text-muted-foreground dark:text-muted-foreground">
-                                    {annotationCounts[asset.id] || 0} annotation
-                                    {(annotationCounts[asset.id] || 0) !== 1
-                                      ? "s"
-                                      : ""}
+                                <div className="flex items-center gap-1 text-xs">
+                                  <span className="text-muted-foreground dark:text-muted-foreground">
+                                    {annotationCounts[asset.id] || 0}a
                                   </span>
-                                  <span className="text-xs text-slate-500 dark:text-slate-400">
+                                  <span className="text-slate-500 dark:text-slate-400">
                                     •
                                   </span>
                                   <Badge
                                     variant="outline"
-                                    className="text-xs dark:border-border dark:bg-muted/20"
+                                    className="text-xs dark:border-border dark:bg-muted/20 px-1 py-0"
                                   >
-                                    Batch {asset.batch || 1}
+                                    B{asset.batch || 1}
                                   </Badge>
                                 </div>
                               </div>
                             </TableCell>
-                            <TableCell className="dark:text-foreground text-left">
-                              {asset.article_id}
+                            <TableCell className="dark:text-foreground text-left w-20 max-w-20">
+                              <span
+                                className="text-xs font-mono truncate block"
+                                title={asset.article_id}
+                              >
+                                {asset.article_id}
+                              </span>
                             </TableCell>
-                            <TableCell className="text-center">
+                            <TableCell className="text-center w-24">
                               <div className="flex items-center justify-center">
                                 <Select
                                   value={(asset.priority || 2).toString()}
@@ -1277,37 +1276,37 @@ export default function ReviewDashboardPage() {
                             <TableCell className="text-center w-32">
                               <div className="flex items-center justify-center">
                                 <span
-                                  className={`px-2 py-1 rounded text-xs font-semibold  shadow-none border-none bg-transparent ${getStatusLabelClass(asset.status)}`}
+                                  className={`px-2 py-1 rounded text-xs font-semibold shadow-none border-none bg-transparent ${getStatusLabelClass(asset.status)}`}
                                 >
                                   {getStatusLabelText(asset.status)}
                                 </span>
                               </div>
                             </TableCell>
-                            <TableCell className="text-center w-12">
+                            <TableCell className="text-center w-20">
                               {asset.product_link ? (
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  className="w-full justify-center p-0 text-xs hover:text-blue-700 dark:hover:text-blue-400 hover:underline dark:hover:bg-muted/50"
+                                  className="w-full justify-center p-1 text-xs hover:text-blue-700 dark:hover:text-blue-400 hover:underline dark:hover:bg-muted/50"
                                   onClick={() =>
                                     window.open(asset.product_link, "_blank")
                                   }
                                 >
-                                  Open Link
+                                  Link
                                 </Button>
                               ) : (
                                 <span className="text-xs text-muted-foreground dark:text-muted-foreground">
-                                  No link
+                                  -
                                 </span>
                               )}
                             </TableCell>
 
-                            <TableCell className="text-center w-12 pr-4">
+                            <TableCell className="text-center w-20">
                               <div className="flex items-center justify-center gap-1">
                                 <Button
                                   variant="outline"
                                   size="sm"
-                                  className="text-xs px-3 py-1 h-7 dark:border-border dark:hover:bg-muted/50"
+                                  className="text-xs px-2 py-1 h-6 dark:border-border dark:hover:bg-muted/50"
                                   onClick={() => {
                                     setSelectedAssetForView(asset);
                                     setShowViewRefDialog(true);
@@ -1334,19 +1333,19 @@ export default function ReviewDashboardPage() {
                                 <Button
                                   variant="outline"
                                   size="icon"
-                                  className="h-7 w-7 dark:border-border dark:hover:bg-muted/50 hover:bg-primary/10 hover:border-primary"
+                                  className="h-6 w-6 dark:border-border dark:hover:bg-muted/50 hover:bg-primary/10 hover:border-primary"
                                   onClick={() => {
                                     setSelectedAssetForRef(asset.id);
                                     setShowAddRefDialog(true);
                                   }}
                                   title="Add reference"
                                 >
-                                  <Plus className="h-3.5 w-3.5" />
+                                  <Plus className="h-3 w-3" />
                                 </Button>
                               </div>
                             </TableCell>
 
-                            <TableCell className="text-center w-16 pr-6">
+                            <TableCell className="text-center w-16">
                               {(asset.status === "approved" ||
                                 asset.status === "approved_by_client") && (
                                 <Button
@@ -1361,13 +1360,13 @@ export default function ReviewDashboardPage() {
                                       `/client-review/${asset.id}?${currentParams.toString()}`
                                     );
                                   }}
-                                  className="h-8 w-8 dark:hover:bg-muted/50"
+                                  className="h-6 w-6 dark:hover:bg-muted/50"
                                 >
-                                  <Eye className="h-5 w-5" />
+                                  <Eye className="h-4 w-4" />
                                 </Button>
                               )}
                             </TableCell>
-                            <TableCell className="text-center w-16 pr-6">
+                            <TableCell className="text-center w-16">
                               <Button
                                 variant="ghost"
                                 size="icon"
@@ -1376,7 +1375,7 @@ export default function ReviewDashboardPage() {
                                   setShowDeleteDialog(true);
                                 }}
                                 disabled={allocatedAssets.has(asset.id)}
-                                className={`h-8 w-8 ${
+                                className={`h-6 w-6 ${
                                   allocatedAssets.has(asset.id)
                                     ? "text-gray-400 cursor-not-allowed"
                                     : "text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
@@ -1387,7 +1386,7 @@ export default function ReviewDashboardPage() {
                                     : "Delete product"
                                 }
                               >
-                                <Trash2 className="h-4 w-4" />
+                                <Trash2 className="h-3 w-3" />
                               </Button>
                             </TableCell>
                           </TableRow>
@@ -1396,6 +1395,16 @@ export default function ReviewDashboardPage() {
                     )}
                   </TableBody>
                 </Table>
+              </div>
+
+              {/* Tablet View */}
+              <div className="hidden md:block lg:hidden">
+                <div className="text-center py-8 text-muted-foreground">
+                  <p>Table view not available on this screen size.</p>
+                  <p className="text-sm mt-2">
+                    Please use a larger screen or switch to mobile view.
+                  </p>
+                </div>
               </div>
 
               {/* Mobile Card View */}
