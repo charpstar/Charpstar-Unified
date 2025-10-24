@@ -212,6 +212,9 @@ export default function ReviewDashboardPage() {
   >({});
   const [bulkPriority, setBulkPriority] = useState<number>(2);
   const [bulkStatus, setBulkStatus] = useState<string>("approved_by_client");
+  const [allocatedAssets, setAllocatedAssets] = useState<Set<string>>(
+    new Set()
+  );
 
   // Add new filter states for multi-select capability
   const [clientFilters, setClientFilters] = useState<string[]>([]);
@@ -263,6 +266,30 @@ export default function ReviewDashboardPage() {
       }
     } catch (error) {
       console.error("Error refreshing asset reference data:", error);
+    }
+  };
+
+  // Function to fetch allocation data
+  const fetchAllocationData = async () => {
+    try {
+      const { data: assignments, error } = await supabase
+        .from("asset_assignments")
+        .select("asset_id, user_id")
+        .eq("status", "accepted");
+
+      if (error) {
+        console.error("Error fetching allocation data:", error);
+        return;
+      }
+
+      if (assignments) {
+        const allocatedAssetIds = new Set(
+          assignments.map((assignment) => assignment.asset_id)
+        );
+        setAllocatedAssets(allocatedAssetIds);
+      }
+    } catch (error) {
+      console.error("Error in fetchAllocationData:", error);
     }
   };
 
@@ -342,6 +369,7 @@ export default function ReviewDashboardPage() {
 
   useEffect(() => {
     fetchAssets();
+    fetchAllocationData();
   }, [user?.metadata?.client]);
 
   // Handle URL parameters for new filters
@@ -673,6 +701,14 @@ export default function ReviewDashboardPage() {
   // Handle delete asset
   const handleDeleteAsset = async () => {
     if (!assetToDelete) return;
+
+    // Check if asset is allocated
+    if (allocatedAssets.has(assetToDelete.id)) {
+      toast.error("Cannot delete product - it has been allocated to a modeler");
+      setShowDeleteDialog(false);
+      setAssetToDelete(null);
+      return;
+    }
 
     setIsDeleting(true);
     try {
@@ -1339,8 +1375,17 @@ export default function ReviewDashboardPage() {
                                   setAssetToDelete(asset);
                                   setShowDeleteDialog(true);
                                 }}
-                                className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
-                                title="Delete product"
+                                disabled={allocatedAssets.has(asset.id)}
+                                className={`h-8 w-8 ${
+                                  allocatedAssets.has(asset.id)
+                                    ? "text-gray-400 cursor-not-allowed"
+                                    : "text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                }`}
+                                title={
+                                  allocatedAssets.has(asset.id)
+                                    ? "Cannot delete - asset has been allocated to a modeler"
+                                    : "Delete product"
+                                }
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>
@@ -1619,11 +1664,21 @@ export default function ReviewDashboardPage() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="flex-1 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                              disabled={allocatedAssets.has(asset.id)}
+                              className={`flex-1 text-xs ${
+                                allocatedAssets.has(asset.id)
+                                  ? "text-gray-400 cursor-not-allowed"
+                                  : "text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                              }`}
                               onClick={() => {
                                 setAssetToDelete(asset);
                                 setShowDeleteDialog(true);
                               }}
+                              title={
+                                allocatedAssets.has(asset.id)
+                                  ? "Cannot delete - asset has been allocated to a modeler"
+                                  : "Delete product"
+                              }
                             >
                               <Trash2 className="mr-1 h-3 w-3" />
                               Delete
@@ -1742,9 +1797,24 @@ export default function ReviewDashboardPage() {
             </div>
 
             <div className="mb-6">
-              <p className="text-sm dark:text-foreground mb-2">
-                Are you sure you want to delete this product?
-              </p>
+              {allocatedAssets.has(assetToDelete.id) ? (
+                <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                    <p className="font-medium text-sm text-red-800 dark:text-red-200">
+                      Cannot Delete - Asset Allocated
+                    </p>
+                  </div>
+                  <p className="text-xs text-red-600 dark:text-red-300">
+                    This product has been allocated to a modeler and cannot be
+                    deleted.
+                  </p>
+                </div>
+              ) : (
+                <p className="text-sm dark:text-foreground mb-2">
+                  Are you sure you want to delete this product?
+                </p>
+              )}
               <div className="bg-muted dark:bg-muted/20 rounded-lg p-3">
                 <p className="font-medium text-sm dark:text-foreground">
                   {assetToDelete.product_name}
@@ -1769,13 +1839,22 @@ export default function ReviewDashboardPage() {
               <Button
                 variant="destructive"
                 onClick={handleDeleteAsset}
-                disabled={isDeleting}
-                className="bg-red-600 hover:bg-red-700"
+                disabled={isDeleting || allocatedAssets.has(assetToDelete.id)}
+                className={`${
+                  allocatedAssets.has(assetToDelete.id)
+                    ? "bg-gray-400 cursor-not-allowed"
+                    : "bg-red-600 hover:bg-red-700"
+                }`}
               >
                 {isDeleting ? (
                   <>
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
                     Deleting...
+                  </>
+                ) : allocatedAssets.has(assetToDelete.id) ? (
+                  <>
+                    <X className="h-4 w-4 mr-2" />
+                    Cannot Delete
                   </>
                 ) : (
                   <>
