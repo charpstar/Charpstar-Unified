@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/display/button";
 import { Download, Loader2, Maximize2, Save } from "lucide-react";
 import { toast } from "sonner";
 import SaveSceneDialog from "./SaveSceneDialog";
+import { createClient } from "@/utils/supabase/client";
 
 interface ResultDisplayProps {
   images: string[];
@@ -167,14 +168,28 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
     description: string;
     client: string;
   }) => {
+    console.log("handleSaveToLibrary called with:", formData);
     setIsSaving(true);
     try {
+      // Get auth token for API requests
+      const supabase = createClient();
+      const session = await supabase.auth.getSession();
+      const token = session.data.session?.access_token;
+      console.log("Auth token:", token ? "present" : "missing");
+
+      const headers: HeadersInit = {
+        "Content-Type": "application/json",
+      };
+
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
+
+      console.log("Making save request to /api/assets/save-scene");
       // Save to asset library with base64 image data
       const saveResponse = await fetch("/api/assets/save-scene", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers,
         body: JSON.stringify({
           ...formData,
           // Use Cloudinary URL if available, otherwise use base64 data
@@ -196,6 +211,12 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
         }),
       });
 
+      console.log(
+        "Save response status:",
+        saveResponse.status,
+        saveResponse.ok
+      );
+
       if (!saveResponse.ok) {
         const errorData = await saveResponse.json();
         console.error("Save scene error:", errorData);
@@ -206,6 +227,8 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
         );
       }
 
+      const result = await saveResponse.json();
+      console.log("Save successful:", result);
       toast.success("Scene saved to asset library!");
     } catch (error) {
       console.error("Error saving scene:", error);

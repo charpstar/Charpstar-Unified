@@ -58,6 +58,7 @@ const SaveSceneDialog: React.FC<SaveSceneDialogProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log("SaveSceneDialog handleSubmit called", formData);
 
     if (!formData.product_name.trim()) {
       toast.error("Product name is required");
@@ -65,8 +66,10 @@ const SaveSceneDialog: React.FC<SaveSceneDialogProps> = ({
     }
 
     try {
+      console.log("Calling onSave with:", formData);
       await onSave(formData);
-      toast.success("Scene saved to asset library!");
+      console.log("onSave completed successfully");
+      // Don't show toast here - let the onSave function handle it
       onClose();
       // Reset form
       setFormData({
@@ -75,8 +78,11 @@ const SaveSceneDialog: React.FC<SaveSceneDialogProps> = ({
         description: "",
         client: "",
       });
-    } catch {
-      toast.error("Failed to save scene");
+    } catch (error) {
+      console.error("Error in SaveSceneDialog handleSubmit:", error);
+      // Don't show error toast here either - let the onSave function handle it
+      // Just close the dialog
+      onClose();
     }
   };
 

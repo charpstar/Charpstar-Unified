@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateMultiAngleScenes } from "@/lib/geminiService";
 import { processMultipleImages } from "@/lib/cloudinaryService";
+import { createAdminClient } from "@/utils/supabase/admin";
 
 // Helper function to get dimensions based on image format
 const getFormatDimensions = (
@@ -23,8 +24,76 @@ const getFormatDimensions = (
   return formatMap[format] || formatMap.square;
 };
 
-export async function POST(request: NextRequest) {
+// Helper function to track analytics
+//eslint-disable-next-line @typescript-eslint/no-unused-vars
+const trackAnalytics = async (data: {
+  user_id: string;
+  client_name: string;
+  object_type: string;
+  scene_description?: string;
+  image_format: string;
+  inspiration_used: boolean;
+  multi_asset_mode: boolean;
+  asset_count: number;
+  status: "pending" | "success" | "error";
+  error_message?: string;
+  generation_time_ms?: number;
+  saved_to_library?: boolean;
+  saved_asset_id?: string;
+}) => {
   try {
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/api/analytics/scene-render/track`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+      }
+    );
+
+    if (!response.ok) {
+      console.warn("Failed to track analytics:", await response.text());
+    }
+  } catch (error) {
+    console.warn("Error tracking analytics:", error);
+  }
+};
+
+export async function POST(request: NextRequest) {
+  let analyticsId: string | null = null;
+  const startTime = Date.now();
+  const supabase = createAdminClient();
+
+  try {
+    // Get user session for analytics
+    const authHeader = request.headers.get("authorization");
+    let user_id: string | null = null;
+    let user_email: string | null = null;
+    let client_name = "Unknown Client";
+
+    if (authHeader) {
+      try {
+        const token = authHeader.replace("Bearer ", "");
+        const {
+          data: { user },
+          error,
+        } = await supabase.auth.getUser(token);
+        if (user && !error) {
+          user_id = user.id;
+          user_email = user.email || null;
+          // Get client name from user metadata or email
+          client_name =
+            user.user_metadata?.client_name ||
+            user.email?.split("@")[0] ||
+            "Unknown Client";
+        }
+      } catch (error) {
+        console.warn("Error getting user session:", error);
+      }
+    }
+
     const body = await request.json();
     const {
       base64Images,
@@ -63,6 +132,40 @@ export async function POST(request: NextRequest) {
         },
         { status: 400 }
       );
+    }
+
+    // Track analytics - render started
+    if (user_id) {
+      try {
+        console.log("Creating analytics record for scene render");
+        const { data, error } = await supabase
+          .from("scene_render_analytics")
+          .insert({
+            user_id,
+            user_email,
+            client_name,
+            object_type: objectType,
+            scene_description: sceneDescription,
+            image_format: imageFormat,
+            inspiration_used: !!inspirationImage,
+            multi_asset_mode: hasSelectedAssets,
+            asset_count: hasSelectedAssets
+              ? selectedAssets.length
+              : base64Images?.length || 1,
+            status: "pending",
+          })
+          .select()
+          .single();
+
+        if (error) {
+          console.error("Error creating analytics record:", error);
+        } else {
+          analyticsId = data.id;
+          console.log("Analytics record created:", analyticsId);
+        }
+      } catch (error) {
+        console.warn("Failed to track analytics:", error);
+      }
     }
 
     // First, analyze the fabric textures from the uploaded images (only if we have base64Images)
@@ -185,6 +288,28 @@ export async function POST(request: NextRequest) {
         `Successfully processed ${originalCloudinaryUrls.length} images`
       );
 
+      // Track analytics - render completed successfully
+      if (analyticsId) {
+        const generationTime = Date.now() - startTime;
+        try {
+          const { error: updateError } = await supabase
+            .from("scene_render_analytics")
+            .update({
+              status: "success",
+              generation_time_ms: generationTime,
+            })
+            .eq("id", analyticsId);
+
+          if (updateError) {
+            console.error("Error updating analytics:", updateError);
+          } else {
+            console.log("Analytics updated with success status");
+          }
+        } catch (error) {
+          console.warn("Failed to update analytics:", error);
+        }
+      }
+
       // Return both original and upscaled Cloudinary URLs for comparison
       return NextResponse.json({
         scenes: originalCloudinaryUrls,
@@ -196,11 +321,53 @@ export async function POST(request: NextRequest) {
         "Cloudinary processing failed, returning original images:",
         cloudinaryError
       );
+      // Track analytics - render completed with fallback
+      if (analyticsId) {
+        const generationTime = Date.now() - startTime;
+        try {
+          const { error: updateError } = await supabase
+            .from("scene_render_analytics")
+            .update({
+              status: "success",
+              generation_time_ms: generationTime,
+            })
+            .eq("id", analyticsId);
+
+          if (updateError) {
+            console.error("Error updating analytics:", updateError);
+          }
+        } catch (error) {
+          console.warn("Failed to update analytics:", error);
+        }
+      }
+
       // Fallback to original generated images if Cloudinary fails
       return NextResponse.json({ scenes: generatedScenes });
     }
   } catch (error) {
     console.error("Error generating scenes:", error);
+
+    // Track analytics - render failed
+    if (analyticsId) {
+      try {
+        const { error: updateError } = await supabase
+          .from("scene_render_analytics")
+          .update({
+            status: "error",
+            error_message:
+              error instanceof Error ? error.message : "Unknown error",
+          })
+          .eq("id", analyticsId);
+
+        if (updateError) {
+          console.error("Error updating analytics:", updateError);
+        } else {
+          console.log("Analytics updated with error status");
+        }
+      } catch (analyticsError) {
+        console.warn("Failed to update analytics with error:", analyticsError);
+      }
+    }
 
     if (error instanceof Error) {
       return NextResponse.json({ error: error.message }, { status: 500 });

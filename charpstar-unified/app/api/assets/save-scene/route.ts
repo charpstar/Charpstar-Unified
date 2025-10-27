@@ -3,6 +3,26 @@ import { createAdminClient } from "@/utils/supabase/admin";
 
 export async function POST(request: NextRequest) {
   try {
+    // Get user session for analytics
+    const supabase = createAdminClient();
+    const authHeader = request.headers.get("authorization");
+    let user_id: string | null = null;
+
+    if (authHeader) {
+      try {
+        const token = authHeader.replace("Bearer ", "");
+        const {
+          data: { user },
+          error,
+        } = await supabase.auth.getUser(token);
+        if (user && !error) {
+          user_id = user.id;
+        }
+      } catch (error) {
+        console.warn("Error getting user session:", error);
+      }
+    }
+
     const body = await request.json();
     const {
       product_name,
@@ -23,12 +43,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create admin client for database operations
-    const supabase = createAdminClient();
-
-    // Generate a unique article_id
-    const article_id = `scene_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-
     // Handle image URL - use provided URL or upload base64 data
     let imageUrl = scene_image_url;
 
@@ -38,6 +52,9 @@ export async function POST(request: NextRequest) {
       console.log("Using Cloudinary URL directly:", imageUrl);
     } else if (scene_image_data && !scene_image_url) {
       try {
+        // Generate a unique ID for the scene
+        const sceneId = `scene_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
         console.log("Processing image data:", {
           dataLength: scene_image_data.length,
           dataStart: scene_image_data.substring(0, 50),
@@ -83,7 +100,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Upload to Supabase storage
-        const fileName = `generated-scenes/${article_id}.png`;
+        const fileName = `generated-scenes/${sceneId}.png`;
         const { data: uploadData, error: uploadError } = await supabase.storage
           .from("assets")
           .upload(fileName, buffer, {
@@ -137,22 +154,137 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Prepare asset data - match the actual assets table schema
+    // If we have a sourceModelId, update the existing asset instead of creating a new one
+    if (sourceModelId) {
+      // Get the existing asset
+      const { data: existingAsset, error: fetchError } = await supabase
+        .from("assets")
+        .select("id, generated_scenes")
+        .eq("id", sourceModelId)
+        .single();
+
+      if (fetchError) {
+        console.error("Error fetching existing asset:", fetchError);
+        return NextResponse.json(
+          { error: "Source asset not found" },
+          { status: 404 }
+        );
+      }
+
+      // Prepare the new scene object
+      const newScene = {
+        id: `scene_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        image_url: imageUrl,
+        product_name,
+        category: category || "Generated Scene",
+        description: product_name,
+        created_at: new Date().toISOString(),
+        tags: [
+          ...(imageFormat ? [`format:${imageFormat}`] : []),
+          ...(customWidth && customHeight
+            ? [`dimensions:${customWidth}x${customHeight}`]
+            : []),
+        ],
+      };
+
+      // Get existing scenes or initialize empty array
+      const existingScenes = existingAsset.generated_scenes || [];
+      const updatedScenes = [...existingScenes, newScene];
+
+      // Update the asset with the new scene
+      const { data: updatedAsset, error: updateError } = await supabase
+        .from("assets")
+        .update({
+          generated_scenes: updatedScenes,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", sourceModelId)
+        .select()
+        .single();
+
+      if (updateError) {
+        console.error("Error updating asset:", updateError);
+        return NextResponse.json(
+          { error: "Failed to update asset with scene" },
+          { status: 500 }
+        );
+      }
+
+      // Update analytics - mark scene as saved
+      if (user_id) {
+        try {
+          console.log("Updating analytics for saved scene, user_id:", user_id);
+          // Find the most recent analytics record for this user (within last 10 minutes)
+          const tenMinutesAgo = new Date(
+            Date.now() - 10 * 60 * 1000
+          ).toISOString();
+
+          const { data: analyticsRecords, error: queryError } = await supabase
+            .from("scene_render_analytics")
+            .select("id, saved_to_library")
+            .eq("user_id", user_id)
+            .eq("saved_to_library", false)
+            .gte("created_at", tenMinutesAgo)
+            .order("created_at", { ascending: false })
+            .limit(1);
+
+          console.log(
+            "Analytics records found:",
+            analyticsRecords?.length,
+            queryError
+          );
+
+          if (analyticsRecords && analyticsRecords.length > 0) {
+            const analyticsId = analyticsRecords[0].id;
+            console.log("Updating analytics record:", analyticsId);
+
+            const { error: updateError } = await supabase
+              .from("scene_render_analytics")
+              .update({
+                saved_to_library: true,
+                saved_asset_id: updatedAsset.id,
+              })
+              .eq("id", analyticsId);
+
+            if (updateError) {
+              console.error("Error updating analytics:", updateError);
+            } else {
+              console.log("Analytics updated successfully");
+            }
+          } else {
+            console.log("No recent analytics record found to update");
+          }
+        } catch (error) {
+          console.error("Failed to update analytics with save status:", error);
+        }
+      } else {
+        console.log("No user_id available for analytics update");
+      }
+
+      return NextResponse.json({
+        success: true,
+        asset: updatedAsset,
+        scene: newScene,
+        message: "Scene saved to asset successfully",
+      });
+    }
+
+    // Fallback: If no sourceModelId, create a new asset (for backward compatibility)
+    const fallback_article_id = `scene_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
     const assetData = {
       product_name,
       category: category || "Generated Scene",
       subcategory: "AI Generated",
       client: client || "Generated Content",
-      article_id,
+      article_id: fallback_article_id,
       preview_image: imageUrl,
       glb_link: null, // No 3D model for generated scenes
       product_link: null, // No product link for generated scenes
-      materials: null,
-      colors: null,
+      materials: [],
+      colors: [],
       tags: [
         "scene-render",
-        ...(sourceModelId ? [`source-model-${sourceModelId}`] : []),
-        // Store format information in tags
         ...(imageFormat ? [`format:${imageFormat}`] : []),
         ...(customWidth && customHeight
           ? [`dimensions:${customWidth}x${customHeight}`]
@@ -198,6 +330,57 @@ export async function POST(request: NextRequest) {
         },
         { status: 500 }
       );
+    }
+
+    // Update analytics - mark scene as saved
+    if (user_id) {
+      try {
+        console.log("Updating analytics for saved scene, user_id:", user_id);
+        // Find the most recent analytics record for this user (within last 10 minutes)
+        const tenMinutesAgo = new Date(
+          Date.now() - 10 * 60 * 1000
+        ).toISOString();
+
+        const { data: analyticsRecords, error: queryError } = await supabase
+          .from("scene_render_analytics")
+          .select("id, saved_to_library")
+          .eq("user_id", user_id)
+          .eq("saved_to_library", false)
+          .gte("created_at", tenMinutesAgo)
+          .order("created_at", { ascending: false })
+          .limit(1);
+
+        console.log(
+          "Analytics records found:",
+          analyticsRecords?.length,
+          queryError
+        );
+
+        if (analyticsRecords && analyticsRecords.length > 0) {
+          const analyticsId = analyticsRecords[0].id;
+          console.log("Updating analytics record:", analyticsId);
+
+          const { error: updateError } = await supabase
+            .from("scene_render_analytics")
+            .update({
+              saved_to_library: true,
+              saved_asset_id: newAsset.id,
+            })
+            .eq("id", analyticsId);
+
+          if (updateError) {
+            console.error("Error updating analytics:", updateError);
+          } else {
+            console.log("Analytics updated successfully");
+          }
+        } else {
+          console.log("No recent analytics record found to update");
+        }
+      } catch (error) {
+        console.error("Failed to update analytics with save status:", error);
+      }
+    } else {
+      console.log("No user_id available for analytics update");
     }
 
     // If we have original images, we could store them as additional data

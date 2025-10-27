@@ -304,10 +304,11 @@ export function useAssets(
 
   // Clear old cache on mount (one-time cleanup for Set/Map format change)
   useEffect(() => {
-    const hasCleared = sessionStorage.getItem("filter-cache-cleared-v2");
+    const hasCleared = sessionStorage.getItem("filter-cache-cleared-v6");
     if (!hasCleared) {
       queryClient.removeQueries({ queryKey: ["assets-filter-options"] });
-      sessionStorage.setItem("filter-cache-cleared-v2", "true");
+      queryClient.removeQueries({ queryKey: ["assets-paginated"] });
+      sessionStorage.setItem("filter-cache-cleared-v6", "true");
       console.log("[useAssets] Cleared old filter cache");
     }
   }, [queryClient]);

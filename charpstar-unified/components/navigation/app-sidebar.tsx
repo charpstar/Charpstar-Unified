@@ -311,6 +311,11 @@ export default function AppSidebar({
             url: "/admin/bug-reports",
             icon: Bug,
           },
+          {
+            title: "Scene Render Analytics",
+            url: "/admin/scene-render-analytics",
+            icon: BarChart3,
+          },
         ]
       : [];
 

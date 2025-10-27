@@ -9,14 +9,15 @@ export async function GET(request: NextRequest) {
 
     console.log("Fetching scenes for:", { articleId, modelUrl });
 
+    const supabase = createAdminClient();
+
+    // At least one identifier is required
     if (!articleId && !modelUrl) {
       return NextResponse.json(
         { error: "Either article_id or model_url is required" },
         { status: 400 }
       );
     }
-
-    const supabase = createAdminClient();
 
     // If we have article_id, we need to get the actual model UUID from the assets table
     let modelId = null;
@@ -33,23 +34,83 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // First, get all generated scenes
-    const { data: scenes, error } = await supabase
-      .from("assets")
-      .select("*")
-      .eq("category", "Generated Scene")
-      .eq("subcategory", "AI Generated")
-      .order("created_at", { ascending: false });
+    // If we have modelUrl but no modelId, try to find the asset by glb_link
+    if (modelUrl && !modelId) {
+      const { data: assetData } = await supabase
+        .from("assets")
+        .select("id")
+        .eq("glb_link", modelUrl)
+        .single();
 
-    if (error) {
-      console.error("Error fetching scenes:", error);
-      return NextResponse.json(
-        { error: "Failed to fetch scenes", details: error.message },
-        { status: 500 }
-      );
+      if (assetData) {
+        modelId = assetData.id;
+        console.log("Found model ID for modelUrl:", modelId);
+      }
     }
 
-    console.log("Found scenes:", scenes?.length || 0);
+    // Find the source asset by modelId or article_id
+    let sourceAsset = null;
+    if (modelId) {
+      const { data: asset } = await supabase
+        .from("assets")
+        .select("id, generated_scenes, article_id, product_name")
+        .eq("id", modelId)
+        .single();
+
+      if (
+        asset &&
+        asset.generated_scenes &&
+        Array.isArray(asset.generated_scenes)
+      ) {
+        sourceAsset = asset;
+        console.log(
+          "Found source asset with",
+          asset.generated_scenes.length,
+          "generated scenes"
+        );
+      }
+    } else if (articleId) {
+      const { data: asset } = await supabase
+        .from("assets")
+        .select("id, generated_scenes, article_id, product_name")
+        .eq("article_id", articleId)
+        .single();
+
+      if (
+        asset &&
+        asset.generated_scenes &&
+        Array.isArray(asset.generated_scenes)
+      ) {
+        sourceAsset = asset;
+        console.log(
+          "Found source asset with",
+          asset.generated_scenes.length,
+          "generated scenes"
+        );
+      }
+    }
+
+    if (!sourceAsset) {
+      console.log("No source asset found with generated scenes");
+      return NextResponse.json({
+        success: true,
+        scenes: [],
+        count: 0,
+      });
+    }
+
+    // Format the scenes from the generated_scenes array
+    const scenes = sourceAsset.generated_scenes.map((scene: any) => ({
+      id: scene.id,
+      product_name: scene.product_name || sourceAsset.product_name,
+      description: scene.description || "",
+      preview_image: scene.image_url,
+      created_at: scene.created_at,
+      client: scene.client,
+      tags: scene.tags || [],
+    }));
+
+    console.log("Found", scenes.length, "generated scenes from asset");
 
     // Debug: Log the first scene to see its structure
     if (scenes && scenes.length > 0) {
@@ -65,50 +126,8 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Filter scenes that were generated using this model
-    // We'll check if the scene tags mention the model or if it has related metadata
-    const relatedScenes =
-      scenes?.filter((scene) => {
-        try {
-          // Check if the scene was generated using this model
-          // This is based on tags since description is stored in tags
-          const hasSceneRenderTag = scene.tags?.includes("scene-render");
-          console.log(
-            `Scene ${scene.id}: hasSceneRenderTag = ${hasSceneRenderTag}, tags =`,
-            scene.tags
-          );
-
-          let isRelated = false;
-          if (modelId) {
-            // If we have modelId, check if tags reference it
-            const hasModelId = scene.tags?.some((tag: string) =>
-              tag.includes(modelId)
-            );
-            const hasSourceModel = scene.tags?.some((tag: string) =>
-              tag.includes(`source-model-${modelId}`)
-            );
-            isRelated = hasModelId || hasSourceModel;
-            console.log(
-              `Scene ${scene.id}: hasModelId = ${hasModelId}, hasSourceModel = ${hasSourceModel}, isRelated = ${isRelated}`
-            );
-          } else if (modelUrl) {
-            // If we have model_url, check if tags reference the model
-            isRelated = scene.tags?.some((tag: string) =>
-              tag.includes(modelUrl.toLowerCase())
-            );
-            console.log(`Scene ${scene.id}: modelUrl check = ${isRelated}`);
-          } else {
-            isRelated = true;
-          }
-
-          const result = hasSceneRenderTag && isRelated;
-          console.log(`Scene ${scene.id}: final result = ${result}`);
-          return result;
-        } catch (filterError) {
-          console.error("Error filtering scene:", filterError, scene);
-          return false;
-        }
-      }) || [];
+    // All scenes from the source asset are related by definition
+    const relatedScenes = scenes;
 
     console.log("Related scenes found:", relatedScenes.length);
 

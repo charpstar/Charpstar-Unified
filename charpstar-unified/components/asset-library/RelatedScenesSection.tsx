@@ -113,6 +113,12 @@ const RelatedScenesSection: React.FC<RelatedScenesSectionProps> = ({
 
     setIsDeleting(true);
     try {
+      // Get the asset ID from the URL params or context
+      // Since this component is used in the asset detail page, we can extract it from the URL
+      const currentPath = window.location.pathname;
+      const assetIdMatch = currentPath.match(/\/asset-library\/([^/]+)/);
+      const assetId = assetIdMatch ? assetIdMatch[1] : null;
+
       const response = await fetch(`/api/assets/delete-scene`, {
         method: "DELETE",
         headers: {
@@ -120,6 +126,7 @@ const RelatedScenesSection: React.FC<RelatedScenesSectionProps> = ({
         },
         body: JSON.stringify({
           sceneId: selectedScene.id,
+          assetId: assetId, // Pass the asset ID for the new structure
         }),
       });
 
@@ -237,21 +244,23 @@ const RelatedScenesSection: React.FC<RelatedScenesSectionProps> = ({
         </a>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-4 overflow-y-scroll h-[600px]">
         {scenes.map((scene) => (
           <div
             key={scene.id}
-            className="overflow-hidden hover:shadow-md transition-shadow border rounded-lg cursor-pointer"
+            className="hover:shadow-md transition-shadow h-fit border rounded-lg cursor-pointer"
             onClick={() => handleSceneClick(scene)}
           >
-            <div className="aspect-square relative bg-muted overflow-hidden">
+            <div className="aspect-square rounded-lg relative bg-muted overflow-hidden">
               {scene.preview_image ? (
                 <Image
-                  width={100}
-                  height={100}
+                  width={600}
+                  height={600}
                   src={scene.preview_image}
                   alt={scene.product_name}
-                  className="w-full h-full object-cover hover:scale-105 transition-transform duration-200"
+                  className="w-full h-full object-contain hover:scale-105 transition-transform duration-200"
+                  quality={95}
+                  unoptimized={false}
                 />
               ) : (
                 <div className="flex h-full items-center justify-center">
@@ -279,11 +288,13 @@ const RelatedScenesSection: React.FC<RelatedScenesSectionProps> = ({
             <div className="relative bg-white rounded-lg overflow-hidden">
               {selectedScene.preview_image ? (
                 <Image
-                  width={100}
-                  height={100}
+                  width={1200}
+                  height={1200}
                   src={selectedScene.preview_image}
                   alt={selectedScene.product_name}
                   className="w-full h-auto max-h-[80vh] object-contain"
+                  quality={100}
+                  unoptimized={false}
                 />
               ) : (
                 <div className="flex h-96 items-center justify-center bg-muted">
