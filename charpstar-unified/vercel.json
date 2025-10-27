@@ -4,5 +4,11 @@
       "path": "/api/cron/weekly-status-summary",
       "schedule": "0 9 * * 1"
     }
-  ]
+  ],
+  "functions": {
+    "app/api/embeddings/generate/route.ts": {
+      "maxDuration": 60,
+      "memory": 2048
+    }
+  }
 }
