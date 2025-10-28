@@ -491,6 +491,75 @@ ${
   }
 }
 
+export async function editImageWithAI(
+  base64Image: string,
+  editPrompt: string
+): Promise<string> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    throw new Error("GEMINI_API_KEY environment variable not set.");
+  }
+
+  const ai = new GoogleGenAI({ apiKey });
+
+  const imagePart = {
+    inlineData: {
+      mimeType: "image/png",
+      data: base64Image,
+    },
+  };
+
+  const editPromptText = `You are an expert image editor specializing in product photography edits. Your task is to make the requested changes to the provided image while maintaining professional quality.
+
+**CRITICAL REQUIREMENTS:**
+1. **Preserve Image Quality:** Maintain the same resolution, sharpness, and professional quality as the original
+2. **Natural Integration:** Any changes should look completely natural and realistic
+3. **Professional Standards:** The result should be suitable for e-commerce and marketing use
+4. **Consistent Lighting:** Maintain consistent lighting and shadows throughout the image
+5. **Material Accuracy:** If changing materials, ensure they look realistic and properly lit
+
+**SPECIAL INSTRUCTIONS FOR COLOR CHANGES:**
+- When changing colors (especially furniture, fabrics, or materials), ensure the new color looks natural and realistic
+- Maintain proper material properties - leather should look like leather, fabric should look like fabric
+- Preserve texture details and surface characteristics
+- Ensure the new color works well with the existing lighting and environment
+- For furniture color changes, maintain realistic wear patterns and material properties
+
+**EDIT REQUEST:**
+The user wants to: ${editPrompt}
+
+**YOUR TASK:**
+Apply the requested changes to the image while ensuring:
+- The edit looks completely natural and realistic
+- Professional quality is maintained throughout
+- Lighting and shadows remain consistent
+- Material properties are preserved (texture, finish, etc.)
+- The result is ready for commercial use
+- No artifacts, distortions, or quality degradation
+
+**OUTPUT:** Return ONLY the edited image. No text, watermarks, or additional elements.`;
+
+  try {
+    const result = await callApi(ai, [imagePart], { text: editPromptText });
+
+    if (!result) {
+      throw new Error(
+        "The AI failed to edit the image. This might be due to server issues or invalid input."
+      );
+    }
+
+    return result;
+  } catch (error) {
+    console.error("Error calling Gemini API for image editing:", error);
+    if (error instanceof Error && error.message.includes("400")) {
+      throw new Error(
+        "The edit request was invalid. Please try a different edit description."
+      );
+    }
+    throw error;
+  }
+}
+
 export async function generateScenes(
   base64Image: string,
   objectSize: string,

@@ -312,8 +312,8 @@ export default function AppSidebar({
             icon: Bug,
           },
           {
-            title: "Scene Render Analytics",
-            url: "/admin/scene-render-analytics",
+            title: "Client Analytics",
+            url: "/admin/client-analytics",
             icon: BarChart3,
           },
         ]

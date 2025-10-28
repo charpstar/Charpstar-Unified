@@ -244,7 +244,7 @@ const RelatedScenesSection: React.FC<RelatedScenesSectionProps> = ({
         </a>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-4 overflow-y-scroll h-[600px]">
+      <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-3 gap-4 overflow-y-scroll h-[600px]">
         {scenes.map((scene) => (
           <div
             key={scene.id}

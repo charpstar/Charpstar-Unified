@@ -17,22 +17,11 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/utilities/command";
-import {
-  Check,
-  ChevronsUpDown,
-  Tag,
-  CheckCircle,
-  Palette,
-  Ruler,
-  FileImage,
-} from "lucide-react";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/display";
+import { Check, ChevronsUpDown } from "lucide-react";
+
 import { Input } from "@/components/ui/inputs";
 import sceneLibraryData from "@/lib/sceneLibrary.json";
+import SceneChatInput from "./SceneChatInput";
 
 // Add type declaration for model-viewer element
 declare global {
@@ -332,8 +321,10 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
   }, [fileUrl]);
 
   const handleCapture = async () => {
-    // In capture mode, skip validation - just capture the model
-    if (!captureMode && !objectType.trim()) return;
+    // Automatically set product type if not set
+    if (!objectType.trim()) {
+      setObjectType("Product");
+    }
 
     const modelViewer = modelViewerRef.current as any;
     if (modelViewer) {
@@ -445,235 +436,6 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
 
   return (
     <div className="w-full h-full flex flex-col">
-      {/* Header with Compact Config */}
-      <div className="flex items-center justify-between p-2 sm:p-3 border-b bg-background/80 backdrop-blur-sm gap-2">
-        <div className="flex items-center gap-3">
-          <div className="w-6 h-6 rounded-lg bg-primary/10 flex items-center justify-center">
-            <span className="text-primary font-bold text-xs">🎯</span>
-          </div>
-          <div>
-            <h3 className="font-semibold text-sm">3D Model Preview</h3>
-            <p className="text-xs text-muted-foreground">
-              {captureMode ? "Capture Asset" : "Configure Scene"}
-            </p>
-          </div>
-        </div>
-
-        {/* Compact Configuration Status - Icons Only */}
-        <div className="flex items-center gap-1 flex-shrink-0">
-          {/* Product Type Status */}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div
-                className={`w-6 h-6 rounded-full flex items-center justify-center border text-xs ${
-                  objectType
-                    ? "bg-green-100 border-green-300 text-green-600"
-                    : "bg-gray-100 border-gray-300 text-gray-400"
-                }`}
-              >
-                {objectType ? (
-                  <CheckCircle className="w-3 h-3" />
-                ) : (
-                  <Tag className="w-3 h-3" />
-                )}
-              </div>
-            </TooltipTrigger>
-            <TooltipContent>
-              <div className="text-center">
-                <p className="font-semibold">
-                  Product Type <span className="text-red-500">*</span>
-                </p>
-                <p className="text-sm">
-                  {objectType ? objectType : "Not set (Required)"}
-                </p>
-              </div>
-            </TooltipContent>
-          </Tooltip>
-
-          {/* Scene Style Status */}
-          {!captureMode && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div
-                  className={`w-6 h-6 rounded-full flex items-center justify-center border text-xs ${
-                    sceneDescription
-                      ? "bg-green-100 border-green-300 text-green-600"
-                      : "bg-gray-100 border-gray-300 text-gray-400"
-                  }`}
-                >
-                  {sceneDescription ? (
-                    <CheckCircle className="w-3 h-3" />
-                  ) : (
-                    <Palette className="w-3 h-3" />
-                  )}
-                </div>
-              </TooltipTrigger>
-              <TooltipContent>
-                <div className="text-center">
-                  <p className="font-semibold">Scene Style</p>
-                  <p className="text-sm">
-                    {sceneDescription
-                      ? isCustomScene
-                        ? "Custom Scene"
-                        : scenePresets.find(
-                            (p) => p.prompt === sceneDescription
-                          )?.label || "Custom"
-                      : "Not set"}
-                  </p>
-                </div>
-              </TooltipContent>
-            </Tooltip>
-          )}
-
-          {/* Image Format Status */}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div className="w-6 h-6 rounded-full flex items-center justify-center border text-xs bg-green-100 border-green-300 text-green-600">
-                <CheckCircle className="w-3 h-3" />
-              </div>
-            </TooltipTrigger>
-            <TooltipContent>
-              <div className="text-center">
-                <p className="font-semibold">Image Format</p>
-                <p className="text-sm">
-                  {formatOptions.find((f) => f.value === imageFormat)?.label}
-                </p>
-              </div>
-            </TooltipContent>
-          </Tooltip>
-
-          {/* Dimensions Status */}
-          {!captureMode && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div
-                  className={`w-6 h-6 rounded-full flex items-center justify-center border text-xs hidden md:flex ${
-                    modelDimensions
-                      ? "bg-green-100 border-green-300 text-green-600"
-                      : "bg-gray-100 border-gray-300 text-gray-400"
-                  }`}
-                >
-                  {modelDimensions ? (
-                    <CheckCircle className="w-3 h-3" />
-                  ) : (
-                    <Ruler className="w-3 h-3" />
-                  )}
-                </div>
-              </TooltipTrigger>
-              <TooltipContent>
-                <div className="text-center">
-                  <p className="font-semibold">Model Dimensions</p>
-                  <p className="text-sm">
-                    {modelDimensions
-                      ? `${modelDimensions.x.toFixed(1)}×${modelDimensions.y.toFixed(1)}×${modelDimensions.z.toFixed(1)}m`
-                      : "Loading..."}
-                  </p>
-                </div>
-              </TooltipContent>
-            </Tooltip>
-          )}
-
-          {/* Inspiration Image Status */}
-          {!captureMode && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div
-                  className={`w-6 h-6 rounded-full flex items-center justify-center border text-xs hidden lg:flex ${
-                    inspirationImageUrl
-                      ? "bg-green-100 border-green-300 text-green-600"
-                      : "bg-gray-100 border-gray-300 text-gray-400"
-                  }`}
-                >
-                  {inspirationImageUrl ? (
-                    <CheckCircle className="w-3 h-3" />
-                  ) : (
-                    <FileImage className="w-3 h-3" />
-                  )}
-                </div>
-              </TooltipTrigger>
-              <TooltipContent>
-                <div className="text-center">
-                  <p className="font-semibold">Inspiration Image</p>
-                  <p className="text-sm">
-                    {inspirationImageUrl
-                      ? inspirationImage?.name || "Image uploaded"
-                      : "Not set"}
-                  </p>
-                </div>
-              </TooltipContent>
-            </Tooltip>
-          )}
-        </div>
-
-        {/* Action Buttons - Responsive */}
-        <div className="flex items-center gap-1 flex-shrink-0">
-          <Button
-            onClick={() => setShowConfigDialog(true)}
-            variant="default"
-            size="lg"
-            className="text-xs px-2 py-1 h-6 lg:h-11 lg:px-8"
-          >
-            <span className="hidden sm:inline">Configure Scene</span>
-            <span className="sm:hidden">⚙️</span>
-          </Button>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span>
-                <Button
-                  onClick={handleCapture}
-                  variant="default"
-                  size="lg"
-                  className="text-xs px-2 py-1 h-6 lg:h-11 lg:px-8"
-                  disabled={
-                    (!objectType.trim() && !captureMode) ||
-                    isCapturing ||
-                    isTestingAngles
-                  }
-                >
-                  <span className="hidden sm:inline">
-                    {isCapturing ? "..." : captureButtonText}
-                  </span>
-                  <span className="sm:hidden">
-                    {isCapturing ? "..." : "▶"}
-                  </span>
-                </Button>
-              </span>
-            </TooltipTrigger>
-            <TooltipContent>
-              <div className="text-center">
-                {isCapturing || isTestingAngles ? (
-                  <p className="text-sm">
-                    {isTestingAngles
-                      ? "Rendering preview..."
-                      : "Rendering scene..."}
-                  </p>
-                ) : !objectType.trim() && !captureMode ? (
-                  <div>
-                    <p className="font-semibold text-sm">
-                      Missing Configuration
-                    </p>
-                    <p className="text-xs">
-                      Please set a product type to generate scene
-                    </p>
-                  </div>
-                ) : (
-                  <p className="text-sm">Ready to generate scene</p>
-                )}
-              </div>
-            </TooltipContent>
-          </Tooltip>
-          <Button
-            onClick={onCancel}
-            variant="outline"
-            size="lg"
-            className="text-xs px-2 py-1 h-6 lg:h-11 lg:px-8"
-          >
-            <span className="hidden sm:inline">Cancel</span>
-            <span className="sm:hidden">✕</span>
-          </Button>
-        </div>
-      </div>
-
       {/* 3D Viewer - Full Space */}
       <div className="flex-1 p-4 min-h-0">
         <div className="w-full h-full rounded-lg overflow-hidden  relative cursor-grab active:cursor-grabbing">
@@ -752,6 +514,73 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
             }}
           />
         </div>
+      </div>
+
+      {/* Chat Input at Bottom */}
+      <div className=" bg-background/95 backdrop-blur-sm flex-shrink-0">
+        <SceneChatInput
+          onGenerate={async (
+            snapshots,
+            objectSizeDesc,
+            objectTypeDesc,
+            sceneDesc,
+            inspirationImg,
+            format,
+            width,
+            height
+          ) => {
+            // Update local state
+            setSceneDescription(sceneDesc);
+            setObjectType(objectTypeDesc);
+            setImageFormat(format);
+            if (width) setCustomWidth(width);
+            if (height) setCustomHeight(height);
+
+            // Handle inspiration image if provided
+            if (inspirationImg) {
+              // If inspirationImg is a base64 string, convert to file
+              if (inspirationImg.startsWith("data:image")) {
+                const response = await fetch(inspirationImg);
+                const blob = await response.blob();
+                const file = new File([blob], "inspiration.jpg", {
+                  type: "image/jpeg",
+                });
+                setInspirationImage(file);
+                setInspirationImageUrl(inspirationImg);
+              }
+            }
+
+            // Update parent components if callbacks provided
+            if (onImageFormatChange) {
+              onImageFormatChange(format);
+            }
+            if (onCustomDimensionsChange && width && height) {
+              onCustomDimensionsChange(width, height);
+            }
+
+            // Trigger the capture from the 3D viewer
+            handleCapture();
+          }}
+          onCancel={onCancel}
+          selectedAssets={[]}
+          imageFormat={imageFormat}
+          customWidth={customWidth}
+          customHeight={customHeight}
+          onImageFormatChange={(format) => {
+            setImageFormat(format);
+            if (onImageFormatChange) {
+              onImageFormatChange(format);
+            }
+          }}
+          onCustomDimensionsChange={(width, height) => {
+            setCustomWidth(width);
+            setCustomHeight(height);
+            if (onCustomDimensionsChange) {
+              onCustomDimensionsChange(width, height);
+            }
+          }}
+          autoProductType={objectType}
+        />
       </div>
 
       {/* Configuration Dialog */}

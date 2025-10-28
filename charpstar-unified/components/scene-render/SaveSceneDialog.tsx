@@ -17,16 +17,12 @@ interface SaveSceneDialogProps {
   onClose: () => void;
   onSave: (data: {
     product_name: string;
-    category: string;
     description: string;
-    client: string;
   }) => Promise<void>;
   isLoading?: boolean;
   initialData?: {
     product_name?: string;
-    category?: string;
     description?: string;
-    client?: string;
   };
 }
 
@@ -39,9 +35,7 @@ const SaveSceneDialog: React.FC<SaveSceneDialogProps> = ({
 }) => {
   const [formData, setFormData] = useState({
     product_name: initialData?.product_name || "",
-    category: initialData?.category || "Generated Scene",
     description: initialData?.description || "",
-    client: initialData?.client || "",
   });
 
   // Update form data when initialData changes
@@ -49,9 +43,7 @@ const SaveSceneDialog: React.FC<SaveSceneDialogProps> = ({
     if (initialData) {
       setFormData({
         product_name: initialData.product_name || "",
-        category: initialData.category || "Generated Scene",
         description: initialData.description || "",
-        client: initialData.client || "",
       });
     }
   }, [initialData]);
@@ -74,9 +66,7 @@ const SaveSceneDialog: React.FC<SaveSceneDialogProps> = ({
       // Reset form
       setFormData({
         product_name: "",
-        category: "Generated Scene",
         description: "",
-        client: "",
       });
     } catch (error) {
       console.error("Error in SaveSceneDialog handleSubmit:", error);
@@ -116,26 +106,6 @@ const SaveSceneDialog: React.FC<SaveSceneDialogProps> = ({
               }
               placeholder="e.g., Modern Living Room Scene"
               required
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="category">Category</Label>
-            <Input
-              id="category"
-              value={formData.category}
-              onChange={(e) => handleInputChange("category", e.target.value)}
-              placeholder="e.g., Generated Scene"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="client">Client</Label>
-            <Input
-              id="client"
-              value={formData.client}
-              onChange={(e) => handleInputChange("client", e.target.value)}
-              placeholder="e.g., Your Company Name"
             />
           </div>
 

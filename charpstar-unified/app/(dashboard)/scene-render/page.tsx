@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import Image from "next/image";
 import "./scene-render.css";
 import { useUser } from "@/contexts/useUser";
 import { useLoadingState } from "@/hooks/useLoadingState";
@@ -16,7 +15,7 @@ import { ChevronLeft } from "lucide-react";
 import { useRouter } from "next/navigation";
 import FileUploader from "@/components/scene-render/FileUploader";
 import ModelPreviewer from "@/components/scene-render/ModelPreviewer";
-import SceneConfigurator from "@/components/scene-render/SceneConfigurator";
+import SceneChatInput from "@/components/scene-render/SceneChatInput";
 import Loader from "@/components/scene-render/Loader";
 import ResultDisplay from "@/components/scene-render/ResultDisplay";
 import AssetLibraryPanel from "@/components/scene-render/AssetLibraryPanel";
@@ -430,106 +429,128 @@ export default function SceneRenderPage() {
     switch (appState) {
       case "upload":
         return (
-          <div className="w-full h-full flex flex-col items-center justify-center gap-6 p-6">
-            {multiAssetMode && selectedAssets.length > 0 && (
-              <div className="w-full max-w-4xl">
-                <Card className="p-6 bg-gradient-to-r from-primary/5 to-primary/10 border-primary/20">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-3">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
-                        <span className="text-primary font-bold text-sm">
-                          {selectedAssets.length}
+          <div className="w-full h-full flex flex-col p-6">
+            {multiAssetMode ? (
+              // Multi-asset mode with modern design
+              <div className="w-full h-full flex flex-col">
+                <div className="flex-1 flex items-center justify-center min-h-0">
+                  <div className="w-full max-w-2xl flex flex-col gap-6">
+                    {/* Upload Zone */}
+                    <FileUploader
+                      onFileSelect={handleFileSelect}
+                      error={error}
+                    />
+
+                    {/* Selected Assets - Pills aligned with upload zone */}
+                    {selectedAssets.length > 0 && (
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm text-muted-foreground font-medium mr-2">
+                          {selectedAssets.length} selected:
                         </span>
-                      </div>
-                      <div>
-                        <p className="text-lg font-semibold text-primary">
-                          Selected Assets
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          Click Configure Scene to continue
-                        </p>
-                      </div>
-                    </div>
-                    <Button
-                      onClick={() => setShowSceneConfigDialog(true)}
-                      variant="default"
-                      size="sm"
-                      className="w-full sm:w-auto"
-                    >
-                      Configure Scene
-                    </Button>
-                  </div>
-                  <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
-                    {selectedAssets.map((asset) => (
-                      <div
-                        key={asset.id}
-                        className="relative group bg-background/50 rounded-xl p-3 hover:bg-background/80 transition-all duration-200"
-                      >
-                        {asset.thumbnail ? (
-                          <Image
-                            width={320}
-                            height={180}
-                            src={asset.thumbnail}
-                            alt={asset.name}
-                            className="w-full h-20 sm:h-24 object-cover rounded-lg"
-                          />
-                        ) : (
-                          <div className="w-full h-20 sm:h-24 bg-muted rounded-lg flex items-center justify-center">
-                            <span className="text-2xl">📦</span>
-                          </div>
-                        )}
-                        <p className="text-xs mt-2 truncate font-medium">
-                          {asset.name}
-                        </p>
-                        <button
-                          onClick={() => handleRemoveAsset(asset.id)}
-                          className="absolute top-2 right-2 p-1.5 bg-destructive/90 rounded-full text-destructive-foreground hover:bg-destructive transition-all duration-200 shadow-lg opacity-0 group-hover:opacity-100"
-                          aria-label="Remove"
-                        >
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            className="h-3 w-3"
-                            viewBox="0 0 20 20"
-                            fill="currentColor"
+                        {selectedAssets.map((asset) => (
+                          <div
+                            key={asset.id}
+                            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-primary/10 border border-primary/20 rounded-lg text-sm group hover:bg-primary/20 transition-colors"
                           >
-                            <path
-                              fillRule="evenodd"
-                              d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
-                              clipRule="evenodd"
-                            />
-                          </svg>
-                        </button>
+                            <span className="text-foreground font-medium truncate max-w-[100px]">
+                              {asset.name}
+                            </span>
+                            <button
+                              onClick={() => handleRemoveAsset(asset.id)}
+                              className="text-muted-foreground hover:text-destructive transition-colors opacity-0 group-hover:opacity-100"
+                              aria-label="Remove"
+                            >
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                className="h-3.5 w-3.5"
+                                viewBox="0 0 20 20"
+                                fill="currentColor"
+                              >
+                                <path
+                                  fillRule="evenodd"
+                                  d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                                  clipRule="evenodd"
+                                />
+                              </svg>
+                            </button>
+                          </div>
+                        ))}
                       </div>
-                    ))}
+                    )}
                   </div>
-                </Card>
+                </div>
+
+                {/* Scene Configuration - Always visible textarea */}
+                <div className="border-t bg-background/95 backdrop-blur-sm">
+                  <SceneChatInput
+                    onGenerate={async (
+                      snapshots,
+                      objectSizeDesc,
+                      objectTypeDesc,
+                      sceneDesc,
+                      inspirationImg,
+                      format,
+                      width,
+                      height
+                    ) => {
+                      await handleGenerate(
+                        snapshots,
+                        objectSizeDesc,
+                        objectTypeDesc,
+                        sceneDesc,
+                        inspirationImg,
+                        format,
+                        width,
+                        height
+                      );
+                    }}
+                    onCancel={() => {
+                      setMultiAssetMode(false);
+                      setSelectedAssets([]);
+                    }}
+                    selectedAssets={selectedAssets}
+                    imageFormat={imageFormat}
+                    customWidth={customWidth}
+                    customHeight={customHeight}
+                    onImageFormatChange={setImageFormat}
+                    onCustomDimensionsChange={(width, height) => {
+                      setCustomWidth(width);
+                      setCustomHeight(height);
+                    }}
+                    autoProductType="Product"
+                  />
+                </div>
+              </div>
+            ) : (
+              // Single asset mode - original design
+              <div className="w-full h-full flex flex-col items-center justify-center gap-6">
+                <FileUploader onFileSelect={handleFileSelect} error={error} />
+
+                <div className="flex flex-col items-center gap-4 mt-6">
+                  <Button
+                    onClick={() => {
+                      setMultiAssetMode(!multiAssetMode);
+                      if (multiAssetMode) {
+                        setSelectedAssets([]);
+                      }
+                    }}
+                    variant={multiAssetMode ? "default" : "outline"}
+                    size="lg"
+                    className="px-8 py-3"
+                  >
+                    {multiAssetMode
+                      ? "✓ Multi-Asset Mode Active"
+                      : "Render Scene from Multiple Assets"}
+                  </Button>
+                  {multiAssetMode && (
+                    <p className="text-sm text-muted-foreground text-center max-w-md">
+                      Click on assets in the library to select them for your
+                      scene
+                    </p>
+                  )}
+                </div>
               </div>
             )}
-
-            <FileUploader onFileSelect={handleFileSelect} error={error} />
-
-            <div className="flex flex-col items-center gap-4 mt-6">
-              <Button
-                onClick={() => {
-                  setMultiAssetMode(!multiAssetMode);
-                  if (multiAssetMode) {
-                    setSelectedAssets([]);
-                  }
-                }}
-                variant={multiAssetMode ? "default" : "outline"}
-                size="lg"
-                className="px-8 py-3"
-              >
-                {multiAssetMode
-                  ? "✓ Multi-Asset Mode Active"
-                  : "Render Scene from Multiple Assets"}
-              </Button>
-              {multiAssetMode && (
-                <p className="text-sm text-muted-foreground text-center max-w-md">
-                  Click on assets in the library to select them for your scene
-                </p>
-              )}
-            </div>
           </div>
         );
       case "preview":
@@ -788,21 +809,46 @@ export default function SceneRenderPage() {
         </div>
       </div>
 
-      {/* Scene Configuration Dialog */}
+      {/* Scene Chat Configuration */}
       {showSceneConfigDialog && (
-        <SceneConfigurator
-          onGenerate={handleGenerate}
-          onCancel={() => setShowSceneConfigDialog(false)}
-          selectedAssets={selectedAssets}
-          imageFormat={imageFormat}
-          customWidth={customWidth}
-          customHeight={customHeight}
-          onImageFormatChange={setImageFormat}
-          onCustomDimensionsChange={(width, height) => {
-            setCustomWidth(width);
-            setCustomHeight(height);
-          }}
-        />
+        <div className="absolute inset-0 z-50 flex items-end justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="w-full max-w-4xl animate-slide-up bg-background rounded-t-2xl shadow-2xl border-t border-x">
+            <SceneChatInput
+              onGenerate={async (
+                snapshots,
+                objectSize,
+                objectType,
+                sceneDescription,
+                inspirationImage,
+                format,
+                width,
+                height
+              ) => {
+                setShowSceneConfigDialog(false);
+                await handleGenerate(
+                  snapshots,
+                  objectSize,
+                  objectType,
+                  sceneDescription,
+                  inspirationImage,
+                  format,
+                  width,
+                  height
+                );
+              }}
+              onCancel={() => setShowSceneConfigDialog(false)}
+              selectedAssets={selectedAssets}
+              imageFormat={imageFormat}
+              customWidth={customWidth}
+              customHeight={customHeight}
+              onImageFormatChange={setImageFormat}
+              onCustomDimensionsChange={(width, height) => {
+                setCustomWidth(width);
+                setCustomHeight(height);
+              }}
+            />
+          </div>
+        </div>
       )}
     </div>
   );

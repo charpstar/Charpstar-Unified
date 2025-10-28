@@ -29,6 +29,7 @@ import {
   Save,
   RefreshCw,
   Calendar,
+  LogIn,
 } from "lucide-react";
 import { SceneRenderStats } from "@/components/analytics/SceneRenderStats";
 import { UsageOverTimeChart } from "@/components/analytics/UsageOverTimeChart";
@@ -38,7 +39,8 @@ import { ConversionRateChart } from "@/components/analytics/ConversionRateChart"
 import { SceneRendersTable } from "@/components/analytics/SceneRendersTable";
 
 interface AnalyticsData {
-  summary: {
+  // Scene Render Analytics
+  sceneRenderSummary: {
     totalRenders: number;
     totalSaves: number;
     conversionRate: number;
@@ -79,9 +81,25 @@ interface AnalyticsData {
     generationTime: number;
     errorMessage?: string;
   }>;
+  // Client Activities
+  clientActivities?: {
+    summary: {
+      uniqueUsers: number;
+      totalLogins: number;
+      totalSceneRenders: number;
+      totalActivities: number;
+    };
+    dailyActivity: Array<{
+      date: string;
+      logins: number;
+      sceneRenders: number;
+      other: number;
+    }>;
+    rawData: Array<any>;
+  };
 }
 
-export default function SceneRenderAnalyticsPage() {
+export default function ClientAnalyticsPage() {
   const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(
     null
   );
@@ -99,14 +117,33 @@ export default function SceneRenderAnalyticsPage() {
           clientFilter !== "all" && { clientName: clientFilter }),
       });
 
-      const response = await fetch(`/api/analytics/scene-render?${params}`);
-      if (response.ok) {
-        const data = await response.json();
-        setAnalyticsData(data);
-        setLastUpdated(new Date());
-      } else {
-        console.error("Failed to fetch analytics data");
+      // Fetch both scene render analytics and client activities
+      const [sceneRenderResponse, clientActivitiesResponse] = await Promise.all(
+        [
+          fetch(`/api/analytics/scene-render?${params}`),
+          fetch(`/api/analytics/client-activities?${params}`),
+        ]
+      );
+
+      const sceneRenderData = sceneRenderResponse.ok
+        ? await sceneRenderResponse.json()
+        : null;
+      const clientActivitiesData = clientActivitiesResponse.ok
+        ? await clientActivitiesResponse.json()
+        : null;
+
+      if (sceneRenderData) {
+        setAnalyticsData({
+          sceneRenderSummary: sceneRenderData.summary,
+          usageOverTime: sceneRenderData.usageOverTime,
+          topUsers: sceneRenderData.topUsers,
+          formatDistribution: sceneRenderData.formatDistribution,
+          conversionRateTrend: sceneRenderData.conversionRateTrend,
+          detailedRenders: sceneRenderData.detailedRenders,
+          clientActivities: clientActivitiesData || undefined,
+        });
       }
+      setLastUpdated(new Date());
     } catch (error) {
       console.error("Error fetching analytics data:", error);
     } finally {
@@ -142,10 +179,11 @@ export default function SceneRenderAnalyticsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">
-            Scene Render Analytics
+            Client Analytics
           </h1>
           <p className="text-muted-foreground">
-            Track scene render usage, conversion rates, and user engagement
+            Track client activity including logins, scene renders, and user
+            engagement
           </p>
         </div>
         <div className="flex items-center space-x-2">
@@ -209,41 +247,70 @@ export default function SceneRenderAnalyticsPage() {
       {/* Summary Cards */}
       {analyticsData && (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          {/* Scene Render Stats */}
           <SceneRenderStats
             title="Total Renders"
-            value={analyticsData.summary.totalRenders}
+            value={analyticsData.sceneRenderSummary.totalRenders}
             icon={BarChart3}
             description="Scene render attempts"
           />
           <SceneRenderStats
             title="Total Saves"
-            value={analyticsData.summary.totalSaves}
+            value={analyticsData.sceneRenderSummary.totalSaves}
             icon={Save}
             description="Scenes saved to library"
           />
           <SceneRenderStats
             title="Conversion Rate"
-            value={`${analyticsData.summary.conversionRate}%`}
+            value={`${analyticsData.sceneRenderSummary.conversionRate}%`}
             icon={TrendingUp}
             description="Saves per render"
           />
           <SceneRenderStats
             title="Avg Generation Time"
-            value={`${Math.round(analyticsData.summary.averageGenerationTime / 1000)}s`}
+            value={`${Math.round(analyticsData.sceneRenderSummary.averageGenerationTime / 1000)}s`}
             icon={Clock}
             description="Average processing time"
           />
+          {/* Client Activities Stats */}
+          {analyticsData.clientActivities && (
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">
+                  Total Logins
+                </CardTitle>
+                <LogIn className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {analyticsData.clientActivities.summary.totalLogins}
+                </div>
+                <p className="text-xs text-muted-foreground">User logins</p>
+              </CardContent>
+            </Card>
+          )}
         </div>
       )}
 
       {/* Charts and Tables */}
       {analyticsData && (
-        <Tabs defaultValue="overview" className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="users">Users</TabsTrigger>
-            <TabsTrigger value="formats">Formats</TabsTrigger>
-            <TabsTrigger value="details">Details</TabsTrigger>
+        <Tabs defaultValue="overview" className="space-y-4 cursor-pointer">
+          <TabsList className="cursor-pointer">
+            <TabsTrigger className="cursor-pointer" value="overview">
+              Overview
+            </TabsTrigger>
+            <TabsTrigger className="cursor-pointer" value="activities">
+              Activities
+            </TabsTrigger>
+            <TabsTrigger className="cursor-pointer" value="users">
+              Users
+            </TabsTrigger>
+            <TabsTrigger className="cursor-pointer" value="formats">
+              Formats
+            </TabsTrigger>
+            <TabsTrigger className="cursor-pointer" value="details">
+              Details
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-4">
@@ -274,6 +341,47 @@ export default function SceneRenderAnalyticsPage() {
                 </CardContent>
               </Card>
             </div>
+          </TabsContent>
+
+          <TabsContent value="activities" className="space-y-4">
+            {analyticsData.clientActivities && (
+              <>
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Daily Activity</CardTitle>
+                    <CardDescription>
+                      Logins and scene renders over time
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {analyticsData.clientActivities.dailyActivity
+                        .slice(0, 10)
+                        .map((day) => (
+                          <div
+                            key={day.date}
+                            className="flex items-center justify-between border-b pb-2"
+                          >
+                            <div className="text-sm font-medium">
+                              {new Date(day.date).toLocaleDateString()}
+                            </div>
+                            <div className="flex items-center space-x-4 text-sm">
+                              <div className="flex items-center space-x-2">
+                                <LogIn className="h-4 w-4 text-green-500" />
+                                <span>{day.logins} logins</span>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <Clock className="h-4 w-4 text-blue-500" />
+                                <span>{day.sceneRenders} renders</span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              </>
+            )}
           </TabsContent>
 
           <TabsContent value="users" className="space-y-4">

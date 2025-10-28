@@ -38,6 +38,16 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
   const [imageAspectRatio, setImageAspectRatio] = useState<number | null>(null);
   const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  //eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [isEditingImage, setIsEditingImage] = useState(false);
+  const [editedImages, setEditedImages] = useState<string[]>(images);
+  //eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [imageUpdateKey, setImageUpdateKey] = useState(0);
+
+  // Sync editedImages when images prop changes
+  useEffect(() => {
+    setEditedImages(images);
+  }, [images]);
 
   // Get dimensions based on image format
   const getImageDimensions = () => {
@@ -59,11 +69,15 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
     );
   };
 
-  const imageData = images[0]; // Single image
+  const imageData = editedImages[0]; // Single image (using edited version)
   // Check if it's already a URL or base64 data
   const imageUrl = imageData.startsWith("http")
     ? imageData
     : `data:image/png;base64,${imageData}`;
+
+  // Debug logging
+  console.log("Current imageData:", imageData?.substring(0, 100) + "...");
+  console.log("Current imageUrl:", imageUrl?.substring(0, 100) + "...");
 
   // Function to calculate aspect ratio from image URL or data
   const calculateAspectRatio = (url: string) => {
@@ -164,9 +178,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
 
   const handleSaveToLibrary = async (formData: {
     product_name: string;
-    category: string;
     description: string;
-    client: string;
   }) => {
     console.log("handleSaveToLibrary called with:", formData);
     setIsSaving(true);
@@ -277,7 +289,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
 
         {showComparison && upscaledImageUrl ? (
           // Show only the upscaled image
-          <div className="w-full max-w-4xl h-full mb-4 sm:mb-6 flex-1 min-h-0 overflow-hidden">
+          <div className="w-full max-w-4xl h-full mb-4 sm:mb-6 flex-1 min-h-0 max-h-[50vh] overflow-hidden">
             <div className="text-center mb-2 sm:mb-4">
               <span className="inline-flex items-center gap-2 px-2 sm:px-3 py-1 bg-primary/10 text-primary rounded-full text-xs sm:text-sm font-medium">
                 <div className="w-2 h-2 rounded-full bg-primary"></div>
@@ -336,7 +348,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
                 <div className="flex flex-col items-center gap-3">
                   <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
                   <span className="text-sm text-muted-foreground">
-                    Loading image...
+                    Preparing image...
                   </span>
                 </div>
               </div>
@@ -356,6 +368,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
             aria-label="View image fullscreen"
           >
             <Image
+              key={`main-image-${imageUpdateKey}`}
               src={imageUrl}
               alt="Generated product scene"
               className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
@@ -373,61 +386,201 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
             <div className="flex flex-col items-center gap-3">
               <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
               <span className="text-sm text-muted-foreground">
-                Loading image...
+                Preparing image...
               </span>
             </div>
           </div>
         )}
 
-        <div className="flex flex-col gap-2 sm:gap-3 w-full max-w-2xl">
+        <div className="flex flex-col gap-3 w-full max-w-2xl">
+          {/* Inline Image Edit */}
+
+          {/* Image Edit 
+          <div className="rounded-lg border border-border p-3 sm:p-4 bg-background/50">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium">Edit This Image</span>
+            </div>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder="Describe your change (e.g., change the blue sofa to vintage brown leather)"
+                className="flex-1 h-10 px-3 rounded-md border border-input bg-background text-sm"
+                onKeyDown={async (e) => {
+                  if (e.key === "Enter") {
+                    const prompt = (
+                      e.currentTarget as HTMLInputElement
+                    ).value.trim();
+                    if (!prompt) return;
+
+                    setIsEditingImage(true);
+                    try {
+                      const editRes = await fetch("/api/image-edit", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          image: upscaledImageUrl || imageUrl,
+                          prompt,
+                        }),
+                      });
+
+                      if (editRes.ok) {
+                        const data = await editRes.json();
+                        const newUrl = data.editedImage as string;
+                        if (newUrl) {
+                          console.log(
+                            "Received edited image URL:",
+                            newUrl.substring(0, 100) + "..."
+                          );
+                          // Update the edited images state
+                          setEditedImages((prev) => {
+                            const updated = [...prev];
+                            // Keep the data URL as-is if it's a data URL, otherwise treat as base64
+                            updated[0] = newUrl.startsWith("data:image/")
+                              ? newUrl.replace(/^data:image\/[^;]+;base64,/, "")
+                              : newUrl.startsWith("http")
+                                ? newUrl
+                                : newUrl;
+                            console.log(
+                              "Updated editedImages[0]:",
+                              updated[0].substring(0, 100) + "..."
+                            );
+                            return updated;
+                          });
+                          //eslint-disable-next-line @typescript-eslint/no-unused-vars
+                          setImageUpdateKey((prev) => prev + 1);
+                          toast.success("Image edited successfully!");
+                        }
+                        (e.currentTarget as HTMLInputElement).value = "";
+                      } else {
+                        const errorData = await editRes.json();
+                        toast.error(errorData.error || "Failed to edit image");
+                      }
+                    } catch (error) {
+                      console.error("Error editing image:", error);
+                      toast.error("Failed to edit image. Please try again.");
+                    } finally {
+                      setIsEditingImage(false);
+                    }
+                  }
+                }}
+              />
+              <button
+                className="h-10 px-3 rounded-md bg-primary text-primary-foreground text-sm hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={isEditingImage}
+                onClick={async (e) => {
+                  const wrapper = e.currentTarget.parentElement as HTMLElement;
+                  const input = wrapper.querySelector("input");
+                  const prompt = (input as HTMLInputElement)?.value.trim();
+                  if (!prompt) return;
+
+                  setIsEditingImage(true);
+                  try {
+                    const editRes = await fetch("/api/image-edit", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        image: upscaledImageUrl || imageUrl,
+                        prompt,
+                      }),
+                    });
+
+                    if (editRes.ok) {
+                      const data = await editRes.json();
+                      const newUrl = data.editedImage as string;
+                      if (newUrl) {
+                        console.log(
+                          "Received edited image URL:",
+                          newUrl.substring(0, 100) + "..."
+                        );
+                        // Update the edited images state
+                        setEditedImages((prev) => {
+                          const updated = [...prev];
+                          // Keep the data URL as-is if it's a data URL, otherwise treat as base64
+                          updated[0] = newUrl.startsWith("data:image/")
+                            ? newUrl.replace(/^data:image\/[^;]+;base64,/, "")
+                            : newUrl.startsWith("http")
+                              ? newUrl
+                              : newUrl;
+                          console.log(
+                            "Updated editedImages[0]:",
+                            updated[0].substring(0, 100) + "..."
+                          );
+                          return updated;
+                        });
+                        setImageUpdateKey((prev) => prev + 1);
+                        toast.success("Image edited successfully!");
+                      }
+                      (input as HTMLInputElement).value = "";
+                    } else {
+                      const errorData = await editRes.json();
+                      toast.error(errorData.error || "Failed to edit image");
+                    }
+                  } catch (error) {
+                    console.error("Error editing image:", error);
+                    toast.error("Failed to edit image. Please try again.");
+                  } finally {
+                    setIsEditingImage(false);
+                  }
+                }}
+              >
+                {isEditingImage ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    Editing...
+                  </>
+                ) : (
+                  "Apply"
+                )}
+              </button>
+            </div>
+          </div>
+          */}
+
+          {/* Primary Download Button */}
           {showComparison && upscaledImageUrl ? (
-            // Single download button for upscaled image
             <Button
               onClick={handleDownloadUpscaled}
-              className="bg-primary hover:bg-primary/90 text-primary-foreground text-sm sm:text-base"
-              size="sm"
+              className="w-full bg-primary hover:bg-primary/90 text-primary-foreground h-12 text-base font-semibold shadow-lg hover:shadow-xl transition-all"
               disabled={isImageLoading}
             >
               {isImageLoading ? (
                 <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Rendering...
+                  <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                  Preparing...
                 </>
               ) : (
                 <>
-                  <Download className="h-4 w-4 mr-2" />
+                  <Download className="h-5 w-5 mr-2" />
                   Download HD Image ({getImageDimensions()})
                 </>
               )}
             </Button>
           ) : (
-            // Single download button for single image mode
             <Button
               onClick={handleDownloadOriginal}
-              className="bg-primary hover:bg-primary/90 text-primary-foreground"
-              size="lg"
+              className="w-full bg-primary hover:bg-primary/90 text-primary-foreground h-12 text-base font-semibold shadow-lg hover:shadow-xl transition-all"
               disabled={isImageLoading}
             >
               {isImageLoading ? (
                 <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Rendering...
+                  <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                  Preparing...
                 </>
               ) : (
                 <>
-                  <Download className="h-4 w-4 mr-2" />
+                  <Download className="h-5 w-5 mr-2" />
                   Download Image
                 </>
               )}
             </Button>
           )}
 
-          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full">
+          {/* Secondary Actions */}
+          <div className="flex flex-col sm:flex-row gap-2 w-full">
             <Button
               onClick={() => setIsSaveDialogOpen(true)}
               variant="outline"
-              size="sm"
-              className="flex-1 text-sm sm:text-base"
+              className="flex-1 h-11 bg-background hover:bg-muted border-2 border-border hover:border-primary/30 transition-all"
             >
               <Save className="h-4 w-4 mr-2" />
               Save to Library
@@ -435,20 +588,11 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
             <Button
               onClick={onReset}
               variant="outline"
-              size="sm"
-              className="flex-1 text-sm sm:text-base"
+              className="flex-1 h-11 bg-background hover:bg-muted border-2 border-border hover:border-primary/30 transition-all"
             >
-              Create Another Scene
+              Create Another
             </Button>
           </div>
-
-          {isImageLoading && (
-            <div className="text-center mt-2">
-              <p className="text-xs text-muted-foreground animate-pulse">
-                Rendering high-resolution image ({getImageDimensions()})...
-              </p>
-            </div>
-          )}
         </div>
       </div>
 
@@ -468,6 +612,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
           </button>
           <div className="relative" onClick={(e) => e.stopPropagation()}>
             <Image
+              key={`modal-image-${imageUpdateKey}`}
               src={upscaledImageUrl || imageUrl}
               alt={`Upscaled Scene (${getImageDimensions()}) in fullscreen`}
               className="max-h-[90vh] max-w-[90vw] object-contain rounded-lg shadow-2xl"
@@ -516,10 +661,8 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
         isLoading={isSaving}
         initialData={{
           product_name: `${objectType || "Generated"} Scene - ${new Date().toLocaleDateString()}`,
-          category: "Generated Scene",
           description:
-            sceneDescription || `AI-generated ${objectType || "product"} scene`,
-          client: "Generated Content",
+            sceneDescription || `Generated ${objectType || "product"} scene`,
         }}
       />
     </>
