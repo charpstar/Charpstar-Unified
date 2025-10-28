@@ -7,20 +7,10 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/containers/dialog";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/utilities/command";
-import { Check, ChevronsUpDown } from "lucide-react";
+import { Check } from "lucide-react";
 
 import { Input } from "@/components/ui/inputs";
-import sceneLibraryData from "@/lib/sceneLibrary.json";
 import SceneChatInput from "./SceneChatInput";
 
 // Add type declaration for model-viewer element
@@ -52,15 +42,6 @@ declare global {
     }
   }
 }
-
-// Transform scene library data into the expected format
-const scenePresets = sceneLibraryData.map((scene: any) => ({
-  category: scene.category,
-  label: scene.name,
-  prompt: scene.description,
-  thumbnailUrl: scene.imageUrl,
-  id: scene.id,
-}));
 
 const fileToBase64 = (file: File): Promise<string> =>
   new Promise((resolve, reject) => {
@@ -130,10 +111,8 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
     z: number;
   } | null>(null);
   const [sceneDescription, setSceneDescription] = useState(
-    scenePresets[0].prompt
+    "Professional product scene"
   );
-  const [isCustomScene, setIsCustomScene] = useState(false);
-  const [sceneDialogOpen, setSceneDialogOpen] = useState(false);
   const [inspirationImage, setInspirationImage] = useState<File | null>(null);
   const [inspirationImageUrl, setInspirationImageUrl] = useState<string | null>(
     null
@@ -320,7 +299,7 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
     };
   }, [fileUrl]);
 
-  const handleCapture = async () => {
+  const handleCapture = async (customSceneDescription?: string) => {
     // Automatically set product type if not set
     if (!objectType.trim()) {
       setObjectType("Product");
@@ -359,12 +338,16 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
         if (captureMode && onCaptureAsset) {
           onCaptureAsset(snapshotBase64, modelDimensions);
         } else {
+          // Use custom scene description if provided, otherwise use state
+          const finalSceneDescription =
+            customSceneDescription || sceneDescription;
+
           // Pass single snapshot in array for API compatibility
           onGenerate(
             [snapshotBase64],
             finalObjectSize,
             objectType || "Product",
-            sceneDescription,
+            finalSceneDescription,
             inspirationBase64,
             imageFormat,
             customWidth,
@@ -558,8 +541,8 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
               onCustomDimensionsChange(width, height);
             }
 
-            // Trigger the capture from the 3D viewer
-            handleCapture();
+            // Trigger the capture from the 3D viewer with the scene description from SceneChatInput
+            handleCapture(sceneDesc);
           }}
           onCancel={onCancel}
           selectedAssets={[]}
@@ -691,193 +674,6 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
                     </div>
                   </div>
                 </Card>
-
-                {/* Scene Style Card - hide in capture mode */}
-                {!captureMode && (
-                  <Card className="p-6 hover:shadow-lg transition-all duration-200 border-primary/20">
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                        <span className="text-primary font-bold text-lg">
-                          🎨
-                        </span>
-                      </div>
-                      <div>
-                        <h3 className="text-lg font-semibold">Scene Style</h3>
-                        <p className="text-sm text-muted-foreground">
-                          Choose the environment for your product
-                        </p>
-                      </div>
-                    </div>
-                    <div className="space-y-3">
-                      <Dialog
-                        open={sceneDialogOpen}
-                        onOpenChange={setSceneDialogOpen}
-                      >
-                        <DialogTrigger asChild>
-                          <button className="w-full px-4 py-3 text-sm bg-background border border-input rounded-lg text-left flex items-center justify-between hover:bg-muted/50 transition-all">
-                            <span className="truncate">
-                              {!isCustomScene &&
-                              scenePresets.find(
-                                (p) => p.prompt === sceneDescription
-                              )
-                                ? scenePresets.find(
-                                    (p) => p.prompt === sceneDescription
-                                  )?.label
-                                : "Browse Scene Presets"}
-                            </span>
-                            <ChevronsUpDown className="h-4 w-4 opacity-50" />
-                          </button>
-                        </DialogTrigger>
-                        <DialogContent className="min-w-6xl w-[95vw] h-[90vh] p-0">
-                          <DialogHeader className="px-6 py-4 border-b bg-background/95 backdrop-blur-sm sticky top-0 z-10">
-                            <DialogTitle className="text-xl font-semibold">
-                              Choose Scene Style
-                            </DialogTitle>
-                          </DialogHeader>
-                          <div className="flex-1 overflow-hidden">
-                            <Command className="h-full">
-                              <div className="px-6 py-4 border-b">
-                                <CommandInput
-                                  placeholder="Search scenes..."
-                                  className="text-base"
-                                />
-                              </div>
-                              <CommandList className="h-full overflow-y-auto">
-                                <CommandEmpty className="py-8 text-center text-muted-foreground">
-                                  No scene found. Try a different search term.
-                                </CommandEmpty>
-                                <div className="p-6">
-                                  {/* Custom Scene Option */}
-                                  <CommandGroup
-                                    heading="Custom Scene"
-                                    className="mb-8"
-                                  >
-                                    <div className="grid grid-cols-1 gap-4 mt-4">
-                                      <CommandItem
-                                        value="custom-scene"
-                                        onSelect={() => {
-                                          setIsCustomScene(true);
-                                          setSceneDescription("");
-                                          setSceneDialogOpen(false);
-                                        }}
-                                        className="flex flex-row items-center gap-6 p-6 rounded-lg border-2 border-dashed border-primary/30 hover:border-primary/50 hover:bg-primary/5 transition-all cursor-pointer group"
-                                      >
-                                        <Check
-                                          className={`h-6 w-6 flex-shrink-0 ${
-                                            isCustomScene
-                                              ? "opacity-100 text-primary"
-                                              : "opacity-0 group-hover:opacity-50"
-                                          }`}
-                                        />
-                                        <div className="w-20 h-20 bg-gradient-to-br from-primary/20 to-primary/30 rounded-lg flex items-center justify-center flex-shrink-0">
-                                          <span className="text-3xl">✏️</span>
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                          <div className="font-bold text-xl mb-2 text-primary">
-                                            Create Custom Scene
-                                          </div>
-                                          <div className="text-base text-muted-foreground leading-relaxed">
-                                            Write your own scene description for
-                                            a completely custom environment.
-                                            Perfect for unique or specific
-                                            requirements that aren&apos;t
-                                            covered by our preset scenes.
-                                          </div>
-                                        </div>
-                                      </CommandItem>
-                                    </div>
-                                  </CommandGroup>
-
-                                  {Object.entries(
-                                    scenePresets.reduce(
-                                      (acc, preset) => {
-                                        if (!acc[preset.category]) {
-                                          acc[preset.category] = [];
-                                        }
-                                        acc[preset.category].push(preset);
-                                        return acc;
-                                      },
-                                      {} as Record<string, typeof scenePresets>
-                                    )
-                                  ).map(([category, presets]) => (
-                                    <CommandGroup
-                                      key={category}
-                                      heading={category}
-                                      className="mb-8"
-                                    >
-                                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
-                                        {presets.map((preset) => (
-                                          <CommandItem
-                                            key={preset.id}
-                                            value={preset.label}
-                                            onSelect={() => {
-                                              setIsCustomScene(false);
-                                              setSceneDescription(
-                                                preset.prompt
-                                              );
-                                              setSceneDialogOpen(false);
-                                            }}
-                                            className="flex flex-col gap-3 p-4 rounded-lg border hover:bg-muted/50 transition-all cursor-pointer group"
-                                          >
-                                            <div className="flex items-start gap-3">
-                                              <Check
-                                                className={`h-5 w-5 mt-1 flex-shrink-0 ${
-                                                  !isCustomScene &&
-                                                  sceneDescription ===
-                                                    preset.prompt
-                                                    ? "opacity-100 text-primary"
-                                                    : "opacity-0 group-hover:opacity-50"
-                                                }`}
-                                              />
-                                              {preset.thumbnailUrl ? (
-                                                <Image
-                                                  src={preset.thumbnailUrl}
-                                                  alt={preset.label}
-                                                  width={64}
-                                                  height={64}
-                                                  className="w-16 h-16 object-cover rounded-lg border shadow-sm flex-shrink-0"
-                                                  unoptimized
-                                                />
-                                              ) : (
-                                                <div className="w-16 h-16 bg-gradient-to-br from-primary/10 to-primary/20 rounded-lg flex items-center justify-center flex-shrink-0">
-                                                  <span className="text-2xl">
-                                                    🎨
-                                                  </span>
-                                                </div>
-                                              )}
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                              <div className="font-semibold text-base mb-2">
-                                                {preset.label}
-                                              </div>
-                                              <div className="text-sm text-muted-foreground line-clamp-3 leading-relaxed">
-                                                {preset.prompt}
-                                              </div>
-                                            </div>
-                                          </CommandItem>
-                                        ))}
-                                      </div>
-                                    </CommandGroup>
-                                  ))}
-                                </div>
-                              </CommandList>
-                            </Command>
-                          </div>
-                        </DialogContent>
-                      </Dialog>
-
-                      {isCustomScene && (
-                        <textarea
-                          value={sceneDescription}
-                          onChange={(e) => setSceneDescription(e.target.value)}
-                          placeholder="Describe your custom scene... (e.g., modern minimalist studio with soft lighting)"
-                          className="w-full px-4 py-3 text-sm border border-input rounded-lg focus:ring-2 focus:ring-primary focus:border-primary resize-none"
-                          rows={3}
-                        />
-                      )}
-                    </div>
-                  </Card>
-                )}
 
                 {/* Image Format Card */}
                 <Card className="p-6 hover:shadow-lg transition-all duration-200 border-primary/20">

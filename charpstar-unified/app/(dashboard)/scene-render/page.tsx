@@ -351,8 +351,10 @@ export default function SceneRenderPage() {
         body: JSON.stringify({
           base64Images: snapshots,
           objectSize: sizeDescription,
-          objectType: "Multiple Products", // You might want to make this configurable
-          sceneDescription: "Professional product scene with multiple items",
+          objectType: lastObjectType || "Multiple Products",
+          sceneDescription:
+            lastSceneDescription ||
+            "Professional product scene with multiple items",
           inspirationImage: null,
           imageFormat: imageFormat,
         }),
