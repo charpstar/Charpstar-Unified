@@ -72,6 +72,7 @@ interface ApprovedAsset {
     bonus: number;
     approved_at: string;
     deadline: string;
+    status: string;
     correction_amount?: number;
   };
 }
@@ -255,6 +256,26 @@ export default function InvoicingPage() {
       setLoading(true);
       startLoading();
 
+      // Refresh allocation list completion status
+      try {
+        const refreshResponse = await fetch(
+          "/api/allocation-lists/refresh-completion",
+          {
+            method: "POST",
+          }
+        );
+        const refreshData = await refreshResponse.json();
+        if (refreshData.updated > 0) {
+          console.log(`Refreshed ${refreshData.updated} allocation list(s)`);
+        }
+      } catch (refreshError) {
+        console.error(
+          "Failed to refresh allocation list completion:",
+          refreshError
+        );
+        // Don't block the main fetch if refresh fails
+      }
+
       const { data, error } = await supabase
         .from("asset_assignments")
         .select(
@@ -282,13 +303,16 @@ export default function InvoicingPage() {
             priority,
             status,
             created_at,
-            updated_at
+            updated_at,
+            transferred
           )
         `
         )
         .eq("user_id", user?.id)
         .eq("role", "modeler")
-        .in("onboarding_assets.status", ["approved_by_client", "approved"]);
+        .or("status.in.(approved_by_client,approved),transferred.eq.true", {
+          foreignTable: "onboarding_assets",
+        });
 
       if (error) {
         console.error("Error fetching approved assets:", error);
@@ -306,6 +330,7 @@ export default function InvoicingPage() {
           category: item.onboarding_assets.category,
           subcategory: item.onboarding_assets.subcategory,
           priority: item.onboarding_assets.priority,
+          status: item.onboarding_assets.status,
           price: item.price || 0,
           approved_at: item.allocation_lists.approved_at,
           asset_created_at: item.onboarding_assets.created_at, // When the individual asset was created
@@ -318,6 +343,50 @@ export default function InvoicingPage() {
           allocation_lists: item.allocation_lists,
         })
       );
+
+      // Check for allocation lists where all assets are approved but not yet marked as complete
+      const uncompletedLists = new Set<string>();
+      const assetsByList = new Map<string, any[]>();
+
+      processedAssets.forEach((asset) => {
+        if (!assetsByList.has(asset.allocation_list_id)) {
+          assetsByList.set(asset.allocation_list_id, []);
+        }
+        assetsByList.get(asset.allocation_list_id)!.push(asset);
+      });
+
+      assetsByList.forEach((assets, listId) => {
+        const listStatus = assets[0].allocation_list_status;
+        const listApprovedAt = assets[0].approved_at;
+
+        if (listStatus === "pending" && !listApprovedAt) {
+          uncompletedLists.add(listId);
+        }
+      });
+
+      // Check if these lists are actually complete by querying the database
+      if (uncompletedLists.size > 0) {
+        const listsArray = Array.from(uncompletedLists);
+        const { data: listStatuses } = await supabase
+          .from("allocation_lists")
+          .select("id, status, approved_at")
+          .in("id", listsArray);
+
+        if (listStatuses) {
+          listStatuses.forEach((list: any) => {
+            if (list.approved_at) {
+              // Update the processed assets with the correct approved_at timestamp
+              processedAssets.forEach((asset) => {
+                if (asset.allocation_list_id === list.id) {
+                  asset.approved_at = list.approved_at;
+                  asset.allocation_lists!.approved_at = list.approved_at;
+                  asset.allocation_lists!.status = list.status;
+                }
+              });
+            }
+          });
+        }
+      }
 
       setApprovedAssets(processedAssets);
     } catch (error) {

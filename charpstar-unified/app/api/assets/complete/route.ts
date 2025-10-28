@@ -371,6 +371,10 @@ export async function POST(request: NextRequest) {
       const allocationListId =
         onboardingAsset.asset_assignments[0].allocation_list_id;
 
+      console.log(
+        `Checking allocation list completion for list: ${allocationListId}`
+      );
+
       try {
         // Get all assets in this allocation list
         const { data: allAssetsInList, error: listAssetsError } =
@@ -378,18 +382,35 @@ export async function POST(request: NextRequest) {
             .from("asset_assignments")
             .select(
               `
-            onboarding_assets!inner(id, status)
+            onboarding_assets(id, status, transferred)
           `
             )
             .eq("allocation_list_id", allocationListId);
 
         if (!listAssetsError && allAssetsInList && allAssetsInList.length > 0) {
+          console.log(
+            `Found ${allAssetsInList.length} assets in list ${allocationListId}:`,
+            allAssetsInList.map((a: any) => ({
+              asset_id: a.onboarding_assets?.id,
+              status: a.onboarding_assets?.status,
+              transferred: a.onboarding_assets?.transferred,
+            }))
+          );
+
           // Check if all assets in the list are approved
-          const allApproved = allAssetsInList.every(
-            (assignment: any) =>
+          // An asset is considered approved if it has approved status OR if it's been transferred to the assets table
+          const allApproved = allAssetsInList.every((assignment: any) => {
+            if (!assignment.onboarding_assets) return false;
+            // If asset has been transferred, it's approved
+            if (assignment.onboarding_assets.transferred === true) return true;
+            // Otherwise, check if status is approved
+            return (
               assignment.onboarding_assets.status === "approved_by_client" ||
               assignment.onboarding_assets.status === "approved"
-          );
+            );
+          });
+
+          console.log(`All assets approved: ${allApproved}`);
 
           if (allApproved) {
             // Update the allocation list to mark it as approved
@@ -412,10 +433,19 @@ export async function POST(request: NextRequest) {
               );
             }
           }
+        } else {
+          console.log(
+            `No assets found for list ${allocationListId} or error:`,
+            listAssetsError
+          );
         }
       } catch (error) {
         console.error("Error checking allocation list completion:", error);
       }
+    } else {
+      console.log(
+        `Skipping allocation list completion check. Status: ${status}, has allocation_list_id: ${onboardingAsset.asset_assignments?.[0]?.allocation_list_id}`
+      );
     }
 
     // Clean up allocation lists
