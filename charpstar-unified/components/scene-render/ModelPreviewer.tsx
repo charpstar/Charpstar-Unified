@@ -420,7 +420,7 @@ const ModelPreviewer: React.FC<ModelPreviewerProps> = ({
   return (
     <div className="w-full h-full flex flex-col">
       {/* 3D Viewer - Full Space */}
-      <div className="flex-1 p-4 min-h-0">
+      <div className="flex-1  min-h-0">
         <div className="w-full h-full rounded-lg overflow-hidden  relative cursor-grab active:cursor-grabbing">
           {/* Capture Progress Overlay */}
           {(isCapturing || isTestingAngles) && (

@@ -57,13 +57,11 @@ export default function ProductRenderPage() {
   const [currentJob, setCurrentJob] = useState<RenderJob | null>(null);
   const [error, setError] = useState<string | null>(null);
   const pollingCleanupRef = React.useRef<(() => void) | null>(null);
+  const [cameraAngle, setCameraAngle] = useState<string>("90deg 0deg auto");
 
   // Asset Library Panel state
   const [isAssetPanelCollapsed, setIsAssetPanelCollapsed] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
-
-  // Dialog state for product configuration
-  const [showConfigDialog, setShowConfigDialog] = useState(false);
 
   // Load existing jobs and products on mount
   useEffect(() => {
@@ -143,13 +141,12 @@ export default function ProductRenderPage() {
         category: asset.category,
       },
     ]);
-
-    // Don't automatically open dialog - user needs to click Configure button
+    // Reset camera angle when selecting a new product
+    setCameraAngle("90deg 0deg auto");
   };
 
   const handleConfigSubmit = (settings: RenderSettings) => {
     setRenderSettings(settings);
-    setShowConfigDialog(false);
     handleSubmitJob();
   };
 
@@ -314,87 +311,7 @@ export default function ProductRenderPage() {
   }
 
   return (
-    <div className="w-full h-full flex flex-col bg-gradient-to-br from-background to-muted/20 overflow-hidden">
-      {/* Modern Header */}
-      <div className="flex items-center justify-between p-6 border-b bg-background/80 backdrop-blur-sm">
-        <div className="flex items-center gap-3">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => router.push("/dashboard")}
-            className="gap-2 hover:bg-muted/50 transition-colors"
-          >
-            <ChevronLeft className="h-4 w-4" />
-            <span className="hidden xs:inline">Back to Dashboard</span>
-          </Button>
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-              <span className="text-primary font-bold text-sm">3D</span>
-            </div>
-            <div>
-              <h1 className="text-xl font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
-                Product Render
-              </h1>
-              <p className="text-sm text-muted-foreground">
-                Generate high-quality product renders
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Progress Indicator */}
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-2">
-            {[
-              { key: "select", label: "Select", step: 1 },
-              { key: "generating", label: "Render", step: 2 },
-              { key: "results", label: "Complete", step: 3 },
-            ].map((step, index) => {
-              const isActive =
-                (appState === "select" && step.key === "select") ||
-                (appState === "generating" && step.key === "generating") ||
-                (appState === "results" && step.key === "results");
-              const isCompleted =
-                (appState === "generating" && step.key === "select") ||
-                (appState === "results" &&
-                  (step.key === "select" || step.key === "generating"));
-
-              return (
-                <div key={step.key} className="flex items-center gap-2">
-                  <div
-                    className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold transition-all ${
-                      isActive
-                        ? "bg-primary text-primary-foreground"
-                        : isCompleted
-                          ? "bg-green-500 text-white"
-                          : "bg-muted text-muted-foreground"
-                    }`}
-                  >
-                    {isCompleted ? <Check className="w-4 h-4" /> : step.step}
-                  </div>
-                  <span
-                    className={`text-sm font-medium transition-colors ${
-                      isActive || isCompleted
-                        ? "text-foreground"
-                        : "text-muted-foreground"
-                    }`}
-                  >
-                    {step.label}
-                  </span>
-                  {index < 2 && (
-                    <div
-                      className={`w-8 h-0.5 transition-colors ${
-                        isCompleted ? "bg-green-500" : "bg-muted"
-                      }`}
-                    />
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-
+    <div className="w-full h-full flex flex-col bg-gradient-to-br from-background to-muted/20 overflow-y-scroll">
       <div
         className={`flex flex-col lg:grid gap-6 flex-1 p-6 transition-all duration-500 ease-out ${
           isAssetPanelCollapsed ? "lg:grid-cols-[1fr_80px]" : "lg:grid-cols-3"
@@ -402,7 +319,7 @@ export default function ProductRenderPage() {
       >
         {/* Main Content Area - Left Side (2/3 width on desktop) */}
         <div
-          className={`order-1 lg:order-1 h-full overflow-hidden transition-all duration-500 ease-out ${
+          className={`order-1 lg:order-1 h-full overflow-hidden transition-all  rounded-2xl  duration-500 ease-out ${
             isAssetPanelCollapsed ? "" : "lg:col-span-2"
           }`}
           onDragOver={(e) => {
@@ -431,14 +348,14 @@ export default function ProductRenderPage() {
           }}
         >
           <Card
-            className={`h-full flex flex-col bg-background/50 backdrop-blur-sm border-0 shadow-2xl rounded-2xl transition-all duration-300 ${
+            className={`h-full p-0 flex flex-col bg-background/50 backdrop-blur-sm border-none shadow-2xl rounded-2xl transition-all duration-300 ${
               isDragging ? "ring-2 ring-primary bg-primary/5" : ""
             }`}
           >
             {/* Main Content Area */}
-            <CardContent className="relative h-full flex flex-col">
+            <CardContent className="relative h-full flex flex-col ">
               {isDragging && appState === "select" && (
-                <div className="absolute inset-0 flex items-center justify-center bg-primary/10 border-2 border-dashed border-primary rounded-lg z-10">
+                <div className="absolute inset-0 flex items-center justify-center bg-primary/10  z-10">
                   <div className="text-center">
                     <p className="text-lg font-semibold text-primary">
                       Drop product here
@@ -483,66 +400,75 @@ export default function ProductRenderPage() {
                 </div>
               )}
 
-              {/* Selected Product Preview */}
+              {/* Selected Product Preview with Configuration */}
               {selectedProducts.length > 0 && appState === "select" && (
                 <div className="flex-1 flex flex-col min-h-0">
-                  {/* Header */}
-                  <div className="flex items-center justify-between p-4 sm:p-6 border-b bg-background/80 backdrop-blur-sm">
-                    <div>
-                      <h2 className="text-lg sm:text-xl font-semibold">
-                        Selected Product
-                      </h2>
-                      <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-                        {selectedProducts[0]?.product_name} •{" "}
-                        {selectedProducts[0]?.category}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        onClick={() => setShowConfigDialog(true)}
-                        variant="default"
-                        size="sm"
-                        className="text-xs px-3 py-2"
-                      >
-                        <span className="hidden sm:inline">Configure</span>
-                        <span className="sm:hidden">⚙️</span>
-                      </Button>
-                      <button
-                        onClick={() => {
-                          setSelectedProducts([]);
-                        }}
-                        className="text-muted-foreground hover:text-destructive transition-colors p-1"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* 3D Model Viewer */}
-                  <div className="flex-1 min-h-0 p-4 sm:p-6">
-                    <div className="w-full h-full bg-muted rounded-lg overflow-hidden">
-                      {selectedProducts[0]?.glb_link ? (
-                        <ModelViewer modelUrl={selectedProducts[0].glb_link} />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-                          <div className="text-center">
-                            <svg
-                              className="h-8 w-8 mx-auto mb-2"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                              />
-                            </svg>
-                            <p className="text-sm">No 3D model available</p>
+                  <div className="flex-1 flex flex-col min-h-0">
+                    {/* 3D Model Viewer - Top Half */}
+                    <div className="flex-1 min-h-0  ">
+                      <div className="w-full h-full bg-surface-base rounded-xl overflow-hidden  relative">
+                        {/* Subtle inner glow */}
+                        <div className="absolute inset-0 bg-gradient-to-b from-primary/5 via-transparent to-transparent pointer-events-none" />
+                        {/* Clear selection button */}
+                        <button
+                          onClick={() => {
+                            setSelectedProducts([]);
+                            setCameraAngle("90deg 0deg auto");
+                          }}
+                          className="absolute top-3 right-3 z-10 inline-flex items-center justify-center h-8 w-8 rounded-md border border-border bg-surface-raised text-muted-foreground hover:text-destructive hover:bg-muted transition-colors shadow-depth-sm"
+                          aria-label="Clear selection"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                        {selectedProducts[0]?.glb_link ? (
+                          <ModelViewer
+                            modelUrl={selectedProducts[0].glb_link}
+                            cameraAngle={cameraAngle}
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                            <div className="text-center">
+                              <svg
+                                className="h-8 w-8 mx-auto mb-2"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                                />
+                              </svg>
+                              <p className="text-sm">No 3D model available</p>
+                            </div>
                           </div>
-                        </div>
-                      )}
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Divider with visual interest */}
+                    <div className="relative">
+                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-border to-transparent h-px" />
+                      <div className="h-px bg-gradient-to-b from-surface-base to-transparent" />
+                    </div>
+
+                    {/* Configuration Panel - Bottom Half */}
+                    <div className="h-[350px] p-4  rounded-b-2xl relative overflow-y-scroll">
+                      {/* Subtle background gradient for depth */}
+                      <div className="absolute inset-0 " />
+
+                      <div className="h-full relative ">
+                        <ProductConfigurator
+                          onGenerate={handleConfigSubmit}
+                          onCameraViewPreview={(cameraOrbit) => {
+                            setCameraAngle(cameraOrbit);
+                          }}
+                          selectedProducts={selectedProducts}
+                          currentSettings={renderSettings}
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -679,16 +605,6 @@ export default function ProductRenderPage() {
           />
         </div>
       </div>
-
-      {/* Product Configuration Dialog */}
-      {showConfigDialog && (
-        <ProductConfigurator
-          onGenerate={handleConfigSubmit}
-          onCancel={() => setShowConfigDialog(false)}
-          selectedProducts={selectedProducts}
-          currentSettings={renderSettings}
-        />
-      )}
     </div>
   );
 }

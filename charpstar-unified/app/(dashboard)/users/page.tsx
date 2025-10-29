@@ -77,6 +77,7 @@ import {
 import { getCountryNameByCode } from "@/lib/helpers";
 import UserProfileDialog from "@/components/users/UserProfileDialog";
 import { EditCompaniesDialog } from "@/components/users/EditCompaniesDialog";
+import { AllowedRolesManager } from "@/components/users/AllowedRolesManager";
 import {
   Card,
   CardContent,
@@ -123,7 +124,17 @@ interface UserFormData {
   portfolioLinks: string[];
 }
 
-const roleOptions = ["all", "admin", "client", "user"] as const;
+const roleOptions = [
+  "all",
+  "admin",
+  "manager",
+  "user",
+  "qa",
+  "qamanager",
+  "modeler",
+  "modelermanager",
+  "client",
+] as const;
 
 const SOFTWARE_OPTIONS = [
   "Blender",
@@ -1047,17 +1058,28 @@ export default function UsersPage() {
             <SelectValue placeholder="Select role" />
           </SelectTrigger>
           <SelectContent className="cursor-pointer bg-background dark:bg-background text-muted-foreground">
-            {roleOptions.map((role) => (
-              <SelectItem
-                key={role}
-                value={role}
-                className="cursor-pointer bg-background dark:bg-background text-muted-foreground hover:bg-muted-foreground/10 hover:text-muted-foreground"
-              >
-                {role === "all"
-                  ? "All Roles"
-                  : role.charAt(0).toUpperCase() + role.slice(1)}
-              </SelectItem>
-            ))}
+            {roleOptions.map((role) => {
+              const roleLabels: Record<string, string> = {
+                all: "All Roles",
+                admin: "Admin",
+                manager: "Manager",
+                user: "User",
+                qa: "QA",
+                qamanager: "QA Manager",
+                modeler: "Modeler",
+                modelermanager: "Modeler Manager",
+                client: "Client",
+              };
+              return (
+                <SelectItem
+                  key={role}
+                  value={role}
+                  className="cursor-pointer bg-background dark:bg-background text-muted-foreground hover:bg-muted-foreground/10 hover:text-muted-foreground"
+                >
+                  {roleLabels[role] || role}
+                </SelectItem>
+              );
+            })}
           </SelectContent>
         </Select>
       </div>
@@ -1256,22 +1278,38 @@ export default function UsersPage() {
           open={isEditUserDialogOpen}
           onOpenChange={setIsEditUserDialogOpen}
         >
-          <EditUserDialogContent>
+          <EditUserDialogContent className="max-w-2xl">
             <DialogHeader>
               <DialogTitle>Edit User</DialogTitle>
             </DialogHeader>
-            {editingUser && (
-              <UserForm
-                onSubmit={handleEditUser}
-                isLoading={isProcessing}
-                initialData={{
-                  name: editingUser.name,
-                  email: editingUser.email,
-                  role: editingUser.role as "admin" | "client" | "user",
-                  password: "",
-                }}
-              />
-            )}
+            <div className="space-y-6">
+              {editingUser && (
+                <>
+                  <UserForm
+                    onSubmit={handleEditUser}
+                    isLoading={isProcessing}
+                    initialData={{
+                      name: editingUser.name,
+                      email: editingUser.email,
+                      role: editingUser.role as "admin" | "client" | "user",
+                      password: "",
+                    }}
+                  />
+
+                  {/* Allowed Roles Manager - Only show for admins */}
+                  {userRole === "admin" && (
+                    <AllowedRolesManager
+                      userId={editingUser.id}
+                      currentRole={editingUser.role}
+                      onUpdate={() => {
+                        // Refresh user list after update
+                        fetchUsers();
+                      }}
+                    />
+                  )}
+                </>
+              )}
+            </div>
           </EditUserDialogContent>
         </Dialog>
       )}

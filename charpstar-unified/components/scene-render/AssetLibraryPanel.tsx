@@ -250,7 +250,7 @@ export default function AssetLibraryPanel({
   // If collapsed, show minimal UI
   if (isCollapsed) {
     return (
-      <Card className="h-full max-h-[calc(90vh-100px)] flex flex-col overflow-hidden surface-elevated border border-light shadow-md rounded-xl items-center py-2 sm:py-4 px-1 sm:px-2 gap-2 sm:gap-4 transition-all duration-500 ease-out">
+      <Card className="h-full max-h-[calc(90vh)] flex flex-col overflow-hidden surface-elevated border border-light shadow-md rounded-xl items-center py-2 sm:py-4 px-1 sm:px-2 gap-2 sm:gap-4 transition-all duration-500 ease-out">
         {/* Expand Button - at the top */}
         <Button
           variant="ghost"
@@ -357,7 +357,7 @@ export default function AssetLibraryPanel({
   }
 
   return (
-    <Card className="h-full max-h-[calc(90vh-100px)] flex flex-col overflow-hidden surface-elevated border border-light shadow-md rounded-xl transition-all duration-500 ease-out">
+    <Card className="h-full max-h-[calc(90vh)] flex flex-col overflow-hidden surface-elevated border border-light shadow-md rounded-xl transition-all duration-500 ease-out">
       <CardHeader className="pb-2 sm:pb-3 flex-shrink-0 transition-all duration-500 ease-out">
         <div className="flex items-center justify-between">
           <div className="flex-1 transition-all duration-500 ease-out">

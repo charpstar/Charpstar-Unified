@@ -8,37 +8,83 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const role = searchParams.get("role");
 
-    // Fetch users from auth
-    const { data: authData, error: authError } =
-      await supabaseAdmin.auth.admin.listUsers();
+    // Fetch all users from auth with pagination
+    let allAuthUsers: any[] = [];
+    let page = 1;
+    const perPage = 1000; // Supabase max per page
+    let hasMore = true;
 
-    if (authError) {
-      console.error("Supabase Auth Error:", authError);
-      return NextResponse.json({ message: authError.message }, { status: 500 });
+    while (hasMore) {
+      const { data: authData, error: authError } =
+        await supabaseAdmin.auth.admin.listUsers({
+          page: page,
+          perPage: perPage,
+        });
+
+      if (authError) {
+        console.error("Supabase Auth Error:", authError);
+        return NextResponse.json(
+          { message: authError.message },
+          { status: 500 }
+        );
+      }
+
+      if (authData?.users && authData.users.length > 0) {
+        allAuthUsers = [...allAuthUsers, ...authData.users];
+        // If we got less than perPage, we've reached the end
+        hasMore = authData.users.length === perPage;
+        page++;
+      } else {
+        hasMore = false;
+      }
     }
 
-    // Fetch profiles with roles
-    let profilesQuery = supabaseAdmin.from("profiles").select("*");
-    if (role) {
-      profilesQuery = profilesQuery.eq("role", role);
-    }
-    const { data: profiles, error: profilesError } = await profilesQuery;
+    // Fetch profiles with roles - handle pagination to get all
+    let allProfiles: any[] = [];
+    let profilePage = 0;
+    const profilePageSize = 1000; // Supabase default limit
+    let hasMoreProfiles = true;
 
-    if (profilesError) {
-      console.error("Profiles Error:", profilesError);
-      return NextResponse.json(
-        { message: profilesError.message },
-        { status: 500 }
-      );
+    while (hasMoreProfiles) {
+      let profilesQuery = supabaseAdmin
+        .from("profiles")
+        .select("*")
+        .range(
+          profilePage * profilePageSize,
+          (profilePage + 1) * profilePageSize - 1
+        );
+
+      if (role) {
+        profilesQuery = profilesQuery.eq("role", role);
+      }
+
+      const { data: profiles, error: profilesError } = await profilesQuery;
+
+      if (profilesError) {
+        console.error("Profiles Error:", profilesError);
+        return NextResponse.json(
+          { message: profilesError.message },
+          { status: 500 }
+        );
+      }
+
+      if (profiles && profiles.length > 0) {
+        allProfiles = [...allProfiles, ...profiles];
+        // If we got less than pageSize, we've reached the end
+        hasMoreProfiles = profiles.length === profilePageSize;
+        profilePage++;
+      } else {
+        hasMoreProfiles = false;
+      }
     }
 
     // Create a map of profiles by user ID
     const profilesMap = new Map(
-      profiles.map((profile) => [profile.id, profile])
+      allProfiles.map((profile) => [profile.id, profile])
     );
 
     // Combine auth users with their profiles, but only include users with a matching profile
-    const users = authData.users
+    const users = allAuthUsers
       .map((user) => {
         const profile = profilesMap.get(user.id);
         if (!profile) return null;
