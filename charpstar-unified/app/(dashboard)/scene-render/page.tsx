@@ -11,8 +11,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/containers";
-import { ChevronLeft } from "lucide-react";
-import { useRouter } from "next/navigation";
 import FileUploader from "@/components/scene-render/FileUploader";
 import ModelPreviewer from "@/components/scene-render/ModelPreviewer";
 import SceneChatInput from "@/components/scene-render/SceneChatInput";
@@ -63,7 +61,6 @@ const getViewerParameters = (viewerType?: string | null) => {
 
 export default function SceneRenderPage() {
   const user = useUser();
-  const router = useRouter();
   const { startLoading, stopLoading } = useLoadingState();
   const [appState, setAppState] = useState<AppState>("upload");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);

@@ -90,6 +90,7 @@ export function ModelViewer({ modelUrl, cameraAngle }: ModelViewerProps) {
           // Trigger a render update
           modelViewerRef.current.dispatchEvent(new Event("camera-change"));
         }
+        //eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (error) {
         // If camera API fails, just update the attribute
         modelViewerRef.current.setAttribute("camera-orbit", cameraAngle);

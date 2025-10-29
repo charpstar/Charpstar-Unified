@@ -266,7 +266,6 @@ const CameraViewIcon: React.FC<CameraViewIconProps> = ({ viewId, checked }) => {
 const ProductConfigurator: React.FC<ProductConfiguratorProps> = ({
   onGenerate,
   onCameraViewPreview,
-  selectedProducts,
   currentSettings,
 }) => {
   const [settings, setSettings] = useState(currentSettings);

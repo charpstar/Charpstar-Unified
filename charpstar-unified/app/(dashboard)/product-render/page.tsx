@@ -5,8 +5,7 @@ import { useUser } from "@/contexts/useUser";
 import { useLoadingState } from "@/hooks/useLoadingState";
 import { Button } from "@/components/ui/display";
 import { Card, CardContent } from "@/components/ui/containers";
-import { ChevronLeft, Download, X, Check } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { Download, X } from "lucide-react";
 import AssetLibraryPanel from "@/components/scene-render/AssetLibraryPanel";
 import { ModelViewer } from "@/components/generator/ModelViewer";
 import ProductConfigurator from "@/components/product-render/ProductConfigurator";
@@ -40,7 +39,6 @@ interface RenderJob {
 
 export default function ProductRenderPage() {
   const user = useUser();
-  const router = useRouter();
   const { startLoading, stopLoading } = useLoadingState();
 
   const [appState, setAppState] = useState<AppState>("select");
