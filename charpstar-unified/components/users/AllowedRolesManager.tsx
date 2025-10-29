@@ -16,24 +16,16 @@ import {
 
 const ROLE_LABELS: Record<string, string> = {
   admin: "Admin",
-  manager: "Manager",
-  user: "User",
   qa: "QA",
-  qamanager: "QA Manager",
   modeler: "Modeler",
-  modelermanager: "Modeler Manager",
   client: "Client",
 };
 
 const ALL_ROLES = [
-  "admin",
-  "manager",
-  "user",
-  "qa",
-  "qamanager",
   "modeler",
-  "modelermanager",
   "client",
+  "admin",
+  "qa",
 ];
 
 interface AllowedRolesManagerProps {
