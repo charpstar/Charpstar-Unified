@@ -67,7 +67,8 @@ interface PaginatedAssetsResponse extends AssetsResponse {
 // Fetch ONLY unique filter values (not full assets) - Much more efficient!
 const fetchFilterOptions = async (
   user: any,
-  userProfile: any
+  userProfile: any,
+  selectedCompanies: string[] = []
 ): Promise<{
   categories: string[];
   subcategories: Record<string, string[]>;
@@ -98,6 +99,11 @@ const fetchFilterOptions = async (
     userProfile.client.length > 0
   ) {
     query = query.in("client", userProfile.client);
+  }
+
+  // Apply company filter if companies are selected (this filters categories by selected companies)
+  if (selectedCompanies && selectedCompanies.length > 0) {
+    query = query.in("client", selectedCompanies);
   }
 
   const { data, error } = await query;
@@ -223,6 +229,17 @@ const fetchPaginatedAssets = async (
   // Apply active/inactive filter
   if (showInactiveOnly) {
     query = query.eq("active", false);
+  }
+
+  // Apply search filter - search across multiple fields
+  if (searchTerm && searchTerm.trim().length > 0) {
+    const searchValue = searchTerm.trim().toLowerCase();
+    // Search in product_name and article_id using OR condition
+    // Supabase .or() expects a filter string in the format: "field.operator.value,field2.operator.value2"
+    // Note: We use ilike for case-insensitive search, and % for wildcard matching
+    query = query.or(
+      `product_name.ilike.%${searchValue}%,article_id.ilike.%${searchValue}%`
+    );
   }
 
   // Apply sorting
@@ -357,8 +374,9 @@ export function useAssets(
       user.id,
       JSON.stringify(userProfile.client),
       userProfile.role,
+      JSON.stringify(selectedCompanies), // Include selectedCompanies to refetch when it changes
     ];
-  }, [user?.id, userProfile?.client, userProfile?.role]);
+  }, [user?.id, userProfile?.client, userProfile?.role, selectedCompanies]);
 
   // Fetch ONLY unique filter values (not full assets) - Much more efficient!
   const {
@@ -373,7 +391,7 @@ export function useAssets(
     colors: string[];
   }>({
     queryKey: filterQueryKey || ["assets-filter-options"],
-    queryFn: () => fetchFilterOptions(user, userProfile),
+    queryFn: () => fetchFilterOptions(user, userProfile, selectedCompanies),
     enabled: !!user && !!userProfile && !!filterQueryKey,
     staleTime: 15 * 60 * 1000, // 15 minutes (filter options change less frequently)
     gcTime: 60 * 60 * 1000, // 60 minutes
