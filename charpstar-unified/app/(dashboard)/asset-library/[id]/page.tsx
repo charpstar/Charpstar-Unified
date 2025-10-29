@@ -16,6 +16,7 @@ import { useUser } from "@/contexts/useUser";
 
 import { ModelViewer } from "@/components/asset-library/viewers/model-viewer";
 import RelatedScenesSection from "@/components/asset-library/RelatedScenesSection";
+import { ARButton } from "@/components/asset-library/ARButton";
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
@@ -832,6 +833,16 @@ export default function AssetDetailPage() {
                       </p>
                     </div>
                     <div className="flex gap-2">
+                      {/* AR Button */}
+                      {asset.glb_link && (
+                        <ARButton
+                          assetId={asset.id}
+                          glbUrl={asset.glb_link}
+                          productName={asset.product_name}
+                          variant="outline"
+                          size="sm"
+                        />
+                      )}
                       {asset.glb_link && canDownloadGLB && (
                         <Button
                           variant="outline"
