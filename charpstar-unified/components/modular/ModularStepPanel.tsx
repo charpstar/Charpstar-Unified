@@ -36,8 +36,19 @@ export default function ModularStepPanel({
   const [configuratorUrl, setConfiguratorUrl] = useState<string | null>(null);
   const [embedCode, setEmbedCode] = useState<string>("");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [copiedItem, setCopiedItem] = useState<'url' | 'embed' | null>(null);
 
   const MAX_ASSETS = 20;
+
+  const handleCopyToClipboard = async (text: string, type: 'url' | 'embed') => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedItem(type);
+      setTimeout(() => setCopiedItem(null), 2000);
+    } catch (error) {
+      console.error('Failed to copy to clipboard:', error);
+    }
+  };
 
   // Step 1: Asset Selection
   const handleAssetSelect = (asset: Asset) => {
@@ -304,10 +315,20 @@ export default function ModularStepPanel({
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => navigator.clipboard.writeText(configuratorUrl)}
-                        className="rounded-none"
+                        onClick={() => handleCopyToClipboard(configuratorUrl, 'url')}
+                        className={cn(
+                          "rounded-none min-w-[80px] transition-all",
+                          copiedItem === 'url' && "bg-green-500/10 border-green-500/50 text-green-600 dark:text-green-400"
+                        )}
                       >
-                        Copy
+                        {copiedItem === 'url' ? (
+                          <span className="flex items-center gap-1.5">
+                            <Check className="h-3.5 w-3.5" />
+                            Copied
+                          </span>
+                        ) : (
+                          'Copy'
+                        )}
                       </Button>
                     </div>
                   </div>
@@ -326,10 +347,20 @@ export default function ModularStepPanel({
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => navigator.clipboard.writeText(embedCode)}
-                      className="rounded-none"
+                      onClick={() => handleCopyToClipboard(embedCode, 'embed')}
+                      className={cn(
+                        "rounded-none min-w-[140px] transition-all",
+                        copiedItem === 'embed' && "bg-green-500/10 border-green-500/50 text-green-600 dark:text-green-400"
+                      )}
                     >
-                      Copy Embed Code
+                      {copiedItem === 'embed' ? (
+                        <span className="flex items-center gap-1.5">
+                          <Check className="h-3.5 w-3.5" />
+                          Copied
+                        </span>
+                      ) : (
+                        'Copy Embed Code'
+                      )}
                     </Button>
                   </div>
                 )}

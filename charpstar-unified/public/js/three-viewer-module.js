@@ -234,18 +234,47 @@ window.__charpstAR_threeInit = function initThreeViewer(config) {
         if (ready) return ready;
         ready = document.createElement('div');
         ready.dataset.role = 'ready-overlay';
-        ready.textContent = 'Ready to configure';
         ready.style.position = 'absolute';
         ready.style.left = '50%';
         ready.style.top = '50%';
         ready.style.transform = 'translate(-50%, -50%)';
-        ready.style.color = '#111';
-        ready.style.font = '500 14px system-ui, sans-serif';
-        ready.style.padding = '8px 10px';
-        ready.style.background = 'rgba(255,255,255,0.8)';
-        ready.style.border = '1px solid #e0e0e0';
-        ready.style.borderRadius = '6px';
+        ready.style.display = 'flex';
+        ready.style.flexDirection = 'column';
+        ready.style.alignItems = 'center';
+        ready.style.gap = '12px';
+        ready.style.padding = '24px 32px';
+        ready.style.background = 'rgba(0, 0, 0, 0.85)';
+        ready.style.backdropFilter = 'blur(8px)';
+        ready.style.border = '1px solid rgba(255, 255, 255, 0.1)';
+        ready.style.borderRadius = '12px';
+        ready.style.boxShadow = '0 8px 32px rgba(0, 0, 0, 0.4)';
+        ready.style.color = '#ffffff';
+        ready.style.fontFamily = 'system-ui, sans-serif';
         ready.style.pointerEvents = 'none';
+        ready.style.zIndex = '10';
+        
+        // Icon (cube/box icon)
+        const icon = document.createElement('div');
+        icon.innerHTML = `<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>`;
+        icon.style.color = 'rgba(255, 255, 255, 0.9)';
+        
+        // Text
+        const text = document.createElement('div');
+        text.textContent = 'Ready to configure';
+        text.style.fontSize = '16px';
+        text.style.fontWeight = '600';
+        text.style.letterSpacing = '0.01em';
+        
+        // Subtext
+        const subtext = document.createElement('div');
+        subtext.textContent = 'Select assets to begin';
+        subtext.style.fontSize = '13px';
+        subtext.style.fontWeight = '400';
+        subtext.style.color = 'rgba(255, 255, 255, 0.6)';
+        
+        ready.appendChild(icon);
+        ready.appendChild(text);
+        ready.appendChild(subtext);
         mount.appendChild(ready);
         return ready;
     }
@@ -526,24 +555,7 @@ window.__charpstAR_threeInit = function initThreeViewer(config) {
         updateDimensions();
         // If scene is empty, show Ready overlay again
         if (!modulesGroup.children || modulesGroup.children.length === 0) {
-            const ro = mount.querySelector('[data-role="ready-overlay"]') || (function(){
-                const r = document.createElement('div');
-                r.dataset.role = 'ready-overlay';
-                r.textContent = 'Ready to configure';
-                r.style.position = 'absolute';
-                r.style.left = '50%';
-                r.style.top = '50%';
-                r.style.transform = 'translate(-50%, -50%)';
-                r.style.color = '#111';
-                r.style.font = '500 14px system-ui, sans-serif';
-                r.style.padding = '8px 10px';
-                r.style.background = 'rgba(255,255,255,0.8)';
-                r.style.border = '1px solid #e0e0e0';
-                r.style.borderRadius = '6px';
-                r.style.pointerEvents = 'none';
-                mount.appendChild(r);
-                return r;
-            })();
+            showReadyOverlay();
         }
         forceFrames += 2;
     }
