@@ -307,13 +307,18 @@ export default function AppSidebar({
             icon: Monitor,
           },
           {
+            title: "Modular 3D Creator",
+            url: "/modular-3d-creator",
+            icon: Box,
+          },
+          {
             title: "Bug Reports",
             url: "/admin/bug-reports",
             icon: Bug,
           },
           {
-            title: "Client Analytics",
-            url: "/admin/client-analytics",
+            title: "Scene Render Analytics",
+            url: "/admin/scene-render-analytics",
             icon: BarChart3,
           },
         ]
@@ -395,6 +400,7 @@ export default function AppSidebar({
     "Integration Guide": 22,
     "Scene Render": 25,
     "Product Render": 26,
+    "Modular 3D Creator": 27,
     // Modeler
     "My Assignments": 10,
     "3D Generator": 12,
@@ -430,6 +436,11 @@ export default function AppSidebar({
             title: "Product Render",
             url: "/product-render",
             icon: Monitor,
+          },
+          {
+            title: "Modular 3D Creator",
+            url: "/modular-3d-creator",
+            icon: Box,
           },
         ]
       : []),
