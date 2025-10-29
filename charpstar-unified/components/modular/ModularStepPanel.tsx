@@ -1,11 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/containers/card";
+import { Card } from "@/components/ui/containers/card";
 import { Button } from "@/components/ui/display";
-import { Badge } from "@/components/ui/feedback";
 import { ScrollArea } from "@/components/ui/interactive";
-import { ChevronLeft, ChevronRight, Check, Plus, X, ArrowRight } from "lucide-react";
+import { ChevronLeft, Check } from "lucide-react";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 import ModularAssetPanel from "./ModularAssetPanel";
@@ -59,10 +58,6 @@ export default function ModularStepPanel({
       // Add if under limit
       setSelectedAssets((prev) => [...prev, asset]);
     }
-  };
-
-  const handleRemoveAsset = (assetId: string) => {
-    setSelectedAssets((prev) => prev.filter((a) => a.id !== assetId));
   };
 
   const handlePlaceInScene = (asset: Asset) => {
@@ -230,7 +225,7 @@ export default function ModularStepPanel({
           <div className="flex-1 min-h-0 flex flex-col">
             <ScrollArea className="flex-1 min-h-0">
               <div className="p-6 grid grid-cols-2 gap-4">
-                {selectedAssets.map((asset, idx) => (
+                {selectedAssets.map((asset) => (
                   <button
                     key={asset.id}
                     onClick={() => handlePlaceInScene(asset)}

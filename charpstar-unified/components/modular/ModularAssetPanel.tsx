@@ -36,7 +36,6 @@ import Image from "next/image";
 import { useAssets } from "@/hooks/use-assets";
 import { useUser } from "@/contexts/useUser";
 import { cn } from "@/lib/utils";
-import { createClient } from "@/utils/supabase/client";
 
 interface ModularAssetPanelProps {
   onAssetSelect?: (asset: any) => void;

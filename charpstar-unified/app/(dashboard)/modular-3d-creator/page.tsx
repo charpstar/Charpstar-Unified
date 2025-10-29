@@ -3,7 +3,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Script from "next/script";
 import { Button } from "@/components/ui/display";
-import { Card, CardContent } from "@/components/ui/containers";
 import ModularStepPanel from "@/components/modular/ModularStepPanel";
 import { useRouter } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
@@ -42,11 +41,6 @@ export default function Modular3DCreatorPage() {
     const url = asset?.glb_link;
     if (!url || !window.__charpstAR_threeAddGltf) return;
     window.__charpstAR_threeAddGltf(mountId, url);
-  }
-
-  function clearScene() {
-    if (!window.__charpstAR_threeRemoveAllModules) return;
-    window.__charpstAR_threeRemoveAllModules(mountId);
   }
 
   return (
