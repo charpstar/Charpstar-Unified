@@ -42,10 +42,11 @@ export function ARButton({
         variant={variant}
         size={size}
         onClick={handleARClick}
-        className={`cursor-pointer ${className}`}
+        className={`cursor-pointer font-semibold ${className}`}
       >
-        <ViewIcon className="h-4 w-4 mr-2" />
-        View in AR
+        <ViewIcon className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
+        <span className="hidden sm:inline">View in AR</span>
+        <span className="inline sm:hidden">AR</span>
       </Button>
 
       {/* QR Modal for desktop users */}
