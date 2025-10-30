@@ -34,11 +34,12 @@ export default function ModularStepPanel({
   const [imageErrors, setImageErrors] = useState<Set<string>>(new Set());
   const [configuratorUrl, setConfiguratorUrl] = useState<string | null>(null);
   const [embedCode, setEmbedCode] = useState<string>("");
+  //eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [apiScriptUrl, setApiScriptUrl] = useState<string | null>(null);
   const [apiDocumentation, setApiDocumentation] = useState<any>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [copiedItem, setCopiedItem] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'iframe' | 'api'>('iframe');
+  const [activeTab, setActiveTab] = useState<"iframe" | "api">("iframe");
 
   const MAX_ASSETS = 20;
 
@@ -48,7 +49,7 @@ export default function ModularStepPanel({
       setCopiedItem(type);
       setTimeout(() => setCopiedItem(null), 2000);
     } catch (error) {
-      console.error('Failed to copy to clipboard:', error);
+      console.error("Failed to copy to clipboard:", error);
     }
   };
 
@@ -85,35 +86,44 @@ export default function ModularStepPanel({
   const handleGenerateConfigurator = async () => {
     setIsGenerating(true);
     try {
-      const response = await fetch('/api/modular-3d/generate-configurator', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await fetch("/api/modular-3d/generate-configurator", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          selectedAssets: selectedAssets.map(a => ({
+          selectedAssets: selectedAssets.map((a) => ({
             id: a.id,
             name: a.product_name,
             glbUrl: a.glb_link,
-            previewImage: a.preview_image
-          }))
-        })
+            previewImage: a.preview_image,
+          })),
+        }),
       });
-      
+
       if (!response.ok) {
         const errorData = await response.json();
-        console.error('Configurator generation failed:', errorData);
-        alert(`Failed to generate configurator: ${errorData.error || 'Unknown error'}`);
+        console.error("Configurator generation failed:", errorData);
+        alert(
+          `Failed to generate configurator: ${errorData.error || "Unknown error"}`
+        );
         return;
       }
-      
-      const { cdnUrl, embedCode: generatedEmbedCode, apiScriptUrl: scriptUrl, apiDocumentation: apiDocs } = await response.json();
+
+      const {
+        cdnUrl,
+        embedCode: generatedEmbedCode,
+        apiScriptUrl: scriptUrl,
+        apiDocumentation: apiDocs,
+      } = await response.json();
       setConfiguratorUrl(cdnUrl);
       setEmbedCode(generatedEmbedCode);
       setApiScriptUrl(scriptUrl);
       setApiDocumentation(apiDocs);
       setCurrentStep(3);
     } catch (error) {
-      console.error('Failed to generate configurator:', error);
-      alert('Failed to generate configurator. Please check the console for details.');
+      console.error("Failed to generate configurator:", error);
+      alert(
+        "Failed to generate configurator. Please check the console for details."
+      );
     } finally {
       setIsGenerating(false);
     }
@@ -124,7 +134,7 @@ export default function ModularStepPanel({
     setEmbedCode("");
     setApiScriptUrl(null);
     setApiDocumentation(null);
-    setActiveTab('iframe');
+    setActiveTab("iframe");
     handleGenerateConfigurator();
   };
 
@@ -159,9 +169,13 @@ export default function ModularStepPanel({
         <div className="flex items-center justify-between">
           <div className="flex-1">
             <div className="flex items-center gap-3">
-            <h2 className="text-xl font-bold text-foreground">
-              {currentStep === 1 ? "Select Assets" : currentStep === 2 ? "Place in Scene" : "Configurator Ready"}
-            </h2>
+              <h2 className="text-xl font-bold text-foreground">
+                {currentStep === 1
+                  ? "Select Assets"
+                  : currentStep === 2
+                    ? "Place in Scene"
+                    : "Configurator Ready"}
+              </h2>
               {currentStep === 1 && selectedAssets.length > 0 && (
                 <span className="text-sm font-semibold text-primary bg-primary/10 px-3 py-1 border border-primary/20">
                   {selectedAssets.length} / {MAX_ASSETS} selected
@@ -169,11 +183,11 @@ export default function ModularStepPanel({
               )}
             </div>
             <p className="text-sm text-muted-foreground mt-1">
-              {currentStep === 1 
-                ? "Choose which models will be part of your configurator" 
+              {currentStep === 1
+                ? "Choose which models will be part of your configurator"
                 : currentStep === 2
-                ? "Test your configurator - click assets to place them in the scene. When satisfied, generate the final embed code."
-                : "Your configurator is ready! Choose an integration method below."}
+                  ? "Test your configurator - click assets to place them in the scene. When satisfied, generate the final embed code."
+                  : "Your configurator is ready! Choose an integration method below."}
             </p>
           </div>
           {currentStep === 1 && selectedAssets.length > 0 && (
@@ -189,18 +203,24 @@ export default function ModularStepPanel({
         </div>
         {/* Progress indicator */}
         <div className="flex items-center gap-2 mt-4">
-          <div className={cn(
-            "h-1 flex-1 transition-colors",
-            currentStep >= 1 ? "bg-primary" : "bg-muted"
-          )} />
-          <div className={cn(
-            "h-1 flex-1 transition-colors",
-            currentStep >= 2 ? "bg-primary" : "bg-muted"
-          )} />
-          <div className={cn(
-            "h-1 flex-1 transition-colors",
-            currentStep >= 3 ? "bg-primary" : "bg-muted"
-          )} />
+          <div
+            className={cn(
+              "h-1 flex-1 transition-colors",
+              currentStep >= 1 ? "bg-primary" : "bg-muted"
+            )}
+          />
+          <div
+            className={cn(
+              "h-1 flex-1 transition-colors",
+              currentStep >= 2 ? "bg-primary" : "bg-muted"
+            )}
+          />
+          <div
+            className={cn(
+              "h-1 flex-1 transition-colors",
+              currentStep >= 3 ? "bg-primary" : "bg-muted"
+            )}
+          />
         </div>
       </div>
 
@@ -254,7 +274,9 @@ export default function ModularStepPanel({
                           sizes="200px"
                           priority={false}
                           onError={() => {
-                            setImageErrors((prev) => new Set(prev).add(asset.id));
+                            setImageErrors((prev) =>
+                              new Set(prev).add(asset.id)
+                            );
                           }}
                         />
                       ) : (
@@ -287,7 +309,9 @@ export default function ModularStepPanel({
                 disabled={isGenerating}
                 className="w-full h-12 text-base font-semibold bg-primary hover:bg-primary/90 shadow-lg disabled:opacity-50 rounded-none"
               >
-                {isGenerating ? "Creating Configurator..." : "Create Configurator"}
+                {isGenerating
+                  ? "Creating Configurator..."
+                  : "Create Configurator"}
               </Button>
               <Button
                 variant="outline"
@@ -306,10 +330,10 @@ export default function ModularStepPanel({
             <div className="flex-shrink-0 border-b border-border/30 bg-background/50">
               <div className="flex px-6">
                 <button
-                  onClick={() => setActiveTab('iframe')}
+                  onClick={() => setActiveTab("iframe")}
                   className={cn(
                     "px-6 py-4 text-sm font-semibold border-b-2 transition-colors",
-                    activeTab === 'iframe'
+                    activeTab === "iframe"
                       ? "border-primary text-foreground"
                       : "border-transparent text-muted-foreground hover:text-foreground"
                   )}
@@ -317,10 +341,10 @@ export default function ModularStepPanel({
                   Iframe Integration
                 </button>
                 <button
-                  onClick={() => setActiveTab('api')}
+                  onClick={() => setActiveTab("api")}
                   className={cn(
                     "px-6 py-4 text-sm font-semibold border-b-2 transition-colors",
-                    activeTab === 'api'
+                    activeTab === "api"
                       ? "border-primary text-foreground"
                       : "border-transparent text-muted-foreground hover:text-foreground"
                   )}
@@ -333,19 +357,24 @@ export default function ModularStepPanel({
             <ScrollArea className="flex-1 min-h-0">
               <div className="p-6">
                 {/* Iframe Tab */}
-                {activeTab === 'iframe' && (
+                {activeTab === "iframe" && (
                   <div className="space-y-4 max-w-2xl">
                     <div className="pb-2">
-                      <h3 className="text-base font-bold text-foreground">Iframe Integration</h3>
+                      <h3 className="text-base font-bold text-foreground">
+                        Iframe Integration
+                      </h3>
                       <p className="text-xs text-muted-foreground mt-1">
-                        Embed the complete configurator UI with all selected assets
+                        Embed the complete configurator UI with all selected
+                        assets
                       </p>
                     </div>
 
                     {/* Direct Link */}
                     {configuratorUrl && (
                       <div className="space-y-2">
-                        <label className="text-sm font-semibold text-foreground">Direct Link</label>
+                        <label className="text-sm font-semibold text-foreground">
+                          Direct Link
+                        </label>
                         <div className="flex gap-2">
                           <input
                             type="text"
@@ -356,19 +385,22 @@ export default function ModularStepPanel({
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => handleCopyToClipboard(configuratorUrl, 'url')}
+                            onClick={() =>
+                              handleCopyToClipboard(configuratorUrl, "url")
+                            }
                             className={cn(
                               "rounded-none min-w-[80px] transition-all",
-                              copiedItem === 'url' && "bg-green-500/10 border-green-500/50 text-green-600 dark:text-green-400"
+                              copiedItem === "url" &&
+                                "bg-green-500/10 border-green-500/50 text-green-600 dark:text-green-400"
                             )}
                           >
-                            {copiedItem === 'url' ? (
+                            {copiedItem === "url" ? (
                               <span className="flex items-center gap-1.5">
                                 <Check className="h-3.5 w-3.5" />
                                 Copied
                               </span>
                             ) : (
-                              'Copy'
+                              "Copy"
                             )}
                           </Button>
                         </div>
@@ -378,7 +410,9 @@ export default function ModularStepPanel({
                     {/* Embed Code */}
                     {embedCode && (
                       <div className="space-y-2">
-                        <label className="text-sm font-semibold text-foreground">Embed Code</label>
+                        <label className="text-sm font-semibold text-foreground">
+                          Embed Code
+                        </label>
                         <textarea
                           value={embedCode}
                           readOnly
@@ -388,19 +422,22 @@ export default function ModularStepPanel({
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => handleCopyToClipboard(embedCode, 'embed')}
+                          onClick={() =>
+                            handleCopyToClipboard(embedCode, "embed")
+                          }
                           className={cn(
                             "rounded-none w-full transition-all",
-                            copiedItem === 'embed' && "bg-green-500/10 border-green-500/50 text-green-600 dark:text-green-400"
+                            copiedItem === "embed" &&
+                              "bg-green-500/10 border-green-500/50 text-green-600 dark:text-green-400"
                           )}
                         >
-                          {copiedItem === 'embed' ? (
+                          {copiedItem === "embed" ? (
                             <span className="flex items-center gap-1.5">
                               <Check className="h-3.5 w-3.5" />
                               Copied Embed Code
                             </span>
                           ) : (
-                            'Copy Embed Code'
+                            "Copy Embed Code"
                           )}
                         </Button>
                       </div>
@@ -409,23 +446,30 @@ export default function ModularStepPanel({
                 )}
 
                 {/* API Tab */}
-                {activeTab === 'api' && apiDocumentation && (
+                {activeTab === "api" && apiDocumentation && (
                   <div className="space-y-4 max-w-2xl">
                     <div className="pb-2">
-                      <h3 className="text-base font-bold text-foreground">API Integration</h3>
+                      <h3 className="text-base font-bold text-foreground">
+                        API Integration
+                      </h3>
                       <p className="text-xs text-muted-foreground mt-1">
-                        Control the viewer programmatically from your own website
+                        Control the viewer programmatically from your own
+                        website
                       </p>
                       <p className="text-xs text-primary/80 mt-2 font-medium">
-                        ℹ️ This integration works with all your models, not just those selected in Step 2
+                        ℹ️ This integration works with all your models, not just
+                        those selected in Step 2
                       </p>
                     </div>
 
                     {/* Base Script */}
                     <div className="space-y-2">
-                      <label className="text-sm font-semibold text-foreground">1. Include Base Script</label>
+                      <label className="text-sm font-semibold text-foreground">
+                        1. Include Base Script
+                      </label>
                       <p className="text-xs text-muted-foreground mb-2">
-                        Add this script tag to your website&apos;s &lt;head&gt; section
+                        Add this script tag to your website&apos;s &lt;head&gt;
+                        section
                       </p>
                       <div className="flex gap-2">
                         <input
@@ -437,19 +481,25 @@ export default function ModularStepPanel({
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => handleCopyToClipboard(apiDocumentation.scriptTag, 'script')}
+                          onClick={() =>
+                            handleCopyToClipboard(
+                              apiDocumentation.scriptTag,
+                              "script"
+                            )
+                          }
                           className={cn(
                             "rounded-none min-w-[80px] transition-all",
-                            copiedItem === 'script' && "bg-green-500/10 border-green-500/50 text-green-600 dark:text-green-400"
+                            copiedItem === "script" &&
+                              "bg-green-500/10 border-green-500/50 text-green-600 dark:text-green-400"
                           )}
                         >
-                          {copiedItem === 'script' ? (
+                          {copiedItem === "script" ? (
                             <span className="flex items-center gap-1.5">
                               <Check className="h-3.5 w-3.5" />
                               Copied
                             </span>
                           ) : (
-                            'Copy'
+                            "Copy"
                           )}
                         </Button>
                       </div>
@@ -457,9 +507,12 @@ export default function ModularStepPanel({
 
                     {/* Container Element */}
                     <div className="space-y-2">
-                      <label className="text-sm font-semibold text-foreground">2. Add Viewer Container</label>
+                      <label className="text-sm font-semibold text-foreground">
+                        2. Add Viewer Container
+                      </label>
                       <p className="text-xs text-muted-foreground mb-2">
-                        Place this element where you want the 3D viewer to appear
+                        Place this element where you want the 3D viewer to
+                        appear
                       </p>
                       <textarea
                         value={apiDocumentation.containerElement}
@@ -470,26 +523,34 @@ export default function ModularStepPanel({
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handleCopyToClipboard(apiDocumentation.containerElement, 'container')}
+                        onClick={() =>
+                          handleCopyToClipboard(
+                            apiDocumentation.containerElement,
+                            "container"
+                          )
+                        }
                         className={cn(
                           "rounded-none w-full transition-all",
-                          copiedItem === 'container' && "bg-green-500/10 border-green-500/50 text-green-600 dark:text-green-400"
+                          copiedItem === "container" &&
+                            "bg-green-500/10 border-green-500/50 text-green-600 dark:text-green-400"
                         )}
                       >
-                        {copiedItem === 'container' ? (
+                        {copiedItem === "container" ? (
                           <span className="flex items-center gap-1.5">
                             <Check className="h-3.5 w-3.5" />
                             Copied Container Code
                           </span>
                         ) : (
-                          'Copy Container Code'
+                          "Copy Container Code"
                         )}
                       </Button>
                     </div>
 
                     {/* Initialize */}
                     <div className="space-y-2">
-                      <label className="text-sm font-semibold text-foreground">3. Initialize the Viewer</label>
+                      <label className="text-sm font-semibold text-foreground">
+                        3. Initialize the Viewer
+                      </label>
                       <p className="text-xs text-muted-foreground mb-2">
                         Call this after your page has loaded
                       </p>
@@ -502,34 +563,46 @@ export default function ModularStepPanel({
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handleCopyToClipboard(apiDocumentation.initCode, 'init')}
+                        onClick={() =>
+                          handleCopyToClipboard(
+                            apiDocumentation.initCode,
+                            "init"
+                          )
+                        }
                         className={cn(
                           "rounded-none w-full transition-all",
-                          copiedItem === 'init' && "bg-green-500/10 border-green-500/50 text-green-600 dark:text-green-400"
+                          copiedItem === "init" &&
+                            "bg-green-500/10 border-green-500/50 text-green-600 dark:text-green-400"
                         )}
                       >
-                        {copiedItem === 'init' ? (
+                        {copiedItem === "init" ? (
                           <span className="flex items-center gap-1.5">
                             <Check className="h-3.5 w-3.5" />
                             Copied Init Code
                           </span>
                         ) : (
-                          'Copy Init Code'
+                          "Copy Init Code"
                         )}
                       </Button>
                     </div>
 
                     {/* Available Functions */}
                     <div className="space-y-2">
-                      <label className="text-sm font-semibold text-foreground">4. Available Functions</label>
+                      <label className="text-sm font-semibold text-foreground">
+                        4. Available Functions
+                      </label>
                       <p className="text-xs text-muted-foreground mb-2">
                         Use these functions to control the viewer
                       </p>
                       <div className="border border-border/40 bg-muted/10 p-4 space-y-2.5 text-sm">
                         {apiDocumentation.functions.map((func: any) => (
                           <div key={func.name}>
-                            <code className="font-mono font-semibold text-foreground">{func.name}</code>
-                            <p className="text-muted-foreground text-xs mt-1">{func.description}</p>
+                            <code className="font-mono font-semibold text-foreground">
+                              {func.name}
+                            </code>
+                            <p className="text-muted-foreground text-xs mt-1">
+                              {func.description}
+                            </p>
                           </div>
                         ))}
                       </div>

@@ -468,7 +468,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
                               ? newUrl
                               : `data:image/png;base64,${newUrl}`;
                           setOverrideImageUrl(normalizedUrl);
-                          //eslint-disable-next-line @typescript-eslint/no-unused-vars
+
                           setImageUpdateKey((prev) => prev + 1);
                           toast.success("Image edited successfully!");
                         }
