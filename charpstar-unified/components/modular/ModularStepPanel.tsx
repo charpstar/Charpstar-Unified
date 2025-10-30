@@ -34,12 +34,15 @@ export default function ModularStepPanel({
   const [imageErrors, setImageErrors] = useState<Set<string>>(new Set());
   const [configuratorUrl, setConfiguratorUrl] = useState<string | null>(null);
   const [embedCode, setEmbedCode] = useState<string>("");
+  const [apiScriptUrl, setApiScriptUrl] = useState<string | null>(null);
+  const [apiDocumentation, setApiDocumentation] = useState<any>(null);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [copiedItem, setCopiedItem] = useState<'url' | 'embed' | null>(null);
+  const [copiedItem, setCopiedItem] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'iframe' | 'api'>('iframe');
 
   const MAX_ASSETS = 20;
 
-  const handleCopyToClipboard = async (text: string, type: 'url' | 'embed') => {
+  const handleCopyToClipboard = async (text: string, type: string) => {
     try {
       await navigator.clipboard.writeText(text);
       setCopiedItem(type);
@@ -102,9 +105,11 @@ export default function ModularStepPanel({
         return;
       }
       
-      const { cdnUrl, embedCode: generatedEmbedCode } = await response.json();
+      const { cdnUrl, embedCode: generatedEmbedCode, apiScriptUrl: scriptUrl, apiDocumentation: apiDocs } = await response.json();
       setConfiguratorUrl(cdnUrl);
       setEmbedCode(generatedEmbedCode);
+      setApiScriptUrl(scriptUrl);
+      setApiDocumentation(apiDocs);
       setCurrentStep(3);
     } catch (error) {
       console.error('Failed to generate configurator:', error);
@@ -117,6 +122,9 @@ export default function ModularStepPanel({
   const handleRegenerateConfigurator = () => {
     setConfiguratorUrl(null);
     setEmbedCode("");
+    setApiScriptUrl(null);
+    setApiDocumentation(null);
+    setActiveTab('iframe');
     handleGenerateConfigurator();
   };
 
@@ -165,7 +173,7 @@ export default function ModularStepPanel({
                 ? "Choose which models will be part of your configurator" 
                 : currentStep === 2
                 ? "Test your configurator - click assets to place them in the scene. When satisfied, generate the final embed code."
-                : "Your configurator is ready! Copy the embed code to add it to your website."}
+                : "Your configurator is ready! Choose an integration method below."}
             </p>
           </div>
           {currentStep === 1 && selectedAssets.length > 0 && (
@@ -292,71 +300,240 @@ export default function ModularStepPanel({
             </div>
           </div>
         ) : (
-          // Step 3: Configurator Ready
+          // Step 3: Configurator Ready - Tabbed Layout
           <div className="flex-1 min-h-0 flex flex-col">
+            {/* Tab Navigation */}
+            <div className="flex-shrink-0 border-b border-border/30 bg-background/50">
+              <div className="flex px-6">
+                <button
+                  onClick={() => setActiveTab('iframe')}
+                  className={cn(
+                    "px-6 py-4 text-sm font-semibold border-b-2 transition-colors",
+                    activeTab === 'iframe'
+                      ? "border-primary text-foreground"
+                      : "border-transparent text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  Iframe Integration
+                </button>
+                <button
+                  onClick={() => setActiveTab('api')}
+                  className={cn(
+                    "px-6 py-4 text-sm font-semibold border-b-2 transition-colors",
+                    activeTab === 'api'
+                      ? "border-primary text-foreground"
+                      : "border-transparent text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  API Integration
+                </button>
+              </div>
+            </div>
+
             <ScrollArea className="flex-1 min-h-0">
-              <div className="p-6 space-y-6">
-                {/* Direct Link */}
-                {configuratorUrl && (
-                  <div className="space-y-3">
-                    <h3 className="text-lg font-semibold text-foreground">Direct Link</h3>
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        value={configuratorUrl}
+              <div className="p-6">
+                {/* Iframe Tab */}
+                {activeTab === 'iframe' && (
+                  <div className="space-y-4 max-w-2xl">
+                    <div className="pb-2">
+                      <h3 className="text-base font-bold text-foreground">Iframe Integration</h3>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Embed the complete configurator UI with all selected assets
+                      </p>
+                    </div>
+
+                    {/* Direct Link */}
+                    {configuratorUrl && (
+                      <div className="space-y-2">
+                        <label className="text-sm font-semibold text-foreground">Direct Link</label>
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={configuratorUrl}
+                            readOnly
+                            className="flex-1 px-3 py-2 text-sm border border-border/40 bg-muted/20 rounded-none font-mono"
+                          />
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleCopyToClipboard(configuratorUrl, 'url')}
+                            className={cn(
+                              "rounded-none min-w-[80px] transition-all",
+                              copiedItem === 'url' && "bg-green-500/10 border-green-500/50 text-green-600 dark:text-green-400"
+                            )}
+                          >
+                            {copiedItem === 'url' ? (
+                              <span className="flex items-center gap-1.5">
+                                <Check className="h-3.5 w-3.5" />
+                                Copied
+                              </span>
+                            ) : (
+                              'Copy'
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Embed Code */}
+                    {embedCode && (
+                      <div className="space-y-2">
+                        <label className="text-sm font-semibold text-foreground">Embed Code</label>
+                        <textarea
+                          value={embedCode}
+                          readOnly
+                          rows={3}
+                          className="w-full px-3 py-2 text-sm border border-border/40 bg-muted/20 rounded-none font-mono resize-none"
+                        />
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleCopyToClipboard(embedCode, 'embed')}
+                          className={cn(
+                            "rounded-none w-full transition-all",
+                            copiedItem === 'embed' && "bg-green-500/10 border-green-500/50 text-green-600 dark:text-green-400"
+                          )}
+                        >
+                          {copiedItem === 'embed' ? (
+                            <span className="flex items-center gap-1.5">
+                              <Check className="h-3.5 w-3.5" />
+                              Copied Embed Code
+                            </span>
+                          ) : (
+                            'Copy Embed Code'
+                          )}
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* API Tab */}
+                {activeTab === 'api' && apiDocumentation && (
+                  <div className="space-y-4 max-w-2xl">
+                    <div className="pb-2">
+                      <h3 className="text-base font-bold text-foreground">API Integration</h3>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Control the viewer programmatically from your own website
+                      </p>
+                      <p className="text-xs text-primary/80 mt-2 font-medium">
+                        ℹ️ This integration works with all your models, not just those selected in Step 2
+                      </p>
+                    </div>
+
+                    {/* Base Script */}
+                    <div className="space-y-2">
+                      <label className="text-sm font-semibold text-foreground">1. Include Base Script</label>
+                      <p className="text-xs text-muted-foreground mb-2">
+                        Add this script tag to your website&apos;s &lt;head&gt; section
+                      </p>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={apiDocumentation.scriptTag}
+                          readOnly
+                          className="flex-1 px-3 py-2 text-sm border border-border/40 bg-muted/20 rounded-none font-mono"
+                        />
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleCopyToClipboard(apiDocumentation.scriptTag, 'script')}
+                          className={cn(
+                            "rounded-none min-w-[80px] transition-all",
+                            copiedItem === 'script' && "bg-green-500/10 border-green-500/50 text-green-600 dark:text-green-400"
+                          )}
+                        >
+                          {copiedItem === 'script' ? (
+                            <span className="flex items-center gap-1.5">
+                              <Check className="h-3.5 w-3.5" />
+                              Copied
+                            </span>
+                          ) : (
+                            'Copy'
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Container Element */}
+                    <div className="space-y-2">
+                      <label className="text-sm font-semibold text-foreground">2. Add Viewer Container</label>
+                      <p className="text-xs text-muted-foreground mb-2">
+                        Place this element where you want the 3D viewer to appear
+                      </p>
+                      <textarea
+                        value={apiDocumentation.containerElement}
                         readOnly
-                        className="flex-1 px-3 py-2 text-sm border border-border/40 bg-muted/20 rounded-none"
+                        rows={1}
+                        className="w-full px-3 py-2 text-sm border border-border/40 bg-muted/20 rounded-none font-mono resize-none"
                       />
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handleCopyToClipboard(configuratorUrl, 'url')}
+                        onClick={() => handleCopyToClipboard(apiDocumentation.containerElement, 'container')}
                         className={cn(
-                          "rounded-none min-w-[80px] transition-all",
-                          copiedItem === 'url' && "bg-green-500/10 border-green-500/50 text-green-600 dark:text-green-400"
+                          "rounded-none w-full transition-all",
+                          copiedItem === 'container' && "bg-green-500/10 border-green-500/50 text-green-600 dark:text-green-400"
                         )}
                       >
-                        {copiedItem === 'url' ? (
+                        {copiedItem === 'container' ? (
                           <span className="flex items-center gap-1.5">
                             <Check className="h-3.5 w-3.5" />
-                            Copied
+                            Copied Container Code
                           </span>
                         ) : (
-                          'Copy'
+                          'Copy Container Code'
                         )}
                       </Button>
                     </div>
-                  </div>
-                )}
 
-                {/* Embed Code */}
-                {embedCode && (
-                  <div className="space-y-3">
-                    <h3 className="text-lg font-semibold text-foreground">Embed Code</h3>
-                    <textarea
-                      value={embedCode}
-                      readOnly
-                      rows={4}
-                      className="w-full px-3 py-2 text-sm border border-border/40 bg-muted/20 rounded-none font-mono"
-                    />
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleCopyToClipboard(embedCode, 'embed')}
-                      className={cn(
-                        "rounded-none min-w-[140px] transition-all",
-                        copiedItem === 'embed' && "bg-green-500/10 border-green-500/50 text-green-600 dark:text-green-400"
-                      )}
-                    >
-                      {copiedItem === 'embed' ? (
-                        <span className="flex items-center gap-1.5">
-                          <Check className="h-3.5 w-3.5" />
-                          Copied
-                        </span>
-                      ) : (
-                        'Copy Embed Code'
-                      )}
-                    </Button>
+                    {/* Initialize */}
+                    <div className="space-y-2">
+                      <label className="text-sm font-semibold text-foreground">3. Initialize the Viewer</label>
+                      <p className="text-xs text-muted-foreground mb-2">
+                        Call this after your page has loaded
+                      </p>
+                      <textarea
+                        value={apiDocumentation.initCode}
+                        readOnly
+                        rows={1}
+                        className="w-full px-3 py-2 text-sm border border-border/40 bg-muted/20 rounded-none font-mono resize-none"
+                      />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleCopyToClipboard(apiDocumentation.initCode, 'init')}
+                        className={cn(
+                          "rounded-none w-full transition-all",
+                          copiedItem === 'init' && "bg-green-500/10 border-green-500/50 text-green-600 dark:text-green-400"
+                        )}
+                      >
+                        {copiedItem === 'init' ? (
+                          <span className="flex items-center gap-1.5">
+                            <Check className="h-3.5 w-3.5" />
+                            Copied Init Code
+                          </span>
+                        ) : (
+                          'Copy Init Code'
+                        )}
+                      </Button>
+                    </div>
+
+                    {/* Available Functions */}
+                    <div className="space-y-2">
+                      <label className="text-sm font-semibold text-foreground">4. Available Functions</label>
+                      <p className="text-xs text-muted-foreground mb-2">
+                        Use these functions to control the viewer
+                      </p>
+                      <div className="border border-border/40 bg-muted/10 p-4 space-y-2.5 text-sm">
+                        {apiDocumentation.functions.map((func: any) => (
+                          <div key={func.name}>
+                            <code className="font-mono font-semibold text-foreground">{func.name}</code>
+                            <p className="text-muted-foreground text-xs mt-1">{func.description}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>

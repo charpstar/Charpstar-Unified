@@ -68,8 +68,8 @@ export default function Modular3DCreatorPage() {
           <div id={mountId} className="w-full h-full" />
         </div>
 
-        {/* Step Panel - Stronger gray background */}
-        <div className={`flex-shrink-0 transition-all duration-500 ${isStepPanelCollapsed ? "w-20" : "w-[420px]"} h-full min-h-0 overflow-hidden bg-muted/50 dark:bg-muted/30`}>
+        {/* Step Panel - Stronger gray background, increased width */}
+        <div className={`flex-shrink-0 transition-all duration-500 ${isStepPanelCollapsed ? "w-20" : "w-[550px]"} h-full min-h-0 overflow-hidden bg-muted/50 dark:bg-muted/30`}>
           <ModularStepPanel
             onPlaceAsset={handlePlaceAsset}
             isCollapsed={isStepPanelCollapsed}
