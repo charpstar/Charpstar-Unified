@@ -16,6 +16,7 @@ type Asset = {
   category?: string;
   preview_image?: string | string[];
   article_id?: string;
+  client?: string;
 };
 
 type ModularStepPanelProps = {
@@ -116,7 +117,6 @@ export default function ModularStepPanel({
       } = await response.json();
       setConfiguratorUrl(cdnUrl);
       setEmbedCode(generatedEmbedCode);
-      setApiScriptUrl(scriptUrl);
       setApiDocumentation(apiDocs);
       setCurrentStep(3);
     } catch (error) {
@@ -132,7 +132,6 @@ export default function ModularStepPanel({
   const handleRegenerateConfigurator = () => {
     setConfiguratorUrl(null);
     setEmbedCode("");
-    setApiScriptUrl(null);
     setApiDocumentation(null);
     setActiveTab("iframe");
     handleGenerateConfigurator();
