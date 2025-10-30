@@ -16,6 +16,7 @@ type Asset = {
   category?: string;
   preview_image?: string | string[];
   article_id?: string;
+  client?: string;
 };
 
 type ModularStepPanelProps = {
@@ -93,7 +94,8 @@ export default function ModularStepPanel({
             id: a.id,
             name: a.product_name,
             glbUrl: a.glb_link,
-            previewImage: a.preview_image
+            previewImage: a.preview_image,
+            client: a.client // Pass client name from asset data
           }))
         })
       });

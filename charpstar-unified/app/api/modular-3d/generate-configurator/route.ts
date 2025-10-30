@@ -64,21 +64,47 @@ export async function POST(request: NextRequest) {
       ? extractBasePath(selectedAssets[0].glbUrl)
       : `${CDN_HOST}/Client-Editor/`;
 
-    // Extract client name from GLB path if not provided
-    // e.g., "https://cdn.charpstar.net/Client-Editor/DanGarden/..." -> "DanGarden"
+    // Extract client name from selected assets or GLB path
     let clientNameForScript = clientName;
+    
+    // Try to get client name from asset data first
+    if (!clientNameForScript && selectedAssets[0]?.client) {
+      clientNameForScript = selectedAssets[0].client;
+    }
+    
+    // Fallback: extract from GLB path
     if (!clientNameForScript && selectedAssets[0]?.glbUrl) {
       const pathParts = selectedAssets[0].glbUrl.split('/');
+      // Look for common patterns: Client-Editor, Android, or use second-to-last segment
       const clientEditorIndex = pathParts.indexOf('Client-Editor');
+      const androidIndex = pathParts.indexOf('Android');
+      
       if (clientEditorIndex !== -1 && clientEditorIndex + 1 < pathParts.length) {
         clientNameForScript = pathParts[clientEditorIndex + 1];
+      } else if (androidIndex !== -1 && androidIndex + 1 < pathParts.length) {
+        // For Android folder, get the folder before it (if exists)
+        if (androidIndex > 0) {
+          // Get domain or previous folder
+          const previousPart = pathParts[androidIndex - 1];
+          if (previousPart && !previousPart.includes('.')) {
+            clientNameForScript = previousPart;
+          }
+        }
+      } else if (pathParts.length >= 2) {
+        // Use the second-to-last folder name (before the filename)
+        const folderName = pathParts[pathParts.length - 2];
+        if (folderName && !folderName.includes('.')) {
+          clientNameForScript = folderName;
+        }
       }
     }
+    
+    // Last resort: use Default
     if (!clientNameForScript) {
       clientNameForScript = 'Default';
     }
 
-    // Use simple, client-specific script name
+    // Use clean client name (no hash needed since client names are unique)
     const scriptFilename = `API-Scripts/charpstAR-Config-${clientNameForScript}.js`;
 
     // Read the Three.js viewer module
