@@ -8,6 +8,7 @@ const STORAGE_ZONE = ZONE_NAME.split("/")[0];
 const ACCESS_KEY = process.env.BUNNY_ACCESS_KEY;
 const REGION = process.env.BUNNY_REGION || "se";
 const CDN_HOST = process.env.BUNNY_CDN_HOST || "https://cdn.charpstar.net";
+const THREE_VIEWER_MODULE_URL = "https://js.charpstar.net/3D-Viewer/three-viewer-module.js";
 
 if (!ACCESS_KEY) {
   console.error("Missing BunnyCDN configuration:", {
@@ -45,7 +46,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { selectedAssets } = await request.json();
+    const { selectedAssets, clientName } = await request.json();
 
     if (!selectedAssets || !Array.isArray(selectedAssets) || selectedAssets.length === 0) {
       return NextResponse.json(
@@ -54,9 +55,31 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Generate unique filename
+    // Generate unique filename for HTML configurator
     const uniqueId = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
     const filename = `configurator-${uniqueId}.html`;
+    
+    // Extract base path from first asset's GLB URL
+    const modelBasePath = selectedAssets[0]?.glbUrl 
+      ? extractBasePath(selectedAssets[0].glbUrl)
+      : `${CDN_HOST}/Client-Editor/`;
+
+    // Extract client name from GLB path if not provided
+    // e.g., "https://cdn.charpstar.net/Client-Editor/DanGarden/..." -> "DanGarden"
+    let clientNameForScript = clientName;
+    if (!clientNameForScript && selectedAssets[0]?.glbUrl) {
+      const pathParts = selectedAssets[0].glbUrl.split('/');
+      const clientEditorIndex = pathParts.indexOf('Client-Editor');
+      if (clientEditorIndex !== -1 && clientEditorIndex + 1 < pathParts.length) {
+        clientNameForScript = pathParts[clientEditorIndex + 1];
+      }
+    }
+    if (!clientNameForScript) {
+      clientNameForScript = 'Default';
+    }
+
+    // Use simple, client-specific script name
+    const scriptFilename = `API-Scripts/charpstAR-Config-${clientNameForScript}.js`;
 
     // Read the Three.js viewer module
     const viewerModulePath = path.join(process.cwd(), "public", "js", "three-viewer-module.js");
@@ -65,17 +88,50 @@ export async function POST(request: NextRequest) {
     // Generate HTML content
     const htmlContent = generateConfiguratorHTML(selectedAssets, viewerCode);
 
-    // Upload to BunnyCDN - place at zone root under Modular-Configurators
+    // Generate base script
+    const baseScript = generateBaseScript(modelBasePath);
+
+    // Upload both HTML and JS to BunnyCDN
     const uploadPath = `Modular-Configurators/${filename}`;
-    const cdnUrl = await uploadToBunnyCDN(htmlContent, uploadPath);
+    const scriptUploadPath = `Modular-Configurators/${scriptFilename}`;
+    
+    const cdnUrl = await uploadToBunnyCDN(htmlContent, uploadPath, "text/html");
+    const apiScriptUrl = await uploadToBunnyCDN(baseScript, scriptUploadPath, "application/javascript");
 
     // Generate embed code (iframe only; fills parent container)
     const embedCode = `<iframe src="${cdnUrl}" style="width:100%; height:100%; border:0;" allow="fullscreen; xr-spatial-tracking" allowfullscreen loading="lazy" referrerpolicy="no-referrer"></iframe>`;
 
+    // Generate API documentation
+    const apiDocumentation = {
+      scriptTag: `<script src="${apiScriptUrl}" defer></script>`,
+      containerElement: `<charpstar-container></charpstar-container>`,
+      initCode: `<script>window.charpstAR.init();</script>`,
+      functions: [
+        {
+          name: "charpstAR.addModel(articleId)",
+          description: "Add a model to the scene by article ID (e.g., 'OL-2290BT-AL-OD')"
+        },
+        {
+          name: "charpstAR.getJsonData()",
+          description: "Get JSON of current scene layout (positions, rotations, IDs)"
+        },
+        {
+          name: "charpstAR.placeLayout(jsonData)",
+          description: "Recreate a saved layout"
+        },
+        {
+          name: "charpstAR.deleteAll()",
+          description: "Clear the entire scene"
+        }
+      ]
+    };
+
     return NextResponse.json({
       cdnUrl,
       embedCode,
-      filename
+      filename,
+      apiScriptUrl,
+      apiDocumentation
     });
 
   } catch (error) {
@@ -480,7 +536,132 @@ function generateConfiguratorHTML(assets: any[], viewerCode: string): string {
 </html>`;
 }
 
-async function uploadToBunnyCDN(content: string, filePath: string): Promise<string> {
+function extractBasePath(glbUrl: string): string {
+  // Extract the folder path from the GLB URL
+  // e.g., "https://cdn.charpstar.net/Client-Editor/DanGarden/OL-2290BT-AL-OD.glb"
+  // returns "https://cdn.charpstar.net/Client-Editor/DanGarden/"
+  const lastSlashIndex = glbUrl.lastIndexOf('/');
+  if (lastSlashIndex === -1) return glbUrl;
+  return glbUrl.substring(0, lastSlashIndex + 1);
+}
+
+function generateBaseScript(modelBasePath: string): string {
+  return `window.charpstAR = {
+  element: null,
+  viewerContainerId: 'charpstar-viewer',
+  modelBasePath: '${modelBasePath}',
+  defaultModelExt: 'glb',
+
+  init: async function() {
+    this.element = document.querySelector('charpstar-container');
+    if (!this.element) {
+      console.error('charpstAR: <charpstar-container> element not found');
+      return;
+    }
+
+    this.element.style.height = "inherit";
+    this.element.style.display = "block";
+
+    // Add styles for the viewer
+    const STYLE_ID = 'charpstAR-viewer-style';
+    if (!document.getElementById(STYLE_ID)) {
+      const style = document.createElement('style');
+      style.id = STYLE_ID;
+      style.textContent = \`
+        .charpstAR-viewer {
+          height: 100%;
+          width: 100%;
+          margin: 0;
+          padding: 0;
+          line-height: normal;
+          letter-spacing: normal;
+          font-style: inherit;
+          font-weight: inherit;
+          position: relative;
+          background-color: #F2F2F2;
+        }
+      \`;
+      document.head.appendChild(style);
+    }
+
+    // Inject Three.js viewer container
+    this.element.innerHTML = \`<div id="\${this.viewerContainerId}" class="charpstAR-viewer"></div>\`;
+
+    // Load external module and init viewer
+    const moduleScript = document.createElement('script');
+    moduleScript.type = 'module';
+    moduleScript.src = '${THREE_VIEWER_MODULE_URL}';
+    moduleScript.onload = () => {
+      if (window.__charpstAR_threeInit) {
+        window.__charpstAR_threeInit({ 
+          mountId: this.viewerContainerId, 
+          allowEmpty: true 
+        });
+        
+        // Dispatch ready event
+        window.dispatchEvent(new CustomEvent('viewer-ready', { 
+          detail: { viewerId: this.viewerContainerId } 
+        }));
+      }
+    };
+    document.head.appendChild(moduleScript);
+  },
+
+  addModel: function(articleId) {
+    if (!window.__charpstAR_threeAddGltf) {
+      console.error('charpstAR: Viewer not initialized yet');
+      return;
+    }
+
+    // Construct the model URL from article ID
+    const hasExt = /\\.[a-z0-9]+$/i.test(articleId);
+    const ext = (this.defaultModelExt || 'glb').replace(/^\\./, '');
+    const modelUrl = this.modelBasePath + (hasExt ? articleId : (articleId + '.' + ext));
+
+    try {
+      window.__charpstAR_threeAddGltf(this.viewerContainerId, modelUrl);
+      
+      // Dispatch model-loaded event
+      window.dispatchEvent(new CustomEvent('model-loaded', { 
+        detail: { articleId, modelUrl } 
+      }));
+    } catch (error) {
+      console.error('charpstAR: Failed to add model:', error);
+      
+      // Dispatch model-error event
+      window.dispatchEvent(new CustomEvent('model-error', { 
+        detail: { articleId, modelUrl, error: error.message } 
+      }));
+    }
+  },
+
+  getJsonData: function() {
+    if (!window.__charpstAR_threeGetScene) {
+      console.warn('charpstAR: getJsonData not yet implemented in viewer module');
+      return [];
+    }
+    return window.__charpstAR_threeGetScene(this.viewerContainerId);
+  },
+
+  placeLayout: function(jsonData) {
+    if (!window.__charpstAR_threePlaceLayout) {
+      console.warn('charpstAR: placeLayout not yet implemented in viewer module');
+      return;
+    }
+    window.__charpstAR_threePlaceLayout(this.viewerContainerId, jsonData);
+  },
+
+  deleteAll: function() {
+    if (!window.__charpstAR_threeRemoveAllModules) {
+      console.error('charpstAR: Viewer not initialized yet');
+      return;
+    }
+    window.__charpstAR_threeRemoveAllModules(this.viewerContainerId);
+  }
+};`;
+}
+
+async function uploadToBunnyCDN(content: string, filePath: string, contentType: string = "text/html"): Promise<string> {
   if (!ACCESS_KEY) {
     throw new Error("BunnyCDN access key not configured");
   }
@@ -493,7 +674,7 @@ async function uploadToBunnyCDN(content: string, filePath: string): Promise<stri
       method: "PUT",
       headers: {
         AccessKey: ACCESS_KEY,
-        "Content-Type": "text/html",
+        "Content-Type": contentType,
         "Content-Length": buffer.length.toString(),
       },
       body: buffer,
