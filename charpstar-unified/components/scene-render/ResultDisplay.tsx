@@ -38,10 +38,10 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
   const [imageAspectRatio, setImageAspectRatio] = useState<number | null>(null);
   const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  //eslint-disable-next-line @typescript-eslint/no-unused-vars
+
   const [isEditingImage, setIsEditingImage] = useState(false);
   const [editedImages, setEditedImages] = useState<string[]>(images);
-  //eslint-disable-next-line @typescript-eslint/no-unused-vars
+
   const [imageUpdateKey, setImageUpdateKey] = useState(0);
   const editInputRef = useRef<HTMLInputElement | null>(null);
   const [overrideImageUrl, setOverrideImageUrl] = useState<string | null>(null);
@@ -92,7 +92,10 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
     : null;
 
   // Active display URL preference: override > upscaled (when comparing) > base edited
-  const activeImageUrl = overrideImageUrl || (showComparison ? upscaledImageUrl : null) || baseEditedUrl;
+  const activeImageUrl =
+    overrideImageUrl ||
+    (showComparison ? upscaledImageUrl : null) ||
+    baseEditedUrl;
 
   // Function to calculate aspect ratio from image URL or data
   const calculateAspectRatio = (url: string) => {
@@ -427,7 +430,10 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({
-                          image: overrideImageUrl || upscaledImageUrl || baseEditedUrl,
+                          image:
+                            overrideImageUrl ||
+                            upscaledImageUrl ||
+                            baseEditedUrl,
                           prompt,
                         }),
                       });
@@ -485,7 +491,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
               <button
                 className="h-10 px-3 rounded-md bg-primary text-primary-foreground text-sm hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={isEditingImage}
-                onClick={async (e) => {
+                onClick={async () => {
                   const prompt = editInputRef.current?.value.trim();
                   if (!prompt) return;
 
@@ -495,7 +501,8 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
                       body: JSON.stringify({
-                        image: overrideImageUrl || upscaledImageUrl || baseEditedUrl,
+                        image:
+                          overrideImageUrl || upscaledImageUrl || baseEditedUrl,
                         prompt,
                       }),
                     });
@@ -559,7 +566,6 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
               </button>
             </div>
           </div>
-
 
           {/* Primary Download Button */}
           {showComparison && (overrideImageUrl || upscaledImageUrl) ? (
