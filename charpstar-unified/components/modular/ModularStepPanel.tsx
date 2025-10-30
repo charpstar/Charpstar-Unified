@@ -35,7 +35,6 @@ export default function ModularStepPanel({
   const [imageErrors, setImageErrors] = useState<Set<string>>(new Set());
   const [configuratorUrl, setConfiguratorUrl] = useState<string | null>(null);
   const [embedCode, setEmbedCode] = useState<string>("");
-  const [apiScriptUrl, setApiScriptUrl] = useState<string | null>(null);
   const [apiDocumentation, setApiDocumentation] = useState<any>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [copiedItem, setCopiedItem] = useState<string | null>(null);
@@ -107,10 +106,9 @@ export default function ModularStepPanel({
         return;
       }
       
-      const { cdnUrl, embedCode: generatedEmbedCode, apiScriptUrl: scriptUrl, apiDocumentation: apiDocs } = await response.json();
+      const { cdnUrl, embedCode: generatedEmbedCode, apiDocumentation: apiDocs } = await response.json();
       setConfiguratorUrl(cdnUrl);
       setEmbedCode(generatedEmbedCode);
-      setApiScriptUrl(scriptUrl);
       setApiDocumentation(apiDocs);
       setCurrentStep(3);
     } catch (error) {
@@ -124,7 +122,6 @@ export default function ModularStepPanel({
   const handleRegenerateConfigurator = () => {
     setConfiguratorUrl(null);
     setEmbedCode("");
-    setApiScriptUrl(null);
     setApiDocumentation(null);
     setActiveTab('iframe');
     handleGenerateConfigurator();
