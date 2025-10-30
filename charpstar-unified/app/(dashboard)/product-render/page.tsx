@@ -346,7 +346,7 @@ export default function ProductRenderPage() {
           }}
         >
           <Card
-            className={`h-full p-0 flex flex-col bg-background/50 backdrop-blur-sm border-none shadow-2xl rounded-2xl transition-all duration-300 ${
+            className={`h-full p-0 flex flex-col bg-background backdrop-blur-sm border-none shadow-2xl rounded-2xl transition-all duration-300 ${
               isDragging ? "ring-2 ring-primary bg-primary/5" : ""
             }`}
           >

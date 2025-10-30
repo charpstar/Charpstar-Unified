@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import { Button } from "@/components/ui/display/button";
 import { Download, Loader2, Maximize2, Save } from "lucide-react";
@@ -43,10 +43,13 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
   const [editedImages, setEditedImages] = useState<string[]>(images);
   //eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [imageUpdateKey, setImageUpdateKey] = useState(0);
+  const editInputRef = useRef<HTMLInputElement | null>(null);
+  const [overrideImageUrl, setOverrideImageUrl] = useState<string | null>(null);
 
-  // Sync editedImages when images prop changes
+  // Sync editedImages when images prop changes and clear any overrides
   useEffect(() => {
     setEditedImages(images);
+    setOverrideImageUrl(null);
   }, [images]);
 
   // Get dimensions based on image format
@@ -70,14 +73,26 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
   };
 
   const imageData = editedImages[0]; // Single image (using edited version)
-  // Check if it's already a URL or base64 data
-  const imageUrl = imageData.startsWith("http")
+  // Base URL from editedImages (handles http/base64)
+  const baseEditedUrl = imageData?.startsWith("http")
     ? imageData
-    : `data:image/png;base64,${imageData}`;
+    : imageData
+      ? `data:image/png;base64,${imageData}`
+      : "";
 
   // Debug logging
   console.log("Current imageData:", imageData?.substring(0, 100) + "...");
-  console.log("Current imageUrl:", imageUrl?.substring(0, 100) + "...");
+
+  // Upscaled URL from props (if any)
+  const upscaledImageData = upscaledImages?.[0];
+  const upscaledImageUrl = upscaledImageData
+    ? upscaledImageData.startsWith("http")
+      ? upscaledImageData
+      : `data:image/png;base64,${upscaledImageData}`
+    : null;
+
+  // Active display URL preference: override > upscaled (when comparing) > base edited
+  const activeImageUrl = overrideImageUrl || (showComparison ? upscaledImageUrl : null) || baseEditedUrl;
 
   // Function to calculate aspect ratio from image URL or data
   const calculateAspectRatio = (url: string) => {
@@ -97,10 +112,12 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
     });
   };
 
-  // Calculate aspect ratio when component mounts
+  // Calculate aspect ratio when active image changes
   useEffect(() => {
-    calculateAspectRatio(imageUrl);
-  }, [imageUrl]);
+    if (activeImageUrl) {
+      calculateAspectRatio(activeImageUrl);
+    }
+  }, [activeImageUrl]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -119,7 +136,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
   const handleDownloadOriginal = async () => {
     try {
       // Fetch the image as a blob and create a download
-      const response = await fetch(imageUrl);
+      const response = await fetch(activeImageUrl || baseEditedUrl);
       if (!response.ok) {
         throw new Error("Failed to fetch image");
       }
@@ -146,9 +163,10 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
 
   const handleDownloadUpscaled = async () => {
     try {
-      if (upscaledImageUrl) {
+      const downloadUrl = overrideImageUrl || upscaledImageUrl;
+      if (downloadUrl) {
         // Fetch the image as a blob and create a download
-        const response = await fetch(upscaledImageUrl);
+        const response = await fetch(downloadUrl);
         if (!response.ok) {
           throw new Error("Failed to fetch image");
         }
@@ -251,13 +269,6 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
     }
   };
 
-  const upscaledImageData = upscaledImages?.[0];
-  const upscaledImageUrl = upscaledImageData
-    ? upscaledImageData.startsWith("http")
-      ? upscaledImageData
-      : `data:image/png;base64,${upscaledImageData}`
-    : null;
-
   // Reset loading state when upscaled image changes
   useEffect(() => {
     if (showComparison && upscaledImageUrl) {
@@ -287,7 +298,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
             : "High-quality product scene generated and ready for download"}
         </p>
 
-        {showComparison && upscaledImageUrl ? (
+        {showComparison && (overrideImageUrl || upscaledImageUrl) ? (
           // Show only the upscaled image
           <div className="w-full max-w-4xl h-full mb-4 sm:mb-6 flex-1 min-h-0 max-h-[50vh] overflow-hidden">
             <div className="text-center mb-2 sm:mb-4">
@@ -322,7 +333,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
                 )}
 
                 <Image
-                  src={upscaledImageUrl}
+                  src={activeImageUrl || upscaledImageUrl!}
                   alt={`Upscaled Scene (${getImageDimensions()})`}
                   className={` h-full max-h-[calc(70vh-100px)] object-contain transition-all duration-300 ${
                     isImageLoading
@@ -369,7 +380,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
           >
             <Image
               key={`main-image-${imageUpdateKey}`}
-              src={imageUrl}
+              src={activeImageUrl || baseEditedUrl}
               alt="Generated product scene"
               className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
               fill
@@ -394,8 +405,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
 
         <div className="flex flex-col gap-3 w-full max-w-2xl">
           {/* Inline Image Edit */}
-
-          {/* Image Edit 
+          {/* Image Edit */}
           <div className="rounded-lg border border-border p-3 sm:p-4 bg-background/50">
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm font-medium">Edit This Image</span>
@@ -405,11 +415,10 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
                 type="text"
                 placeholder="Describe your change (e.g., change the blue sofa to vintage brown leather)"
                 className="flex-1 h-10 px-3 rounded-md border border-input bg-background text-sm"
+                ref={editInputRef}
                 onKeyDown={async (e) => {
                   if (e.key === "Enter") {
-                    const prompt = (
-                      e.currentTarget as HTMLInputElement
-                    ).value.trim();
+                    const prompt = editInputRef.current?.value.trim();
                     if (!prompt) return;
 
                     setIsEditingImage(true);
@@ -418,7 +427,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({
-                          image: upscaledImageUrl || imageUrl,
+                          image: overrideImageUrl || upscaledImageUrl || baseEditedUrl,
                           prompt,
                         }),
                       });
@@ -446,11 +455,20 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
                             );
                             return updated;
                           });
+                          // Prefer the newly edited image for display immediately
+                          const normalizedUrl = newUrl.startsWith("data:image/")
+                            ? newUrl
+                            : newUrl.startsWith("http")
+                              ? newUrl
+                              : `data:image/png;base64,${newUrl}`;
+                          setOverrideImageUrl(normalizedUrl);
                           //eslint-disable-next-line @typescript-eslint/no-unused-vars
                           setImageUpdateKey((prev) => prev + 1);
                           toast.success("Image edited successfully!");
                         }
-                        (e.currentTarget as HTMLInputElement).value = "";
+                        if (editInputRef.current) {
+                          editInputRef.current.value = "";
+                        }
                       } else {
                         const errorData = await editRes.json();
                         toast.error(errorData.error || "Failed to edit image");
@@ -468,9 +486,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
                 className="h-10 px-3 rounded-md bg-primary text-primary-foreground text-sm hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={isEditingImage}
                 onClick={async (e) => {
-                  const wrapper = e.currentTarget.parentElement as HTMLElement;
-                  const input = wrapper.querySelector("input");
-                  const prompt = (input as HTMLInputElement)?.value.trim();
+                  const prompt = editInputRef.current?.value.trim();
                   if (!prompt) return;
 
                   setIsEditingImage(true);
@@ -479,7 +495,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
                       body: JSON.stringify({
-                        image: upscaledImageUrl || imageUrl,
+                        image: overrideImageUrl || upscaledImageUrl || baseEditedUrl,
                         prompt,
                       }),
                     });
@@ -507,10 +523,19 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
                           );
                           return updated;
                         });
+                        // Prefer the newly edited image for display immediately
+                        const normalizedUrl = newUrl.startsWith("data:image/")
+                          ? newUrl
+                          : newUrl.startsWith("http")
+                            ? newUrl
+                            : `data:image/png;base64,${newUrl}`;
+                        setOverrideImageUrl(normalizedUrl);
                         setImageUpdateKey((prev) => prev + 1);
                         toast.success("Image edited successfully!");
                       }
-                      (input as HTMLInputElement).value = "";
+                      if (editInputRef.current) {
+                        editInputRef.current.value = "";
+                      }
                     } else {
                       const errorData = await editRes.json();
                       toast.error(errorData.error || "Failed to edit image");
@@ -534,10 +559,10 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
               </button>
             </div>
           </div>
-          */}
+
 
           {/* Primary Download Button */}
-          {showComparison && upscaledImageUrl ? (
+          {showComparison && (overrideImageUrl || upscaledImageUrl) ? (
             <Button
               onClick={handleDownloadUpscaled}
               className="w-full bg-primary hover:bg-primary/90 text-primary-foreground h-12 text-base font-semibold shadow-lg hover:shadow-xl transition-all"
@@ -613,7 +638,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
           <div className="relative" onClick={(e) => e.stopPropagation()}>
             <Image
               key={`modal-image-${imageUpdateKey}`}
-              src={upscaledImageUrl || imageUrl}
+              src={activeImageUrl || baseEditedUrl}
               alt={`Upscaled Scene (${getImageDimensions()}) in fullscreen`}
               className="max-h-[90vh] max-w-[90vw] object-contain rounded-lg shadow-2xl"
               style={{
