@@ -1,5 +1,29 @@
 import { GoogleGenAI, Modality } from "@google/genai";
 
+// Helper function to get aspect ratio instructions for AI
+const getAspectRatioInstructions = (format: string): string => {
+  const formatMap: Record<string, string> = {
+    square:
+      "**CRITICAL ASPECT RATIO:** Generate a SQUARE image (1:1 ratio) - perfect for Instagram feed posts and Facebook posts. The image should be exactly as wide as it is tall.",
+    instagram_story:
+      "**CRITICAL ASPECT RATIO:** Generate a VERTICAL image (9:16 ratio) - perfect for Instagram Stories and TikTok. The image should be much taller than it is wide, like a phone screen.",
+    instagram_reel:
+      "**CRITICAL ASPECT RATIO:** Generate a VERTICAL image (9:16 ratio) - perfect for Instagram Reels and YouTube Shorts. The image should be much taller than it is wide, like a phone screen.",
+    facebook_cover:
+      "**CRITICAL ASPECT RATIO:** Generate a WIDE image (16:9 ratio) - perfect for Facebook covers and YouTube thumbnails. The image should be much wider than it is tall.",
+    pinterest:
+      "**CRITICAL ASPECT RATIO:** Generate a VERTICAL image (2:3 ratio) - perfect for Pinterest pins. The image should be taller than it is wide, but not as extreme as Instagram Stories.",
+    linkedin:
+      "**CRITICAL ASPECT RATIO:** Generate a WIDE image (1.91:1 ratio) - perfect for LinkedIn posts. The image should be wider than it is tall.",
+    twitter:
+      "**CRITICAL ASPECT RATIO:** Generate a WIDE image (16:9 ratio) - perfect for Twitter posts. The image should be much wider than it is tall.",
+    custom:
+      "**CRITICAL ASPECT RATIO:** Generate a SQUARE image (1:1 ratio) - standard format. The image should be exactly as wide as it is tall.",
+  };
+
+  return formatMap[format] || formatMap.square;
+};
+
 const createPrompt = (
   size: string,
   objectType: string,
@@ -236,7 +260,8 @@ export async function generateMultiAngleScenes(
   objectSize: string,
   objectType: string,
   sceneDescription: string,
-  inspirationImage: string | null
+  inspirationImage: string | null,
+  imageFormat: string = "square"
 ): Promise<string[]> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
@@ -291,8 +316,13 @@ export async function generateMultiAngleScenes(
   const productCount = base64Images.length;
   const isMultiProduct = productCount > 1;
 
+  // Get aspect ratio instructions
+  const aspectRatioInstructions = getAspectRatioInstructions(imageFormat);
+
   // Enhanced prompt optimized for single or multi-product scenes
   const enhancedPrompt = `You are an elite virtual product photographer and compositing expert, specializing in creating photorealistic e-commerce product imagery.
+
+${aspectRatioInstructions}
 
 **🚨 CRITICAL: ${isMultiProduct ? `MULTIPLE SEPARATE PRODUCTS (${productCount} PRODUCTS)` : "SINGLE PRODUCT"} 🚨**
 ${
@@ -457,6 +487,75 @@ ${
     return [result];
   } catch (error) {
     console.error("Error generating scene:", error);
+    throw error;
+  }
+}
+
+export async function editImageWithAI(
+  base64Image: string,
+  editPrompt: string
+): Promise<string> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    throw new Error("GEMINI_API_KEY environment variable not set.");
+  }
+
+  const ai = new GoogleGenAI({ apiKey });
+
+  const imagePart = {
+    inlineData: {
+      mimeType: "image/png",
+      data: base64Image,
+    },
+  };
+
+  const editPromptText = `You are an expert image editor specializing in product photography edits. Your task is to make the requested changes to the provided image while maintaining professional quality.
+
+**CRITICAL REQUIREMENTS:**
+1. **Preserve Image Quality:** Maintain the same resolution, sharpness, and professional quality as the original
+2. **Natural Integration:** Any changes should look completely natural and realistic
+3. **Professional Standards:** The result should be suitable for e-commerce and marketing use
+4. **Consistent Lighting:** Maintain consistent lighting and shadows throughout the image
+5. **Material Accuracy:** If changing materials, ensure they look realistic and properly lit
+
+**SPECIAL INSTRUCTIONS FOR COLOR CHANGES:**
+- When changing colors (especially furniture, fabrics, or materials), ensure the new color looks natural and realistic
+- Maintain proper material properties - leather should look like leather, fabric should look like fabric
+- Preserve texture details and surface characteristics
+- Ensure the new color works well with the existing lighting and environment
+- For furniture color changes, maintain realistic wear patterns and material properties
+
+**EDIT REQUEST:**
+The user wants to: ${editPrompt}
+
+**YOUR TASK:**
+Apply the requested changes to the image while ensuring:
+- The edit looks completely natural and realistic
+- Professional quality is maintained throughout
+- Lighting and shadows remain consistent
+- Material properties are preserved (texture, finish, etc.)
+- The result is ready for commercial use
+- No artifacts, distortions, or quality degradation
+
+**OUTPUT:** Return ONLY the edited image. No text, watermarks, or additional elements.`;
+
+  try {
+    const result = await callApi(ai, [imagePart], { text: editPromptText });
+
+    if (!result) {
+      throw new Error(
+        "The AI failed to edit the image. This might be due to server issues or invalid input."
+      );
+    }
+
+    return result;
+  } catch (error) {
+    console.error("Error calling Gemini API for image editing:", error);
+    if (error instanceof Error && error.message.includes("400")) {
+      throw new Error(
+        "The edit request was invalid. Please try a different edit description."
+      );
+    }
     throw error;
   }
 }

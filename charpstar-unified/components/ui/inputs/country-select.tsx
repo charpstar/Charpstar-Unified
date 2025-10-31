@@ -35,8 +35,7 @@ interface CountrySelectProps {
 
 function CountrySelect({
   priorityOptions = [],
-  whitelist = [],
-  blacklist = [],
+
   onChange = () => {},
   className,
   placeholder = "Country",
@@ -45,23 +44,50 @@ function CountrySelect({
   disabled = false,
 }: CountrySelectProps) {
   const [countries, setCountries] = useState<CountryRegion[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    let mounted = true;
+
     //@ts-expect-error - Dynamic import for country-region-data module
-    import("country-region-data/dist/data-umd.js").then((countryRegionData) => {
-      setCountries(
-        getCountriesWithPriority(
-          countryRegionData.default || countryRegionData,
-          priorityOptions
-        )
-      );
-    });
-  }, [priorityOptions, whitelist, blacklist]);
+    import("country-region-data/dist/data-umd.js")
+      .then((countryRegionData) => {
+        if (mounted) {
+          setCountries(
+            getCountriesWithPriority(
+              countryRegionData.default || countryRegionData,
+              priorityOptions
+            )
+          );
+          setIsLoading(false);
+        }
+      })
+      .catch((error) => {
+        console.error("Failed to load country data:", error);
+        if (mounted) {
+          setIsLoading(false);
+        }
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [priorityOptions]);
 
   const handleValueChange = (newValue: string) => {
     onChange(newValue);
     onValueChange?.(newValue);
   };
+
+  if (isLoading) {
+    return (
+      <Select value={value} onValueChange={handleValueChange} disabled={true}>
+        <SelectTrigger className={className}>
+          <SelectValue placeholder="Loading countries..." />
+        </SelectTrigger>
+      </Select>
+    );
+  }
 
   return (
     <Select value={value} onValueChange={handleValueChange} disabled={disabled}>

@@ -4049,7 +4049,7 @@ export default function AdminReviewPage() {
                                         assignment.onboarding_assets.id
                                       )}
                                     >
-                                      <SelectTrigger className="border-0 bg-transparent shadow-none p-0 hover:bg-transparent [&>svg]:hidden justify-center w-full h-fit">
+                                      <SelectTrigger className="border-0 bg-transparent shadow-none p-0  hover:bg-transparent [&>svg]:hidden justify-center w-full h-fit">
                                         <span
                                           className={`px-1.5 sm:px-2 py-0.5 sm:py-1 rounded text-xs font-semibold ${getPriorityClass(
                                             assignment.onboarding_assets

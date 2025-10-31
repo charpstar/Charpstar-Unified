@@ -8,19 +8,11 @@ import {
   SheetTitle,
 } from "@/components/ui/containers";
 import { useAssets } from "../../../hooks/use-assets";
-import {
-  useState,
-  useEffect,
-  useMemo,
-  Suspense,
-  useCallback,
-  useRef,
-} from "react";
+import { useState, useEffect, Suspense, useCallback, useRef } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { useUser } from "@/contexts/useUser";
 import { createClient } from "@/utils/supabase/client";
 import { AssetLibraryControlPanel } from "@/components/asset-library/AssetLibraryControlPanel";
-import { translateSwedishToEnglish } from "@/utils/swedishTranslations";
 import { AssetLibrarySkeleton } from "@/components/ui/skeletons";
 import { Search } from "lucide-react";
 import React from "react";
@@ -51,74 +43,6 @@ type SortOption =
   | "date-asc"
   | "date-desc"
   | "updated-desc";
-
-// New function to calculate search relevance score
-const calculateSearchRelevance = (searchTerm: string, asset: any): number => {
-  if (!searchTerm || !asset) return 0;
-
-  const searchLower = translateSwedishToEnglish(searchTerm.toLowerCase());
-  const productName = asset.product_name?.toLowerCase() || "";
-  const articleId = asset.article_id?.toLowerCase() || "";
-  const materials = asset.materials?.map((m: string) => m.toLowerCase()) || [];
-  const colors = asset.colors?.map((c: string) => c.toLowerCase()) || [];
-  const tags = asset.tags?.map((t: string) => t.toLowerCase()) || [];
-
-  let score = 0;
-
-  // Exact matches get highest scores
-  if (productName.includes(searchLower)) {
-    score += 100;
-    // Bonus for exact product name match
-    if (productName === searchLower) score += 50;
-  }
-
-  // Article ID matches (high priority for exact matches)
-  if (articleId.includes(searchLower)) {
-    score += 90;
-    // Bonus for exact article ID match
-    if (articleId === searchLower) score += 60;
-  }
-
-  // Material matches
-  materials.forEach((material: string) => {
-    if (material.includes(searchLower)) {
-      score += 30;
-      if (material === searchLower) score += 20;
-    }
-  });
-
-  // Color matches
-  colors.forEach((color: string) => {
-    if (color.includes(searchLower)) {
-      score += 25;
-      if (color === searchLower) score += 15;
-    }
-  });
-
-  // Tag matches
-  tags.forEach((tag: string) => {
-    if (tag.includes(searchLower)) {
-      score += 20;
-      if (tag === searchLower) score += 10;
-    }
-  });
-
-  // Word boundary matches (higher relevance)
-  const searchWords = searchLower.split(/\s+/);
-  searchWords.forEach((word) => {
-    if (word.length >= 3) {
-      // Check if word appears at word boundaries
-      const wordBoundaryRegex = new RegExp(`\\b${word}\\b`, "i");
-      if (wordBoundaryRegex.test(productName)) score += 40;
-      if (wordBoundaryRegex.test(articleId)) score += 35;
-      if (wordBoundaryRegex.test(materials.join(" "))) score += 25;
-      if (wordBoundaryRegex.test(colors.join(" "))) score += 20;
-      if (wordBoundaryRegex.test(tags.join(" "))) score += 15;
-    }
-  });
-
-  return score;
-};
 
 export default function AssetLibraryPage() {
   const searchParams = useSearchParams();
@@ -209,43 +133,6 @@ export default function AssetLibraryPage() {
     }, 300);
   }, []);
 
-  // Optimized search function with memoization
-  const optimizedSearch = useCallback(
-    (searchTerm: string, asset: any): boolean => {
-      if (!searchTerm || !asset) return false;
-
-      const translatedSearch = translateSwedishToEnglish(
-        searchTerm.toLowerCase()
-      );
-      const searchTerms = translatedSearch
-        .split(/,|\s+/)
-        .filter((term) => term.trim());
-      const productName = asset.product_name?.toLowerCase() || "";
-      const articleId = asset.article_id?.toLowerCase() || "";
-
-      // Check if any of the translated search terms match
-      return searchTerms.some((searchTerm) => {
-        // Quick exact match check first
-        if (productName.includes(searchTerm)) return true;
-        if (articleId.includes(searchTerm)) return true;
-
-        // Then check other fields
-        return (
-          asset.materials?.some((material: string) =>
-            material.toLowerCase().includes(searchTerm)
-          ) ||
-          asset.colors?.some((color: string) =>
-            color.toLowerCase().includes(searchTerm)
-          ) ||
-          asset.tags?.some((tag: string) =>
-            tag.toLowerCase().includes(searchTerm)
-          )
-        );
-      });
-    },
-    []
-  );
-
   useEffect(() => {
     const fetchUserRole = async () => {
       if (!user) {
@@ -320,23 +207,10 @@ export default function AssetLibraryPage() {
     }
   }, [activeSearchValue, setServerSearchTerm]);
 
-  // Client-side filtering only for search (server handles materials, colors, companies, inactive)
-  const filteredAssets = useMemo(() => {
-    // If there's a search term, apply client-side search and relevance scoring
-    if (activeSearchValue) {
-      return hookFilteredAssets
-        .filter((asset) => optimizedSearch(activeSearchValue, asset))
-        .map((asset) => ({
-          ...asset,
-          relevanceScore: calculateSearchRelevance(activeSearchValue, asset),
-        }))
-        .filter((asset) => asset.relevanceScore > 0)
-        .sort((a, b) => b.relevanceScore - a.relevanceScore);
-    }
-
-    // No search - return server results as-is (already filtered and sorted)
-    return hookFilteredAssets;
-  }, [hookFilteredAssets, activeSearchValue, optimizedSearch]);
+  // Server handles all filtering including search - use server results directly
+  // Note: Server-side search currently covers product_name and article_id only
+  // JSONB array fields (materials, colors, tags) would require PostgreSQL functions for full database search
+  const filteredAssets = hookFilteredAssets;
 
   // Calculate pagination - server returns paginated data, so we use it directly
   const currentAssets = filteredAssets;
@@ -364,6 +238,35 @@ export default function AssetLibraryPage() {
       setCurrentPage(1);
     }
   }, [selectedMaterials, selectedColors, selectedCompanies, isInitialized]);
+
+  // Clear category if it's no longer available after filtering by companies
+  useEffect(() => {
+    if (filters.category && filterOptions.categories.length > 0) {
+      const categoryExists = filterOptions.categories.some(
+        (cat) => cat.id === filters.category
+      );
+      if (!categoryExists) {
+        setFilters((prev) => ({ ...prev, category: null, subcategory: null }));
+      } else if (filters.subcategory) {
+        // Check if subcategory still exists in the filtered category
+        const category = filterOptions.categories.find(
+          (cat) => cat.id === filters.category
+        );
+        if (
+          category &&
+          !category.subcategories?.some((sub) => sub.id === filters.subcategory)
+        ) {
+          setFilters((prev) => ({ ...prev, subcategory: null }));
+        }
+      }
+    }
+  }, [
+    selectedCompanies,
+    filterOptions.categories,
+    filters.category,
+    filters.subcategory,
+    setFilters,
+  ]);
 
   const handleFilterChange = (key: keyof typeof filters, value: any) => {
     if (key === "category") {
@@ -770,20 +673,68 @@ export default function AssetLibraryPage() {
     );
   }
 
-  // Show 'No assets found' only if not loading and assets.length === 0
-  if (!loading && assets.length === 0) {
+  // Show 'No assets found' only if not loading and assets.length === 0 AND no active filters/search
+  // This means there are truly no assets in the database (user hasn't uploaded anything)
+  const hasActiveFilters =
+    activeSearchValue ||
+    selectedMaterials.length > 0 ||
+    selectedColors.length > 0 ||
+    selectedCompanies.length > 0 ||
+    filters.category ||
+    filters.subcategory ||
+    showInactiveOnly;
+
+  // Only show early return if there are no assets AND no filters/search applied
+  // If filters/search are active, show full UI so users can adjust their search
+  if (!loading && assets.length === 0 && !hasActiveFilters) {
     return (
-      <div className="p-6 max-w-7xl mx-auto space-y-8">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-center py-8">
-              <h2 className="text-2xl font-semibold mb-2">No Assets Found</h2>
-              <p className="text-gray-500">
-                You haven&apos;t uploaded any assets yet.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="flex flex-col h-full max-w-7xl mx-auto space-y-8">
+        {/* Control Panel - still show it so users can navigate */}
+        <div className="flex-1 flex flex-col">
+          <AssetLibraryControlPanel
+            categories={filterOptions.categories}
+            selectedCategory={filters.category}
+            setSelectedCategory={handleSetCategory}
+            selectedSubcategory={filters.subcategory}
+            setSelectedSubcategory={handleSetSubcategory}
+            breadcrumbs={breadcrumbItems}
+            searchValue={searchValue}
+            onClearSearch={handleClearSearch}
+            onSearch={handleSearch}
+            sortValue={filters.sort}
+            setSortValue={handleSortChange}
+            viewMode={viewMode}
+            setViewMode={setViewMode}
+            onBatchEdit={handleBatchEdit}
+            onGeneratePreviews={handleGeneratePreviews}
+            userRole={userRole}
+            materials={filterOptions.materials}
+            selectedMaterials={selectedMaterials}
+            setSelectedMaterials={setSelectedMaterials}
+            colors={filterOptions.colors}
+            selectedColors={selectedColors}
+            setSelectedColors={setSelectedColors}
+            companies={filterOptions.clients}
+            selectedCompanies={selectedCompanies}
+            setSelectedCompanies={setSelectedCompanies}
+            showInactiveOnly={showInactiveOnly}
+            setShowInactiveOnly={setShowInactiveOnly}
+          />
+          <div className="flex-1 flex flex-col">
+            <Card className="m-6">
+              <CardContent className="pt-6">
+                <div className="text-center py-8">
+                  <h2 className="text-2xl font-semibold mb-2">
+                    No Assets Found
+                  </h2>
+                  <p className="text-gray-500">
+                    You haven&apos;t uploaded any assets yet.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
       </div>
     );
   }
@@ -890,22 +841,92 @@ export default function AssetLibraryPage() {
 
             {/* No Results State */}
             {filteredAssets.length === 0 && assets.length > 0 && (
-              <div className="flex flex-col items-center justify-center h-64 text-center px-4">
-                <div className="mb-6">
-                  <Search className="h-12 w-12 sm:h-16 sm:w-16 text-muted-foreground/50 mx-auto mb-4" />
-                  <h3 className="text-base sm:text-lg font-semibold text-foreground mb-2"></h3>
-                  <p className="text-sm sm:text-base text-muted-foreground mb-6 max-w-md">
+              <div className="flex flex-col items-center justify-center min-h-[400px] text-center px-4 py-12">
+                <div className="flex flex-col items-center max-w-lg">
+                  {/* Icon */}
+                  <div className="relative mb-6">
+                    <div className="absolute inset-0 bg-muted rounded-full blur-xl opacity-50" />
+                    <div className="relative bg-muted/30 rounded-full p-6">
+                      <Search className="h-12 w-12 sm:h-14 sm:w-14 text-muted-foreground/60" />
+                    </div>
+                  </div>
+
+                  {/* Title */}
+                  <h3 className="text-xl sm:text-2xl font-semibold text-foreground mb-3">
                     {activeSearchValue
-                      ? `We couldn't find any assets matching "${activeSearchValue}". Try adjusting your search terms or filters.`
-                      : "No assets match your current filters. Try adjusting your selection to see more results."}
+                      ? "No assets found"
+                      : "No matching assets"}
+                  </h3>
+
+                  {/* Message */}
+                  <p className="text-sm sm:text-base text-muted-foreground mb-6 leading-relaxed">
+                    {activeSearchValue ? (
+                      <>
+                        We couldn&apos;t find any assets matching{" "}
+                        <span className="font-medium text-foreground">
+                          &quot;{activeSearchValue}&quot;
+                        </span>
+                        . Try adjusting your search terms or clearing some
+                        filters to see more results.
+                      </>
+                    ) : (
+                      <>
+                        No assets match your current filters. Try adjusting your
+                        selection or clearing filters to see more results.
+                      </>
+                    )}
                   </p>
+
+                  {/* Helpful Suggestions */}
+                  <div className="w-full mb-6">
+                    <p className="text-xs text-muted-foreground mb-3 font-medium uppercase tracking-wide">
+                      Suggestions:
+                    </p>
+                    <ul className="text-sm text-muted-foreground space-y-1.5 text-left max-w-md">
+                      {activeSearchValue ? (
+                        <>
+                          <li className="flex items-start gap-2">
+                            <span className="text-primary mt-0.5">•</span>
+                            <span>
+                              Check for typos or try different keywords
+                            </span>
+                          </li>
+                          <li className="flex items-start gap-2">
+                            <span className="text-primary mt-0.5">•</span>
+                            <span>Clear search and browse by category</span>
+                          </li>
+                          <li className="flex items-start gap-2">
+                            <span className="text-primary mt-0.5">•</span>
+                            <span>Remove filters to see all assets</span>
+                          </li>
+                        </>
+                      ) : (
+                        <>
+                          <li className="flex items-start gap-2">
+                            <span className="text-primary mt-0.5">•</span>
+                            <span>Select different materials or colors</span>
+                          </li>
+                          <li className="flex items-start gap-2">
+                            <span className="text-primary mt-0.5">•</span>
+                            <span>Try a different category</span>
+                          </li>
+                          <li className="flex items-start gap-2">
+                            <span className="text-primary mt-0.5">•</span>
+                            <span>Clear all filters to see everything</span>
+                          </li>
+                        </>
+                      )}
+                    </ul>
+                  </div>
+
+                  {/* Action Button */}
                   <Button
                     onClick={handleClearAllFilters}
                     variant="outline"
                     className="gap-2"
                   >
                     <Search className="h-4 w-4" />
-                    Remove Filters
+                    Clear all filters
                   </Button>
                 </div>
               </div>

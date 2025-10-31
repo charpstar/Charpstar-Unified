@@ -179,7 +179,7 @@ export function PendingAssignmentsWidget() {
           </div>
         </div>
 
-        <div className="flex-1 flex items-center justify-center">
+        <div className="flex-1 flex items-center justify-center ">
           <div className="text-center py-12">
             <div className="relative mb-6">
               <div className="w-20 h-20 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950/50 dark:to-blue-900/50 rounded-2xl flex items-center justify-center mx-auto">

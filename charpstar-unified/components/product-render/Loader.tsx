@@ -21,7 +21,7 @@ const Loader: React.FC = () => {
   }, []);
 
   return (
-    <div className="flex flex-col items-center justify-center p-8 glass-card rounded-2xl shadow-2xl text-center animate-fade-in">
+    <div className="flex flex-col h-full items-center justify-center p-8 bg-muted rounded-2xl shadow-2xl text-center animate-fade-in">
       <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-6"></div>
       <h2 className="text-2xl font-bold text-gray-100">
         Generating Your Product Render
@@ -34,4 +34,3 @@ const Loader: React.FC = () => {
 };
 
 export default Loader;
-

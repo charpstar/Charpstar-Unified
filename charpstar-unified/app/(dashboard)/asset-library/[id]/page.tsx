@@ -15,6 +15,8 @@ import { createClient } from "@/utils/supabase/client";
 import { useUser } from "@/contexts/useUser";
 
 import { ModelViewer } from "@/components/asset-library/viewers/model-viewer";
+import RelatedScenesSection from "@/components/asset-library/RelatedScenesSection";
+import { ARButton } from "@/components/asset-library/ARButton";
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
@@ -492,7 +494,7 @@ export default function AssetDetailPage() {
           <div className="flex flex-col lg:flex-row gap-4 sm:gap-6 p-2 sm:p-4 md:p-6">
             {/* Left Side - Model Viewer */}
             <div className="flex flex-col gap-4 h-full w-full lg:w-2/3">
-              <div className="w-full h-[400px] sm:h-[500px] md:h-[600px] lg:h-[700px]">
+              <div className="w-full h-[400px] sm:h-[500px] md:h-[600px] lg:h-[700px] relative">
                 {asset.glb_link ? (
                   <ModelViewer
                     modelUrl={asset.glb_link}
@@ -515,6 +517,19 @@ export default function AssetDetailPage() {
                 ) : (
                   <div className="w-full h-full rounded-lg bg-muted flex items-center justify-center">
                     <ImageIcon className="h-16 w-16 text-muted-foreground" />
+                  </div>
+                )}
+                {/* AR Button Overlay */}
+                {asset.glb_link && (
+                  <div className="absolute top-4 right-4 z-10">
+                    <ARButton
+                      assetId={asset.id}
+                      glbUrl={asset.glb_link}
+                      productName={asset.product_name}
+                      variant="default"
+                      size="default"
+                      className="shadow-lg hover:shadow-xl transition-shadow bg-primary text-primary-foreground hover:bg-primary/90"
+                    />
                   </div>
                 )}
               </div>
@@ -961,6 +976,13 @@ export default function AssetDetailPage() {
                       </div>
                     </div>
                   )}
+
+                  {/* Generated Scenes Section */}
+                  <RelatedScenesSection
+                    articleId={asset.article_id}
+                    modelUrl={asset.glb_link}
+                    productName={asset.product_name}
+                  />
                 </div>
               )}
 

@@ -4,10 +4,12 @@ import { useEffect, useRef } from "react";
 
 interface ModelViewerProps {
   modelUrl: string;
+  cameraAngle?: string;
 }
 
-export function ModelViewer({ modelUrl }: ModelViewerProps) {
+export function ModelViewer({ modelUrl, cameraAngle }: ModelViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const modelViewerRef = useRef<any>(null);
 
   useEffect(() => {
     // Dynamically load the model-viewer script once on component mount
@@ -33,10 +35,8 @@ export function ModelViewer({ modelUrl }: ModelViewerProps) {
     const modelViewer = document.createElement("model-viewer");
     modelViewer.setAttribute("src", modelUrl);
     modelViewer.setAttribute("alt", "Generated 3D model");
-    modelViewer.setAttribute("auto-rotate", "");
+    // Auto-rotate disabled - model stays still for better preview
     modelViewer.setAttribute("camera-controls", "");
-    // Slow down the auto-rotate speed
-    modelViewer.setAttribute("rotation-per-second", "15deg");
     // Remove any custom camera orbit or field-of-view settings to use defaults
     // Add specific visual settings
     modelViewer.setAttribute(
@@ -50,6 +50,21 @@ export function ModelViewer({ modelUrl }: ModelViewerProps) {
     modelViewer.style.width = "100%";
     modelViewer.style.height = "100%";
 
+    // Set initial camera angle if provided
+    if (cameraAngle) {
+      modelViewer.setAttribute("camera-orbit", cameraAngle);
+    }
+
+    // Store reference to model-viewer
+    modelViewerRef.current = modelViewer;
+
+    // Ensure auto-rotate is disabled after load
+    modelViewer.addEventListener("load", () => {
+      if (modelViewerRef.current) {
+        (modelViewerRef.current as any).autoRotate = false;
+      }
+    });
+
     // Append the model-viewer to the container
     containerRef.current.appendChild(modelViewer);
 
@@ -58,8 +73,30 @@ export function ModelViewer({ modelUrl }: ModelViewerProps) {
       if (containerRef.current) {
         containerRef.current.innerHTML = "";
       }
+      modelViewerRef.current = null;
     };
   }, [modelUrl]);
+
+  // Update camera angle when it changes
+  useEffect(() => {
+    if (modelViewerRef.current && cameraAngle) {
+      // Use model-viewer's camera API to smoothly animate to the new position
+      try {
+        if (modelViewerRef.current.cameraOrbit !== undefined) {
+          modelViewerRef.current.cameraOrbit = cameraAngle;
+        } else {
+          // Fallback to setting attribute if API is not available
+          modelViewerRef.current.setAttribute("camera-orbit", cameraAngle);
+          // Trigger a render update
+          modelViewerRef.current.dispatchEvent(new Event("camera-change"));
+        }
+        //eslint-disable-next-line @typescript-eslint/no-unused-vars
+      } catch (error) {
+        // If camera API fails, just update the attribute
+        modelViewerRef.current.setAttribute("camera-orbit", cameraAngle);
+      }
+    }
+  }, [cameraAngle]);
 
   if (!modelUrl) {
     return (

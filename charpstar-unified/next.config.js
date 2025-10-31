@@ -14,6 +14,7 @@ const nextConfig = {
       "cdn.charpstar.net",
       "tpamckewerybqzhhhqqp.supabase.co",
       "localhost",
+      "res.cloudinary.com",
     ],
   },
 };

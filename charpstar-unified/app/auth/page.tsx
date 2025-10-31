@@ -66,6 +66,23 @@ export default function AuthPage() {
 
       if (error) throw error;
 
+      // Track login
+      try {
+        await fetch("/api/analytics/client-activities", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            activity_type: "login",
+            activity_data: {},
+          }),
+        });
+      } catch (analyticsError) {
+        // Don't fail login if analytics fails
+        console.warn("Failed to track login:", analyticsError);
+      }
+
       router.push("/dashboard");
     } catch (err: any) {
       console.error("Login error:", err);

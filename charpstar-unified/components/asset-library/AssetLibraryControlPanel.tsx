@@ -291,14 +291,19 @@ export const AssetLibraryControlPanel: React.FC<
                 className="pl-10 pr-10 h-10 bg-muted/50 border-border/50 focus:bg-background transition-colors"
               />
               {localSearchValue && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleClearSearch}
-                  className="absolute right-1 top-1/2 transform -translate-y-1/2 h-8 w-8 p-0 hover:bg-muted"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
+                <>
+                  <span className="absolute right-10 top-1/2 transform -translate-y-1/2 text-sm text-muted-foreground">
+                    Press Enter to search..
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleClearSearch}
+                    className="absolute right-1 top-1/2 transform -translate-y-1/2 h-8 w-8 p-0 hover:bg-muted"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </>
               )}
             </div>
           </div>

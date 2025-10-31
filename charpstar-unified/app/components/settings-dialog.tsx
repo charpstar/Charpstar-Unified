@@ -1734,7 +1734,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                 </div>
               </Tabs>
             ) : (
-              <div className="flex-1 flex items-center justify-center">
+              <div className="flex-1 flex items-center justify-center ">
                 <div className="flex items-center justify-center gap-2 text-muted-foreground">
                   <div className="h-5 w-5 animate-spin rounded-full border-b-2 border-current" />
                   Loading...

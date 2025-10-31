@@ -79,7 +79,7 @@ export default function ClientDocumentationPage() {
                   The CharpstAR script automatically detects device and browser
                   support for our AR and 3D services. This means you can add the
                   integration code to all your product pages, regardless of
-                  whether they&apos;re currently ready for 3D/AR viewing.
+                  whether theyre currently ready for 3D/AR viewing.
                 </p>
                 <div className="bg-card/60 backdrop-blur-sm p-6 rounded-xl border border-border/40 shadow-sm">
                   <h4 className="font-semibold text-foreground mb-4 flex items-center gap-2">

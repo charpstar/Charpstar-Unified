@@ -9,6 +9,9 @@ interface ResultDisplayProps {
   upscaledImages?: string[];
   showComparison?: boolean;
   onReset: () => void;
+  imageFormat?: string;
+  customWidth?: string;
+  customHeight?: string;
 }
 
 const ResultDisplay: React.FC<ResultDisplayProps> = ({
@@ -16,9 +19,32 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
   upscaledImages,
   showComparison,
   onReset,
+  imageFormat = "square",
+  customWidth = "1080",
+  customHeight = "1080",
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isImageLoading, setIsImageLoading] = useState(true);
+
+  // Get dimensions based on image format
+  const getImageDimensions = () => {
+    if (imageFormat === "custom") {
+      return `${customWidth}x${customHeight}`;
+    }
+
+    const formatDimensions = {
+      square: "1080x1080",
+      instagram_story: "1080x1920",
+      instagram_reel: "1080x1920",
+      facebook_cover: "1920x1080",
+      pinterest: "1080x1620",
+    };
+
+    return (
+      formatDimensions[imageFormat as keyof typeof formatDimensions] ||
+      "1080x1080"
+    );
+  };
 
   const imageData = images[0]; // Single image
   // Check if it's already a URL or base64 data
@@ -124,25 +150,25 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
 
   return (
     <>
-      <div className="w-full h-full flex flex-col items-center glass-card p-6 rounded-2xl shadow-2xl animate-fade-in overflow-hidden">
-        <h2 className="text-2xl sm:text-3xl font-bold text-foreground mb-2">
+      <div className="w-full h-full flex flex-col items-center p-3 sm:p-6 rounded-2xl shadow-2xl animate-fade-in overflow-hidden">
+        <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-foreground mb-2 text-center">
           {showComparison
             ? "Your AI-Upscaled Product Render is Ready!"
             : "Your Premium Product Render is Ready!"}
         </h2>
-        <p className="text-sm text-muted-foreground mb-6">
+        <p className="text-xs sm:text-sm text-muted-foreground mb-4 sm:mb-6 text-center px-2">
           {showComparison
-            ? "High-quality AI-upscaled product render (4096x2048) generated and ready for download"
+            ? `High-quality AI-upscaled product render (${getImageDimensions()}) generated and ready for download`
             : "High-quality product render generated and ready for download"}
         </p>
 
         {showComparison && upscaledImageUrl ? (
           // Show only the upscaled image
-          <div className="w-full max-w-4xl mb-6 flex-1 min-h-0 overflow-hidden">
-            <div className="text-center mb-4">
-              <span className="inline-flex items-center gap-2 px-3 py-1 bg-primary/10 text-primary rounded-full text-sm font-medium">
+          <div className="w-full max-w-4xl max-h-[200px] sm:max-h-[300px] mb-4 sm:mb-6 flex-1 min-h-0 overflow-hidden">
+            <div className="text-center mb-2 sm:mb-4">
+              <span className="inline-flex items-center gap-2 px-2 sm:px-3 py-1 bg-primary/10 text-primary rounded-full text-xs sm:text-sm font-medium">
                 <div className="w-2 h-2 rounded-full bg-primary"></div>
-                AI Upscaled (4096x2048)
+                AI Upscaled ({getImageDimensions()})
               </span>
             </div>
 
@@ -191,7 +217,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
         ) : (
           // Single image display
           <div
-            className="w-full max-w-2xl aspect-square rounded-lg overflow-hidden border-2 border-border mb-6 shadow-lg cursor-zoom-in group relative flex-1 min-h-0"
+            className="w-full max-w-2xl aspect-square rounded-lg overflow-hidden border-2 border-border mb-4 sm:mb-6 shadow-lg cursor-zoom-in group relative flex-1 min-h-0"
             onClick={() => setIsModalOpen(true)}
             title="Click to view fullscreen"
             role="button"
@@ -212,13 +238,13 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
           </div>
         )}
 
-        <div className="flex flex-col gap-3 w-full max-w-2xl">
+        <div className="flex flex-col gap-2 sm:gap-3 w-full max-w-2xl">
           {showComparison && upscaledImageUrl ? (
             // Single download button for upscaled image
             <Button
               onClick={handleDownloadUpscaled}
-              className="bg-primary hover:bg-primary/90 text-primary-foreground"
-              size="lg"
+              className="bg-primary hover:bg-primary/90 text-primary-foreground text-sm sm:text-base"
+              size="sm"
               disabled={isImageLoading}
             >
               {isImageLoading ? (
@@ -229,7 +255,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
               ) : (
                 <>
                   <Download className="h-4 w-4 mr-2" />
-                  Download HD Product Render (4096x2048)
+                  Download HD Product Render ({getImageDimensions()})
                 </>
               )}
             </Button>
@@ -237,8 +263,8 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
             // Single download button for single image mode
             <Button
               onClick={handleDownloadOriginal}
-              className="bg-primary hover:bg-primary/90 text-primary-foreground"
-              size="lg"
+              className="bg-primary hover:bg-primary/90 text-primary-foreground text-sm sm:text-base"
+              size="sm"
               disabled={isImageLoading}
             >
               {isImageLoading ? (
@@ -258,8 +284,8 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
           <Button
             onClick={onReset}
             variant="outline"
-            size="lg"
-            className="w-full"
+            size="sm"
+            className="w-full text-sm sm:text-base"
           >
             Create Another Product Render
           </Button>
@@ -267,7 +293,8 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
           {isImageLoading && (
             <div className="text-center mt-2">
               <p className="text-xs text-muted-foreground animate-pulse">
-                Cloudinary is processing your image to 4096x2048 resolution...
+                Cloudinary is processing your image to {getImageDimensions()}{" "}
+                resolution...
               </p>
             </div>
           )}
@@ -297,22 +324,30 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
               height={1920}
               unoptimized
             />
-            <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex gap-2">
+            <div className="absolute bottom-2 sm:bottom-4 left-1/2 transform -translate-x-1/2 flex gap-1 sm:gap-2">
               {showComparison && upscaledImageUrl ? (
                 <Button
                   onClick={handleDownloadUpscaled}
-                  className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg"
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg text-xs sm:text-sm"
+                  size="sm"
                 >
-                  <Download className="h-4 w-4 mr-2" />
-                  Download HD (4096x2048)
+                  <Download className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                  <span className="hidden sm:inline">
+                    Download HD ({getImageDimensions()})
+                  </span>
+                  <span className="sm:hidden">Download</span>
                 </Button>
               ) : (
                 <Button
                   onClick={handleDownloadOriginal}
-                  className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg"
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg text-xs sm:text-sm"
+                  size="sm"
                 >
-                  <Download className="h-4 w-4 mr-2" />
-                  Download
+                  <Download className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                  <span className="hidden sm:inline">
+                    Download HD ({getImageDimensions()})
+                  </span>
+                  <span className="sm:hidden">Download</span>
                 </Button>
               )}
             </div>
@@ -324,4 +359,3 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
 };
 
 export default ResultDisplay;
-

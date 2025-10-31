@@ -9,6 +9,7 @@ import { useDateRange } from "@/contexts/DateRangeContext";
 import { useAnalyticsCheck } from "@/lib/analyticsCheck";
 import { NotificationBell } from "@/components/ui/feedback/notification-bell";
 import { Badge } from "@/components/ui/feedback";
+import { RoleSwitcher } from "./role-switcher";
 
 import { useState, useEffect } from "react";
 import type { DateRange } from "react-day-picker";
@@ -150,6 +151,9 @@ export default function SiteHeader() {
         </Badge>
 
         <div className="ml-auto flex items-center gap-2">
+          {/* Role Switcher - Show if user has multiple allowed roles */}
+          <RoleSwitcher />
+
           {/* Report Bug Button */}
           <Button
             variant="outline"

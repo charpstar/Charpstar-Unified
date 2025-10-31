@@ -87,47 +87,53 @@ export function UserForm({
         />
       </div>
 
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="role" className="text-sm text-foreground">
-          Role
-        </Label>
-        <Select
-          value={formData.role}
-          onValueChange={(value: "admin" | "client" | "user") =>
-            setFormData((prev) => ({ ...prev, role: value }))
-          }
-          disabled={isLoading}
-        >
-          <SelectTrigger className="w-full bg-muted text-foreground rounded-[var(--radius)] border border-input focus:ring-2 focus:ring-ring transition cursor-pointer">
-            <SelectValue placeholder="Select a role" />
-          </SelectTrigger>
-          <SelectContent className="bg-popover text-popover-foreground rounded-[var(--radius)] border border-border shadow-md">
-            <SelectItem
-              value="user"
-              className="cursor-pointer hover:bg-accent hover:text-accent-foreground rounded-[var(--radius)]"
-            >
-              User{" "}
-              <span className="text-muted-foreground ml-2">(Basic access)</span>
-            </SelectItem>
-            <SelectItem
-              value="client"
-              className="cursor-pointer hover:bg-accent hover:text-accent-foreground rounded-[var(--radius)]"
-            >
-              Client{" "}
-              <span className="text-muted-foreground ml-2">
-                (Client features)
-              </span>
-            </SelectItem>
-            <SelectItem
-              value="admin"
-              className="cursor-pointer hover:bg-accent hover:text-accent-foreground rounded-[var(--radius)]"
-            >
-              Admin{" "}
-              <span className="text-muted-foreground ml-2">(Full access)</span>
-            </SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+      {!isEditMode && (
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="role" className="text-sm text-foreground">
+            Role
+          </Label>
+          <Select
+            value={formData.role}
+            onValueChange={(value: "admin" | "client" | "user") =>
+              setFormData((prev) => ({ ...prev, role: value }))
+            }
+            disabled={isLoading}
+          >
+            <SelectTrigger className="w-full bg-muted text-foreground rounded-[var(--radius)] border border-input focus:ring-2 focus:ring-ring transition cursor-pointer">
+              <SelectValue placeholder="Select a role" />
+            </SelectTrigger>
+            <SelectContent className="bg-popover text-popover-foreground rounded-[var(--radius)] border border-border shadow-md">
+              <SelectItem
+                value="user"
+                className="cursor-pointer hover:bg-accent hover:text-accent-foreground rounded-[var(--radius)]"
+              >
+                User{" "}
+                <span className="text-muted-foreground ml-2">
+                  (Basic access)
+                </span>
+              </SelectItem>
+              <SelectItem
+                value="client"
+                className="cursor-pointer hover:bg-accent hover:text-accent-foreground rounded-[var(--radius)]"
+              >
+                Client{" "}
+                <span className="text-muted-foreground ml-2">
+                  (Client features)
+                </span>
+              </SelectItem>
+              <SelectItem
+                value="admin"
+                className="cursor-pointer hover:bg-accent hover:text-accent-foreground rounded-[var(--radius)]"
+              >
+                Admin{" "}
+                <span className="text-muted-foreground ml-2">
+                  (Full access)
+                </span>
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      )}
 
       {!isEditMode && (
         <div className="flex flex-col gap-2">
