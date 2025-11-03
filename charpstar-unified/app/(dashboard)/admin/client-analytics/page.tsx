@@ -1,3 +1,14 @@
+/**
+ * ⚠️ DEPRECATED - THIS PAGE IS NO LONGER USED
+ *
+ * This Client Analytics page has been merged into the Admin Analytics page (/admin/analytics).
+ * All client analytics functionality is now available through the "Client Analytics" tab
+ * in the Admin Analytics dashboard.
+ *
+ * This file is kept for reference only and should not be accessed directly.
+ * Navigation to this page has been removed from the sidebar.
+ */
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -317,7 +328,7 @@ export default function ClientAnalyticsPage() {
             <div className="grid gap-4 md:grid-cols-2">
               <Card>
                 <CardHeader>
-                  <CardTitle>Usage Over Time</CardTitle>
+                  <CardTitle>Render Scene Usage Over Time</CardTitle>
                   <CardDescription>
                     Renders and saves over the selected time period
                   </CardDescription>

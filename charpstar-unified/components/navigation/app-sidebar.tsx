@@ -13,11 +13,9 @@ import {
   MessageSquare,
   DollarSign,
   Bell,
-  Building2,
   Palette,
   HelpCircle,
   Bug,
-  ShieldCheck,
   Layers,
   Sparkles,
   BarChart3,
@@ -249,40 +247,14 @@ export default function AppSidebar({
             icon: Factory,
             children: [
               {
-                title: "Company info",
-                url: "/admin/clients",
-                icon: Building2,
-              },
-              {
                 title: "Users",
                 url: "/users",
                 icon: Users,
-              },
-
-              {
-                title: "Clients",
-                url: "/production/clients",
-                icon: Building2,
-              },
-              {
-                title: "Onboarding",
-                url: "/onboarding",
-                icon: Users,
-              },
-              {
-                title: "Cost Tracking",
-                url: "/production/cost-tracking",
-                icon: DollarSign,
               },
               {
                 title: "Invoice Review",
                 url: "/production/invoice-review",
                 icon: FileText,
-              },
-              {
-                title: "QA Statistics",
-                url: "/qa-statistics",
-                icon: ShieldCheck,
               },
               {
                 title: "Pending Replies",
@@ -317,8 +289,8 @@ export default function AppSidebar({
             icon: Bug,
           },
           {
-            title: "Client Analytics",
-            url: "/admin/client-analytics",
+            title: "Analytics",
+            url: "/admin/analytics",
             icon: BarChart3,
           },
         ]
@@ -380,15 +352,13 @@ export default function AppSidebar({
     Dashboard: 0,
     // Admin
     Production: 10,
-    "Client information": 20,
-    Onboarding: 30,
+    Analytics: 15,
     "Create Users": 40,
     Users: 45,
     "Cost Tracking": 50,
 
     // General
     "3D Editor": 60,
-    Analytics: 70,
     "Asset Library": 20, // Moved above Scene Render
     "My 3D Models": 20, // Same order as Asset Library for admin users
     FAQ: 999,

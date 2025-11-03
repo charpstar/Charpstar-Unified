@@ -104,6 +104,30 @@ const getPriorityClass = (priority: number): string => {
   return "priority-low";
 };
 
+// Client-specific priority labels: AJ supports 1..5 (Low, Medium, High, Flex, Express)
+const getPriorityLabelForClient = (
+  priority: number,
+  client?: string | null
+): string => {
+  if ((client || "").toUpperCase() === "AJ") {
+    switch (priority) {
+      case 1:
+        return "Low";
+      case 2:
+        return "Medium";
+      case 3:
+        return "High";
+      case 4:
+        return "Flex";
+      case 5:
+        return "Express";
+      default:
+        return "Medium";
+    }
+  }
+  return getPriorityLabel(priority as 1 | 2 | 3);
+};
+
 // Helper function to get row styling based on status
 const getRowStyling = (status: string): { base: string; hover: string } => {
   switch (status) {
@@ -1246,15 +1270,18 @@ export default function ReviewDashboardPage() {
                                         asset.priority || 2
                                       )}`}
                                     >
-                                      {getPriorityLabel(asset.priority || 2)}
+                                      {getPriorityLabelForClient(
+                                        asset.priority || 2,
+                                        asset.client
+                                      )}
                                     </span>
                                   </SelectTrigger>
                                   <SelectContent>
                                     <SelectItem
-                                      value="1"
+                                      value="3"
                                       className="dark:text-foreground"
                                     >
-                                      High
+                                      Low
                                     </SelectItem>
                                     <SelectItem
                                       value="2"
@@ -1263,11 +1290,27 @@ export default function ReviewDashboardPage() {
                                       Medium
                                     </SelectItem>
                                     <SelectItem
-                                      value="3"
+                                      value="1"
                                       className="dark:text-foreground"
                                     >
-                                      Low
+                                      High
                                     </SelectItem>
+                                    {asset.client?.toUpperCase() === "AJ" && (
+                                      <>
+                                        <SelectItem
+                                          value="4"
+                                          className="dark:text-foreground"
+                                        >
+                                          Flex
+                                        </SelectItem>
+                                        <SelectItem
+                                          value="5"
+                                          className="dark:text-foreground"
+                                        >
+                                          Express
+                                        </SelectItem>
+                                      </>
+                                    )}
                                   </SelectContent>
                                 </Select>
                               </div>

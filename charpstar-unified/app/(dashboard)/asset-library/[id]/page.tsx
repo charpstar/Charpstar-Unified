@@ -913,6 +913,14 @@ export default function AssetDetailPage() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                       <div className="space-y-1">
                         <p className="text-xs sm:text-sm font-medium">
+                          Article ID
+                        </p>
+                        <p className="text-xs sm:text-sm text-muted-foreground">
+                          {asset.article_id || "Not specified"}
+                        </p>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-xs sm:text-sm font-medium">
                           Dimensions
                         </p>
                         <p className="text-xs sm:text-sm text-muted-foreground">

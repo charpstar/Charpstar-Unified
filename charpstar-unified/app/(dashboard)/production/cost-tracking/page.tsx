@@ -1,3 +1,14 @@
+/**
+ * ⚠️ DEPRECATED - THIS PAGE IS NO LONGER USED
+ *
+ * This Cost Tracking page has been merged into the Admin Analytics page (/admin/analytics).
+ * All cost tracking functionality is now available through the "Cost Tracking" tab
+ * in the Admin Analytics dashboard.
+ *
+ * This file is kept for reference only and should not be accessed directly.
+ * Navigation to this page has been removed from the sidebar.
+ */
+
 "use client";
 
 import React, { useState, useEffect } from "react";

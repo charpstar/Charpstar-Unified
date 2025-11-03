@@ -1,3 +1,14 @@
+/**
+ * ⚠️ DEPRECATED - THIS PAGE IS NO LONGER USED
+ *
+ * This admin/clients page has been merged into the Users page (/users).
+ * All company management functionality is now available through the "Companies"
+ * tab in the Users page, which is accessible to both admin and production roles.
+ *
+ * This file is kept for reference only and should not be accessed directly.
+ * Navigation to this page has been removed from the sidebar.
+ */
+
 "use client";
 
 import { useState, useEffect } from "react";

@@ -119,6 +119,31 @@ const getPriorityClass = (priority: number): string => {
   return "priority-low";
 };
 
+// Client-specific priority labels: AJ supports 1..5 (Low, Medium, High, Flex, Express)
+const getPriorityLabelForClient = (
+  priority: number,
+  client?: string | null
+): string => {
+  if ((client || "").toUpperCase() === "AJ") {
+    switch (priority) {
+      case 1:
+        return "Low";
+      case 2:
+        return "Medium";
+      case 3:
+        return "High";
+      case 4:
+        return "Flex";
+      case 5:
+        return "Express";
+      default:
+        return "Medium";
+    }
+  }
+  // Fallback to global mapping (1..3)
+  return getPriorityLabel(priority as 1 | 2 | 3);
+};
+
 // Helper function to get status-based row color class
 const getStatusRowClass = (status: string): string => {
   switch (status) {
@@ -185,7 +210,7 @@ const getStatusLabelText = (status: string): string => {
     case "client_revision":
       return "Client Revision";
     case "approved":
-      return "Approved";
+      return "New Upload";
     case "approved_by_client":
       return "Approved by Client";
     case "delivered_by_artist":
@@ -4056,9 +4081,10 @@ export default function AdminReviewPage() {
                                               .priority || 2
                                           )}`}
                                         >
-                                          {getPriorityLabel(
+                                          {getPriorityLabelForClient(
                                             assignment.onboarding_assets
-                                              .priority || 2
+                                              .priority || 2,
+                                            assignment.onboarding_assets.client
                                           )}
                                         </span>
                                         {updatingPriorities.has(
@@ -4068,11 +4094,22 @@ export default function AdminReviewPage() {
                                         ) : null}
                                       </SelectTrigger>
                                       <SelectContent>
-                                        <SelectItem value="1">High</SelectItem>
+                                        <SelectItem value="3">Low</SelectItem>
                                         <SelectItem value="2">
                                           Medium
                                         </SelectItem>
-                                        <SelectItem value="3">Low</SelectItem>
+                                        <SelectItem value="1">High</SelectItem>
+                                        {assignment.onboarding_assets.client?.toUpperCase() ===
+                                          "AJ" && (
+                                          <>
+                                            <SelectItem value="4">
+                                              Flex
+                                            </SelectItem>
+                                            <SelectItem value="5">
+                                              Express
+                                            </SelectItem>
+                                          </>
+                                        )}
                                       </SelectContent>
                                     </Select>
                                   </TableCell>
@@ -4165,7 +4202,10 @@ export default function AdminReviewPage() {
                                                 .status === "client_revision"
                                             ? "Sent for Revision"
                                             : assignment.onboarding_assets
-                                                .status}
+                                                  .status === "approved"
+                                              ? "New Upload"
+                                              : assignment.onboarding_assets
+                                                  .status}
                                     </Badge>
                                   </TableCell>
                                   <TableCell className="text-left">
@@ -4476,22 +4516,41 @@ export default function AdminReviewPage() {
                                 asset.priority || 2
                               )}`}
                             >
-                              {getPriorityLabel(asset.priority || 2)}
+                              {getPriorityLabelForClient(
+                                asset.priority || 2,
+                                asset.client
+                              )}
                             </span>
                             {updatingPriorities.has(asset.id) ? (
                               <div className="ml-1 sm:ml-2 animate-spin rounded-full h-2.5 w-2.5 sm:h-3 sm:w-3 border-b-2 border-blue-600 cursor-pointer" />
                             ) : null}
                           </SelectTrigger>
                           <SelectContent className="cursor-pointer">
-                            <SelectItem className="cursor-pointer" value="1">
-                              High
+                            <SelectItem className="cursor-pointer" value="3">
+                              Low
                             </SelectItem>
                             <SelectItem className="cursor-pointer" value="2">
                               Medium
                             </SelectItem>
-                            <SelectItem className="cursor-pointer" value="3">
-                              Low
+                            <SelectItem className="cursor-pointer" value="1">
+                              High
                             </SelectItem>
+                            {asset.client?.toUpperCase() === "AJ" && (
+                              <>
+                                <SelectItem
+                                  className="cursor-pointer"
+                                  value="4"
+                                >
+                                  Flex
+                                </SelectItem>
+                                <SelectItem
+                                  className="cursor-pointer"
+                                  value="5"
+                                >
+                                  Express
+                                </SelectItem>
+                              </>
+                            )}
                           </SelectContent>
                         </Select>
                       </TableCell>
@@ -5003,7 +5062,10 @@ export default function AdminReviewPage() {
                                     asset.priority || 2
                                   )}`}
                                 >
-                                  {getPriorityLabel(asset.priority || 2)}
+                                  {getPriorityLabelForClient(
+                                    asset.priority || 2,
+                                    asset.client
+                                  )}
                                 </span>
                                 {updatingPriorities.has(asset.id) ? (
                                   <div className="ml-1 sm:ml-2 animate-spin rounded-full h-2.5 w-2.5 sm:h-3 sm:w-3 border-b-2 border-blue-600 cursor-pointer" />
