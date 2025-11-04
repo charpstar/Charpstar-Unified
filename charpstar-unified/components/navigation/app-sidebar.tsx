@@ -311,6 +311,8 @@ export default function AppSidebar({
             title: "3D Generator",
             url: "/generator",
             icon: Sparkles,
+            disabled: true,
+            tooltip: "Under maintenance",
           },
           {
             title: "Guidelines",
@@ -329,6 +331,11 @@ export default function AppSidebar({
   const qaNavItems =
     role === "qa"
       ? [
+          {
+            title: "QA Assignments",
+            url: "/qa-assignments",
+            icon: Package,
+          },
           {
             title: "QA Review",
             url: "/qa-review",
@@ -377,7 +384,8 @@ export default function AppSidebar({
     Guidelines: 15,
     Invoicing: 50,
     // QA
-    "QA Review": 10,
+    "QA Assignments": 10,
+    "QA Review": 12,
   };
 
   const unsortedNavItems = [

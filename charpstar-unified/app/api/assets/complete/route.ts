@@ -140,6 +140,10 @@ export async function POST(request: NextRequest) {
       materials: null, // Will be populated later if needed
       colors: null, // Will be populated later if needed
       glb_status: "completed", // Since it's approved by client
+      // Preserve variation relationships when transferring
+      parent_asset_id: onboardingAsset.parent_asset_id || null,
+      is_variation: onboardingAsset.is_variation || false,
+      variation_index: onboardingAsset.variation_index || null,
     };
 
     // Insert the asset into the assets table
@@ -382,35 +386,55 @@ export async function POST(request: NextRequest) {
             .from("asset_assignments")
             .select(
               `
-            onboarding_assets(id, status, transferred)
+            onboarding_assets(id, status, transferred, qa_team_handles_model, pricing_option_id)
           `
             )
             .eq("allocation_list_id", allocationListId);
 
         if (!listAssetsError && allAssetsInList && allAssetsInList.length > 0) {
+          // Filter out QA-handled models - they don't count toward completion
+          const pricedAssets = allAssetsInList.filter((assignment: any) => {
+            if (!assignment.onboarding_assets) return false;
+            const asset = assignment.onboarding_assets;
+            // Exclude QA-handled models
+            return (
+              !asset.qa_team_handles_model &&
+              asset.pricing_option_id !== "qa_team_handles_model"
+            );
+          });
+
           console.log(
-            `Found ${allAssetsInList.length} assets in list ${allocationListId}:`,
+            `Found ${allAssetsInList.length} assets in list ${allocationListId} (${pricedAssets.length} priced, ${allAssetsInList.length - pricedAssets.length} QA-handled):`,
             allAssetsInList.map((a: any) => ({
               asset_id: a.onboarding_assets?.id,
               status: a.onboarding_assets?.status,
               transferred: a.onboarding_assets?.transferred,
+              qa_handled:
+                a.onboarding_assets?.qa_team_handles_model ||
+                a.onboarding_assets?.pricing_option_id ===
+                  "qa_team_handles_model",
             }))
           );
 
-          // Check if all assets in the list are approved
+          // Check if all priced assets are approved
           // An asset is considered approved if it has approved status OR if it's been transferred to the assets table
-          const allApproved = allAssetsInList.every((assignment: any) => {
-            if (!assignment.onboarding_assets) return false;
-            // If asset has been transferred, it's approved
-            if (assignment.onboarding_assets.transferred === true) return true;
-            // Otherwise, check if status is approved
-            return (
-              assignment.onboarding_assets.status === "approved_by_client" ||
-              assignment.onboarding_assets.status === "approved"
-            );
-          });
+          // If list has no priced assets (only QA-handled), it should never be marked as approved
+          const allApproved =
+            pricedAssets.length > 0 &&
+            pricedAssets.every((assignment: any) => {
+              const asset = assignment.onboarding_assets;
+              // If asset has been transferred, it's approved
+              if (asset.transferred === true) return true;
+              // Otherwise, check if status is approved
+              return (
+                asset.status === "approved_by_client" ||
+                asset.status === "approved"
+              );
+            });
 
-          console.log(`All assets approved: ${allApproved}`);
+          console.log(
+            `All priced assets approved: ${allApproved} (${pricedAssets.length} priced assets checked)`
+          );
 
           if (allApproved) {
             // Update the allocation list to mark it as approved

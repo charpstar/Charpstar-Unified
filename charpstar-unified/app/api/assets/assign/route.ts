@@ -40,6 +40,7 @@ export async function POST(request: NextRequest) {
       bonus,
       allocationName,
       prices,
+      pricingOptions,
       provisionalQA,
     } = await request.json();
 
@@ -153,6 +154,48 @@ export async function POST(request: NextRequest) {
           { error: "Failed to create assignments" },
           { status: 500 }
         );
+      }
+
+      // Update pricing information in onboarding_assets if provided
+      if (pricingOptions && typeof pricingOptions === "object") {
+        for (const assetId of assetIds) {
+          const pricingOptionId = pricingOptions[assetId];
+          const price = prices?.[assetId];
+
+          if (pricingOptionId) {
+            const updateData: {
+              pricing_option_id: string;
+              price?: number;
+              qa_team_handles_model?: boolean;
+            } = {
+              pricing_option_id: pricingOptionId,
+            };
+
+            // Set price if provided
+            if (price !== undefined) {
+              updateData.price = price;
+            }
+
+            // Set QA handling flag if this is the QA option
+            if (pricingOptionId === "qa_team_handles_model") {
+              updateData.qa_team_handles_model = true;
+            }
+
+            // Update the asset
+            const { error: updateError } = await supabaseAdmin
+              .from("onboarding_assets")
+              .update(updateData)
+              .eq("id", assetId);
+
+            if (updateError) {
+              console.error(
+                `Error updating pricing for asset ${assetId}:`,
+                updateError
+              );
+              // Don't fail the entire request, just log the error
+            }
+          }
+        }
       }
 
       // Handle provisional QA assignment if specified

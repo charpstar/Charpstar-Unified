@@ -395,7 +395,7 @@ export async function POST(request: NextRequest) {
                 .from("asset_assignments")
                 .select(
                   `
-                onboarding_assets!inner(id, status)
+                onboarding_assets!inner(id, status, qa_team_handles_model, pricing_option_id)
               `
                 )
                 .eq("allocation_list_id", listId);
@@ -405,13 +405,27 @@ export async function POST(request: NextRequest) {
               allAssetsInList &&
               allAssetsInList.length > 0
             ) {
-              // Check if all assets in the list are approved
-              const allApproved = allAssetsInList.every(
-                (assignment: any) =>
-                  assignment.onboarding_assets.status ===
-                    "approved_by_client" ||
-                  assignment.onboarding_assets.status === "approved"
-              );
+              // Filter out QA-handled models - they don't count toward completion
+              const pricedAssets = allAssetsInList.filter((assignment: any) => {
+                if (!assignment.onboarding_assets) return false;
+                const asset = assignment.onboarding_assets;
+                // Exclude QA-handled models
+                return (
+                  !asset.qa_team_handles_model &&
+                  asset.pricing_option_id !== "qa_team_handles_model"
+                );
+              });
+
+              // Check if all priced assets in the list are approved
+              // If list has no priced assets (only QA-handled), it should never be marked as approved
+              const allApproved =
+                pricedAssets.length > 0 &&
+                pricedAssets.every(
+                  (assignment: any) =>
+                    assignment.onboarding_assets.status ===
+                      "approved_by_client" ||
+                    assignment.onboarding_assets.status === "approved"
+                );
 
               if (allApproved) {
                 // Update the allocation list to mark it as approved
@@ -430,7 +444,7 @@ export async function POST(request: NextRequest) {
                   );
                 } else {
                   console.log(
-                    `✅ Allocation list ${listId} marked as approved - all assets completed`
+                    `✅ Allocation list ${listId} marked as approved - all priced assets completed (${pricedAssets.length} priced, ${allAssetsInList.length - pricedAssets.length} QA-handled excluded)`
                   );
                 }
               }

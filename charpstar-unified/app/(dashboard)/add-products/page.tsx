@@ -15,6 +15,7 @@ import {
 import { Button, Label } from "@/components/ui/display";
 import { Input } from "@/components/ui/inputs";
 import { Badge, Alert, AlertDescription } from "@/components/ui/feedback";
+import { Checkbox } from "@/components/ui/inputs/checkbox";
 import {
   Table,
   TableBody,
@@ -47,6 +48,9 @@ import {
   FileText,
   Link as LinkIcon,
   Trash2,
+  ChevronDown,
+  ChevronRight,
+  Copy,
 } from "lucide-react";
 
 import * as saveAs from "file-saver";
@@ -60,7 +64,77 @@ interface ProductForm {
   subcategory: string;
   references: { type: "url" | "file"; value: string; file?: File }[];
   measurements?: { height: string; width: string; depth: string };
+  is_parent?: boolean;
+  variations?: ProductForm[]; // Array of variation products
+  parent_article_id?: string; // For variations only
+  variation_index?: number; // Index for variations
 }
+
+const STORAGE_KEY = "add-products-cache";
+
+// Helper to serialize products for localStorage (removes File objects)
+const serializeProducts = (products: ProductForm[]): ProductForm[] => {
+  return products.map((product) => ({
+    ...product,
+    references: product.references.map((ref) => ({
+      type: ref.type,
+      value: ref.value,
+      // Don't include file object - it can't be serialized
+      // User will need to re-upload files if they navigate away
+    })),
+    variations: product.variations
+      ? product.variations.map((variation) => ({
+          ...variation,
+          references: variation.references.map((ref) => ({
+            type: ref.type,
+            value: ref.value,
+          })),
+        }))
+      : undefined,
+  }));
+};
+
+// Helper to load from localStorage
+const loadFromStorage = () => {
+  if (typeof window === "undefined") return null;
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      return JSON.parse(stored);
+    }
+  } catch (error) {
+    console.error("Error loading from localStorage:", error);
+  }
+  return null;
+};
+
+// Helper to save to localStorage
+const saveToStorage = (
+  products: ProductForm[],
+  expandedVariations: Set<number>
+) => {
+  if (typeof window === "undefined") return;
+  try {
+    const data = {
+      products: serializeProducts(products),
+      expandedVariations: Array.from(expandedVariations),
+      timestamp: Date.now(),
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  } catch (error) {
+    console.error("Error saving to localStorage:", error);
+  }
+};
+
+// Helper to clear localStorage
+const clearStorage = () => {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch (error) {
+    console.error("Error clearing localStorage:", error);
+  }
+};
 
 export default function AddProductsPage() {
   const user = useUser();
@@ -68,18 +142,85 @@ export default function AddProductsPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [currentBatch, setCurrentBatch] = useState<number>(1);
-  const [products, setProducts] = useState<ProductForm[]>([
-    {
-      article_id: "",
-      product_name: "",
-      product_link: "",
-      cad_file_link: "",
-      category: "",
-      subcategory: "",
-      references: [],
-      measurements: undefined,
-    },
-  ]);
+
+  // Initialize products from localStorage if available
+  const getInitialProducts = (): ProductForm[] => {
+    if (typeof window === "undefined") {
+      return [
+        {
+          article_id: "",
+          product_name: "",
+          product_link: "",
+          cad_file_link: "",
+          category: "",
+          subcategory: "",
+          references: [],
+          measurements: undefined,
+        },
+      ];
+    }
+
+    const cached = loadFromStorage();
+    if (cached && cached.products && cached.products.length > 0) {
+      const cacheAge = Date.now() - (cached.timestamp || 0);
+      const maxAge = 24 * 60 * 60 * 1000; // 24 hours
+
+      if (cacheAge < maxAge) {
+        const hasData = cached.products.some(
+          (p: ProductForm) =>
+            p.article_id.trim() ||
+            p.product_name.trim() ||
+            p.product_link.trim() ||
+            p.references.length > 0
+        );
+
+        if (hasData) {
+          return cached.products;
+        }
+      }
+    }
+
+    return [
+      {
+        article_id: "",
+        product_name: "",
+        product_link: "",
+        cad_file_link: "",
+        category: "",
+        subcategory: "",
+        references: [],
+        measurements: undefined,
+      },
+    ];
+  };
+
+  const [products, setProducts] = useState<ProductForm[]>(getInitialProducts);
+  const hasRestoredRef = useRef(false);
+
+  // Check if we initialized from cache
+  useEffect(() => {
+    const cached = loadFromStorage();
+    if (cached && cached.products && cached.products.length > 0) {
+      const cacheAge = Date.now() - (cached.timestamp || 0);
+      const maxAge = 24 * 60 * 60 * 1000;
+      if (cacheAge < maxAge) {
+        const hasData = cached.products.some(
+          (p: ProductForm) =>
+            p.article_id.trim() ||
+            p.product_name.trim() ||
+            p.product_link.trim() ||
+            p.references.length > 0
+        );
+        if (hasData) {
+          hasRestoredRef.current = true;
+        }
+      }
+    }
+    // Set to true after initial check to allow saving
+    setTimeout(() => {
+      hasRestoredRef.current = true;
+    }, 100);
+  }, []);
   const [isDragOver, setIsDragOver] = useState(false);
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [csvPreview, setCsvPreview] = useState<string[][] | null>(null);
@@ -107,16 +248,128 @@ export default function AddProductsPage() {
   const [editingReferencesIndex, setEditingReferencesIndex] = useState<
     number | null
   >(null);
+  const [editingVariationRef, setEditingVariationRef] = useState<{
+    parentIndex: number;
+    variationIndex: number;
+  } | null>(null);
   const [showReferencesDialog, setShowReferencesDialog] = useState(false);
   const [showViewReferencesDialog, setShowViewReferencesDialog] =
     useState(false);
   const [viewingReferencesIndex, setViewingReferencesIndex] = useState<
     number | null
   >(null);
+  const [viewingVariationRef, setViewingVariationRef] = useState<{
+    parentIndex: number;
+    variationIndex: number;
+  } | null>(null);
   const [recentReferences, setRecentReferences] = useState<
     { type: "url" | "file"; value: string; file?: File }[]
   >([]);
   const [addMultipleProducts, setAddMultipleProducts] = useState("");
+  const [isVariationContracted, setIsVariationContracted] = useState(false);
+  // Initialize expandedVariations from localStorage if available
+  const getInitialExpandedVariations = (): Set<number> => {
+    if (typeof window === "undefined") {
+      return new Set();
+    }
+
+    const cached = loadFromStorage();
+    if (
+      cached &&
+      cached.expandedVariations &&
+      cached.expandedVariations.length > 0
+    ) {
+      return new Set(cached.expandedVariations);
+    }
+
+    return new Set();
+  };
+
+  const [expandedVariations, setExpandedVariations] = useState<Set<number>>(
+    getInitialExpandedVariations
+  );
+  const [showAddVariationsDialog, setShowAddVariationsDialog] = useState(false);
+  const [addVariationsParentIndex, setAddVariationsParentIndex] = useState<
+    number | null
+  >(null);
+  const [variationsCount, setVariationsCount] = useState<string>("1");
+
+  // Show restore notification if data was loaded from cache
+  useEffect(() => {
+    if (!pageLoading && !hasRestoredRef.current) {
+      const cached = loadFromStorage();
+      if (cached && cached.products && cached.products.length > 0) {
+        const cacheAge = Date.now() - (cached.timestamp || 0);
+        const maxAge = 24 * 60 * 60 * 1000; // 24 hours
+
+        if (cacheAge < maxAge) {
+          const hasData = cached.products.some(
+            (p: ProductForm) =>
+              p.article_id.trim() ||
+              p.product_name.trim() ||
+              p.product_link.trim() ||
+              p.references.length > 0
+          );
+
+          if (hasData) {
+            hasRestoredRef.current = true;
+            toast.info("Restored your previous work", {
+              description: "Your product data has been restored from cache.",
+              duration: 4000,
+            });
+          }
+        }
+      }
+      hasRestoredRef.current = true;
+    }
+  }, [pageLoading]);
+
+  // Save to localStorage whenever products or expandedVariations change
+  useEffect(() => {
+    // Skip saving during initial restore
+    if (!hasRestoredRef.current) return;
+
+    // Skip initial empty state
+    if (products.length === 0) return;
+
+    // Check if there's any actual data to save
+    const hasData = products.some(
+      (p) =>
+        p.article_id.trim() ||
+        p.product_name.trim() ||
+        p.product_link.trim() ||
+        p.references.length > 0 ||
+        (p.variations && p.variations.length > 0)
+    );
+
+    if (hasData) {
+      saveToStorage(products, expandedVariations);
+    } else {
+      // Clear storage if form is empty
+      clearStorage();
+    }
+  }, [products, expandedVariations]);
+
+  // Fetch client variation contract status
+  useEffect(() => {
+    const fetchClientVariationStatus = async () => {
+      if (!user?.metadata?.client) return;
+
+      const clientName = Array.isArray(user.metadata.client)
+        ? user.metadata.client[0]
+        : user.metadata.client;
+
+      const { data } = await supabase
+        .from("clients")
+        .select("variation_contracted")
+        .eq("name", clientName)
+        .single();
+
+      setIsVariationContracted(data?.variation_contracted || false);
+    };
+
+    fetchClientVariationStatus();
+  }, [user?.metadata?.client]);
 
   // Helper to check if a reference is an image
   const isImageReference = (ref: {
@@ -313,14 +566,142 @@ export default function AddProductsPage() {
     }
   };
 
+  const copyProduct = (index: number) => {
+    const productToCopy = products[index];
+
+    // Deep copy the product
+    const copiedProduct: ProductForm = {
+      ...productToCopy,
+      article_id: "", // Clear article ID so user has to change it
+      // Deep copy references (without File objects - they'll need to re-upload)
+      references: productToCopy.references.map((ref) => ({
+        type: ref.type,
+        value: ref.value,
+        // Don't copy file objects - user needs to re-upload
+      })),
+      // Deep copy variations if they exist
+      variations: productToCopy.variations
+        ? productToCopy.variations.map((variation) => ({
+            ...variation,
+            article_id: "", // Clear article ID for variations too
+            references: variation.references.map((ref) => ({
+              type: ref.type,
+              value: ref.value,
+            })),
+          }))
+        : undefined,
+      // Reset variation index for copied product
+      variation_index: undefined,
+      parent_article_id: undefined,
+    };
+
+    // Insert the copied product right after the original
+    const updatedProducts = [...products];
+    updatedProducts.splice(index + 1, 0, copiedProduct);
+    setProducts(updatedProducts);
+
+    // If the original product had expanded variations, expand them for the copy too
+    if (
+      productToCopy.is_parent &&
+      productToCopy.variations &&
+      productToCopy.variations.length > 0
+    ) {
+      setExpandedVariations(new Set([...expandedVariations, index + 1]));
+    }
+
+    toast.success("Product row copied", {
+      description: "Remember to update the article ID.",
+      duration: 3000,
+    });
+  };
+
   const updateProduct = (
     index: number,
     field: keyof ProductForm,
-    value: string | number
+    value: string | number | boolean
   ) => {
     const updatedProducts = [...products];
     updatedProducts[index] = { ...updatedProducts[index], [field]: value };
     setProducts(updatedProducts);
+  };
+
+  // Helper to add variations to a parent product
+  const addVariationsToParent = (parentIndex: number, count: number) => {
+    const parent = products[parentIndex];
+    if (!parent) return;
+
+    const currentVariations = parent.variations || [];
+    const startIndex = currentVariations.length + 1;
+
+    const newVariations = Array.from({ length: count }, (_, i) => ({
+      article_id: "",
+      product_name: "",
+      product_link: "",
+      cad_file_link: "",
+      category: parent.category || "",
+      subcategory: parent.subcategory || "",
+      references: [],
+      measurements: undefined,
+      parent_article_id: parent.article_id || "",
+      variation_index: startIndex + i,
+    }));
+
+    const updatedProducts = [...products];
+    updatedProducts[parentIndex] = {
+      ...parent,
+      variations: [...currentVariations, ...newVariations],
+    };
+    setProducts(updatedProducts);
+
+    // Expand variations section if not already expanded
+    if (!expandedVariations.has(parentIndex)) {
+      setExpandedVariations(new Set([...expandedVariations, parentIndex]));
+    }
+  };
+
+  // Helper to remove a variation from a parent
+  const removeVariation = (parentIndex: number, variationIndex: number) => {
+    const updatedProducts = [...products];
+    const parent = updatedProducts[parentIndex];
+    if (!parent?.variations) return;
+
+    parent.variations = parent.variations.filter(
+      (_, i) => i !== variationIndex
+    );
+    // Re-index variations
+    parent.variations.forEach((v, i) => {
+      v.variation_index = i + 1;
+    });
+    setProducts(updatedProducts);
+  };
+
+  // Helper to update a variation
+  const updateVariation = (
+    parentIndex: number,
+    variationIndex: number,
+    field: keyof ProductForm,
+    value: string | number
+  ) => {
+    const updatedProducts = [...products];
+    const parent = updatedProducts[parentIndex];
+    if (!parent?.variations) return;
+
+    parent.variations[variationIndex] = {
+      ...parent.variations[variationIndex],
+      [field]: value,
+    };
+    setProducts(updatedProducts);
+  };
+
+  // Toggle expanded state for variations
+  const toggleVariations = (index: number) => {
+    const newExpanded = new Set(expandedVariations);
+    if (newExpanded.has(index)) {
+      newExpanded.delete(index);
+    } else {
+      newExpanded.add(index);
+    }
+    setExpandedVariations(newExpanded);
   };
 
   const handleSubmit = async () => {
@@ -355,18 +736,31 @@ export default function AddProductsPage() {
         ? user.metadata.client[0]
         : user.metadata.client;
 
-      const productsToInsert = validProducts.map((product) => {
-        // Format measurements if they exist
-        let measurementsString = null;
+      // Declare variables that will be used
+      const insertedProducts: any[] = [];
+      const allValidProducts: ProductForm[] = [];
+
+      // Helper function to format measurements
+      const formatMeasurements = (product: ProductForm) => {
         if (
           product.measurements?.height &&
           product.measurements?.width &&
           product.measurements?.depth
         ) {
-          measurementsString = `${product.measurements.height},${product.measurements.width},${product.measurements.depth}`;
+          return `${product.measurements.height},${product.measurements.width},${product.measurements.depth}`;
         }
+        return null;
+      };
 
-        return {
+      // Process products: handle parents with variations separately
+      const parentProducts = validProducts.filter((p) => p.is_parent);
+      const regularProducts = validProducts.filter(
+        (p) => !p.is_parent && !p.parent_article_id
+      );
+
+      // Process regular (non-parent) products first
+      if (regularProducts.length > 0) {
+        const regularProductsToInsert = regularProducts.map((product) => ({
           client: clientName,
           batch: currentBatch,
           article_id: product.article_id.trim(),
@@ -375,46 +769,154 @@ export default function AddProductsPage() {
           glb_link: product.cad_file_link.trim() || null,
           category: product.category.trim() || null,
           subcategory: product.subcategory.trim() || null,
-          reference: null, // Will be updated if references exist
-          measurements: measurementsString,
-          priority: 2, // Default medium priority
+          reference: null,
+          measurements: formatMeasurements(product),
+          priority: 2,
           status: "not_started",
           delivery_date: null,
+          is_variation: false,
+          parent_asset_id: null,
+          variation_index: null,
+        }));
+
+        const { data: regularInserted, error: regularError } = await supabase
+          .from("onboarding_assets")
+          .insert(regularProductsToInsert)
+          .select("id, article_id");
+
+        if (regularError) {
+          console.error("Error inserting regular products:", regularError);
+          toast.error("Failed to add products. Please try again.", {
+            id: loadingToast,
+          });
+          setLoading(false);
+          return;
+        }
+
+        insertedProducts.push(...(regularInserted || []));
+        allValidProducts.push(...regularProducts);
+      }
+
+      // Process parent products with their variations
+      for (const parentProduct of parentProducts) {
+        // Format measurements for parent
+        const parentMeasurementsString = formatMeasurements(parentProduct);
+
+        // Insert parent first
+        const parentToInsert = {
+          client: clientName,
+          batch: currentBatch,
+          article_id: parentProduct.article_id.trim(),
+          product_name: parentProduct.product_name.trim(),
+          product_link: parentProduct.product_link.trim(),
+          glb_link: parentProduct.cad_file_link.trim() || null,
+          category: parentProduct.category.trim() || null,
+          subcategory: parentProduct.subcategory.trim() || null,
+          reference: null,
+          measurements: parentMeasurementsString,
+          priority: 2,
+          status: "not_started",
+          delivery_date: null,
+          is_variation: false,
+          parent_asset_id: null,
+          variation_index: null,
         };
-      });
 
-      const { data: insertedProducts, error } = await supabase
-        .from("onboarding_assets")
-        .insert(productsToInsert)
-        .select("id, article_id");
+        const { data: parentAsset, error: parentError } = await supabase
+          .from("onboarding_assets")
+          .insert(parentToInsert)
+          .select("id, article_id")
+          .single();
 
-      if (error) {
-        console.error("Error inserting products:", error);
-        toast.error("Failed to add products. Please try again.", {
-          id: loadingToast,
-        });
-        return;
+        if (parentError || !parentAsset) {
+          console.error("Error inserting parent product:", parentError);
+          toast.error(
+            `Failed to add parent product "${parentProduct.product_name}". Please try again.`,
+            { id: loadingToast }
+          );
+          setLoading(false);
+          return;
+        }
+
+        insertedProducts.push(parentAsset);
+        allValidProducts.push(parentProduct);
+
+        // Insert variations if any
+        const variations = parentProduct.variations || [];
+        const validVariations = variations.filter(
+          (v) =>
+            v.article_id.trim() &&
+            v.product_name.trim() &&
+            v.product_link.trim()
+        );
+
+        if (validVariations.length > 0) {
+          const variationsToInsert = validVariations.map((variation) => ({
+            client: clientName,
+            batch: currentBatch,
+            article_id: variation.article_id.trim(),
+            product_name: variation.product_name.trim(),
+            product_link: variation.product_link.trim(),
+            glb_link: variation.cad_file_link.trim() || null,
+            category: variation.category.trim() || null,
+            subcategory: variation.subcategory.trim() || null,
+            reference: null,
+            measurements: formatMeasurements(variation),
+            priority: 2,
+            status: "not_started",
+            delivery_date: null,
+            is_variation: true,
+            parent_asset_id: parentAsset.id,
+            variation_index: variation.variation_index || null,
+          }));
+
+          const { data: variationsData, error: variationsError } =
+            await supabase
+              .from("onboarding_assets")
+              .insert(variationsToInsert)
+              .select("id, article_id");
+
+          if (variationsError) {
+            console.error("Error inserting variations:", variationsError);
+            toast.error(
+              `Failed to add variations for "${parentProduct.product_name}". Please try again.`,
+              { id: loadingToast }
+            );
+            setLoading(false);
+            return;
+          }
+
+          insertedProducts.push(...(variationsData || []));
+          allValidProducts.push(...validVariations);
+        }
       }
 
       // Upload references if any products have them
+      // Need to match products with their inserted IDs correctly (including variations)
+      let productIndex = 0;
       if (
         insertedProducts &&
-        validProducts.some((p) => p.references.length > 0)
+        allValidProducts.some(
+          (p: ProductForm) => p.references && p.references.length > 0
+        )
       ) {
         toast.loading("Uploading references...", {
           id: loadingToast,
           description: "Uploading reference files and URLs",
         });
 
-        for (let i = 0; i < validProducts.length; i++) {
-          const product = validProducts[i];
-          const insertedProduct = insertedProducts[i];
-
-          if (product.references.length > 0 && insertedProduct) {
+        // Process regular products
+        for (const regularProduct of regularProducts) {
+          const insertedProduct = insertedProducts[productIndex];
+          if (
+            regularProduct.references &&
+            regularProduct.references.length > 0 &&
+            insertedProduct
+          ) {
             const referenceUrls: string[] = [];
 
             // Upload files and add URLs
-            for (const ref of product.references) {
+            for (const ref of regularProduct.references) {
               if (ref.type === "file" && ref.file) {
                 try {
                   // Upload file using the same API as AddReferenceDialog (BunnyCDN)
@@ -455,6 +957,125 @@ export default function AddProductsPage() {
                 .eq("id", insertedProduct.id);
             }
           }
+          productIndex++;
+        }
+
+        // Process parent products and their variations
+        let parentStartIndex = regularProducts.length;
+        for (const parentProduct of parentProducts) {
+          const parentInserted = insertedProducts[parentStartIndex];
+          if (
+            parentProduct.references &&
+            parentProduct.references.length > 0 &&
+            parentInserted
+          ) {
+            const referenceUrls: string[] = [];
+
+            for (const ref of parentProduct.references) {
+              if (ref.type === "file" && ref.file) {
+                try {
+                  const formData = new FormData();
+                  formData.append("file", ref.file);
+                  formData.append("client_name", clientName);
+
+                  const response = await fetch("/api/assets/upload-file", {
+                    method: "POST",
+                    body: formData,
+                    credentials: "include",
+                  });
+
+                  if (response.ok) {
+                    const data = await response.json();
+                    if (data.url) {
+                      referenceUrls.push(data.url);
+                    }
+                  } else {
+                    console.error(
+                      "Error uploading reference file:",
+                      await response.text()
+                    );
+                  }
+                } catch (uploadError) {
+                  console.error("Error uploading reference:", uploadError);
+                }
+              } else if (ref.type === "url") {
+                referenceUrls.push(ref.value);
+              }
+            }
+
+            if (referenceUrls.length > 0) {
+              await supabase
+                .from("onboarding_assets")
+                .update({ reference: referenceUrls.join("|||") })
+                .eq("id", parentInserted.id);
+            }
+          }
+
+          // Process variations for this parent
+          const variations = parentProduct.variations || [];
+          const validVariations = variations.filter(
+            (v) =>
+              v.article_id.trim() &&
+              v.product_name.trim() &&
+              v.product_link.trim()
+          );
+
+          parentStartIndex++; // Move past parent
+
+          for (let vIndex = 0; vIndex < validVariations.length; vIndex++) {
+            const variation = validVariations[vIndex];
+            const variationInserted =
+              insertedProducts[parentStartIndex + vIndex];
+
+            if (
+              variation.references &&
+              variation.references.length > 0 &&
+              variationInserted
+            ) {
+              const referenceUrls: string[] = [];
+
+              for (const ref of variation.references) {
+                if (ref.type === "file" && ref.file) {
+                  try {
+                    const formData = new FormData();
+                    formData.append("file", ref.file);
+                    formData.append("client_name", clientName);
+
+                    const response = await fetch("/api/assets/upload-file", {
+                      method: "POST",
+                      body: formData,
+                      credentials: "include",
+                    });
+
+                    if (response.ok) {
+                      const data = await response.json();
+                      if (data.url) {
+                        referenceUrls.push(data.url);
+                      }
+                    } else {
+                      console.error(
+                        "Error uploading reference file:",
+                        await response.text()
+                      );
+                    }
+                  } catch (uploadError) {
+                    console.error("Error uploading reference:", uploadError);
+                  }
+                } else if (ref.type === "url") {
+                  referenceUrls.push(ref.value);
+                }
+              }
+
+              if (referenceUrls.length > 0) {
+                await supabase
+                  .from("onboarding_assets")
+                  .update({ reference: referenceUrls.join("|||") })
+                  .eq("id", variationInserted.id);
+              }
+            }
+          }
+
+          parentStartIndex += validVariations.length; // Move past all variations
         }
       }
 
@@ -463,8 +1084,10 @@ export default function AddProductsPage() {
         await notificationService.sendProductSubmissionNotification({
           client: clientName, // Use the same clientName from above
           batch: currentBatch,
-          productCount: validProducts.length,
-          productNames: validProducts.map((p) => p.product_name),
+          productCount: allValidProducts.length,
+          productNames: allValidProducts.map(
+            (p: ProductForm) => p.product_name
+          ),
           submittedAt: new Date().toISOString(),
         });
       } catch (notificationError) {
@@ -480,16 +1103,30 @@ export default function AddProductsPage() {
         console.warn("Background image collection failed:", error);
       });
 
-      toast.success(
-        ` Successfully added ${validProducts.length} product${validProducts.length === 1 ? "" : "s"} to batch ${currentBatch}!`,
-        {
-          id: loadingToast,
-          description: `Your products are now ready for review.`,
-          duration: 5000,
-        }
-      );
+      // Count parents and variations for success message
+      const parentCount = parentProducts.length;
+      let variationCount = 0;
+      for (const parent of parentProducts) {
+        variationCount += (parent.variations || []).filter(
+          (v) =>
+            v.article_id.trim() &&
+            v.product_name.trim() &&
+            v.product_link.trim()
+        ).length;
+      }
 
-      // Reset form
+      const successMessage =
+        isVariationContracted && parentCount > 0
+          ? `Successfully added ${parentCount} parent product${parentCount === 1 ? "" : "s"} with ${variationCount} variation${variationCount === 1 ? "" : "s"} to batch ${currentBatch}! (Only parents count toward contract)`
+          : `Successfully added ${allValidProducts.length} product${allValidProducts.length === 1 ? "" : "s"} to batch ${currentBatch}!`;
+
+      toast.success(successMessage, {
+        id: loadingToast,
+        description: `Your products are now ready for review.`,
+        duration: 5000,
+      });
+
+      // Reset form and clear cache
       setProducts([
         {
           article_id: "",
@@ -502,6 +1139,8 @@ export default function AddProductsPage() {
           measurements: undefined,
         },
       ]);
+      setExpandedVariations(new Set());
+      clearStorage(); // Clear localStorage after successful submit
 
       // Increment batch number for next use
       setCurrentBatch((prev) => prev + 1);
@@ -990,7 +1629,7 @@ export default function AddProductsPage() {
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div className="container mx-auto ">
       {/* Header */}
       <div className="mb-6">
         <div className="flex items-center gap-4">
@@ -1021,163 +1660,438 @@ export default function AddProductsPage() {
                 Fill in the required fields (marked with *). Optional fields can
                 be left empty.
               </p>
+              {isVariationContracted && (
+                <Alert className="mt-3">
+                  <AlertDescription className="text-xs">
+                    Mark any product as a parent using the checkbox, then add
+                    variations. Only the parent counts toward your contract
+                    limit.
+                  </AlertDescription>
+                </Alert>
+              )}
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-[60px]">#</TableHead>
-                      <TableHead className="min-w-[120px]">
+                      <TableHead className="w-[40px] text-xs">#</TableHead>
+                      {isVariationContracted && (
+                        <TableHead className="w-[160px] text-xs">
+                          Parent & Variations
+                        </TableHead>
+                      )}
+                      <TableHead className="w-[100px] text-xs">
                         Article ID *
                       </TableHead>
-                      <TableHead className="min-w-[150px]">
+                      <TableHead className="w-[130px] text-xs">
                         Product Name *
                       </TableHead>
-                      <TableHead className="min-w-[200px]">
+                      <TableHead className="w-[150px] text-xs">
                         Product Link *
                       </TableHead>
-                      <TableHead className="min-w-[200px]">
+                      <TableHead className="w-[150px] text-xs">
                         CAD/File Link
                       </TableHead>
-                      <TableHead className="min-w-[120px]">Category</TableHead>
-                      <TableHead className="min-w-[120px]">
+                      <TableHead className="w-[100px] text-xs">
+                        Category
+                      </TableHead>
+                      <TableHead className="w-[100px] text-xs">
                         Subcategory
                       </TableHead>
-                      <TableHead className="min-w-[100px]">
+                      <TableHead className="w-[120px] text-xs">
                         References
                       </TableHead>
-                      <TableHead className="w-[60px]">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {products.map((product, index) => (
-                      <TableRow key={index}>
-                        <TableCell className="font-medium">
-                          {index + 1}
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            value={product.article_id}
-                            onChange={(e) =>
-                              updateProduct(index, "article_id", e.target.value)
-                            }
-                            placeholder="ART001"
-                            className="h-9 text-sm"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            value={product.product_name}
-                            onChange={(e) =>
-                              updateProduct(
-                                index,
-                                "product_name",
-                                e.target.value
-                              )
-                            }
-                            placeholder="Product Name"
-                            className="h-9 text-sm"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            value={product.product_link}
-                            onChange={(e) =>
-                              updateProduct(
-                                index,
-                                "product_link",
-                                e.target.value
-                              )
-                            }
-                            placeholder="https://..."
-                            className="h-9 text-sm"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            value={product.cad_file_link}
-                            onChange={(e) =>
-                              updateProduct(
-                                index,
-                                "cad_file_link",
-                                e.target.value
-                              )
-                            }
-                            placeholder="https://..."
-                            className="h-9 text-sm"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            value={product.category}
-                            onChange={(e) =>
-                              updateProduct(index, "category", e.target.value)
-                            }
-                            placeholder="Furniture"
-                            className="h-9 text-sm"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            value={product.subcategory}
-                            onChange={(e) =>
-                              updateProduct(
-                                index,
-                                "subcategory",
-                                e.target.value
-                              )
-                            }
-                            placeholder="Chairs"
-                            className="h-9 text-sm"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex gap-1">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                setEditingReferencesIndex(index);
-                                setShowReferencesDialog(true);
-                              }}
-                              className="h-9 text-xs cursor-pointer"
-                            >
-                              <FileText className="h-3 w-3 mr-1" />
-                              {product.references.length > 0
-                                ? product.references.length
-                                : "Add"}
-                            </Button>
-                            {product.references.length > 0 && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
-                                  setViewingReferencesIndex(index);
-                                  setShowViewReferencesDialog(true);
-                                }}
-                                className="h-9 text-xs cursor-pointer"
-                                title="View References"
-                              >
-                                <Eye className="h-3 w-3" />
-                              </Button>
+                    {products.map((product, index) => {
+                      const hasVariations =
+                        product.variations && product.variations.length > 0;
+                      const isExpanded = expandedVariations.has(index);
+
+                      return (
+                        <>
+                          <TableRow
+                            key={index}
+                            className={product.is_parent ? "bg-primary/5" : ""}
+                          >
+                            <TableCell className="font-medium text-xs">
+                              {index + 1}
+                            </TableCell>
+                            {isVariationContracted && (
+                              <TableCell className="p-2">
+                                <div className="flex flex-col gap-1">
+                                  <div className="flex items-center gap-1">
+                                    <Checkbox
+                                      checked={product.is_parent || false}
+                                      onCheckedChange={(checked) => {
+                                        const isChecked = checked === true;
+                                        const updatedProducts = [...products];
+                                        updatedProducts[index] = {
+                                          ...updatedProducts[index],
+                                          is_parent: isChecked,
+                                          // Remove variations if unchecking parent
+                                          variations: isChecked
+                                            ? updatedProducts[index]
+                                                .variations || []
+                                            : undefined,
+                                        };
+                                        setProducts(updatedProducts);
+
+                                        if (isChecked && !hasVariations) {
+                                          setExpandedVariations(
+                                            new Set([
+                                              ...expandedVariations,
+                                              index,
+                                            ])
+                                          );
+                                        } else if (!isChecked) {
+                                          // Remove from expanded set if unchecking
+                                          const newExpanded = new Set(
+                                            expandedVariations
+                                          );
+                                          newExpanded.delete(index);
+                                          setExpandedVariations(newExpanded);
+                                        }
+                                      }}
+                                    />
+                                    {product.is_parent && (
+                                      <Badge
+                                        variant="outline"
+                                        className="text-xs"
+                                      >
+                                        Parent
+                                      </Badge>
+                                    )}
+                                    {hasVariations && (
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={() => toggleVariations(index)}
+                                        className="h-6 w-fit text-xs cursor-pointer ml-auto"
+                                        title={
+                                          isExpanded
+                                            ? "Hide variations"
+                                            : "Show variations"
+                                        }
+                                      >
+                                        {isExpanded ? (
+                                          <ChevronDown className="h-3 w-3" />
+                                        ) : (
+                                          <ChevronRight className="h-3 w-3" />
+                                        )}
+                                      </Button>
+                                    )}
+                                  </div>
+                                  {product.is_parent && (
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => {
+                                        setAddVariationsParentIndex(index);
+                                        setVariationsCount("1");
+                                        setShowAddVariationsDialog(true);
+                                      }}
+                                      className="h-7 text-xs w-full cursor-pointer px-2"
+                                      title="Add variations"
+                                    >
+                                      <Plus className="h-3 w-3 mr-0.5" />
+                                      <span className="text-xs">
+                                        Variations
+                                      </span>
+                                    </Button>
+                                  )}
+                                </div>
+                              </TableCell>
                             )}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          {products.length > 1 && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => removeProduct(index)}
-                              className="h-9 w-9 text-error hover:text-error/80 hover:bg-error/10 cursor-pointer"
-                            >
-                              <X className="h-4 w-4" />
-                            </Button>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                            <TableCell className="p-2">
+                              <Input
+                                value={product.article_id}
+                                onChange={(e) =>
+                                  updateProduct(
+                                    index,
+                                    "article_id",
+                                    e.target.value
+                                  )
+                                }
+                                placeholder="ART001"
+                                className="h-7 text-xs px-2"
+                              />
+                            </TableCell>
+                            <TableCell className="p-2">
+                              <Input
+                                value={product.product_name}
+                                onChange={(e) =>
+                                  updateProduct(
+                                    index,
+                                    "product_name",
+                                    e.target.value
+                                  )
+                                }
+                                placeholder="Name"
+                                className="h-7 text-xs px-2"
+                              />
+                            </TableCell>
+                            <TableCell className="p-2">
+                              <Input
+                                value={product.product_link}
+                                onChange={(e) =>
+                                  updateProduct(
+                                    index,
+                                    "product_link",
+                                    e.target.value
+                                  )
+                                }
+                                placeholder="Link"
+                                className="h-7 text-xs px-2"
+                              />
+                            </TableCell>
+                            <TableCell className="p-2">
+                              <Input
+                                value={product.cad_file_link}
+                                onChange={(e) =>
+                                  updateProduct(
+                                    index,
+                                    "cad_file_link",
+                                    e.target.value
+                                  )
+                                }
+                                placeholder="CAD Link"
+                                className="h-7 text-xs px-2"
+                              />
+                            </TableCell>
+                            <TableCell className="p-2">
+                              <Input
+                                value={product.category}
+                                onChange={(e) =>
+                                  updateProduct(
+                                    index,
+                                    "category",
+                                    e.target.value
+                                  )
+                                }
+                                placeholder="Category"
+                                className="h-7 text-xs px-2"
+                              />
+                            </TableCell>
+                            <TableCell className="p-2">
+                              <Input
+                                value={product.subcategory}
+                                onChange={(e) =>
+                                  updateProduct(
+                                    index,
+                                    "subcategory",
+                                    e.target.value
+                                  )
+                                }
+                                placeholder="Subcat"
+                                className="h-7 text-xs px-2"
+                              />
+                            </TableCell>
+                            <TableCell className="p-2">
+                              <div className="flex gap-0.5 items-center">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    setEditingReferencesIndex(index);
+                                    setShowReferencesDialog(true);
+                                  }}
+                                  className="h-7 text-xs cursor-pointer px-2"
+                                >
+                                  <FileText className="h-3 w-3 mr-0.5" />
+                                  {(() => {
+                                    const refCount = product.references.length;
+                                    const hasMeasurements =
+                                      product.measurements &&
+                                      (product.measurements.height?.trim() ||
+                                        product.measurements.width?.trim() ||
+                                        product.measurements.depth?.trim());
+                                    const totalCount =
+                                      refCount + (hasMeasurements ? 1 : 0);
+                                    return totalCount > 0 ? totalCount : "Add";
+                                  })()}
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => copyProduct(index)}
+                                  className="h-6 w-6 text-primary hover:text-primary/80 hover:bg-primary/10 cursor-pointer"
+                                  title="Copy row"
+                                >
+                                  <Copy className="h-3 w-3" />
+                                </Button>
+                                {products.length > 1 && (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => removeProduct(index)}
+                                    className="h-6 w-6 text-error hover:text-error/80 hover:bg-error/10 cursor-pointer ml-auto"
+                                    title="Remove product"
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </Button>
+                                )}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                          {/* Variations rows */}
+                          {isExpanded &&
+                            hasVariations &&
+                            product.variations?.map((variation, vIndex) => (
+                              <TableRow
+                                key={`${index}-var-${vIndex}`}
+                                className="bg-muted/30"
+                              >
+                                <TableCell className="font-medium text-muted-foreground text-xs p-2">
+                                  <div className="flex items-center gap-1">
+                                    <ChevronRight className="h-3 w-3" />V
+                                    {variation.variation_index}
+                                  </div>
+                                </TableCell>
+                                {isVariationContracted && (
+                                  <TableCell className="p-2" />
+                                )}
+                                <TableCell className="p-2">
+                                  <Input
+                                    value={variation.article_id}
+                                    onChange={(e) =>
+                                      updateVariation(
+                                        index,
+                                        vIndex,
+                                        "article_id",
+                                        e.target.value
+                                      )
+                                    }
+                                    placeholder="ART001-V1"
+                                    className="h-7 text-xs bg-background px-2"
+                                  />
+                                </TableCell>
+                                <TableCell className="p-2">
+                                  <Input
+                                    value={variation.product_name}
+                                    onChange={(e) =>
+                                      updateVariation(
+                                        index,
+                                        vIndex,
+                                        "product_name",
+                                        e.target.value
+                                      )
+                                    }
+                                    placeholder="Name"
+                                    className="h-7 text-xs bg-background px-2"
+                                  />
+                                </TableCell>
+                                <TableCell className="p-2">
+                                  <Input
+                                    value={variation.product_link}
+                                    onChange={(e) =>
+                                      updateVariation(
+                                        index,
+                                        vIndex,
+                                        "product_link",
+                                        e.target.value
+                                      )
+                                    }
+                                    placeholder="Link"
+                                    className="h-7 text-xs bg-background px-2"
+                                  />
+                                </TableCell>
+                                <TableCell className="p-2">
+                                  <Input
+                                    value={variation.cad_file_link}
+                                    onChange={(e) =>
+                                      updateVariation(
+                                        index,
+                                        vIndex,
+                                        "cad_file_link",
+                                        e.target.value
+                                      )
+                                    }
+                                    placeholder="CAD Link"
+                                    className="h-7 text-xs bg-background px-2"
+                                  />
+                                </TableCell>
+                                <TableCell className="p-2">
+                                  <Input
+                                    value={variation.category}
+                                    onChange={(e) =>
+                                      updateVariation(
+                                        index,
+                                        vIndex,
+                                        "category",
+                                        e.target.value
+                                      )
+                                    }
+                                    placeholder="Category"
+                                    className="h-7 text-xs bg-background px-2"
+                                  />
+                                </TableCell>
+                                <TableCell className="p-2">
+                                  <Input
+                                    value={variation.subcategory}
+                                    onChange={(e) =>
+                                      updateVariation(
+                                        index,
+                                        vIndex,
+                                        "subcategory",
+                                        e.target.value
+                                      )
+                                    }
+                                    placeholder="Subcat"
+                                    className="h-7 text-xs bg-background px-2"
+                                  />
+                                </TableCell>
+                                <TableCell className="p-2">
+                                  <div className="flex gap-0.5 items-center">
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => {
+                                        setEditingVariationRef({
+                                          parentIndex: index,
+                                          variationIndex: vIndex,
+                                        });
+                                        setEditingReferencesIndex(null);
+                                        setShowReferencesDialog(true);
+                                      }}
+                                      className="h-7 text-xs cursor-pointer px-2"
+                                    >
+                                      <FileText className="h-3 w-3 mr-0.5" />
+                                      {(() => {
+                                        const refCount =
+                                          variation.references?.length || 0;
+                                        const hasMeasurements =
+                                          variation.measurements &&
+                                          (variation.measurements.height?.trim() ||
+                                            variation.measurements.width?.trim() ||
+                                            variation.measurements.depth?.trim());
+                                        const totalCount =
+                                          refCount + (hasMeasurements ? 1 : 0);
+                                        return totalCount > 0
+                                          ? totalCount
+                                          : "Add";
+                                      })()}
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={() =>
+                                        removeVariation(index, vIndex)
+                                      }
+                                      className="h-6 w-6 text-error hover:text-error/80 hover:bg-error/10 cursor-pointer ml-auto"
+                                      title="Remove variation"
+                                    >
+                                      <X className="h-3 w-3" />
+                                    </Button>
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                        </>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </div>
@@ -1828,68 +2742,108 @@ export default function AddProductsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {getValidProducts().map((product, index) => (
-                    <TableRow key={index}>
-                      <TableCell className="font-medium">
-                        {product.article_id || "-"}
-                      </TableCell>
-                      <TableCell>
-                        <div
-                          className="truncate  cursor-help"
-                          title={product.product_name || "-"}
+                  {(() => {
+                    const allProductsToShow: (ProductForm & {
+                      isVariation?: boolean;
+                      parentIndex?: number;
+                    })[] = [];
+
+                    // Add regular products and parents
+                    getValidProducts().forEach((product) => {
+                      const currentProductIndex = allProductsToShow.length;
+                      allProductsToShow.push(product);
+
+                      // Add variations if this is a parent
+                      if (product.is_parent && product.variations) {
+                        const validVariations = product.variations.filter(
+                          (v) =>
+                            v.article_id.trim() &&
+                            v.product_name.trim() &&
+                            v.product_link.trim()
+                        );
+                        validVariations.forEach((variation) => {
+                          allProductsToShow.push({
+                            ...variation,
+                            isVariation: true,
+                            parentIndex: currentProductIndex,
+                          });
+                        });
+                      }
+                    });
+
+                    return allProductsToShow.map((product, index) => {
+                      return (
+                        <TableRow
+                          key={index}
+                          className={product.isVariation ? "bg-muted/30" : ""}
                         >
-                          {product.product_name &&
-                          product.product_name.length > 35
-                            ? product.product_name.substring(0, 35) + "..."
-                            : product.product_name || "-"}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {product.product_link ? (
-                          <a
-                            href={product.product_link}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-info hover:text-info/80 underline truncate block max-w-48"
-                            title={product.product_link}
-                          >
-                            {product.product_link.length > 50
-                              ? `${product.product_link.substring(0, 50)}...`
-                              : product.product_link}
-                          </a>
-                        ) : (
-                          <span className="text-muted-foreground">-</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {product.cad_file_link ? (
-                          <a
-                            href={product.cad_file_link}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-info hover:text-info/80 underline truncate block max-w-48"
-                            title={product.cad_file_link}
-                          >
-                            {product.cad_file_link.length > 50
-                              ? `${product.cad_file_link.substring(0, 50)}...`
-                              : product.cad_file_link}
-                          </a>
-                        ) : (
-                          <span className="text-muted-foreground">-</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <span className="font-medium">
-                          {product.category || "-"}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <span className="font-medium">
-                          {product.subcategory || "-"}
-                        </span>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                          <TableCell className="font-medium">
+                            {product.isVariation && (
+                              <Badge variant="outline" className="text-xs mr-1">
+                                V{product.variation_index}
+                              </Badge>
+                            )}
+                            {product.article_id || "-"}
+                          </TableCell>
+                          <TableCell>
+                            <div
+                              className="truncate cursor-help"
+                              title={product.product_name || "-"}
+                            >
+                              {product.product_name &&
+                              product.product_name.length > 35
+                                ? product.product_name.substring(0, 35) + "..."
+                                : product.product_name || "-"}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            {product.product_link ? (
+                              <a
+                                href={product.product_link}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-info hover:text-info/80 underline truncate block max-w-48"
+                                title={product.product_link}
+                              >
+                                {product.product_link.length > 50
+                                  ? `${product.product_link.substring(0, 50)}...`
+                                  : product.product_link}
+                              </a>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {product.cad_file_link ? (
+                              <a
+                                href={product.cad_file_link}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-info hover:text-info/80 underline truncate block max-w-48"
+                                title={product.cad_file_link}
+                              >
+                                {product.cad_file_link.length > 50
+                                  ? `${product.cad_file_link.substring(0, 50)}...`
+                                  : product.cad_file_link}
+                              </a>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <span className="font-medium">
+                              {product.category || "-"}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            <span className="font-medium">
+                              {product.subcategory || "-"}
+                            </span>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    });
+                  })()}
                 </TableBody>
               </Table>
             </div>
@@ -2112,7 +3066,13 @@ export default function AddProductsPage() {
       {/* References Dialog */}
       <Dialog
         open={showReferencesDialog}
-        onOpenChange={setShowReferencesDialog}
+        onOpenChange={(open) => {
+          setShowReferencesDialog(open);
+          if (!open) {
+            setEditingReferencesIndex(null);
+            setEditingVariationRef(null);
+          }
+        }}
       >
         <DialogContent className="max-w-2xl">
           <DialogHeader>
@@ -2121,328 +3081,520 @@ export default function AddProductsPage() {
               Add References & Measurements
               {editingReferencesIndex !== null &&
                 ` - ${products[editingReferencesIndex]?.product_name || `Product ${editingReferencesIndex + 1}`}`}
+              {editingVariationRef !== null &&
+                ` - Variation ${editingVariationRef.variationIndex + 1}: ${products[editingVariationRef.parentIndex]?.variations?.[editingVariationRef.variationIndex]?.product_name || "Variation"}`}
             </DialogTitle>
           </DialogHeader>
 
-          {editingReferencesIndex !== null && (
+          {(editingReferencesIndex !== null ||
+            editingVariationRef !== null) && (
             <div className="space-y-4">
               <div className="text-sm text-muted-foreground">
                 Add reference URLs, files, and product measurements that will be
                 saved when you submit this product.
               </div>
 
-              {/* Recent References */}
-              {recentReferences.length > 0 && (
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">
-                    Recent References (Click to add)
-                  </Label>
-                  <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto border rounded-lg p-2">
-                    {recentReferences.map((ref, idx) => (
-                      <Button
-                        key={idx}
-                        variant="outline"
-                        size="sm"
-                        className="h-7 px-2 text-xs"
-                        onClick={() => {
-                          const updated = [...products];
-                          // Check if not already added
-                          const exists = updated[
-                            editingReferencesIndex
-                          ].references.some((r) => r.value === ref.value);
-                          if (!exists) {
-                            updated[editingReferencesIndex].references.push(
-                              ref
-                            );
-                            setProducts(updated);
-                            toast.success("Reference added");
-                          } else {
-                            toast.info("Reference already added");
-                          }
-                        }}
-                        title={ref.value}
-                      >
-                        {ref.value}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-              )}
+              {/* Helper to get current product or variation being edited */}
+              {(() => {
+                const getCurrentProduct = () => {
+                  if (editingVariationRef !== null) {
+                    return products[editingVariationRef.parentIndex]
+                      ?.variations?.[editingVariationRef.variationIndex];
+                  }
+                  return editingReferencesIndex !== null
+                    ? products[editingReferencesIndex]
+                    : null;
+                };
 
-              {/* Current References */}
-              {products[editingReferencesIndex]?.references.length > 0 && (
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">
-                    Current References (
-                    {products[editingReferencesIndex].references.length})
-                  </Label>
-                  <div className="space-y-2 max-h-60 overflow-y-auto border rounded-lg p-3">
-                    {products[editingReferencesIndex].references.map(
-                      (ref, refIndex) => (
-                        <div
-                          key={refIndex}
-                          className="flex items-center justify-between gap-3 p-2 bg-muted rounded"
-                        >
-                          <div className="flex items-center gap-3 flex-1 min-w-0">
-                            {isImageReference(ref) ? (
-                              <Image
-                                width={48}
-                                height={48}
-                                src={getImagePreviewUrl(ref) || ""}
-                                alt="Preview"
-                                className="w-12 h-12 object-cover rounded border flex-shrink-0"
-                              />
-                            ) : ref.type === "url" ? (
-                              <LinkIcon className="h-4 w-4 text-blue-600 flex-shrink-0" />
-                            ) : (
-                              <FileText className="h-4 w-4 text-green-600 flex-shrink-0" />
-                            )}
-                            <span
-                              className="text-sm truncate"
+                const updateCurrentReferences = (
+                  updater: (refs: any[]) => any[]
+                ) => {
+                  const updated = [...products];
+                  if (editingVariationRef !== null) {
+                    const parentIndex = editingVariationRef.parentIndex;
+                    const variationIndex = editingVariationRef.variationIndex;
+                    const parent = { ...updated[parentIndex] };
+                    if (parent.variations) {
+                      // Deep copy variations array
+                      parent.variations = [...parent.variations];
+                      // Deep copy the specific variation
+                      const variation = {
+                        ...parent.variations[variationIndex],
+                      };
+                      variation.references = updater(
+                        variation.references || []
+                      );
+                      parent.variations[variationIndex] = variation;
+                      updated[parentIndex] = parent;
+                    }
+                    setProducts(updated);
+                  } else if (editingReferencesIndex !== null) {
+                    updated[editingReferencesIndex].references = updater(
+                      updated[editingReferencesIndex].references || []
+                    );
+                    setProducts(updated);
+                  }
+                };
+
+                const updateCurrentMeasurements = (
+                  field: "height" | "width" | "depth",
+                  value: string
+                ) => {
+                  const updated = [...products];
+                  if (editingVariationRef !== null) {
+                    const parentIndex = editingVariationRef.parentIndex;
+                    const variationIndex = editingVariationRef.variationIndex;
+                    const parent = { ...updated[parentIndex] };
+                    if (parent.variations) {
+                      // Deep copy variations array
+                      parent.variations = [...parent.variations];
+                      // Deep copy the specific variation
+                      const variation = {
+                        ...parent.variations[variationIndex],
+                      };
+                      if (!variation.measurements) {
+                        variation.measurements = {
+                          height: "",
+                          width: "",
+                          depth: "",
+                        };
+                      }
+                      variation.measurements = {
+                        ...variation.measurements,
+                        [field]: value,
+                      };
+                      parent.variations[variationIndex] = variation;
+                      updated[parentIndex] = parent;
+                    }
+                    setProducts(updated);
+                  } else if (editingReferencesIndex !== null) {
+                    if (!updated[editingReferencesIndex].measurements) {
+                      updated[editingReferencesIndex].measurements = {
+                        height: "",
+                        width: "",
+                        depth: "",
+                      };
+                    }
+                    updated[editingReferencesIndex].measurements![field] =
+                      value;
+                    setProducts(updated);
+                  }
+                };
+
+                const currentProduct = getCurrentProduct();
+                const currentReferences = currentProduct?.references || [];
+                const currentMeasurements = currentProduct?.measurements;
+
+                return (
+                  <>
+                    {/* Recent References */}
+                    {recentReferences.length > 0 && (
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium">
+                          Recent References (Click to add)
+                        </Label>
+                        <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto border rounded-lg p-2">
+                          {recentReferences.map((ref, idx) => (
+                            <Button
+                              key={idx}
+                              variant="outline"
+                              size="sm"
+                              className="h-7 px-2 text-xs"
+                              onClick={() => {
+                                const exists = currentReferences.some(
+                                  (r) => r.value === ref.value
+                                );
+                                if (!exists) {
+                                  updateCurrentReferences((refs) => [
+                                    ...refs,
+                                    ref,
+                                  ]);
+                                  toast.success("Reference added");
+                                } else {
+                                  toast.info("Reference already added");
+                                }
+                              }}
                               title={ref.value}
                             >
                               {ref.value}
-                            </span>
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 flex-shrink-0"
-                            onClick={() => {
-                              const updated = [...products];
-                              updated[editingReferencesIndex].references =
-                                updated[
-                                  editingReferencesIndex
-                                ].references.filter((_, i) => i !== refIndex);
-                              setProducts(updated);
-                            }}
-                          >
-                            <Trash2 className="h-4 w-4 text-error" />
-                          </Button>
+                            </Button>
+                          ))}
                         </div>
-                      )
+                      </div>
                     )}
-                  </div>
-                </div>
-              )}
 
-              {/* Add URL */}
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Add Reference URL</Label>
-                <div className="flex gap-2">
-                  <Input
-                    id="ref-url-input"
-                    placeholder="https://example.com/reference-image.jpg"
-                    className="flex-1"
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        const input = e.currentTarget;
-                        const url = input.value.trim();
-                        if (url) {
-                          const newRef = {
-                            type: "url" as const,
-                            value: url,
-                          };
-                          const updated = [...products];
-                          updated[editingReferencesIndex].references.push(
-                            newRef
-                          );
-                          setProducts(updated);
-                          addToRecent(newRef);
-                          input.value = "";
-                        }
-                      }
-                    }}
-                  />
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      const input = document.getElementById(
-                        "ref-url-input"
-                      ) as HTMLInputElement;
-                      const url = input?.value.trim();
-                      if (url) {
-                        const newRef = {
-                          type: "url" as const,
-                          value: url,
-                        };
-                        const updated = [...products];
-                        updated[editingReferencesIndex].references.push(newRef);
-                        setProducts(updated);
-                        addToRecent(newRef);
-                        input.value = "";
-                      }
-                    }}
-                  >
-                    <Plus className="h-4 w-4 mr-1" />
-                    Add URL
-                  </Button>
-                </div>
-              </div>
+                    {/* Current References */}
+                    {currentReferences.length > 0 && (
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium">
+                          Current References ({currentReferences.length})
+                        </Label>
+                        <div className="space-y-2 max-h-60 overflow-y-auto border rounded-lg p-3">
+                          {currentReferences.map((ref, refIndex) => (
+                            <div
+                              key={refIndex}
+                              className="flex items-center justify-between gap-3 p-2 bg-muted rounded"
+                            >
+                              <div className="flex items-center gap-3 flex-1 min-w-0">
+                                {isImageReference(ref) ? (
+                                  <Image
+                                    width={48}
+                                    height={48}
+                                    src={getImagePreviewUrl(ref) || ""}
+                                    alt="Preview"
+                                    className="w-12 h-12 object-cover rounded border flex-shrink-0"
+                                  />
+                                ) : ref.type === "url" ? (
+                                  <LinkIcon className="h-4 w-4 text-blue-600 flex-shrink-0" />
+                                ) : (
+                                  <FileText className="h-4 w-4 text-green-600 flex-shrink-0" />
+                                )}
+                                <span
+                                  className="text-sm truncate"
+                                  title={ref.value}
+                                >
+                                  {ref.value}
+                                </span>
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 flex-shrink-0"
+                                onClick={() => {
+                                  updateCurrentReferences((refs) =>
+                                    refs.filter((_, i) => i !== refIndex)
+                                  );
+                                }}
+                              >
+                                <Trash2 className="h-4 w-4 text-error" />
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
-              {/* Add File */}
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">
-                  Upload Reference File
-                </Label>
-                <Input
-                  type="file"
-                  accept="image/*,.pdf"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      const newRef = {
-                        type: "file" as const,
-                        value: file.name,
-                        file: file,
-                      };
-                      const updated = [...products];
-                      updated[editingReferencesIndex].references.push(newRef);
-                      setProducts(updated);
-                      addToRecent(newRef);
-                      e.target.value = "";
-                    }
-                  }}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Supported: Images (JPG, PNG, etc.) and PDF files
-                </p>
-              </div>
+                    {/* Add URL */}
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">
+                        Add Reference URL
+                      </Label>
+                      <div className="flex gap-2">
+                        <Input
+                          id="ref-url-input"
+                          placeholder="https://example.com/reference-image.jpg"
+                          className="flex-1"
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              const input = e.currentTarget;
+                              const url = input.value.trim();
+                              if (url) {
+                                const newRef = {
+                                  type: "url" as const,
+                                  value: url,
+                                };
+                                updateCurrentReferences((refs) => [
+                                  ...refs,
+                                  newRef,
+                                ]);
+                                addToRecent(newRef);
+                                input.value = "";
+                              }
+                            }
+                          }}
+                        />
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            const input = document.getElementById(
+                              "ref-url-input"
+                            ) as HTMLInputElement;
+                            const url = input?.value.trim();
+                            if (url) {
+                              const newRef = {
+                                type: "url" as const,
+                                value: url,
+                              };
+                              updateCurrentReferences((refs) => [
+                                ...refs,
+                                newRef,
+                              ]);
+                              addToRecent(newRef);
+                              input.value = "";
+                            }
+                          }}
+                        >
+                          <Plus className="h-4 w-4 mr-1" />
+                          Add URL
+                        </Button>
+                      </div>
+                    </div>
 
-              {/* Product Measurements */}
-              <div className="space-y-3 p-4 bg-muted/30 dark:bg-muted/10 border border-border dark:border-border rounded-lg">
-                <div className="flex items-center gap-2">
-                  <Package className="h-4 w-4 text-primary" />
-                  <Label className="text-sm font-medium">
-                    Product Measurements (Optional)
-                  </Label>
-                </div>
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">
-                      Height (mm)
-                    </Label>
-                    <Input
-                      type="number"
-                      placeholder="0"
-                      value={
-                        products[editingReferencesIndex]?.measurements
-                          ?.height || ""
-                      }
-                      onChange={(e) => {
-                        const updated = [...products];
-                        if (!updated[editingReferencesIndex].measurements) {
-                          updated[editingReferencesIndex].measurements = {
-                            height: "",
-                            width: "",
-                            depth: "",
-                          };
-                        }
-                        updated[editingReferencesIndex].measurements!.height =
-                          e.target.value;
-                        setProducts(updated);
-                      }}
-                      min="0"
-                      step="0.1"
-                      className="h-9"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">
-                      Width (mm)
-                    </Label>
-                    <Input
-                      type="number"
-                      placeholder="0"
-                      value={
-                        products[editingReferencesIndex]?.measurements?.width ||
-                        ""
-                      }
-                      onChange={(e) => {
-                        const updated = [...products];
-                        if (!updated[editingReferencesIndex].measurements) {
-                          updated[editingReferencesIndex].measurements = {
-                            height: "",
-                            width: "",
-                            depth: "",
-                          };
-                        }
-                        updated[editingReferencesIndex].measurements!.width =
-                          e.target.value;
-                        setProducts(updated);
-                      }}
-                      min="0"
-                      step="0.1"
-                      className="h-9"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">
-                      Depth (mm)
-                    </Label>
-                    <Input
-                      type="number"
-                      placeholder="0"
-                      value={
-                        products[editingReferencesIndex]?.measurements?.depth ||
-                        ""
-                      }
-                      onChange={(e) => {
-                        const updated = [...products];
-                        if (!updated[editingReferencesIndex].measurements) {
-                          updated[editingReferencesIndex].measurements = {
-                            height: "",
-                            width: "",
-                            depth: "",
-                          };
-                        }
-                        updated[editingReferencesIndex].measurements!.depth =
-                          e.target.value;
-                        setProducts(updated);
-                      }}
-                      min="0"
-                      step="0.1"
-                      className="h-9"
-                    />
-                  </div>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  💡 Enter all dimensions in millimeters (mm)
-                </p>
-              </div>
+                    {/* Add File */}
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">
+                        Upload Reference File
+                      </Label>
+                      <Input
+                        type="file"
+                        accept="image/*,.pdf"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            const newRef = {
+                              type: "file" as const,
+                              value: file.name,
+                              file: file,
+                            };
+                            updateCurrentReferences((refs) => [
+                              ...refs,
+                              newRef,
+                            ]);
+                            addToRecent(newRef);
+                            e.target.value = "";
+                          }
+                        }}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Supported: Images (JPG, PNG, etc.) and PDF files
+                      </p>
+                    </div>
 
-              <div className="flex justify-end gap-2 pt-4">
-                <Button
-                  variant="outline"
-                  onClick={() => setShowReferencesDialog(false)}
-                >
-                  Done
-                </Button>
-              </div>
+                    {/* Product Measurements */}
+                    <div className="space-y-3 p-4 bg-muted/30 dark:bg-muted/10 border border-border dark:border-border rounded-lg">
+                      <div className="flex items-center gap-2">
+                        <Package className="h-4 w-4 text-primary" />
+                        <Label className="text-sm font-medium">
+                          Product Measurements (Optional)
+                        </Label>
+                      </div>
+                      <div className="grid grid-cols-3 gap-3">
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">
+                            Height (mm)
+                          </Label>
+                          <Input
+                            type="number"
+                            placeholder="0"
+                            value={currentMeasurements?.height || ""}
+                            onChange={(e) =>
+                              updateCurrentMeasurements(
+                                "height",
+                                e.target.value
+                              )
+                            }
+                            min="0"
+                            step="0.1"
+                            className="h-9"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">
+                            Width (mm)
+                          </Label>
+                          <Input
+                            type="number"
+                            placeholder="0"
+                            value={currentMeasurements?.width || ""}
+                            onChange={(e) =>
+                              updateCurrentMeasurements("width", e.target.value)
+                            }
+                            min="0"
+                            step="0.1"
+                            className="h-9"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">
+                            Depth (mm)
+                          </Label>
+                          <Input
+                            type="number"
+                            placeholder="0"
+                            value={currentMeasurements?.depth || ""}
+                            onChange={(e) =>
+                              updateCurrentMeasurements("depth", e.target.value)
+                            }
+                            min="0"
+                            step="0.1"
+                            className="h-9"
+                          />
+                        </div>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        💡 Enter all dimensions in millimeters (mm)
+                      </p>
+                    </div>
+
+                    <div className="flex justify-end gap-2 pt-4">
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setShowReferencesDialog(false);
+                          setEditingReferencesIndex(null);
+                          setEditingVariationRef(null);
+                        }}
+                      >
+                        Done
+                      </Button>
+                    </div>
+                  </>
+                );
+              })()}
             </div>
           )}
         </DialogContent>
       </Dialog>
 
       {/* View References Dialog */}
-      {viewingReferencesIndex !== null && (
+      {(viewingReferencesIndex !== null || viewingVariationRef !== null) && (
         <ViewReferencesDialog
           open={showViewReferencesDialog}
-          onOpenChange={setShowViewReferencesDialog}
-          asset={{
-            product_name:
-              products[viewingReferencesIndex]?.product_name ||
-              `Product ${viewingReferencesIndex + 1}`,
-            article_id: products[viewingReferencesIndex]?.article_id || "",
-            measurements: products[viewingReferencesIndex]?.measurements
-              ? `${products[viewingReferencesIndex].measurements.height},${products[viewingReferencesIndex].measurements.width},${products[viewingReferencesIndex].measurements.depth}`
-              : null,
+          onOpenChange={(open) => {
+            setShowViewReferencesDialog(open);
+            if (!open) {
+              setViewingReferencesIndex(null);
+              setViewingVariationRef(null);
+            }
           }}
+          asset={
+            viewingVariationRef !== null
+              ? {
+                  product_name:
+                    products[viewingVariationRef.parentIndex]?.variations?.[
+                      viewingVariationRef.variationIndex
+                    ]?.product_name ||
+                    `Variation ${viewingVariationRef.variationIndex + 1}`,
+                  article_id:
+                    products[viewingVariationRef.parentIndex]?.variations?.[
+                      viewingVariationRef.variationIndex
+                    ]?.article_id || "",
+                  measurements: (() => {
+                    const variation =
+                      products[viewingVariationRef.parentIndex]?.variations?.[
+                        viewingVariationRef.variationIndex
+                      ];
+                    return variation?.measurements
+                      ? `${variation.measurements.height},${variation.measurements.width},${variation.measurements.depth}`
+                      : null;
+                  })(),
+                }
+              : viewingReferencesIndex !== null
+                ? {
+                    product_name:
+                      products[viewingReferencesIndex]?.product_name ||
+                      `Product ${viewingReferencesIndex + 1}`,
+                    article_id:
+                      products[viewingReferencesIndex]?.article_id || "",
+                    measurements: products[viewingReferencesIndex]?.measurements
+                      ? `${products[viewingReferencesIndex].measurements.height},${products[viewingReferencesIndex].measurements.width},${products[viewingReferencesIndex].measurements.depth}`
+                      : null,
+                  }
+                : {
+                    product_name: "",
+                    article_id: "",
+                    measurements: null,
+                  }
+          }
           temporaryReferences={
-            products[viewingReferencesIndex]?.references || []
+            viewingVariationRef !== null
+              ? products[viewingVariationRef.parentIndex]?.variations?.[
+                  viewingVariationRef.variationIndex
+                ]?.references || []
+              : viewingReferencesIndex !== null
+                ? products[viewingReferencesIndex]?.references || []
+                : []
           }
         />
       )}
+
+      {/* Add Variations Dialog */}
+      <Dialog
+        open={showAddVariationsDialog}
+        onOpenChange={(open) => {
+          setShowAddVariationsDialog(open);
+          if (!open) {
+            setAddVariationsParentIndex(null);
+            setVariationsCount("1");
+          }
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Plus className="h-5 w-5" />
+              Add Variations
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="variations-count">
+                How many variations would you like to add?
+              </Label>
+              <Input
+                id="variations-count"
+                type="number"
+                min="1"
+                value={variationsCount}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  if (value === "" || parseInt(value) > 0) {
+                    setVariationsCount(value);
+                  }
+                }}
+                placeholder="Enter number"
+                className="h-10"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    const count = parseInt(variationsCount);
+                    if (count > 0 && addVariationsParentIndex !== null) {
+                      addVariationsToParent(addVariationsParentIndex, count);
+                      setShowAddVariationsDialog(false);
+                      setAddVariationsParentIndex(null);
+                      setVariationsCount("1");
+                    }
+                  }
+                }}
+              />
+              <p className="text-xs text-muted-foreground">
+                Enter the number of variations you want to add to this parent
+                product.
+              </p>
+            </div>
+            <div className="flex justify-end gap-2 pt-4">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowAddVariationsDialog(false);
+                  setAddVariationsParentIndex(null);
+                  setVariationsCount("1");
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={() => {
+                  const count = parseInt(variationsCount);
+                  if (count > 0 && addVariationsParentIndex !== null) {
+                    addVariationsToParent(addVariationsParentIndex, count);
+                    setShowAddVariationsDialog(false);
+                    setAddVariationsParentIndex(null);
+                    setVariationsCount("1");
+                    toast.success(
+                      `Added ${count} variation${count === 1 ? "" : "s"}`
+                    );
+                  } else {
+                    toast.error("Please enter a valid number greater than 0");
+                  }
+                }}
+                disabled={!variationsCount || parseInt(variationsCount) <= 0}
+              >
+                Variations
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

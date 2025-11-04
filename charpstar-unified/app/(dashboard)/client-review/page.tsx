@@ -29,6 +29,7 @@ import {
   Eye,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   Package,
   CheckCircle,
   ExternalLink,
@@ -38,6 +39,7 @@ import {
   Activity,
   Plus,
   Trash2,
+  Layers,
 } from "lucide-react";
 
 import { useRouter, useSearchParams } from "next/navigation";
@@ -97,8 +99,21 @@ const getStatusLabelText = (status: string): string => {
   }
 };
 
-// Helper function to get priority CSS class
-const getPriorityClass = (priority: number): string => {
+// Helper function to get priority CSS class - uses ASSET's client (not user's client)
+const getPriorityClass = (priority: number, client?: string | null): string => {
+  const clientUpper = (client || "").toUpperCase();
+  const isAJ = clientUpper === "AJ";
+
+  // AJ client uses inverted mapping: 1=Low, 2=Medium, 3=High
+  if (isAJ) {
+    if (priority === 3) return "priority-high";
+    if (priority === 2) return "priority-medium";
+    if (priority === 1) return "priority-low";
+    // For AJ-specific priorities 4 and 5
+    if (priority === 4 || priority === 5) return "priority-medium"; // Flex/Express use medium styling
+    return "priority-medium";
+  }
+  // Standard mapping for non-AJ clients: 1=High, 2=Medium, 3=Low
   if (priority === 1) return "priority-high";
   if (priority === 2) return "priority-medium";
   return "priority-low";
@@ -265,6 +280,128 @@ export default function ReviewDashboardPage() {
   const [assetToDelete, setAssetToDelete] = useState<any>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // Expanded parent groups state for collapsible parent/variation groups
+  const [expandedParents, setExpandedParents] = useState<Set<string>>(
+    new Set()
+  );
+
+  // Function to toggle parent group expansion
+  const toggleParentGroup = (parentId: string) => {
+    setExpandedParents((prev) => {
+      const next = new Set(prev);
+      if (next.has(parentId)) {
+        next.delete(parentId);
+      } else {
+        next.add(parentId);
+      }
+      return next;
+    });
+  };
+
+  // Group assets by parent/child relationships and create flat list for rendering
+  const flatAssetsWithGroups = useMemo(() => {
+    const result: Array<{
+      asset: any;
+      isParent: boolean;
+      isVariation: boolean;
+      parentId?: string;
+      variationIndex?: number;
+      variationCount?: number;
+    }> = [];
+    const parentMap = new Map<string, any[]>();
+    const standaloneAssets: any[] = [];
+    const processedIds = new Set<string>();
+
+    // First, find all parents and group their variations
+    filtered.forEach((asset) => {
+      if (processedIds.has(asset.id)) return;
+
+      const isVariation = asset.is_variation === true;
+      const isParent = filtered.some((a) => a.parent_asset_id === asset.id);
+
+      if (isParent && !isVariation) {
+        // This is a parent - find all its variations and sort by variation_index
+        const variations = filtered
+          .filter((a) => a.parent_asset_id === asset.id)
+          .sort((a, b) => {
+            const indexA = a.variation_index || 0;
+            const indexB = b.variation_index || 0;
+            return indexA - indexB;
+          });
+        parentMap.set(asset.id, [asset, ...variations]);
+        processedIds.add(asset.id);
+        variations.forEach((v) => processedIds.add(v.id));
+      } else if (!isVariation && !isParent) {
+        // Standalone asset
+        standaloneAssets.push(asset);
+        processedIds.add(asset.id);
+      }
+    });
+
+    // Add any remaining variations (orphaned) as standalone
+    filtered.forEach((asset) => {
+      if (!processedIds.has(asset.id)) {
+        standaloneAssets.push(asset);
+      }
+    });
+
+    // Build flat list: parents with their variations grouped
+    parentMap.forEach((group, parentId) => {
+      const parent = group[0];
+      const variations = group.slice(1);
+      result.push({
+        asset: parent,
+        isParent: true,
+        isVariation: false,
+        variationCount: variations.length,
+      });
+      // Add variations if parent is expanded
+      if (expandedParents.has(parentId)) {
+        variations.forEach((variation) => {
+          result.push({
+            asset: variation,
+            isParent: false,
+            isVariation: true,
+            parentId,
+            variationIndex: variation.variation_index,
+          });
+        });
+      }
+    });
+
+    // Add standalone assets
+    standaloneAssets.forEach((asset) => {
+      const isVariation = asset.is_variation === true;
+      result.push({
+        asset,
+        isParent: false,
+        isVariation,
+        parentId: asset.parent_asset_id,
+        variationIndex: asset.variation_index,
+      });
+    });
+
+    // Apply sorting
+    if (sort === "az") {
+      result.sort((a, b) =>
+        a.asset.product_name.localeCompare(b.asset.product_name)
+      );
+    } else if (sort === "za") {
+      result.sort((a, b) =>
+        b.asset.product_name.localeCompare(a.asset.product_name)
+      );
+    }
+
+    return result;
+  }, [filtered, expandedParents, sort]);
+
+  // Pagination for grouped assets
+  const paged = useMemo(() => {
+    const start = (page - 1) * PAGE_SIZE;
+    const end = start + PAGE_SIZE;
+    return flatAssetsWithGroups.slice(start, end);
+  }, [flatAssetsWithGroups, page]);
+
   // Function to refresh a specific asset's reference data
   const refreshAssetReferenceData = async (assetId: string) => {
     try {
@@ -359,7 +496,7 @@ export default function ReviewDashboardPage() {
       const { data, error } = await supabase
         .from("onboarding_assets")
         .select(
-          "id, product_name, article_id, delivery_date, status, batch, priority, revision_count, product_link, glb_link, reference, client, upload_order, transferred, measurements"
+          "id, product_name, article_id, delivery_date, status, batch, priority, revision_count, product_link, glb_link, reference, client, upload_order, transferred, measurements, is_variation, parent_asset_id, variation_index"
         )
         .in("client", user.metadata.client)
         .eq("transferred", false) // Hide transferred assets
@@ -555,12 +692,6 @@ export default function ReviewDashboardPage() {
     setPage(1);
   }, [sort, search, clientFilters, batchFilters, statusFilters]);
 
-  // Pagination
-  const paged = useMemo(() => {
-    const start = (page - 1) * PAGE_SIZE;
-    return filtered.slice(start, start + PAGE_SIZE);
-  }, [filtered, page]);
-
   // Selection
   const toggleSelect = (id: string) => {
     setSelected((prev) => {
@@ -575,7 +706,7 @@ export default function ReviewDashboardPage() {
     if (selected.size === paged.length) {
       setSelected(new Set());
     } else {
-      setSelected(new Set(paged.map((asset) => asset.id)));
+      setSelected(new Set(paged.map((item) => item.asset.id)));
     }
   };
 
@@ -1171,12 +1302,27 @@ export default function ReviewDashboardPage() {
                         </TableCell>
                       </TableRow>
                     ) : (
-                      paged.map((asset) => {
+                      paged.map((item) => {
+                        const {
+                          asset,
+                          isParent,
+                          isVariation,
+                          variationCount,
+                          variationIndex,
+                        } = item;
                         const rowStyling = getRowStyling(asset.status);
+                        const isExpanded =
+                          isParent && expandedParents.has(asset.id);
                         return (
                           <TableRow
                             key={asset.id}
-                            className={`${rowStyling.base} transition-all duration-200 dark:border-border dark:hover:bg-muted/20`}
+                            className={`${rowStyling.base} transition-all duration-200 dark:border-border dark:hover:bg-muted/20 ${
+                              isVariation
+                                ? "bg-slate-50/50 dark:bg-slate-900/20 border-l-2 border-l-slate-300 dark:border-l-slate-600"
+                                : isParent
+                                  ? "bg-amber-50/30 dark:bg-amber-950/10 border-l-2 border-l-amber-400 dark:border-l-amber-600"
+                                  : ""
+                            }`}
                           >
                             <TableCell className="text-center">
                               <Checkbox
@@ -1187,35 +1333,95 @@ export default function ReviewDashboardPage() {
                             </TableCell>
                             <TableCell className="text-left w-32 max-w-32">
                               <div className="flex flex-col gap-1 min-w-0">
-                                <span
-                                  className="font-medium dark:text-foreground truncate cursor-help"
-                                  title={asset.product_name}
-                                >
-                                  {asset.product_name}
-                                </span>
-                                <div className="flex items-center gap-1 text-xs">
-                                  <span className="text-muted-foreground dark:text-muted-foreground">
-                                    {annotationCounts[asset.id] || 0}a
-                                  </span>
-                                  <span className="text-slate-500 dark:text-slate-400">
-                                    •
-                                  </span>
-                                  <Badge
-                                    variant="outline"
-                                    className="text-xs dark:border-border dark:bg-muted/20 px-1 py-0"
-                                  >
-                                    B{asset.batch || 1}
-                                  </Badge>
+                                <div className="flex items-center gap-1.5">
+                                  {isParent ? (
+                                    <>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-5 w-5 p-0 hover:bg-amber-100 dark:hover:bg-amber-900/30"
+                                        onClick={() =>
+                                          toggleParentGroup(asset.id)
+                                        }
+                                      >
+                                        {isExpanded ? (
+                                          <ChevronDown className="h-4 w-4 text-amber-600 dark:text-amber-500" />
+                                        ) : (
+                                          <ChevronRight className="h-4 w-4 text-amber-600 dark:text-amber-500" />
+                                        )}
+                                      </Button>
+                                      <Layers className="h-4 w-4 text-amber-600 dark:text-amber-500 flex-shrink-0" />
+                                      <span
+                                        className="font-semibold dark:text-foreground truncate cursor-help text-amber-700 dark:text-amber-500"
+                                        title={asset.product_name}
+                                      >
+                                        {asset.product_name}
+                                      </span>
+                                      <Badge
+                                        variant="outline"
+                                        className="text-xs text-amber-700 dark:text-amber-500 border-amber-300 dark:border-amber-700 bg-amber-50/50 dark:bg-amber-950/20 px-1.5 py-0 ml-1 font-medium"
+                                      >
+                                        {variationCount}{" "}
+                                        {variationCount === 1
+                                          ? "variation"
+                                          : "variations"}
+                                      </Badge>
+                                    </>
+                                  ) : isVariation ? (
+                                    <>
+                                      <div className="w-8 flex items-center justify-center flex-shrink-0">
+                                        <div className="h-px w-4 bg-slate-300 dark:bg-slate-600" />
+                                        <ChevronRight className="h-3 w-3 text-slate-500 dark:text-slate-400" />
+                                      </div>
+                                      <span
+                                        className="font-medium dark:text-foreground truncate cursor-help text-slate-600 dark:text-slate-400"
+                                        title={asset.product_name}
+                                      >
+                                        {asset.product_name}
+                                      </span>
+                                      {variationIndex && (
+                                        <Badge
+                                          variant="outline"
+                                          className="text-xs text-slate-600 dark:text-slate-400 border-slate-300 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/20 px-1.5 py-0 ml-1"
+                                        >
+                                          V{variationIndex}
+                                        </Badge>
+                                      )}
+                                    </>
+                                  ) : (
+                                    <span
+                                      className="font-medium dark:text-foreground truncate cursor-help"
+                                      title={asset.product_name}
+                                    >
+                                      {asset.product_name}
+                                    </span>
+                                  )}
                                 </div>
+                                <div className="flex items-center gap-1 text-xs"></div>
                               </div>
                             </TableCell>
                             <TableCell className="dark:text-foreground text-left w-20 max-w-20">
-                              <span
-                                className="text-xs font-mono truncate block"
-                                title={asset.article_id}
-                              >
-                                {asset.article_id}
-                              </span>
+                              <div className="flex items-center gap-1.5">
+                                {isVariation ? (
+                                  <div className="w-8 flex items-center justify-center flex-shrink-0">
+                                    <div className="h-px w-4 bg-slate-300 dark:bg-slate-600" />
+                                  </div>
+                                ) : isParent ? (
+                                  <div className="w-8 flex items-center justify-center flex-shrink-0" />
+                                ) : null}
+                                <span
+                                  className={`text-xs font-mono truncate block ${
+                                    isVariation
+                                      ? "text-slate-600 dark:text-slate-400"
+                                      : isParent
+                                        ? "text-amber-700 dark:text-amber-500 font-semibold"
+                                        : ""
+                                  }`}
+                                  title={asset.article_id}
+                                >
+                                  {asset.article_id}
+                                </span>
+                              </div>
                             </TableCell>
                             <TableCell className="text-center w-24">
                               <div className="flex items-center justify-center">
@@ -1267,7 +1473,8 @@ export default function ReviewDashboardPage() {
                                   >
                                     <span
                                       className={`px-2 py-1 rounded text-xs font-semibold ${getPriorityClass(
-                                        asset.priority || 2
+                                        asset.priority || 2,
+                                        asset.client
                                       )}`}
                                     >
                                       {getPriorityLabelForClient(
@@ -1277,26 +1484,26 @@ export default function ReviewDashboardPage() {
                                     </span>
                                   </SelectTrigger>
                                   <SelectContent>
-                                    <SelectItem
-                                      value="3"
-                                      className="dark:text-foreground"
-                                    >
-                                      Low
-                                    </SelectItem>
-                                    <SelectItem
-                                      value="2"
-                                      className="dark:text-foreground"
-                                    >
-                                      Medium
-                                    </SelectItem>
-                                    <SelectItem
-                                      value="1"
-                                      className="dark:text-foreground"
-                                    >
-                                      High
-                                    </SelectItem>
-                                    {asset.client?.toUpperCase() === "AJ" && (
+                                    {asset.client?.toUpperCase() === "AJ" ? (
                                       <>
+                                        <SelectItem
+                                          value="1"
+                                          className="dark:text-foreground"
+                                        >
+                                          Low
+                                        </SelectItem>
+                                        <SelectItem
+                                          value="2"
+                                          className="dark:text-foreground"
+                                        >
+                                          Medium
+                                        </SelectItem>
+                                        <SelectItem
+                                          value="3"
+                                          className="dark:text-foreground"
+                                        >
+                                          High
+                                        </SelectItem>
                                         <SelectItem
                                           value="4"
                                           className="dark:text-foreground"
@@ -1308,6 +1515,27 @@ export default function ReviewDashboardPage() {
                                           className="dark:text-foreground"
                                         >
                                           Express
+                                        </SelectItem>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <SelectItem
+                                          value="1"
+                                          className="dark:text-foreground"
+                                        >
+                                          High
+                                        </SelectItem>
+                                        <SelectItem
+                                          value="2"
+                                          className="dark:text-foreground"
+                                        >
+                                          Medium
+                                        </SelectItem>
+                                        <SelectItem
+                                          value="3"
+                                          className="dark:text-foreground"
+                                        >
+                                          Low
                                         </SelectItem>
                                       </>
                                     )}
@@ -1494,12 +1722,19 @@ export default function ReviewDashboardPage() {
                     )}
                   </div>
                 ) : (
-                  paged.map((asset) => {
+                  paged.map((item) => {
+                    const { asset, isParent, isVariation } = item;
                     const rowStyling = getRowStyling(asset.status);
                     return (
                       <Card
                         key={asset.id}
-                        className={`p-4 transition-all duration-200 ${rowStyling.base} dark:border-border dark:hover:bg-muted/20`}
+                        className={`p-4 transition-all duration-200 ${rowStyling.base} dark:border-border dark:hover:bg-muted/20 ${
+                          isVariation
+                            ? "bg-slate-50/50 dark:bg-slate-900/20 border-l-2 border-l-slate-300 dark:border-l-slate-600"
+                            : isParent
+                              ? "bg-amber-50/30 dark:bg-amber-950/10 border-l-2 border-l-amber-400 dark:border-l-amber-600"
+                              : ""
+                        }`}
                       >
                         <div className="space-y-3">
                           {/* Header with checkbox and product name */}
@@ -1511,15 +1746,45 @@ export default function ReviewDashboardPage() {
                                 className="bg-background dark:bg-background dark:border-border"
                               />
                               <div className="min-w-0 flex-1">
-                                <h3
-                                  className="font-medium text-sm dark:text-foreground truncate"
-                                  title={asset.product_name}
-                                >
-                                  {asset.product_name.length > 45
-                                    ? asset.product_name.substring(0, 45) +
-                                      "..."
-                                    : asset.product_name}
-                                </h3>
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  {isVariation && (
+                                    <ChevronRight className="h-3 w-3 text-slate-500 dark:text-slate-400 flex-shrink-0" />
+                                  )}
+                                  {isParent && !isVariation && (
+                                    <Package className="h-3 w-3 text-amber-600 dark:text-amber-500 flex-shrink-0" />
+                                  )}
+                                  <h3
+                                    className={`font-medium text-sm dark:text-foreground truncate ${
+                                      isVariation
+                                        ? "text-slate-600 dark:text-slate-400"
+                                        : isParent
+                                          ? "text-amber-700 dark:text-amber-500"
+                                          : ""
+                                    }`}
+                                    title={asset.product_name}
+                                  >
+                                    {asset.product_name.length > 45
+                                      ? asset.product_name.substring(0, 45) +
+                                        "..."
+                                      : asset.product_name}
+                                  </h3>
+                                  {isParent && !isVariation && (
+                                    <Badge
+                                      variant="outline"
+                                      className="text-xs text-amber-700 dark:text-amber-500 border-amber-300 dark:border-amber-700 bg-amber-50/50 dark:bg-amber-950/20 px-1.5 py-0"
+                                    >
+                                      Parent
+                                    </Badge>
+                                  )}
+                                  {isVariation && asset.variation_index && (
+                                    <Badge
+                                      variant="outline"
+                                      className="text-xs text-slate-600 dark:text-slate-400 border-slate-300 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/20 px-1.5 py-0"
+                                    >
+                                      V{asset.variation_index}
+                                    </Badge>
+                                  )}
+                                </div>
                                 <div className="flex items-center gap-2 mt-1">
                                   <span className="text-xs text-muted-foreground dark:text-muted-foreground">
                                     {annotationCounts[asset.id] || 0} annotation
@@ -1562,8 +1827,24 @@ export default function ReviewDashboardPage() {
 
                           {/* Article ID and Priority */}
                           <div className="flex items-center justify-between">
-                            <div className="text-xs text-muted-foreground dark:text-muted-foreground font-mono">
-                              {asset.article_id}
+                            <div className="flex items-center gap-1.5 text-xs font-mono">
+                              {isVariation && (
+                                <ChevronRight className="h-3 w-3 text-slate-500 dark:text-slate-400 flex-shrink-0" />
+                              )}
+                              {isParent && !isVariation && (
+                                <Package className="h-3 w-3 text-amber-600 dark:text-amber-500 flex-shrink-0" />
+                              )}
+                              <span
+                                className={
+                                  isVariation
+                                    ? "text-slate-600 dark:text-slate-400"
+                                    : isParent
+                                      ? "text-amber-700 dark:text-amber-500"
+                                      : "text-muted-foreground dark:text-muted-foreground"
+                                }
+                              >
+                                {asset.article_id}
+                              </span>
                             </div>
                             <div className="flex items-center gap-2">
                               <Select
@@ -1613,31 +1894,72 @@ export default function ReviewDashboardPage() {
                                 >
                                   <span
                                     className={`px-2 py-1 rounded text-xs font-semibold ${getPriorityClass(
-                                      asset.priority || 2
+                                      asset.priority || 2,
+                                      asset.client
                                     )}`}
                                   >
-                                    {getPriorityLabel(asset.priority || 2)}
+                                    {getPriorityLabelForClient(
+                                      asset.priority || 2,
+                                      asset.client
+                                    )}
                                   </span>
                                 </SelectTrigger>
                                 <SelectContent className="dark:bg-background dark:border-border">
-                                  <SelectItem
-                                    value="1"
-                                    className="dark:text-foreground"
-                                  >
-                                    High
-                                  </SelectItem>
-                                  <SelectItem
-                                    value="2"
-                                    className="dark:text-foreground"
-                                  >
-                                    Medium
-                                  </SelectItem>
-                                  <SelectItem
-                                    value="3"
-                                    className="dark:text-foreground"
-                                  >
-                                    Low
-                                  </SelectItem>
+                                  {asset.client?.toUpperCase() === "AJ" ? (
+                                    <>
+                                      <SelectItem
+                                        value="1"
+                                        className="dark:text-foreground"
+                                      >
+                                        Low
+                                      </SelectItem>
+                                      <SelectItem
+                                        value="2"
+                                        className="dark:text-foreground"
+                                      >
+                                        Medium
+                                      </SelectItem>
+                                      <SelectItem
+                                        value="3"
+                                        className="dark:text-foreground"
+                                      >
+                                        High
+                                      </SelectItem>
+                                      <SelectItem
+                                        value="4"
+                                        className="dark:text-foreground"
+                                      >
+                                        Flex
+                                      </SelectItem>
+                                      <SelectItem
+                                        value="5"
+                                        className="dark:text-foreground"
+                                      >
+                                        Express
+                                      </SelectItem>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <SelectItem
+                                        value="1"
+                                        className="dark:text-foreground"
+                                      >
+                                        High
+                                      </SelectItem>
+                                      <SelectItem
+                                        value="2"
+                                        className="dark:text-foreground"
+                                      >
+                                        Medium
+                                      </SelectItem>
+                                      <SelectItem
+                                        value="3"
+                                        className="dark:text-foreground"
+                                      >
+                                        Low
+                                      </SelectItem>
+                                    </>
+                                  )}
                                 </SelectContent>
                               </Select>
                             </div>

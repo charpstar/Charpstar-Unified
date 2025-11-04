@@ -166,6 +166,7 @@ interface Company {
   bunny_custom_structure?: boolean | null;
   bunny_custom_url?: string | null;
   bunny_custom_access_key?: string | null;
+  variation_contracted?: boolean | null;
   created_at: string;
   updated_at: string;
   isPlaceholder?: boolean;
@@ -190,6 +191,7 @@ interface CompanyFormData {
   bunny_custom_structure?: boolean;
   bunny_custom_url?: string;
   bunny_custom_access_key?: string;
+  variation_contracted?: boolean;
 }
 
 interface CompanyAssetCount {
@@ -405,6 +407,7 @@ export default function UsersPage() {
     bunny_custom_structure: false,
     bunny_custom_url: "",
     bunny_custom_access_key: "",
+    variation_contracted: false,
   });
 
   useEffect(() => {
@@ -505,15 +508,17 @@ export default function UsersPage() {
 
       const { data: onboardingData, error: onboardingError } = await supabase
         .from("onboarding_assets")
-        .select("client, transferred")
-        .in("client", companyNames);
+        .select("client, transferred, is_variation")
+        .in("client", companyNames)
+        .or("is_variation.is.null,is_variation.eq.false");
 
       if (onboardingError) throw onboardingError;
 
       const { data: assetsData, error: assetsError } = await supabase
         .from("assets")
-        .select("client, active")
-        .in("client", companyNames);
+        .select("client, active, is_variation")
+        .in("client", companyNames)
+        .or("is_variation.is.null,is_variation.eq.false");
 
       if (assetsError) throw assetsError;
 
@@ -522,14 +527,16 @@ export default function UsersPage() {
           onboardingData?.filter(
             (item) =>
               item.client === name &&
-              (item.transferred === false || item.transferred === null)
+              (item.transferred === false || item.transferred === null) &&
+              (item.is_variation === false || item.is_variation === null)
           ).length || 0;
 
         const productionCount =
           assetsData?.filter(
             (item) =>
               item.client === name &&
-              (item.active === true || item.active === null)
+              (item.active === true || item.active === null) &&
+              (item.is_variation === false || item.is_variation === null)
           ).length || 0;
 
         counts[name] = {
@@ -698,6 +705,7 @@ export default function UsersPage() {
       bunny_custom_structure: company.bunny_custom_structure || false,
       bunny_custom_url: company.bunny_custom_url || "",
       bunny_custom_access_key: company.bunny_custom_access_key || "",
+      variation_contracted: company.variation_contracted || false,
     });
     setIsEditCompanyDialogOpen(true);
   };
@@ -727,6 +735,7 @@ export default function UsersPage() {
       bunny_custom_structure: false,
       bunny_custom_url: "",
       bunny_custom_access_key: "",
+      variation_contracted: false,
     });
     setIsAddCompanyDialogOpen(true);
   };
@@ -751,6 +760,7 @@ export default function UsersPage() {
       bunny_custom_structure: false,
       bunny_custom_url: "",
       bunny_custom_access_key: "",
+      variation_contracted: false,
     });
     setIsAddCompanyDialogOpen(true);
   };
@@ -820,6 +830,7 @@ export default function UsersPage() {
         bunny_custom_structure: false,
         bunny_custom_url: "",
         bunny_custom_access_key: "",
+        variation_contracted: false,
       });
       setIsEditCompanyDialogOpen(false);
       setIsAddCompanyDialogOpen(false);
@@ -4373,6 +4384,35 @@ function CompanyForm({
                               </p>
                             </div>
                           </div>
+                        )}
+                      </div>
+
+                      <div className="space-y-3">
+                        <div className="flex items-center space-x-2">
+                          <Switch
+                            id="variation_contracted"
+                            checked={formData.variation_contracted || false}
+                            onCheckedChange={(checked) =>
+                              setFormData({
+                                ...formData,
+                                variation_contracted: checked,
+                              })
+                            }
+                          />
+                          <Label
+                            htmlFor="variation_contracted"
+                            className="text-sm"
+                          >
+                            Variation Contracted Client (allows 1 parent + 5
+                            variations per product)
+                          </Label>
+                        </div>
+                        {formData.variation_contracted && (
+                          <p className="text-xs text-muted-foreground pl-6">
+                            When enabled, clients can create one parent asset
+                            with up to 5 sub-assets (variations) that dont count
+                            toward their contracted asset limit.
+                          </p>
                         )}
                       </div>
 

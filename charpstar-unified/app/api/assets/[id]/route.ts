@@ -48,11 +48,13 @@ export async function GET(
 
 export async function PUT(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const cookieStore = cookies();
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
+    const cookieStore = await cookies();
+    const supabase = createRouteHandlerClient({
+      cookies: () => Promise.resolve(cookieStore),
+    });
 
     // Check authentication
     const {
@@ -78,6 +80,7 @@ export async function PUT(
       );
     }
 
+    const resolvedParams = await params;
     const assetData = await req.json();
 
     // Update the asset
@@ -87,7 +90,7 @@ export async function PUT(
         ...assetData,
         updated_at: new Date().toISOString(),
       })
-      .eq("id", params.id)
+      .eq("id", resolvedParams.id)
       .select()
       .single();
 

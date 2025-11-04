@@ -304,7 +304,9 @@ export default function InvoicingPage() {
             status,
             created_at,
             updated_at,
-            transferred
+            transferred,
+            qa_team_handles_model,
+            pricing_option_id
           )
         `
         )
@@ -320,7 +322,17 @@ export default function InvoicingPage() {
         return;
       }
 
-      const processedAssets: ApprovedAsset[] = (data || []).map(
+      // Filter out QA-handled models before processing
+      const nonQAAssets = (data || []).filter((item: any) => {
+        const asset = item.onboarding_assets;
+        // Exclude QA-handled models
+        return (
+          !asset.qa_team_handles_model &&
+          asset.pricing_option_id !== "qa_team_handles_model"
+        );
+      });
+
+      const processedAssets: ApprovedAsset[] = nonQAAssets.map(
         (item: any) => ({
           id: item.onboarding_assets.id,
           product_name: item.onboarding_assets.product_name,

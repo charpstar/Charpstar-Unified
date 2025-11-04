@@ -240,7 +240,7 @@ export default function ProductionDashboard() {
   const [qaUsers, setQAUsers] = useState<QAProgress[]>([]);
   const [filteredQAUsers, setFilteredQAUsers] = useState<QAProgress[]>([]);
   const [loading, setLoading] = useState(true);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+
   const [loadingStates, setLoadingStates] = useState({
     clients: false,
     batches: false,
@@ -570,6 +570,9 @@ export default function ProductionDashboard() {
   useEffect(() => {
     const initializeData = async () => {
       try {
+        // Set loading to true when switching views or when data needs to be fetched
+        setLoading(true);
+
         let data;
 
         // Check if we have cached data for this view mode
@@ -599,6 +602,8 @@ export default function ProductionDashboard() {
       } catch (error) {
         console.error("Error initializing data:", error);
       } finally {
+        // Only set loading to false after data processing is complete
+        // For batches view, we'll check batches.length in render to show skeleton
         setLoading(false);
       }
     };
@@ -3055,7 +3060,11 @@ export default function ProductionDashboard() {
 
       {/* Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-        {loading
+        {loading ||
+        loadingStates.fetchingData ||
+        (viewMode === "batches" &&
+          batches.length === 0 &&
+          loadingStates.batches)
           ? // Loading skeleton for current view
             Array.from({ length: itemsPerPage }).map((_, i) => {
               if (viewMode === "clients") {
@@ -4968,15 +4977,19 @@ export default function ProductionDashboard() {
       )}
 
       {/* Empty State - Batches */}
-      {viewMode === "batches" && batches.length === 0 && !loading && (
-        <div className="text-center py-12">
-          <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-          <h3 className="text-lg font-semibold mb-2">No Batch Projects</h3>
-          <p className="text-muted-foreground mb-4">
-            No onboarding assets found. Start by uploading client data.
-          </p>
-        </div>
-      )}
+      {viewMode === "batches" &&
+        batches.length === 0 &&
+        !loading &&
+        !loadingStates.fetchingData &&
+        !loadingStates.batches && (
+          <div className="text-center py-12">
+            <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+            <h3 className="text-lg font-semibold mb-2">No Batch Projects</h3>
+            <p className="text-muted-foreground mb-4">
+              No onboarding assets found. Start by uploading client data.
+            </p>
+          </div>
+        )}
 
       {/* No Search Results - Clients */}
       {viewMode === "clients" &&

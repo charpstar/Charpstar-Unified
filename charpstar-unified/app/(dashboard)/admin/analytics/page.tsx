@@ -360,6 +360,12 @@ const PRICING_OPTIONS: PricingOption[] = [
     price: 0,
     description: "Custom pricing",
   },
+  {
+    id: "qa_team_handles_model",
+    label: "0€ - QA Team Will Handle Model",
+    price: 0,
+    description: "QA team will handle this model (too easy for modelers)",
+  },
 ];
 
 interface MonthlyCost {

@@ -38,23 +38,37 @@ export async function POST(_request: NextRequest) {
             .from("asset_assignments")
             .select(
               `
-            onboarding_assets(id, status, transferred)
+            onboarding_assets(id, status, transferred, qa_team_handles_model, pricing_option_id)
           `
             )
             .eq("allocation_list_id", list.id);
 
         if (!listAssetsError && allAssetsInList && allAssetsInList.length > 0) {
-          // Check if all assets in the list are approved
-          const allApproved = allAssetsInList.every((assignment: any) => {
+          // Filter out QA-handled models - they don't count toward completion
+          const pricedAssets = allAssetsInList.filter((assignment: any) => {
             if (!assignment.onboarding_assets) return false;
-            // If asset has been transferred, it's approved
-            if (assignment.onboarding_assets.transferred === true) return true;
-            // Otherwise, check if status is approved
+            const asset = assignment.onboarding_assets;
+            // Exclude QA-handled models
             return (
-              assignment.onboarding_assets.status === "approved_by_client" ||
-              assignment.onboarding_assets.status === "approved"
+              !asset.qa_team_handles_model &&
+              asset.pricing_option_id !== "qa_team_handles_model"
             );
           });
+
+          // Check if all priced assets are approved
+          // If list has no priced assets (only QA-handled), it should never be marked as approved
+          const allApproved =
+            pricedAssets.length > 0 &&
+            pricedAssets.every((assignment: any) => {
+              const asset = assignment.onboarding_assets;
+              // If asset has been transferred, it's approved
+              if (asset.transferred === true) return true;
+              // Otherwise, check if status is approved
+              return (
+                asset.status === "approved_by_client" ||
+                asset.status === "approved"
+              );
+            });
 
           if (allApproved) {
             // Update the allocation list to mark it as approved

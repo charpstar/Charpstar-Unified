@@ -9,7 +9,8 @@ const supabaseAdmin = createClient(
 
 export async function POST(request: NextRequest) {
   try {
-    const { assetId, pricingOptionId, price } = await request.json();
+    const { assetId, pricingOptionId, price, qaTeamHandlesModel } =
+      await request.json();
 
     if (!assetId || !pricingOptionId) {
       return NextResponse.json(
@@ -19,12 +20,25 @@ export async function POST(request: NextRequest) {
     }
 
     // Update the asset with the new pricing information
+    const updateData: {
+      pricing_option_id: string;
+      price: number;
+      qa_team_handles_model?: boolean;
+    } = {
+      pricing_option_id: pricingOptionId,
+      price: price,
+    };
+
+    // Set qa_team_handles_model flag if provided, or auto-detect from pricingOptionId
+    if (qaTeamHandlesModel !== undefined) {
+      updateData.qa_team_handles_model = qaTeamHandlesModel;
+    } else if (pricingOptionId === "qa_team_handles_model") {
+      updateData.qa_team_handles_model = true;
+    }
+
     const { error } = await supabaseAdmin
       .from("onboarding_assets")
-      .update({
-        pricing_option_id: pricingOptionId,
-        price: price,
-      })
+      .update(updateData)
       .eq("id", assetId);
 
     if (error) {

@@ -30,6 +30,7 @@ import {
   RotateCcw,
   ChevronDown,
   ChevronUp,
+  ChevronRight,
   Clock,
   ArrowLeft,
   Trash2,
@@ -38,6 +39,8 @@ import {
   GripVertical,
   Euro,
   StickyNote,
+  Check,
+  ChevronsUpDown,
 } from "lucide-react";
 
 import {
@@ -56,6 +59,14 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/interactive";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/utilities";
 import { ViewReferencesDialog } from "@/components/ui/containers/ViewReferencesDialog";
 import { AddReferenceDialog } from "@/components/ui/containers/AddReferenceDialog";
 
@@ -101,6 +112,14 @@ const PRICING_OPTIONS: PricingOption[] = [
     price: 0, // Will be set by user
     description: "Set a custom price for this asset",
   },
+
+  // QA Team Handling
+  {
+    id: "qa_team_handles_model",
+    label: "0€ - QA Team Will Handle Model",
+    price: 0,
+    description: "QA team will handle this model (too easy for modelers)",
+  },
 ];
 
 // Derive human-readable task type from pricing option id
@@ -112,19 +131,57 @@ import { getPriorityLabel } from "@/lib/constants";
 import { format } from "date-fns";
 import { Calendar as CalendarIcon, User, Package } from "lucide-react";
 
-// Helper function to get priority CSS class
-const getPriorityClass = (priority: number): string => {
+/**
+ * Helper function to get priority CSS class - uses ASSET's client (not user's client)
+ * @param priority - The priority number (1-5 for AJ, 1-3 for others)
+ * @param client - The ASSET's client property (e.g., "AJ", "ClientName") - NOT the user's client
+ * @returns CSS class name for priority styling
+ */
+const getPriorityClass = (priority: number, client?: string | null): string => {
+  // IMPORTANT: This function uses the ASSET's client, NOT the logged-in user's client
+  // Always pass asset.client or assignment.onboarding_assets.client, never user.client
+  const assetClient = client; // Renamed for clarity - this is the asset's client
+
+  // Note: Missing client is handled gracefully (treated as non-AJ client)
+  // Some assets may legitimately have null/undefined client, which is fine
+
+  const clientUpper = (assetClient || "").toUpperCase();
+  const isAJ = clientUpper === "AJ";
+
+  // AJ client uses inverted mapping: 1=Low, 2=Medium, 3=High
+  if (isAJ) {
+    if (priority === 3) return "priority-high";
+    if (priority === 2) return "priority-medium";
+    if (priority === 1) return "priority-low";
+    // For AJ-specific priorities 4 and 5
+    if (priority === 4 || priority === 5) return "priority-medium"; // Flex/Express use medium styling
+    return "priority-medium";
+  }
+  // Standard mapping for non-AJ clients: 1=High, 2=Medium, 3=Low
   if (priority === 1) return "priority-high";
   if (priority === 2) return "priority-medium";
   return "priority-low";
 };
 
-// Client-specific priority labels: AJ supports 1..5 (Low, Medium, High, Flex, Express)
+/**
+ * Client-specific priority labels: AJ supports 1..5 (Low, Medium, High, Flex, Express)
+ * Uses ASSET's client (not user's client)
+ * @param priority - The priority number (1-5 for AJ, 1-3 for others)
+ * @param client - The ASSET's client property (e.g., "AJ", "ClientName") - NOT the user's client
+ * @returns Human-readable priority label
+ */
 const getPriorityLabelForClient = (
   priority: number,
   client?: string | null
 ): string => {
-  if ((client || "").toUpperCase() === "AJ") {
+  // IMPORTANT: This function uses the ASSET's client, NOT the logged-in user's client
+  // Always pass asset.client or assignment.onboarding_assets.client, never user.client
+  const assetClient = client; // Renamed for clarity - this is the asset's client
+
+  const clientUpper = (assetClient || "").toUpperCase();
+  const isAJ = clientUpper === "AJ";
+
+  if (isAJ) {
     switch (priority) {
       case 1:
         return "Low";
@@ -337,6 +394,110 @@ const isOverdue = (deadline: string) => {
   return new Date(deadline) < new Date();
 };
 
+// Modeler Combobox Component with Search
+interface ModelerComboboxProps {
+  modelers: Array<{ id: string; email: string; name?: string; title?: string }>;
+  value?: string;
+  onValueChange: (value: string) => void;
+  placeholder?: string;
+}
+
+function ModelerCombobox({
+  modelers,
+  value,
+  onValueChange,
+  placeholder = "Select modeler...",
+}: ModelerComboboxProps) {
+  const [open, setOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // Filter modelers based on search query
+  const filteredModelers = useMemo(() => {
+    if (!searchQuery) return modelers;
+    const query = searchQuery.toLowerCase();
+    return modelers.filter((modeler) => {
+      const name = (modeler.name || "").toLowerCase();
+      const email = (modeler.email || "").toLowerCase();
+      const title = (modeler.title || "").toLowerCase();
+      return (
+        name.includes(query) || email.includes(query) || title.includes(query)
+      );
+    });
+  }, [modelers, searchQuery]);
+
+  const displayValue = value
+    ? modelers.find((m) => m.id === value)?.name ||
+      modelers.find((m) => m.id === value)?.title ||
+      modelers.find((m) => m.id === value)?.email ||
+      placeholder
+    : placeholder;
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className="w-full sm:w-40 h-9 text-sm justify-between"
+        >
+          <span className="truncate">{displayValue}</span>
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-full sm:w-[300px] p-0" align="start">
+        <Command shouldFilter={false}>
+          <CommandInput
+            placeholder="Search modelers..."
+            value={searchQuery}
+            onValueChange={setSearchQuery}
+          />
+          <CommandList>
+            <CommandEmpty>No modeler found.</CommandEmpty>
+            <CommandGroup>
+              <CommandItem
+                value="all"
+                onSelect={() => {
+                  onValueChange("all");
+                  setOpen(false);
+                  setSearchQuery("");
+                }}
+                className="cursor-pointer"
+              >
+                <Check
+                  className={`mr-2 h-4 w-4 ${
+                    value === undefined ? "opacity-100" : "opacity-0"
+                  }`}
+                />
+                All modelers
+              </CommandItem>
+              {filteredModelers.map((modeler) => (
+                <CommandItem
+                  key={modeler.id}
+                  value={`${modeler.name || ""} ${modeler.email || ""} ${modeler.title || ""} ${modeler.id}`}
+                  onSelect={() => {
+                    onValueChange(modeler.id);
+                    setOpen(false);
+                    setSearchQuery("");
+                  }}
+                  className="cursor-pointer"
+                >
+                  <Check
+                    className={`mr-2 h-4 w-4 ${
+                      value === modeler.id ? "opacity-100" : "opacity-0"
+                    }`}
+                  />
+                  {modeler.name || modeler.title || modeler.email}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 const AdminReviewTableSkeleton = () => (
   <>
     {/* Summary Stats Skeleton */}
@@ -497,7 +658,7 @@ export default function AdminReviewPage() {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [clients, setClients] = useState<string[]>([]);
   const [modelers, setModelers] = useState<
-    Array<{ id: string; email: string; title?: string }>
+    Array<{ id: string; email: string; name?: string; title?: string }>
   >([]);
   const [commentCounts, setCommentCounts] = useState<Record<string, number>>(
     {}
@@ -643,7 +804,7 @@ export default function AdminReviewPage() {
       let query = supabase
         .from("onboarding_assets")
         .select(
-          "id, product_name, article_id, delivery_date, status, batch, priority, revision_count, product_link, glb_link, reference, client, upload_order, pricing_option_id, price, pricing_comment, transferred"
+          "id, product_name, article_id, delivery_date, status, batch, priority, revision_count, product_link, glb_link, reference, client, upload_order, pricing_option_id, price, pricing_comment, transferred, is_variation, parent_asset_id, variation_index, qa_team_handles_model"
         )
         .eq("transferred", false) // Exclude transferred assets
         .order("upload_order", { ascending: true });
@@ -1629,7 +1790,11 @@ export default function AdminReviewPage() {
                 glb_link,
                 product_link,
                 pricing_option_id,
-                price
+                price,
+                is_variation,
+                parent_asset_id,
+                variation_index,
+                qa_team_handles_model
               )
             )
           `
@@ -1682,25 +1847,36 @@ export default function AdminReviewPage() {
       startLoading();
       setLoading(true);
 
-      // Fetch modelers for the filter
+      // Fetch modelers for the filter with names from Supabase Auth
       try {
-        const { data: modelersData, error: modelersError } = await supabase
-          .from("profiles")
-          .select("id, email, title")
-          .eq("role", "modeler")
-          .order("email");
-
-        if (!modelersError && modelersData) {
-          setModelers(modelersData);
+        const response = await fetch("/api/admin/modelers");
+        if (!response.ok) {
+          throw new Error("Failed to fetch modelers");
         }
+        const { modelers: modelersWithNames } = await response.json();
+        setModelers(modelersWithNames || []);
       } catch (error) {
         console.error("Error fetching modelers:", error);
+        // Fallback to basic fetch if API fails
+        try {
+          const { data: modelersData, error: modelersError } = await supabase
+            .from("profiles")
+            .select("id, email, title")
+            .eq("role", "modeler")
+            .order("email");
+
+          if (!modelersError && modelersData) {
+            setModelers(modelersData);
+          }
+        } catch (fallbackError) {
+          console.error("Error in fallback fetch:", fallbackError);
+        }
       }
 
       let query = supabase
         .from("onboarding_assets")
         .select(
-          "id, product_name, article_id, delivery_date, status, batch, priority, revision_count, client, reference, glb_link, product_link, upload_order, pricing_option_id, price, pricing_comment, transferred, measurements"
+          "id, product_name, article_id, delivery_date, status, batch, priority, revision_count, client, reference, glb_link, product_link, upload_order, pricing_option_id, price, pricing_comment, transferred, measurements, is_variation, parent_asset_id, variation_index"
         )
         .eq("transferred", false) // Exclude transferred assets
         .order("upload_order", { ascending: true });
@@ -2061,7 +2237,11 @@ export default function AdminReviewPage() {
               glb_link,
               product_link,
               created_at,
-              measurements
+              measurements,
+              is_variation,
+              parent_asset_id,
+              variation_index,
+              qa_team_handles_model
             )
           `
           )
@@ -2520,6 +2700,10 @@ export default function AdminReviewPage() {
     price: number
   ) => {
     try {
+      // Auto-set price to 0 for QA team handles model option
+      const priceToUse =
+        pricingOptionId === "qa_team_handles_model" ? 0 : price;
+
       const response = await fetch("/api/assets/update-price", {
         method: "POST",
         headers: {
@@ -2528,7 +2712,8 @@ export default function AdminReviewPage() {
         body: JSON.stringify({
           assetId,
           pricingOptionId,
-          price,
+          price: priceToUse,
+          qaTeamHandlesModel: pricingOptionId === "qa_team_handles_model",
         }),
       });
 
@@ -2540,7 +2725,7 @@ export default function AdminReviewPage() {
       // Update local state
       setAssetPrices((prev) => ({
         ...prev,
-        [assetId]: { pricingOptionId, price },
+        [assetId]: { pricingOptionId, price: priceToUse },
       }));
 
       // If it's custom pricing, also update the custom price
@@ -2551,7 +2736,11 @@ export default function AdminReviewPage() {
         }));
       }
 
-      toast.success("Price updated successfully");
+      if (pricingOptionId === "qa_team_handles_model") {
+        toast.success("Price set to 0€ - QA team will handle this model");
+      } else {
+        toast.success("Price updated successfully");
+      }
     } catch (error) {
       console.error("Error updating price:", error);
       toast.error(
@@ -3591,12 +3780,13 @@ export default function AdminReviewPage() {
               </SelectContent>
             </Select>
 
-            {/* Modeler Filter */}
-            <Select
+            {/* Modeler Filter - Combobox */}
+            <ModelerCombobox
+              modelers={modelers}
               value={
                 modelerFilters.length === 1 ? modelerFilters[0] : undefined
               }
-              onValueChange={(value) => {
+              onValueChange={(value: string) => {
                 if (value === "all") {
                   setModelerFilters([]);
                 } else if (value) {
@@ -3604,30 +3794,16 @@ export default function AdminReviewPage() {
                 }
                 setPage(1);
               }}
-            >
-              <SelectTrigger className="w-full sm:w-40 h-9 text-sm">
-                <SelectValue
-                  placeholder={
-                    modelerFilters.length === 0
-                      ? "All modelers"
-                      : modelerFilters.length === 1
-                        ? modelers.find((m) => m.id === modelerFilters[0])
-                            ?.title ||
-                          modelers.find((m) => m.id === modelerFilters[0])
-                            ?.email
-                        : `${modelerFilters.length} selected`
-                  }
-                />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All modelers</SelectItem>
-                {modelers.map((modeler) => (
-                  <SelectItem key={modeler.id} value={modeler.id}>
-                    {modeler.title || modeler.email}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              placeholder={
+                modelerFilters.length === 0
+                  ? "All modelers"
+                  : modelerFilters.length === 1
+                    ? modelers.find((m) => m.id === modelerFilters[0])?.name ||
+                      modelers.find((m) => m.id === modelerFilters[0])?.title ||
+                      modelers.find((m) => m.id === modelerFilters[0])?.email
+                    : `${modelerFilters.length} selected`
+              }
+            />
 
             {/* Clear Filters Button */}
             {(clientFilters.length > 0 ||
@@ -3683,19 +3859,8 @@ export default function AdminReviewPage() {
                   className="flex items-center gap-1 sm:gap-2 bg-green-600 hover:bg-green-700 text-white w-full sm:w-auto text-xs sm:text-sm h-8 sm:h-9"
                 >
                   <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4" />
-                  <span className="hidden sm:inline">Mark as Approved</span>
+                  <span className="hidden sm:inline">Transfer To Library</span>
                   <span className="sm:hidden">Approved</span>
-                </Button>
-
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowFixStuckDialog(true)}
-                  className="flex items-center gap-1 sm:gap-2 bg-orange-600 hover:bg-orange-700 text-white w-full sm:w-auto text-xs sm:text-sm h-8 sm:h-9"
-                >
-                  <RotateCcw className="h-3 w-3 sm:h-4 sm:w-4" />
-                  <span className="hidden sm:inline">Fix Stuck Assets</span>
-                  <span className="sm:hidden">Fix</span>
                 </Button>
               </div>
             )}
@@ -4015,353 +4180,399 @@ export default function AdminReviewPage() {
                               </TableRow>
                             </TableHeader>
                             <TableBody>
-                              {list.asset_assignments.map((assignment: any) => (
-                                <TableRow
-                                  key={assignment.asset_id}
-                                  className={getStatusRowClass(
-                                    assignment.onboarding_assets.status
-                                  )}
-                                >
-                                  <TableCell className="text-left">
-                                    <Checkbox
-                                      checked={selectedAssetsForReallocation.has(
-                                        assignment.onboarding_assets.id
-                                      )}
-                                      onCheckedChange={() =>
-                                        toggleAssetSelection(
+                              {list.asset_assignments.map((assignment: any) => {
+                                const asset = assignment.onboarding_assets;
+                                const isVariation = asset.is_variation === true;
+                                const isParent = list.asset_assignments.some(
+                                  (a: any) =>
+                                    a.onboarding_assets.parent_asset_id ===
+                                    asset.id
+                                );
+                                return (
+                                  <TableRow
+                                    key={assignment.asset_id}
+                                    className={`${getStatusRowClass(
+                                      asset.status
+                                    )} transition-all duration-200 dark:border-border dark:hover:bg-muted/20 ${
+                                      isVariation
+                                        ? "bg-slate-50/50 dark:bg-slate-900/20 border-l-2 border-l-slate-300 dark:border-l-slate-600"
+                                        : isParent
+                                          ? "bg-amber-50/30 dark:bg-amber-950/10 border-l-2 border-l-black-400 dark:border-l-amber-600 border-t-4 border-t-amber-500 dark:border-t-amber-600"
+                                          : ""
+                                    }`}
+                                  >
+                                    <TableCell className="text-left">
+                                      <Checkbox
+                                        checked={selectedAssetsForReallocation.has(
                                           assignment.onboarding_assets.id
-                                        )
-                                      }
-                                      onClick={(e) => e.stopPropagation()}
-                                    />
-                                  </TableCell>
-                                  <TableCell className="text-left">
-                                    <div
-                                      className="font-medium cursor-help text-sm sm:text-base"
-                                      title={
-                                        assignment.onboarding_assets
-                                          .product_name
-                                      }
-                                    >
-                                      {assignment.onboarding_assets.product_name
-                                        .length > 20
-                                        ? assignment.onboarding_assets.product_name.substring(
-                                            0,
-                                            20
-                                          ) + "..."
-                                        : assignment.onboarding_assets
-                                            .product_name}
-                                    </div>
-                                  </TableCell>
-                                  <TableCell className="text-left">
-                                    <span className="font-mono text-xs sm:text-sm">
-                                      {assignment.onboarding_assets.article_id}
-                                    </span>
-                                  </TableCell>
-                                  <TableCell className="text-left">
-                                    <Select
-                                      value={(
-                                        assignment.onboarding_assets.priority ||
-                                        2
-                                      ).toString()}
-                                      onValueChange={(value) =>
-                                        handlePriorityUpdate(
-                                          assignment.onboarding_assets.id,
-                                          parseInt(value)
-                                        )
-                                      }
-                                      disabled={updatingPriorities.has(
-                                        assignment.onboarding_assets.id
-                                      )}
-                                    >
-                                      <SelectTrigger className="border-0 bg-transparent shadow-none p-0  hover:bg-transparent [&>svg]:hidden justify-center w-full h-fit">
-                                        <span
-                                          className={`px-1.5 sm:px-2 py-0.5 sm:py-1 rounded text-xs font-semibold ${getPriorityClass(
-                                            assignment.onboarding_assets
-                                              .priority || 2
-                                          )}`}
-                                        >
-                                          {getPriorityLabelForClient(
-                                            assignment.onboarding_assets
-                                              .priority || 2,
-                                            assignment.onboarding_assets.client
-                                          )}
-                                        </span>
-                                        {updatingPriorities.has(
-                                          assignment.onboarding_assets.id
-                                        ) ? (
-                                          <div className="ml-1 sm:ml-2 animate-spin rounded-full h-2.5 w-2.5 sm:h-3 sm:w-3 border-b-2 border-blue-600" />
-                                        ) : null}
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                        <SelectItem value="3">Low</SelectItem>
-                                        <SelectItem value="2">
-                                          Medium
-                                        </SelectItem>
-                                        <SelectItem value="1">High</SelectItem>
-                                        {assignment.onboarding_assets.client?.toUpperCase() ===
-                                          "AJ" && (
-                                          <>
-                                            <SelectItem value="4">
-                                              Flex
-                                            </SelectItem>
-                                            <SelectItem value="5">
-                                              Express
-                                            </SelectItem>
-                                          </>
                                         )}
-                                      </SelectContent>
-                                    </Select>
-                                  </TableCell>
-                                  <TableCell className="text-left">
-                                    <div className="flex items-center gap-1">
-                                      <span className="font-medium text-sm sm:text-base">
-                                        €
-                                        {assignment.onboarding_assets.price?.toFixed(
-                                          2
-                                        ) || "0.00"}
-                                      </span>
-                                      <Popover>
-                                        <PopoverTrigger asChild>
-                                          <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            className="h-4 w-4 p-0 hover:bg-muted"
+                                        onCheckedChange={() =>
+                                          toggleAssetSelection(
+                                            assignment.onboarding_assets.id
+                                          )
+                                        }
+                                        onClick={(e) => e.stopPropagation()}
+                                      />
+                                    </TableCell>
+                                    <TableCell className="text-left">
+                                      <div className="flex items-center gap-1.5">
+                                        {isVariation && (
+                                          <ChevronRight className="h-3 w-3 text-slate-500 dark:text-slate-400 flex-shrink-0" />
+                                        )}
+                                        {isParent && !isVariation && (
+                                          <Package className="h-3 w-3 text-amber-600 dark:text-amber-500 flex-shrink-0" />
+                                        )}
+                                        <div
+                                          className={`font-medium cursor-help text-sm sm:text-base truncate ${
+                                            isVariation
+                                              ? "text-slate-600 dark:text-slate-400"
+                                              : isParent
+                                                ? "text-amber-700 dark:text-amber-500"
+                                                : ""
+                                          }`}
+                                          title={asset.product_name}
+                                        >
+                                          {asset.product_name.length > 20
+                                            ? asset.product_name.substring(
+                                                0,
+                                                20
+                                              ) + "..."
+                                            : asset.product_name}
+                                        </div>
+                                        {isParent && !isVariation && (
+                                          <Badge
+                                            variant="outline"
+                                            className="text-xs text-amber-700 dark:text-amber-500 border-amber-300 dark:border-amber-700 bg-amber-50/50 dark:bg-amber-950/20 px-1.5 py-0 ml-1"
                                           >
-                                            <StickyNote
-                                              className={`h-3 w-3 ${
-                                                pricingComments[
-                                                  assignment.onboarding_assets
-                                                    .id
-                                                ]
-                                                  ? "text-blue-600 hover:text-blue-700"
-                                                  : "text-muted-foreground hover:text-foreground"
-                                              }`}
-                                            />
-                                          </Button>
-                                        </PopoverTrigger>
-                                        <PopoverContent className="w-80 p-3">
-                                          <div className="space-y-3">
-                                            <h4 className="font-medium text-sm">
-                                              Pricing Note
-                                            </h4>
-                                            <Textarea
-                                              placeholder="Add pricing note..."
-                                              value={
-                                                pricingComments[
-                                                  assignment.onboarding_assets
-                                                    .id
-                                                ] || ""
-                                              }
-                                              onChange={(e) => {
-                                                setPricingComments((prev) => ({
-                                                  ...prev,
-                                                  [assignment.onboarding_assets
-                                                    .id]: e.target.value,
-                                                }));
-                                              }}
-                                              onBlur={() => {
-                                                if (
+                                            Parent
+                                          </Badge>
+                                        )}
+                                        {isVariation &&
+                                          asset.variation_index && (
+                                            <Badge
+                                              variant="outline"
+                                              className="text-xs text-slate-600 dark:text-slate-400 border-slate-300 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/20 px-1.5 py-0 ml-1"
+                                            >
+                                              V{asset.variation_index}
+                                            </Badge>
+                                          )}
+                                      </div>
+                                    </TableCell>
+                                    <TableCell className="text-left">
+                                      <div className="flex items-center gap-1.5">
+                                        {isVariation && (
+                                          <ChevronRight className="h-3 w-3 text-slate-500 dark:text-slate-400 flex-shrink-0" />
+                                        )}
+                                        {isParent && !isVariation && (
+                                          <Package className="h-3 w-3 text-amber-600 dark:text-amber-500 flex-shrink-0" />
+                                        )}
+                                        <span
+                                          className={`font-mono text-xs sm:text-sm truncate ${
+                                            isVariation
+                                              ? "text-slate-600 dark:text-slate-400"
+                                              : isParent
+                                                ? "text-amber-700 dark:text-amber-500"
+                                                : ""
+                                          }`}
+                                        >
+                                          {asset.article_id}
+                                        </span>
+                                      </div>
+                                    </TableCell>
+                                    <TableCell className="text-left">
+                                      <Select
+                                        value={(
+                                          assignment.onboarding_assets
+                                            .priority || 2
+                                        ).toString()}
+                                        onValueChange={(value) =>
+                                          handlePriorityUpdate(
+                                            assignment.onboarding_assets.id,
+                                            parseInt(value)
+                                          )
+                                        }
+                                        disabled={updatingPriorities.has(
+                                          assignment.onboarding_assets.id
+                                        )}
+                                      >
+                                        <SelectTrigger className="border-0 shadow-none bg-transparent dark:bg-transparent p-0  hover:bg-transparent [&>svg]:hidden justify-center w-full h-fit">
+                                          <span
+                                            className={`px-1.5 sm:px-2 py-0.5 sm:py-1 rounded text-xs font-semibold ${getPriorityClass(
+                                              assignment.onboarding_assets
+                                                .priority || 2,
+                                              assignment.onboarding_assets
+                                                .client
+                                            )}`}
+                                          >
+                                            {getPriorityLabelForClient(
+                                              assignment.onboarding_assets
+                                                .priority || 2,
+                                              assignment.onboarding_assets
+                                                .client
+                                            )}
+                                          </span>
+                                          {updatingPriorities.has(
+                                            assignment.onboarding_assets.id
+                                          ) ? (
+                                            <div className="ml-1 sm:ml-2 animate-spin rounded-full h-2.5 w-2.5 sm:h-3 sm:w-3 border-b-2 border-blue-600" />
+                                          ) : null}
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          {/* Show AJ priority options only when asset client is AJ (not based on user role) */}
+                                          {(() => {
+                                            const assignmentClient =
+                                              assignment.onboarding_assets
+                                                .client;
+                                            const assignmentClientUpper =
+                                              assignmentClient?.toUpperCase();
+                                            const isAssetAJ =
+                                              assignmentClientUpper === "AJ";
+                                            const shouldShowAJOptions =
+                                              isAssetAJ; // Only check asset client, not user role
+                                            return shouldShowAJOptions;
+                                          })() ? (
+                                            <>
+                                              <SelectItem value="1">
+                                                Low
+                                              </SelectItem>
+                                              <SelectItem value="2">
+                                                Medium
+                                              </SelectItem>
+                                              <SelectItem value="3">
+                                                High
+                                              </SelectItem>
+                                              <SelectItem value="4">
+                                                Flex
+                                              </SelectItem>
+                                              <SelectItem value="5">
+                                                Express
+                                              </SelectItem>
+                                            </>
+                                          ) : (
+                                            <>
+                                              <SelectItem value="1">
+                                                High
+                                              </SelectItem>
+                                              <SelectItem value="2">
+                                                Medium
+                                              </SelectItem>
+                                              <SelectItem value="3">
+                                                Low
+                                              </SelectItem>
+                                            </>
+                                          )}
+                                        </SelectContent>
+                                      </Select>
+                                    </TableCell>
+                                    <TableCell className="text-left">
+                                      <div className="flex items-center gap-1">
+                                        <span className="font-medium text-sm sm:text-base">
+                                          €
+                                          {assignment.onboarding_assets.price?.toFixed(
+                                            2
+                                          ) || "0.00"}
+                                        </span>
+                                        <Popover>
+                                          <PopoverTrigger asChild>
+                                            <Button
+                                              variant="ghost"
+                                              size="sm"
+                                              className="h-4 w-4 p-0 hover:bg-muted"
+                                            >
+                                              <StickyNote
+                                                className={`h-3 w-3 ${
                                                   pricingComments[
                                                     assignment.onboarding_assets
                                                       .id
-                                                  ] !== undefined
-                                                ) {
-                                                  handlePricingCommentUpdate(
+                                                  ]
+                                                    ? "text-blue-600 hover:text-blue-700"
+                                                    : "text-muted-foreground hover:text-foreground"
+                                                }`}
+                                              />
+                                            </Button>
+                                          </PopoverTrigger>
+                                          <PopoverContent className="w-80 p-3">
+                                            <div className="space-y-3">
+                                              <h4 className="font-medium text-sm">
+                                                Pricing Note
+                                              </h4>
+                                              <Textarea
+                                                placeholder="Add pricing note..."
+                                                value={
+                                                  pricingComments[
                                                     assignment.onboarding_assets
-                                                      .id,
+                                                      .id
+                                                  ] || ""
+                                                }
+                                                onChange={(e) => {
+                                                  setPricingComments(
+                                                    (prev) => ({
+                                                      ...prev,
+                                                      [assignment
+                                                        .onboarding_assets.id]:
+                                                        e.target.value,
+                                                    })
+                                                  );
+                                                }}
+                                                onBlur={() => {
+                                                  if (
                                                     pricingComments[
                                                       assignment
                                                         .onboarding_assets.id
-                                                    ]
-                                                  );
-                                                }
-                                              }}
-                                              className="min-h-[60px] max-h-[120px] resize-none text-xs"
-                                              rows={3}
-                                            />
-                                          </div>
-                                        </PopoverContent>
-                                      </Popover>
-                                    </div>
-                                  </TableCell>
-                                  <TableCell className="text-left">
-                                    <Badge
-                                      variant="outline"
-                                      className={`text-xs ${getStatusLabelClass(assignment.onboarding_assets.status)}`}
-                                    >
-                                      {assignment.onboarding_assets.status ===
-                                      "delivered_by_artist"
-                                        ? "Delivered by Artist"
-                                        : assignment.onboarding_assets
-                                              .status === "in_production"
-                                          ? "In Progress"
-                                          : assignment.onboarding_assets
-                                                .status === "revisions" ||
-                                              assignment.onboarding_assets
-                                                .status === "client_revision"
-                                            ? "Sent for Revision"
-                                            : assignment.onboarding_assets
-                                                  .status === "approved"
-                                              ? "New Upload"
-                                              : assignment.onboarding_assets
-                                                  .status}
-                                    </Badge>
-                                  </TableCell>
-                                  <TableCell className="text-left">
-                                    <div className="flex flex-col items-center gap-1">
-                                      <Button
+                                                    ] !== undefined
+                                                  ) {
+                                                    handlePricingCommentUpdate(
+                                                      assignment
+                                                        .onboarding_assets.id,
+                                                      pricingComments[
+                                                        assignment
+                                                          .onboarding_assets.id
+                                                      ]
+                                                    );
+                                                  }
+                                                }}
+                                                className="min-h-[60px] max-h-[120px] resize-none text-xs"
+                                                rows={3}
+                                              />
+                                            </div>
+                                          </PopoverContent>
+                                        </Popover>
+                                      </div>
+                                    </TableCell>
+                                    <TableCell className="text-left">
+                                      <Badge
                                         variant="outline"
-                                        size="sm"
-                                        className="text-xs px-2 sm:px-3 py-1 h-6 sm:h-7"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setSelectedAssetForView(
-                                            assignment.onboarding_assets
-                                          );
-                                          setShowViewDialog(true);
-                                        }}
+                                        className={`text-xs ${getStatusLabelClass(assignment.onboarding_assets.status)}`}
                                       >
-                                        <FileText className="mr-1 h-3 w-3" />
-                                        <span className="hidden sm:inline">
-                                          Ref
-                                        </span>
-                                        <span className="sm:hidden"> </span>
-                                        {(() => {
-                                          const allRefs = parseReferences(
-                                            assignment.onboarding_assets
-                                              .reference
-                                          );
-                                          return (
-                                            allRefs.length +
-                                            (assignment.onboarding_assets
-                                              .glb_link
-                                              ? 1
-                                              : 0)
-                                          );
-                                        })()}
-                                      </Button>
-                                    </div>
-                                  </TableCell>
+                                        {assignment.onboarding_assets.status ===
+                                        "delivered_by_artist"
+                                          ? "Delivered by Artist"
+                                          : assignment.onboarding_assets
+                                                .status === "in_production"
+                                            ? "In Progress"
+                                            : assignment.onboarding_assets
+                                                  .status === "revisions" ||
+                                                assignment.onboarding_assets
+                                                  .status === "client_revision"
+                                              ? "Sent for Revision"
+                                              : assignment.onboarding_assets
+                                                    .status === "approved"
+                                                ? "New Upload"
+                                                : assignment.onboarding_assets
+                                                    .status}
+                                      </Badge>
+                                    </TableCell>
+                                    <TableCell className="text-left">
+                                      <div className="flex flex-col items-center gap-1">
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          className="text-xs px-2 sm:px-3 py-1 h-6 sm:h-7"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setSelectedAssetForView(
+                                              assignment.onboarding_assets
+                                            );
+                                            setShowViewDialog(true);
+                                          }}
+                                        >
+                                          <FileText className="mr-1 h-3 w-3" />
+                                          <span className="hidden sm:inline">
+                                            Ref
+                                          </span>
+                                          <span className="sm:hidden"> </span>
+                                          {(() => {
+                                            const allRefs = parseReferences(
+                                              assignment.onboarding_assets
+                                                .reference
+                                            );
+                                            return (
+                                              allRefs.length +
+                                              (assignment.onboarding_assets
+                                                .glb_link
+                                                ? 1
+                                                : 0)
+                                            );
+                                          })()}
+                                        </Button>
+                                      </div>
+                                    </TableCell>
 
-                                  <TableCell className="text-left">
-                                    {assignment.onboarding_assets
-                                      .product_link ? (
-                                      <a
-                                        href={
-                                          assignment.onboarding_assets
-                                            .product_link
-                                        }
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="text-blue-600 underline break-all text-xs sm:text-sm"
-                                        onClick={(e) => e.stopPropagation()}
-                                      >
-                                        <span className="hidden sm:inline">
-                                          Product Link
+                                    <TableCell className="text-left">
+                                      {assignment.onboarding_assets
+                                        .product_link ? (
+                                        <a
+                                          href={
+                                            assignment.onboarding_assets
+                                              .product_link
+                                          }
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="text-blue-600 underline break-all text-xs sm:text-sm"
+                                          onClick={(e) => e.stopPropagation()}
+                                        >
+                                          <span className="hidden sm:inline">
+                                            Product Link
+                                          </span>
+                                          <span className="sm:hidden">
+                                            Link
+                                          </span>
+                                        </a>
+                                      ) : (
+                                        <span className="text-xs sm:text-sm text-muted-foreground">
+                                          —
                                         </span>
-                                        <span className="sm:hidden">Link</span>
-                                      </a>
-                                    ) : (
-                                      <span className="text-xs sm:text-sm text-muted-foreground">
-                                        —
-                                      </span>
-                                    )}
-                                  </TableCell>
+                                      )}
+                                    </TableCell>
 
-                                  <TableCell className="text-left">
-                                    <div className="flex items-center gap-1">
-                                      <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="cursor-pointer h-8 w-8 sm:h-10 sm:w-10"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          // Preserve current filter parameters when navigating to asset detail
-                                          const params = new URLSearchParams();
-                                          params.set("from", "admin-review");
-                                          if (clientFilters.length > 0) {
-                                            params.set(
-                                              "client",
-                                              clientFilters.join(",")
-                                            );
-                                          }
-                                          if (batchFilters.length > 0) {
-                                            params.set(
-                                              "batch",
-                                              batchFilters.join(",")
-                                            );
-                                          }
-                                          if (modelerFilters.length > 0) {
-                                            params.set(
-                                              "modeler",
-                                              modelerFilters.join(",")
-                                            );
-                                          }
-                                          if (modelerEmail) {
-                                            params.set("email", modelerEmail);
-                                          }
-                                          router.push(
-                                            `/client-review/${assignment.onboarding_assets.id}?${params.toString()}`
-                                          );
-                                        }}
-                                      >
-                                        <Eye className="h-4 w-4 sm:h-5 sm:w-5" />
-                                      </Button>
-                                      <Dialog>
-                                        <DialogTrigger asChild>
-                                          <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="cursor-pointer text-error hover:text-error hover:bg-error/10 h-8 w-8 sm:h-10 sm:w-10"
-                                            onClick={(e) => e.stopPropagation()}
-                                            disabled={
-                                              deletingAsset ===
-                                              assignment.onboarding_assets.id
+                                    <TableCell className="text-left">
+                                      <div className="flex items-center gap-1">
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          className="cursor-pointer h-8 w-8 sm:h-10 sm:w-10"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            // Preserve current filter parameters when navigating to asset detail
+                                            const params =
+                                              new URLSearchParams();
+                                            params.set("from", "admin-review");
+                                            if (clientFilters.length > 0) {
+                                              params.set(
+                                                "client",
+                                                clientFilters.join(",")
+                                              );
                                             }
-                                          >
-                                            {deletingAsset ===
-                                            assignment.onboarding_assets.id ? (
-                                              <div className="animate-spin rounded-full h-3 w-3 sm:h-4 sm:w-4 border-b-2 border-error" />
-                                            ) : (
-                                              <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
-                                            )}
-                                          </Button>
-                                        </DialogTrigger>
-                                        <DialogContent className="w-[95vw] sm:w-full max-w-md h-fit overflow-y-auto">
-                                          <DialogHeader className="pb-3 sm:pb-4">
-                                            <DialogTitle className="text-base sm:text-lg">
-                                              Delete Asset
-                                            </DialogTitle>
-                                            <DialogDescription className="text-xs sm:text-sm">
-                                              Are you sure you want to delete
-                                              this asset? This action cannot be
-                                              undone and will permanently
-                                              delete:
-                                              <ul className="list-disc list-inside mt-2 space-y-1">
-                                                <li>The asset itself</li>
-                                                <li>
-                                                  All assignments and comments
-                                                </li>
-                                                <li>All revision history</li>
-                                                <li>All QA approvals</li>
-                                                <li>
-                                                  Any empty allocation lists
-                                                  (only if this was the last
-                                                  asset in the list)
-                                                </li>
-                                              </ul>
-                                            </DialogDescription>
-                                          </DialogHeader>
-                                          <DialogFooter className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+                                            if (batchFilters.length > 0) {
+                                              params.set(
+                                                "batch",
+                                                batchFilters.join(",")
+                                              );
+                                            }
+                                            if (modelerFilters.length > 0) {
+                                              params.set(
+                                                "modeler",
+                                                modelerFilters.join(",")
+                                              );
+                                            }
+                                            if (modelerEmail) {
+                                              params.set("email", modelerEmail);
+                                            }
+                                            router.push(
+                                              `/client-review/${assignment.onboarding_assets.id}?${params.toString()}`
+                                            );
+                                          }}
+                                        >
+                                          <Eye className="h-4 w-4 sm:h-5 sm:w-5" />
+                                        </Button>
+                                        <Dialog>
+                                          <DialogTrigger asChild>
                                             <Button
-                                              variant="destructive"
-                                              className="w-full sm:w-auto text-sm sm:text-base"
-                                              onClick={() =>
-                                                deleteAsset(
-                                                  assignment.onboarding_assets
-                                                    .id
-                                                )
+                                              variant="ghost"
+                                              size="icon"
+                                              className="cursor-pointer text-error hover:text-error hover:bg-error/10 h-8 w-8 sm:h-10 sm:w-10"
+                                              onClick={(e) =>
+                                                e.stopPropagation()
                                               }
                                               disabled={
                                                 deletingAsset ===
@@ -4371,17 +4582,68 @@ export default function AdminReviewPage() {
                                               {deletingAsset ===
                                               assignment.onboarding_assets
                                                 .id ? (
-                                                <div className="animate-spin rounded-full h-3 w-3 sm:h-4 sm:w-4 border-b-2 border-white mr-1 sm:mr-2" />
-                                              ) : null}
-                                              Delete Asset
+                                                <div className="animate-spin rounded-full h-3 w-3 sm:h-4 sm:w-4 border-b-2 border-error" />
+                                              ) : (
+                                                <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
+                                              )}
                                             </Button>
-                                          </DialogFooter>
-                                        </DialogContent>
-                                      </Dialog>
-                                    </div>
-                                  </TableCell>
-                                </TableRow>
-                              ))}
+                                          </DialogTrigger>
+                                          <DialogContent className="w-[95vw] sm:w-full max-w-md h-fit overflow-y-auto">
+                                            <DialogHeader className="pb-3 sm:pb-4">
+                                              <DialogTitle className="text-base sm:text-lg">
+                                                Delete Asset
+                                              </DialogTitle>
+                                              <DialogDescription className="text-xs sm:text-sm">
+                                                Are you sure you want to delete
+                                                this asset? This action cannot
+                                                be undone and will permanently
+                                                delete:
+                                                <ul className="list-disc list-inside mt-2 space-y-1">
+                                                  <li>The asset itself</li>
+                                                  <li>
+                                                    All assignments and comments
+                                                  </li>
+                                                  <li>All revision history</li>
+                                                  <li>All QA approvals</li>
+                                                  <li>
+                                                    Any empty allocation lists
+                                                    (only if this was the last
+                                                    asset in the list)
+                                                  </li>
+                                                </ul>
+                                              </DialogDescription>
+                                            </DialogHeader>
+                                            <DialogFooter className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+                                              <Button
+                                                variant="destructive"
+                                                className="w-full sm:w-auto text-sm sm:text-base"
+                                                onClick={() =>
+                                                  deleteAsset(
+                                                    assignment.onboarding_assets
+                                                      .id
+                                                  )
+                                                }
+                                                disabled={
+                                                  deletingAsset ===
+                                                  assignment.onboarding_assets
+                                                    .id
+                                                }
+                                              >
+                                                {deletingAsset ===
+                                                assignment.onboarding_assets
+                                                  .id ? (
+                                                  <div className="animate-spin rounded-full h-3 w-3 sm:h-4 sm:w-4 border-b-2 border-white mr-1 sm:mr-2" />
+                                                ) : null}
+                                                Delete Asset
+                                              </Button>
+                                            </DialogFooter>
+                                          </DialogContent>
+                                        </Dialog>
+                                      </div>
+                                    </TableCell>
+                                  </TableRow>
+                                );
+                              })}
                             </TableBody>
                           </Table>
                         </div>
@@ -4441,346 +4703,487 @@ export default function AdminReviewPage() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  paged.map((asset) => (
-                    <TableRow
-                      key={asset.id}
-                      className={`${getStatusRowClass(asset.status)} transition-all duration-200 ease-in-out ${draggedAssetId === asset.id ? "opacity-50 scale-105" : ""}`}
-                      onDragOver={handleDragOver}
-                      onDragLeave={handleDragLeave}
-                      onDrop={(e) => handleDrop(e, asset.id)}
-                      style={{
-                        transition: "all 0.2s ease-in-out",
-                        transform:
-                          draggedAssetId === asset.id
-                            ? "rotate(2deg) scale(1.02)"
-                            : undefined,
-                        boxShadow:
-                          draggedAssetId === asset.id
-                            ? "0 8px 16px rgba(0,0,0,0.2)"
-                            : undefined,
-                      }}
-                    >
-                      <TableCell className="text-left">
-                        <div className="flex items-center gap-2">
-                          <div
-                            className="flex flex-col gap-0.5 cursor-move group"
-                            draggable={true}
-                            onDragStart={(e) => handleDragStart(e, asset.id)}
-                            onDragEnd={handleDragEnd}
-                          >
-                            <GripVertical className="h-3 w-3 text-muted-foreground group-hover:text-blue-500 transition-colors" />
-                          </div>
-                          <div className="flex flex-col gap-1 flex-1">
-                            <span
-                              className="font-medium  cursor-help text-sm sm:text-base"
-                              title={asset.product_name}
+                  paged.map((asset) => {
+                    const isVariation = asset.is_variation === true;
+                    const isParent = paged.some(
+                      (a) => a.parent_asset_id === asset.id
+                    );
+                    return (
+                      <TableRow
+                        key={asset.id}
+                        className={`${getStatusRowClass(
+                          asset.status
+                        )} transition-all duration-200 ease-in-out dark:border-border dark:hover:bg-muted/20 ${
+                          isVariation
+                            ? "bg-slate-50/50 dark:bg-slate-900/20 border-l-2 border-l-slate-300 dark:border-l-slate-600"
+                            : isParent
+                              ? "bg-amber-50/30 dark:bg-amber-950/10 border-l-2 border-l-amber-400 dark:border-l-amber-600"
+                              : ""
+                        } ${draggedAssetId === asset.id ? "opacity-50 scale-105" : ""}`}
+                        onDragOver={handleDragOver}
+                        onDragLeave={handleDragLeave}
+                        onDrop={(e) => handleDrop(e, asset.id)}
+                        style={{
+                          transition: "all 0.2s ease-in-out",
+                          transform:
+                            draggedAssetId === asset.id
+                              ? "rotate(2deg) scale(1.02)"
+                              : undefined,
+                          boxShadow:
+                            draggedAssetId === asset.id
+                              ? "0 8px 16px rgba(0,0,0,0.2)"
+                              : undefined,
+                        }}
+                      >
+                        <TableCell className="text-left">
+                          <div className="flex items-center gap-2">
+                            <div
+                              className="flex flex-col gap-0.5 cursor-move group"
+                              draggable={true}
+                              onDragStart={(e) => handleDragStart(e, asset.id)}
+                              onDragEnd={handleDragEnd}
                             >
-                              {asset.product_name.length > 35
-                                ? asset.product_name.substring(0, 35) + "..."
-                                : asset.product_name}
-                            </span>
+                              <GripVertical className="h-3 w-3 text-muted-foreground group-hover:text-blue-500 transition-colors" />
+                            </div>
+                            <div className="flex flex-col gap-1 flex-1">
+                              <div className="flex items-center gap-1.5">
+                                {isVariation && (
+                                  <ChevronRight className="h-3 w-3 text-slate-500 dark:text-slate-400 flex-shrink-0" />
+                                )}
+                                {isParent && !isVariation && (
+                                  <Package className="h-3 w-3 text-amber-600 dark:text-amber-500 flex-shrink-0" />
+                                )}
+                                <span
+                                  className={`font-medium cursor-help text-sm sm:text-base truncate ${
+                                    isVariation
+                                      ? "text-slate-600 dark:text-slate-400"
+                                      : isParent
+                                        ? "text-amber-700 dark:text-amber-500"
+                                        : ""
+                                  }`}
+                                  title={asset.product_name}
+                                >
+                                  {asset.product_name.length > 35
+                                    ? asset.product_name.substring(0, 35) +
+                                      "..."
+                                    : asset.product_name}
+                                </span>
+                                {isParent && !isVariation && (
+                                  <Badge
+                                    variant="outline"
+                                    className="text-xs text-amber-700 dark:text-amber-500 border-amber-300 dark:border-amber-700 bg-amber-50/50 dark:bg-amber-950/20 px-1.5 py-0 ml-1"
+                                  >
+                                    Parent
+                                  </Badge>
+                                )}
+                                {isVariation && asset.variation_index && (
+                                  <Badge
+                                    variant="outline"
+                                    className="text-xs text-slate-600 dark:text-slate-400 border-slate-300 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/20 px-1.5 py-0 ml-1"
+                                  >
+                                    V{asset.variation_index}
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
                           </div>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-left text-xs sm:text-sm font-mono">
-                        {asset.article_id}
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <div className="flex flex-col items-center gap-1">
-                          <span className="text-xs text-muted-foreground">
-                            {asset.modeler_email?.split("@")[0] || "Unknown"}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <span className="text-xs text-muted-foreground">
-                          {asset.client}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <span className="text-xs text-muted-foreground">
-                          B{asset.batch}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <Select
-                          value={(asset.priority || 2).toString()}
-                          onValueChange={(value) =>
-                            handlePriorityUpdate(asset.id, parseInt(value))
-                          }
-                          disabled={updatingPriorities.has(asset.id)}
-                        >
-                          <SelectTrigger className="border-none shadow-none p-0 hover:bg-transparent [&>svg]:hidden justify-center w-full h-fit cursor-pointer">
-                            <span
-                              className={`px-1.5 sm:px-2 py-0.5 sm:py-1 rounded text-xs font-semibold ${getPriorityClass(
-                                asset.priority || 2
-                              )}`}
-                            >
-                              {getPriorityLabelForClient(
-                                asset.priority || 2,
-                                asset.client
-                              )}
-                            </span>
-                            {updatingPriorities.has(asset.id) ? (
-                              <div className="ml-1 sm:ml-2 animate-spin rounded-full h-2.5 w-2.5 sm:h-3 sm:w-3 border-b-2 border-blue-600 cursor-pointer" />
-                            ) : null}
-                          </SelectTrigger>
-                          <SelectContent className="cursor-pointer">
-                            <SelectItem className="cursor-pointer" value="3">
-                              Low
-                            </SelectItem>
-                            <SelectItem className="cursor-pointer" value="2">
-                              Medium
-                            </SelectItem>
-                            <SelectItem className="cursor-pointer" value="1">
-                              High
-                            </SelectItem>
-                            {asset.client?.toUpperCase() === "AJ" && (
-                              <>
-                                <SelectItem
-                                  className="cursor-pointer"
-                                  value="4"
-                                >
-                                  Flex
-                                </SelectItem>
-                                <SelectItem
-                                  className="cursor-pointer"
-                                  value="5"
-                                >
-                                  Express
-                                </SelectItem>
-                              </>
+                        </TableCell>
+                        <TableCell className="text-left text-xs sm:text-sm font-mono">
+                          <div className="flex items-center gap-1.5">
+                            {isVariation && (
+                              <ChevronRight className="h-3 w-3 text-slate-500 dark:text-slate-400 flex-shrink-0" />
                             )}
-                          </SelectContent>
-                        </Select>
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <div className="flex items-center justify-center gap-1 sm:gap-2">
-                          <span
-                            className={`px-1.5 sm:px-2 py-0.5 sm:py-1 rounded text-xs font-medium ${getStatusLabelClass(asset.status)}`}
-                          >
-                            {getStatusLabelText(asset.status)}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <div className="flex flex-col items-center gap-1">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="text-xs px-2 sm:px-3 py-1 h-6 sm:h-7"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedAssetForView(asset);
-                              setShowViewDialog(true);
-                            }}
-                          >
-                            <FileText className="mr-1 h-3 w-3" />
-                            <span className="hidden sm:inline">Ref (</span>
-                            <span className="sm:hidden">(</span>
-                            {(() => {
-                              const allRefs = parseReferences(asset.reference);
-                              return allRefs.length + (asset.glb_link ? 1 : 0);
-                            })()}
-                            <span className="hidden sm:inline">)</span>
-                            <span className="sm:hidden">)</span>
-                          </Button>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-center">
-                        {asset.product_link ? (
-                          <a
-                            href={asset.product_link}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-blue-600 underline break-all text-xs"
-                          >
-                            <span className="hidden sm:inline">
-                              Product Link
+                            {isParent && !isVariation && (
+                              <Package className="h-3 w-3 text-amber-600 dark:text-amber-500 flex-shrink-0" />
+                            )}
+                            <span
+                              className={`truncate ${
+                                isVariation
+                                  ? "text-slate-600 dark:text-slate-400"
+                                  : isParent
+                                    ? "text-amber-700 dark:text-amber-500"
+                                    : ""
+                              }`}
+                            >
+                              {asset.article_id}
                             </span>
-                            <span className="sm:hidden">Link</span>
-                          </a>
-                        ) : (
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <div className="flex flex-col items-center gap-1">
+                            <span className="text-xs text-muted-foreground">
+                              {asset.modeler_email?.split("@")[0] || "Unknown"}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-center">
                           <span className="text-xs text-muted-foreground">
-                            —
+                            {asset.client}
                           </span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <div className="flex items-center justify-center gap-2">
-                          <Select
-                            value={assetPrices[asset.id]?.pricingOptionId || ""}
-                            onValueChange={(value) => {
-                              if (value === "custom_pricing") {
-                                // Don't auto-update for custom pricing, let user set the price
-                                setAssetPrices((prev) => ({
-                                  ...prev,
-                                  [asset.id]: {
-                                    pricingOptionId: value,
-                                    price: 0,
-                                  },
-                                }));
-                              } else {
-                                const option = getPricingOptionById(value);
-                                if (option) {
-                                  handlePriceUpdate(
-                                    asset.id,
-                                    value,
-                                    option.price
-                                  );
-                                }
-                              }
-                            }}
-                          >
-                            <SelectTrigger className="w-32 h-8 text-xs ">
-                              <SelectValue placeholder="Set price" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {PRICING_OPTIONS.map((option) => (
-                                <SelectItem key={option.id} value={option.id}>
-                                  <div className="flex items-center gap-2 text-left">
-                                    <Euro className="h-3 w-3" />
-                                    {option.label} - €{option.price}
-                                  </div>
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <span className="text-xs text-muted-foreground">
+                            B{asset.batch}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          {(() => {
+                            // Compute condition once before Select renders
+                            // Only show AJ options when asset.client === "AJ" (not based on user role)
+                            const assetClient = asset.client;
+                            const assetClientUpper = assetClient?.toUpperCase();
+                            const isAssetAJ = assetClientUpper === "AJ";
+                            const shouldShowAJOptions = isAssetAJ; // Only check asset client, not user role
 
-                          {assetPrices[asset.id]?.pricingOptionId ===
-                            "custom_pricing" &&
-                          !assetPrices[asset.id]?.price ? (
-                            <div className="flex items-center gap-1">
-                              <input
-                                type="number"
-                                value={customPrices[asset.id] || ""}
-                                onChange={(e) =>
-                                  handleCustomPriceChange(
+                            return (
+                              <Select
+                                value={(asset.priority || 2).toString()}
+                                onValueChange={(value) =>
+                                  handlePriorityUpdate(
                                     asset.id,
-                                    parseFloat(e.target.value) || 0
+                                    parseInt(value)
                                   )
                                 }
-                                onKeyDown={(e) => {
-                                  if (
-                                    e.key === "Enter" &&
-                                    !settingPrices.has(asset.id)
-                                  ) {
-                                    handleCustomPriceSubmit(asset.id);
-                                  }
-                                }}
-                                disabled={settingPrices.has(asset.id)}
-                                className="w-16 h-8 text-xs px-2 border rounded disabled:opacity-50 disabled:cursor-not-allowed"
-                                placeholder="€0"
-                                min="0"
-                                step="0.01"
-                              />
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-8 px-2 text-xs"
-                                onClick={() =>
-                                  handleCustomPriceSubmit(asset.id)
-                                }
-                                disabled={settingPrices.has(asset.id)}
+                                disabled={updatingPriorities.has(asset.id)}
                               >
-                                {settingPrices.has(asset.id) ? (
-                                  <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-current" />
-                                ) : (
-                                  "Set"
-                                )}
-                              </Button>
-                            </div>
-                          ) : (
-                            <div className="flex items-center gap-1">
-                              {assetPrices[asset.id] && (
-                                <span className="text-xs font-medium">
-                                  €{assetPrices[asset.id].price}
-                                </span>
-                              )}
-                              <Popover>
-                                <PopoverTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-4 w-4 p-0 hover:bg-muted"
+                                <SelectTrigger className="border-none shadow-none p-0 hover:bg-transparent [&>svg]:hidden justify-center w-full h-fit cursor-pointer">
+                                  <span
+                                    className={`px-1.5 sm:px-2 py-0.5 sm:py-1 rounded text-xs font-semibold ${getPriorityClass(
+                                      asset.priority || 2,
+                                      asset.client
+                                    )}`}
                                   >
-                                    <StickyNote
-                                      className={`h-3 w-3 ${
-                                        pricingComments[asset.id]
-                                          ? "text-blue-600 hover:text-blue-700"
-                                          : "text-muted-foreground hover:text-foreground"
-                                      }`}
-                                    />
-                                  </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-80 p-3">
-                                  <div className="space-y-3">
-                                    <h4 className="font-medium text-sm">
-                                      Pricing Note
-                                    </h4>
-                                    <Textarea
-                                      placeholder="Add pricing note..."
-                                      value={pricingComments[asset.id] || ""}
-                                      onChange={(e) => {
-                                        setPricingComments((prev) => ({
-                                          ...prev,
-                                          [asset.id]: e.target.value,
-                                        }));
-                                      }}
-                                      onBlur={() => {
-                                        if (
-                                          pricingComments[asset.id] !==
-                                          undefined
-                                        ) {
-                                          handlePricingCommentUpdate(
-                                            asset.id,
-                                            pricingComments[asset.id]
-                                          );
-                                        }
-                                      }}
-                                      className="min-h-[60px] max-h-[120px] resize-none text-xs"
-                                      rows={3}
-                                    />
-                                  </div>
-                                </PopoverContent>
-                              </Popover>
-                            </div>
+                                    {getPriorityLabelForClient(
+                                      asset.priority || 2,
+                                      asset.client
+                                    )}
+                                  </span>
+                                  {updatingPriorities.has(asset.id) ? (
+                                    <div className="ml-1 sm:ml-2 animate-spin rounded-full h-2.5 w-2.5 sm:h-3 sm:w-3 border-b-2 border-blue-600 cursor-pointer" />
+                                  ) : null}
+                                </SelectTrigger>
+                                <SelectContent className="cursor-pointer">
+                                  {shouldShowAJOptions ? (
+                                    <>
+                                      <SelectItem
+                                        className="cursor-pointer"
+                                        value="1"
+                                      >
+                                        Low
+                                      </SelectItem>
+                                      <SelectItem
+                                        className="cursor-pointer"
+                                        value="2"
+                                      >
+                                        Medium
+                                      </SelectItem>
+                                      <SelectItem
+                                        className="cursor-pointer"
+                                        value="3"
+                                      >
+                                        High
+                                      </SelectItem>
+                                      <SelectItem
+                                        className="cursor-pointer"
+                                        value="4"
+                                      >
+                                        Flex
+                                      </SelectItem>
+                                      <SelectItem
+                                        className="cursor-pointer"
+                                        value="5"
+                                      >
+                                        Express
+                                      </SelectItem>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <SelectItem
+                                        className="cursor-pointer"
+                                        value="1"
+                                      >
+                                        High
+                                      </SelectItem>
+                                      <SelectItem
+                                        className="cursor-pointer"
+                                        value="2"
+                                      >
+                                        Medium
+                                      </SelectItem>
+                                      <SelectItem
+                                        className="cursor-pointer"
+                                        value="3"
+                                      >
+                                        Low
+                                      </SelectItem>
+                                    </>
+                                  )}
+                                </SelectContent>
+                              </Select>
+                            );
+                          })()}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <div className="flex items-center justify-center gap-1 sm:gap-2">
+                            <span
+                              className={`px-1.5 sm:px-2 py-0.5 sm:py-1 rounded text-xs font-medium ${getStatusLabelClass(asset.status)}`}
+                            >
+                              {getStatusLabelText(asset.status)}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <div className="flex flex-col items-center gap-1">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-xs px-2 sm:px-3 py-1 h-6 sm:h-7"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedAssetForView(asset);
+                                setShowViewDialog(true);
+                              }}
+                            >
+                              <FileText className="mr-1 h-3 w-3" />
+                              <span className="hidden sm:inline">Ref (</span>
+                              <span className="sm:hidden">(</span>
+                              {(() => {
+                                const allRefs = parseReferences(
+                                  asset.reference
+                                );
+                                return (
+                                  allRefs.length + (asset.glb_link ? 1 : 0)
+                                );
+                              })()}
+                              <span className="hidden sm:inline">)</span>
+                              <span className="sm:hidden">)</span>
+                            </Button>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          {asset.product_link ? (
+                            <a
+                              href={asset.product_link}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-600 underline break-all text-xs"
+                            >
+                              <span className="hidden sm:inline">
+                                Product Link
+                              </span>
+                              <span className="sm:hidden">Link</span>
+                            </a>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">
+                              —
+                            </span>
                           )}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <div className="flex justify-center">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="cursor-pointer h-8 w-8 sm:h-10 sm:w-10"
-                            onClick={() => {
-                              // Navigate to asset detail for QA assets
-                              const params = new URLSearchParams();
-                              params.set("from", "admin-review");
-                              if (clientFilters.length > 0) {
-                                params.set("client", clientFilters.join(","));
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <div className="flex items-center justify-center gap-2">
+                            <Select
+                              value={
+                                assetPrices[asset.id]?.pricingOptionId || ""
                               }
-                              if (batchFilters.length > 0) {
-                                params.set("batch", batchFilters.join(","));
-                              }
-                              if (modelerFilters.length > 0) {
-                                params.set("modeler", modelerFilters.join(","));
-                              }
-                              if (modelerEmail) {
-                                params.set("email", modelerEmail);
-                              }
-                              router.push(
-                                `/client-review/${asset.id}?${params.toString()}`
-                              );
-                            }}
-                          >
-                            <Eye className="h-4 w-4 sm:h-5 sm:w-5" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
+                              onValueChange={(value) => {
+                                if (value === "custom_pricing") {
+                                  // Don't auto-update for custom pricing, let user set the price
+                                  setAssetPrices((prev) => ({
+                                    ...prev,
+                                    [asset.id]: {
+                                      pricingOptionId: value,
+                                      price: 0,
+                                    },
+                                  }));
+                                } else {
+                                  const option = getPricingOptionById(value);
+                                  if (option) {
+                                    handlePriceUpdate(
+                                      asset.id,
+                                      value,
+                                      option.price
+                                    );
+                                  }
+                                }
+                              }}
+                            >
+                              <SelectTrigger className="w-32 h-8 text-xs ">
+                                <SelectValue placeholder="Set price" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {PRICING_OPTIONS.map((option) => (
+                                  <SelectItem key={option.id} value={option.id}>
+                                    <div className="flex items-center justify-between w-full">
+                                      <div className="flex items-center gap-2 text-left">
+                                        <Euro className="h-3 w-3" />
+                                        {option.label} - €{option.price}
+                                      </div>
+                                      {option.id ===
+                                        "qa_team_handles_model" && (
+                                        <Badge
+                                          variant="outline"
+                                          className="ml-2 text-xs bg-amber-50 text-amber-700 border-amber-200"
+                                        >
+                                          QA Handles
+                                        </Badge>
+                                      )}
+                                    </div>
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+
+                            {assetPrices[asset.id]?.pricingOptionId ===
+                              "custom_pricing" &&
+                            !assetPrices[asset.id]?.price ? (
+                              <div className="flex items-center gap-1">
+                                <input
+                                  type="number"
+                                  value={customPrices[asset.id] || ""}
+                                  onChange={(e) =>
+                                    handleCustomPriceChange(
+                                      asset.id,
+                                      parseFloat(e.target.value) || 0
+                                    )
+                                  }
+                                  onKeyDown={(e) => {
+                                    if (
+                                      e.key === "Enter" &&
+                                      !settingPrices.has(asset.id)
+                                    ) {
+                                      handleCustomPriceSubmit(asset.id);
+                                    }
+                                  }}
+                                  disabled={settingPrices.has(asset.id)}
+                                  className="w-16 h-8 text-xs px-2 border rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                                  placeholder="€0"
+                                  min="0"
+                                  step="0.01"
+                                />
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-8 px-2 text-xs"
+                                  onClick={() =>
+                                    handleCustomPriceSubmit(asset.id)
+                                  }
+                                  disabled={settingPrices.has(asset.id)}
+                                >
+                                  {settingPrices.has(asset.id) ? (
+                                    <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-current" />
+                                  ) : (
+                                    "Set"
+                                  )}
+                                </Button>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-1">
+                                {assetPrices[asset.id] && (
+                                  <div className="flex items-center gap-1">
+                                    {assetPrices[asset.id].pricingOptionId ===
+                                    "qa_team_handles_model" ? (
+                                      <Badge
+                                        variant="outline"
+                                        className="text-xs bg-amber-50 text-amber-700 border-amber-200"
+                                        title="QA team will handle this model"
+                                      >
+                                        0€ - QA Handling
+                                      </Badge>
+                                    ) : (
+                                      <span className="text-xs font-medium">
+                                        €{assetPrices[asset.id].price}
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
+                                <Popover>
+                                  <PopoverTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-4 w-4 p-0 hover:bg-muted"
+                                    >
+                                      <StickyNote
+                                        className={`h-3 w-3 ${
+                                          pricingComments[asset.id]
+                                            ? "text-blue-600 hover:text-blue-700"
+                                            : "text-muted-foreground hover:text-foreground"
+                                        }`}
+                                      />
+                                    </Button>
+                                  </PopoverTrigger>
+                                  <PopoverContent className="w-80 p-3">
+                                    <div className="space-y-3">
+                                      <h4 className="font-medium text-sm">
+                                        Pricing Note
+                                      </h4>
+                                      <Textarea
+                                        placeholder="Add pricing note..."
+                                        value={pricingComments[asset.id] || ""}
+                                        onChange={(e) => {
+                                          setPricingComments((prev) => ({
+                                            ...prev,
+                                            [asset.id]: e.target.value,
+                                          }));
+                                        }}
+                                        onBlur={() => {
+                                          if (
+                                            pricingComments[asset.id] !==
+                                            undefined
+                                          ) {
+                                            handlePricingCommentUpdate(
+                                              asset.id,
+                                              pricingComments[asset.id]
+                                            );
+                                          }
+                                        }}
+                                        className="min-h-[60px] max-h-[120px] resize-none text-xs"
+                                        rows={3}
+                                      />
+                                    </div>
+                                  </PopoverContent>
+                                </Popover>
+                              </div>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <div className="flex justify-center">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="cursor-pointer h-8 w-8 sm:h-10 sm:w-10"
+                              onClick={() => {
+                                // Navigate to asset detail for QA assets
+                                const params = new URLSearchParams();
+                                params.set("from", "admin-review");
+                                if (clientFilters.length > 0) {
+                                  params.set("client", clientFilters.join(","));
+                                }
+                                if (batchFilters.length > 0) {
+                                  params.set("batch", batchFilters.join(","));
+                                }
+                                if (modelerFilters.length > 0) {
+                                  params.set(
+                                    "modeler",
+                                    modelerFilters.join(",")
+                                  );
+                                }
+                                if (modelerEmail) {
+                                  params.set("email", modelerEmail);
+                                }
+                                router.push(
+                                  `/client-review/${asset.id}?${params.toString()}`
+                                );
+                              }}
+                            >
+                              <Eye className="h-4 w-4 sm:h-5 sm:w-5" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
                 )}
               </TableBody>
             </Table>
@@ -4836,10 +5239,10 @@ export default function AdminReviewPage() {
                         />
                       </div>
                     </TableHead>
-                    <TableHead className="text-xs sm:text-sm text-left">
+                    <TableHead className="max-w-[200px] text-xs sm:text-sm text-left">
                       Model Name
                     </TableHead>
-                    <TableHead className="text-xs sm:text-sm text-left">
+                    <TableHead className="max-w-[120px] text-xs sm:text-sm text-left">
                       Article ID
                     </TableHead>
                     <TableHead className="text-xs sm:text-sm text-center">
@@ -4924,475 +5327,620 @@ export default function AdminReviewPage() {
                     </TableRow>
                   ) : (
                     (dragPreview.length > 0 ? dragPreview : paged).map(
-                      (asset, index) => (
-                        <TableRow
-                          key={asset.id}
-                          data-asset-id={asset.id}
-                          className={`${getStatusRowClass(asset.status)} transition-all duration-200 ease-in-out ${
-                            draggedAssets.has(asset.id)
-                              ? "opacity-50 scale-98"
-                              : ""
-                          } ${
-                            selected.has(asset.id) && selected.size > 1
-                              ? "ring-2 ring-blue-200 bg-blue-50/50 dark:bg-blue-900/10"
-                              : ""
-                          } ${
-                            dragPreview.length > 0 &&
-                            index === dragInsertPosition
-                              ? isDraggingGroup
-                                ? "border-t-4 border-green-500 bg-green-50/30"
-                                : "border-t-4 border-blue-500 bg-blue-50/30"
-                              : ""
-                          } ${
-                            dragPreview.length > 0 &&
-                            draggedAssets.has(asset.id)
-                              ? isDraggingGroup
-                                ? "bg-green-100/50 border-green-300"
-                                : "bg-blue-100/50 border-blue-300"
-                              : ""
-                          }`}
-                          onDragOver={handleDragOver}
-                          onDragLeave={handleDragLeave}
-                          onDrop={(e) => handleDrop(e, asset.id)}
-                          style={{
-                            transition: "all 0.2s ease-in-out",
-                            transform: draggedAssets.has(asset.id)
-                              ? "rotate(1deg) scale(0.98)"
-                              : undefined,
-                            boxShadow: draggedAssets.has(asset.id)
-                              ? "0 8px 16px rgba(59, 130, 246, 0.3)"
-                              : undefined,
-                          }}
-                        >
-                          <TableCell className="text-left">
-                            <div className="flex items-center gap-2">
-                              <div
-                                className="flex flex-col gap-0.5 cursor-move group"
-                                draggable={true}
-                                onDragStart={(e) =>
-                                  handleDragStart(e, asset.id)
-                                }
-                                onDragEnd={handleDragEnd}
-                              >
-                                <GripVertical className="h-3 w-3 text-muted-foreground group-hover:text-blue-500 transition-colors" />
-                              </div>
-                              <div className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 flex-1">
+                      (asset, index) => {
+                        const isVariation = asset.is_variation === true;
+                        const isParent = paged.some(
+                          (a) => a.parent_asset_id === asset.id
+                        );
+                        return (
+                          <TableRow
+                            key={asset.id}
+                            data-asset-id={asset.id}
+                            className={`${getStatusRowClass(
+                              asset.status
+                            )} transition-all duration-200 ease-in-out dark:border-border dark:hover:bg-muted/20 ${
+                              isVariation
+                                ? "bg-slate-50/50 dark:bg-slate-900/20 border-l-2 border-l-slate-300 dark:border-l-slate-600"
+                                : isParent
+                                  ? "bg-amber-50/30 dark:bg-amber-950/10 border-l-2 border-l-amber-400 dark:border-l-amber-600"
+                                  : ""
+                            } ${
+                              draggedAssets.has(asset.id)
+                                ? "opacity-50 scale-98"
+                                : ""
+                            } ${
+                              selected.has(asset.id) && selected.size > 1
+                                ? "ring-2 ring-blue-200 bg-blue-50/50 dark:bg-blue-900/10"
+                                : ""
+                            } ${
+                              dragPreview.length > 0 &&
+                              index === dragInsertPosition
+                                ? isDraggingGroup
+                                  ? "border-t-4 border-green-500 bg-green-50/30"
+                                  : "border-t-4 border-blue-500 bg-blue-50/30"
+                                : ""
+                            } ${
+                              dragPreview.length > 0 &&
+                              draggedAssets.has(asset.id)
+                                ? isDraggingGroup
+                                  ? "bg-green-100/50 border-green-300"
+                                  : "bg-blue-100/50 border-blue-300"
+                                : ""
+                            }`}
+                            onDragOver={handleDragOver}
+                            onDragLeave={handleDragLeave}
+                            onDrop={(e) => handleDrop(e, asset.id)}
+                            style={{
+                              transition: "all 0.2s ease-in-out",
+                              transform: draggedAssets.has(asset.id)
+                                ? "rotate(1deg) scale(0.98)"
+                                : undefined,
+                              boxShadow: draggedAssets.has(asset.id)
+                                ? "0 8px 16px rgba(59, 130, 246, 0.3)"
+                                : undefined,
+                            }}
+                          >
+                            <TableCell className="text-left">
+                              <div className="flex items-center gap-2">
                                 <div
-                                  onClick={(event) => {
-                                    event.stopPropagation();
-                                    toggleSelect(asset.id, event);
-                                  }}
-                                  className="cursor-pointer"
-                                >
-                                  <Checkbox
-                                    checked={selected.has(asset.id)}
-                                    onCheckedChange={() => {}}
-                                    className="h-4 w-4 pointer-events-none"
-                                  />
-                                </div>
-                                {assignedAssets.has(asset.id) && (
-                                  <div className="flex items-center gap-1">
-                                    <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-green-500 rounded-full" />
-                                    <span className="text-xs text-muted-foreground hidden sm:inline">
-                                      {assignedAssets.get(asset.id)?.name ||
-                                        assignedAssets
-                                          .get(asset.id)
-                                          ?.email?.split("@")[0]}
-                                    </span>
-                                  </div>
-                                )}
-                                {pendingAssets.has(asset.id) && (
-                                  <div className="flex items-center gap-1">
-                                    <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-yellow-500 rounded-full" />
-                                    <span className="text-xs text-muted-foreground hidden sm:inline">
-                                      {pendingAssets.get(asset.id)?.name ||
-                                        pendingAssets
-                                          .get(asset.id)
-                                          ?.email?.split("@")[0]}
-                                      {" (pending)"}
-                                    </span>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-left">
-                            <div className="flex flex-col gap-1">
-                              <span
-                                className="font-medium truncate cursor-help text-sm sm:text-base"
-                                title={asset.product_name}
-                              >
-                                {asset.product_name.length > 35
-                                  ? asset.product_name.substring(0, 35) + "..."
-                                  : asset.product_name}
-                              </span>
-                              <div className="flex items-center gap-1 sm:gap-2">
-                                <span className="text-xs text-muted-foreground">
-                                  {annotationCounts[asset.id] || 0} annotations
-                                </span>
-                                <span className="text-xs text-slate-500 hidden sm:inline">
-                                  •
-                                </span>
-                                <span className="text-xs text-muted-foreground">
-                                  {commentCounts[asset.id] || 0} comments
-                                </span>
-                                <span className="text-xs text-slate-500 hidden sm:inline">
-                                  •
-                                </span>
-                                <Badge variant="outline" className="text-xs">
-                                  B{asset.batch || 1}
-                                </Badge>
-                              </div>
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-left text-xs sm:text-sm font-mono">
-                            {asset.article_id}
-                          </TableCell>
-                          <TableCell className="text-center">
-                            <Select
-                              value={(asset.priority || 2).toString()}
-                              onValueChange={(value) =>
-                                handlePriorityUpdate(asset.id, parseInt(value))
-                              }
-                              disabled={updatingPriorities.has(asset.id)}
-                            >
-                              <SelectTrigger className="border-none shadow-none p-0 hover:bg-transparent [&>svg]:hidden justify-center w-full h-fit cursor-pointer">
-                                <span
-                                  className={`px-1.5 sm:px-2 py-0.5 sm:py-1 rounded text-xs font-semibold ${getPriorityClass(
-                                    asset.priority || 2
-                                  )}`}
-                                >
-                                  {getPriorityLabelForClient(
-                                    asset.priority || 2,
-                                    asset.client
-                                  )}
-                                </span>
-                                {updatingPriorities.has(asset.id) ? (
-                                  <div className="ml-1 sm:ml-2 animate-spin rounded-full h-2.5 w-2.5 sm:h-3 sm:w-3 border-b-2 border-blue-600 cursor-pointer" />
-                                ) : null}
-                              </SelectTrigger>
-                              <SelectContent className="cursor-pointer">
-                                <SelectItem
-                                  className="cursor-pointer"
-                                  value="1"
-                                >
-                                  High
-                                </SelectItem>
-                                <SelectItem
-                                  className="cursor-pointer"
-                                  value="2"
-                                >
-                                  Medium
-                                </SelectItem>
-                                <SelectItem
-                                  className="cursor-pointer"
-                                  value="3"
-                                >
-                                  Low
-                                </SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </TableCell>
-
-                          <TableCell className="text-center">
-                            <div className="flex items-center justify-center gap-1 sm:gap-2">
-                              <span
-                                className={`px-1.5 sm:px-2 py-0.5 sm:py-1 rounded text-xs font-medium ${getStatusLabelClass(asset.status)}`}
-                              >
-                                {getStatusLabelText(asset.status)}
-                              </span>
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-center">
-                            <div className="flex flex-col items-center gap-1">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="text-xs px-2 sm:px-3 py-1 h-6 sm:h-7"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setSelectedAssetForView(asset);
-                                  setShowViewDialog(true);
-                                }}
-                              >
-                                <FileText className="mr-1 h-3 w-3" />
-                                <span className="hidden sm:inline">Ref (</span>
-                                <span className="sm:hidden">(</span>
-                                {(() => {
-                                  const allRefs = parseReferences(
-                                    asset.reference
-                                  );
-                                  return (
-                                    allRefs.length + (asset.glb_link ? 1 : 0)
-                                  );
-                                })()}
-                                <span className="hidden sm:inline">)</span>
-                                <span className="sm:hidden">)</span>
-                              </Button>
-                            </div>
-                          </TableCell>
-
-                          <TableCell className="text-center">
-                            {asset.product_link ? (
-                              <a
-                                href={asset.product_link}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-blue-600 underline break-all text-xs sm:text-sm"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                <span className="hidden sm:inline">
-                                  Product Link
-                                </span>
-                                <span className="sm:hidden">Link</span>
-                              </a>
-                            ) : (
-                              <span className="text-xs sm:text-sm text-muted-foreground">
-                                —
-                              </span>
-                            )}
-                          </TableCell>
-
-                          <TableCell className="text-center">
-                            <div className="flex items-center justify-center gap-2">
-                              <Select
-                                value={
-                                  assetPrices[asset.id]?.pricingOptionId || ""
-                                }
-                                onValueChange={(value) => {
-                                  if (value === "custom_pricing") {
-                                    // Don't auto-update for custom pricing, let user set the price
-                                    setAssetPrices((prev) => ({
-                                      ...prev,
-                                      [asset.id]: {
-                                        pricingOptionId: value,
-                                        price: 0,
-                                      },
-                                    }));
-                                  } else {
-                                    const option = getPricingOptionById(value);
-                                    if (option) {
-                                      handlePriceUpdate(
-                                        asset.id,
-                                        value,
-                                        option.price
-                                      );
-                                    }
+                                  className="flex flex-col gap-0.5 cursor-move group"
+                                  draggable={true}
+                                  onDragStart={(e) =>
+                                    handleDragStart(e, asset.id)
                                   }
-                                }}
-                              >
-                                <SelectTrigger className="w-32 h-8 text-xs border-none shadow-none hover:bg-muted cursor-pointer">
-                                  <SelectValue placeholder="Set price" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {PRICING_OPTIONS.map((option) => (
-                                    <SelectItem
-                                      key={option.id}
-                                      value={option.id}
+                                  onDragEnd={handleDragEnd}
+                                >
+                                  <GripVertical className="h-3 w-3 text-muted-foreground group-hover:text-blue-500 transition-colors" />
+                                </div>
+                                <div className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 flex-1">
+                                  <div
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      toggleSelect(asset.id, event);
+                                    }}
+                                    className="cursor-pointer"
+                                  >
+                                    <Checkbox
+                                      checked={selected.has(asset.id)}
+                                      onCheckedChange={() => {}}
+                                      className="h-4 w-4 pointer-events-none"
+                                    />
+                                  </div>
+                                  {assignedAssets.has(asset.id) && (
+                                    <div className="flex items-center gap-1">
+                                      <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-green-500 rounded-full" />
+                                      <span className="text-xs text-muted-foreground hidden sm:inline">
+                                        {assignedAssets.get(asset.id)?.name ||
+                                          assignedAssets
+                                            .get(asset.id)
+                                            ?.email?.split("@")[0]}
+                                      </span>
+                                    </div>
+                                  )}
+                                  {pendingAssets.has(asset.id) && (
+                                    <div className="flex items-center gap-1">
+                                      <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-yellow-500 rounded-full" />
+                                      <span className="text-xs text-muted-foreground hidden sm:inline">
+                                        {pendingAssets.get(asset.id)?.name ||
+                                          pendingAssets
+                                            .get(asset.id)
+                                            ?.email?.split("@")[0]}
+                                        {" (pending)"}
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell className="max-w-[200px] text-left">
+                              <div className="flex flex-col gap-1 min-w-0">
+                                <div className="flex items-center gap-1.5 min-w-0">
+                                  {isVariation && (
+                                    <ChevronRight className="h-3 w-3 text-slate-500 dark:text-slate-400 flex-shrink-0" />
+                                  )}
+                                  {isParent && !isVariation && (
+                                    <Package className="h-3 w-3 text-amber-600 dark:text-amber-500 flex-shrink-0" />
+                                  )}
+                                  <span
+                                    className={`font-medium truncate cursor-help text-sm sm:text-base min-w-0 ${
+                                      isVariation
+                                        ? "text-slate-600 dark:text-slate-400"
+                                        : isParent
+                                          ? "text-amber-700 dark:text-amber-500"
+                                          : ""
+                                    }`}
+                                    title={asset.product_name}
+                                  >
+                                    {asset.product_name}
+                                  </span>
+                                  {isParent && !isVariation && (
+                                    <Badge
+                                      variant="outline"
+                                      className="text-xs text-amber-700 dark:text-amber-500 border-amber-300 dark:border-amber-700 bg-amber-50/50 dark:bg-amber-950/20 px-1.5 py-0 ml-1"
                                     >
-                                      <div className="flex items-center gap-2">
-                                        <Euro className="h-3 w-3" />
-                                        {option.label} - €{option.price}
-                                      </div>
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
+                                      Parent
+                                    </Badge>
+                                  )}
+                                  {isVariation && asset.variation_index && (
+                                    <Badge
+                                      variant="outline"
+                                      className="text-xs text-slate-600 dark:text-slate-400 border-slate-300 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/20 px-1.5 py-0 ml-1"
+                                    >
+                                      V{asset.variation_index}
+                                    </Badge>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-1 sm:gap-2">
+                                  <span className="text-xs text-muted-foreground">
+                                    {annotationCounts[asset.id] || 0}{" "}
+                                    annotations
+                                  </span>
+                                  <span className="text-xs text-slate-500 hidden sm:inline">
+                                    •
+                                  </span>
+                                  <span className="text-xs text-muted-foreground">
+                                    {commentCounts[asset.id] || 0} comments
+                                  </span>
+                                  <span className="text-xs text-slate-500 hidden sm:inline">
+                                    •
+                                  </span>
+                                  <Badge variant="outline" className="text-xs">
+                                    B{asset.batch || 1}
+                                  </Badge>
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell className="max-w-[120px] text-left text-xs sm:text-sm font-mono">
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                {isVariation && (
+                                  <ChevronRight className="h-3 w-3 text-slate-500 dark:text-slate-400 flex-shrink-0" />
+                                )}
+                                {isParent && !isVariation && (
+                                  <Package className="h-3 w-3 text-amber-600 dark:text-amber-500 flex-shrink-0" />
+                                )}
+                                <span
+                                  className={`truncate min-w-0 ${
+                                    isVariation
+                                      ? "text-slate-600 dark:text-slate-400"
+                                      : isParent
+                                        ? "text-amber-700 dark:text-amber-500"
+                                        : ""
+                                  }`}
+                                >
+                                  {asset.article_id}
+                                </span>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-center">
+                              {(() => {
+                                // Compute condition once before Select renders
+                                // Only show AJ options when asset.client === "AJ" (not based on user role)
+                                const assetClient = asset.client;
+                                const assetClientUpper =
+                                  assetClient?.toUpperCase();
+                                const isAssetAJ = assetClientUpper === "AJ";
+                                const shouldShowAJOptions = isAssetAJ; // Only check asset client, not user role
 
-                              {assetPrices[asset.id]?.pricingOptionId ===
-                                "custom_pricing" &&
-                              !assetPrices[asset.id]?.price ? (
-                                <div className="flex items-center gap-1">
-                                  <input
-                                    type="number"
-                                    value={customPrices[asset.id] || ""}
-                                    onChange={(e) =>
-                                      handleCustomPriceChange(
+                                return (
+                                  <Select
+                                    value={(asset.priority || 2).toString()}
+                                    onValueChange={(value) =>
+                                      handlePriorityUpdate(
                                         asset.id,
-                                        parseFloat(e.target.value) || 0
+                                        parseInt(value)
                                       )
                                     }
-                                    onKeyDown={(e) => {
-                                      if (
-                                        e.key === "Enter" &&
-                                        !settingPrices.has(asset.id)
-                                      ) {
-                                        handleCustomPriceSubmit(asset.id);
-                                      }
-                                    }}
-                                    disabled={settingPrices.has(asset.id)}
-                                    className="w-16 h-8 text-xs px-2 border rounded disabled:opacity-50 disabled:cursor-not-allowed"
-                                    placeholder="€0"
-                                    min="0"
-                                    step="0.01"
-                                  />
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="h-8 px-2 text-xs"
-                                    onClick={() =>
-                                      handleCustomPriceSubmit(asset.id)
-                                    }
-                                    disabled={settingPrices.has(asset.id)}
+                                    disabled={updatingPriorities.has(asset.id)}
                                   >
-                                    {settingPrices.has(asset.id) ? (
-                                      <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-current" />
-                                    ) : (
-                                      "Set"
-                                    )}
-                                  </Button>
-                                </div>
-                              ) : (
-                                <div className="flex items-center gap-1">
-                                  {assetPrices[asset.id] && (
-                                    <span className="text-xs font-medium">
-                                      €{assetPrices[asset.id].price}
-                                    </span>
-                                  )}
-                                  <Popover>
-                                    <PopoverTrigger asChild>
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        className="h-4 w-4 p-0 hover:bg-muted"
+                                    <SelectTrigger className="border-none shadow-none p-0 hover:bg-transparent [&>svg]:hidden justify-center w-full h-fit cursor-pointer">
+                                      <span
+                                        className={`px-1.5 sm:px-2 py-0.5 sm:py-1 rounded text-xs font-semibold ${getPriorityClass(
+                                          asset.priority || 2,
+                                          asset.client
+                                        )}`}
                                       >
-                                        <StickyNote
-                                          className={`h-3 w-3 ${
-                                            pricingComments[asset.id]
-                                              ? "text-blue-600 hover:text-blue-700"
-                                              : "text-muted-foreground hover:text-foreground"
-                                          }`}
-                                        />
-                                      </Button>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-80 p-3">
-                                      <div className="space-y-3">
-                                        <h4 className="font-medium text-sm">
-                                          Pricing Note
-                                        </h4>
-                                        <Textarea
-                                          placeholder="Add pricing note..."
-                                          value={
-                                            pricingComments[asset.id] || ""
-                                          }
-                                          onChange={(e) => {
-                                            setPricingComments((prev) => ({
-                                              ...prev,
-                                              [asset.id]: e.target.value,
-                                            }));
-                                          }}
-                                          onBlur={() => {
-                                            if (
-                                              pricingComments[asset.id] !==
-                                              undefined
-                                            ) {
-                                              handlePricingCommentUpdate(
-                                                asset.id,
-                                                pricingComments[asset.id]
-                                              );
-                                            }
-                                          }}
-                                          className="min-h-[60px] max-h-[120px] resize-none text-xs"
-                                          rows={3}
-                                        />
-                                      </div>
-                                    </PopoverContent>
-                                  </Popover>
-                                </div>
-                              )}
-                            </div>
-                          </TableCell>
+                                        {getPriorityLabelForClient(
+                                          asset.priority || 2,
+                                          asset.client
+                                        )}
+                                      </span>
+                                      {updatingPriorities.has(asset.id) ? (
+                                        <div className="ml-1 sm:ml-2 animate-spin rounded-full h-2.5 w-2.5 sm:h-3 sm:w-3 border-b-2 border-blue-600 cursor-pointer" />
+                                      ) : null}
+                                    </SelectTrigger>
+                                    <SelectContent className="cursor-pointer">
+                                      {shouldShowAJOptions ? (
+                                        <>
+                                          <SelectItem
+                                            className="cursor-pointer"
+                                            value="1"
+                                          >
+                                            Low
+                                          </SelectItem>
+                                          <SelectItem
+                                            className="cursor-pointer"
+                                            value="2"
+                                          >
+                                            Medium
+                                          </SelectItem>
+                                          <SelectItem
+                                            className="cursor-pointer"
+                                            value="3"
+                                          >
+                                            High
+                                          </SelectItem>
+                                          <SelectItem
+                                            className="cursor-pointer"
+                                            value="4"
+                                          >
+                                            Flex
+                                          </SelectItem>
+                                          <SelectItem
+                                            className="cursor-pointer"
+                                            value="5"
+                                          >
+                                            Express
+                                          </SelectItem>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <SelectItem
+                                            className="cursor-pointer"
+                                            value="1"
+                                          >
+                                            High
+                                          </SelectItem>
+                                          <SelectItem
+                                            className="cursor-pointer"
+                                            value="2"
+                                          >
+                                            Medium
+                                          </SelectItem>
+                                          <SelectItem
+                                            className="cursor-pointer"
+                                            value="3"
+                                          >
+                                            Low
+                                          </SelectItem>
+                                        </>
+                                      )}
+                                    </SelectContent>
+                                  </Select>
+                                );
+                              })()}
+                            </TableCell>
 
-                          <TableCell className="text-center">
-                            <div className="flex items-center justify-center gap-1">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="cursor-pointer h-8 w-8 sm:h-10 sm:w-10"
-                                onClick={() => {
-                                  // Preserve current filter parameters when navigating to asset detail
-                                  const params = new URLSearchParams();
-                                  params.set("from", "admin-review");
-                                  if (clientFilters.length > 0) {
-                                    params.set(
-                                      "client",
-                                      clientFilters.join(",")
+                            <TableCell className="text-center">
+                              <div className="flex items-center justify-center gap-1 sm:gap-2">
+                                <span
+                                  className={`px-1.5 sm:px-2 py-0.5 sm:py-1 rounded text-xs font-medium ${getStatusLabelClass(asset.status)}`}
+                                >
+                                  {getStatusLabelText(asset.status)}
+                                </span>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <div className="flex flex-col items-center gap-1">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="text-xs px-2 sm:px-3 py-1 h-6 sm:h-7"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedAssetForView(asset);
+                                    setShowViewDialog(true);
+                                  }}
+                                >
+                                  <FileText className="mr-1 h-3 w-3" />
+                                  <span className="hidden sm:inline">
+                                    Ref (
+                                  </span>
+                                  <span className="sm:hidden">(</span>
+                                  {(() => {
+                                    const allRefs = parseReferences(
+                                      asset.reference
                                     );
-                                  }
-                                  if (batchFilters.length > 0) {
-                                    params.set("batch", batchFilters.join(","));
-                                  }
-                                  if (modelerFilters.length > 0) {
-                                    params.set(
-                                      "modeler",
-                                      modelerFilters.join(",")
+                                    return (
+                                      allRefs.length + (asset.glb_link ? 1 : 0)
                                     );
+                                  })()}
+                                  <span className="hidden sm:inline">)</span>
+                                  <span className="sm:hidden">)</span>
+                                </Button>
+                              </div>
+                            </TableCell>
+
+                            <TableCell className="text-center">
+                              {asset.product_link ? (
+                                <a
+                                  href={asset.product_link}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-blue-600 underline break-all text-xs sm:text-sm"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <span className="hidden sm:inline">
+                                    Product Link
+                                  </span>
+                                  <span className="sm:hidden">Link</span>
+                                </a>
+                              ) : (
+                                <span className="text-xs sm:text-sm text-muted-foreground">
+                                  —
+                                </span>
+                              )}
+                            </TableCell>
+
+                            <TableCell className="text-center">
+                              <div className="flex items-center justify-center gap-2">
+                                <Select
+                                  value={
+                                    assetPrices[asset.id]?.pricingOptionId || ""
                                   }
-                                  if (modelerEmail) {
-                                    params.set("email", modelerEmail);
-                                  }
-                                  router.push(
-                                    `/client-review/${asset.id}?${params.toString()}`
-                                  );
-                                }}
-                              >
-                                <Eye className="h-4 w-4 sm:h-5 sm:w-5" />
-                              </Button>
-                              <Dialog>
-                                <DialogTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="cursor-pointer text-error hover:text-error hover:bg-error/10 h-8 w-8 sm:h-10 sm:w-10"
-                                    disabled={deletingAsset === asset.id}
-                                  >
-                                    {deletingAsset === asset.id ? (
-                                      <div className="animate-spin rounded-full h-3 w-3 sm:h-4 sm:w-4 border-b-2 border-error" />
-                                    ) : (
-                                      <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
-                                    )}
-                                  </Button>
-                                </DialogTrigger>
-                                <DialogContent className="w-[95vw] sm:w-full max-w-md h-fit overflow-y-auto">
-                                  <DialogHeader className="pb-3 sm:pb-4">
-                                    <DialogTitle className="text-base sm:text-lg">
-                                      Delete Asset
-                                    </DialogTitle>
-                                    <DialogDescription className="text-xs sm:text-sm">
-                                      Are you sure you want to delete this
-                                      asset? This action cannot be undone and
-                                      will permanently delete:
-                                      <ul className="list-disc list-inside mt-2 space-y-1">
-                                        <li>The asset itself</li>
-                                        <li>All assignments and comments</li>
-                                        <li>All revision history</li>
-                                        <li>All QA approvals</li>
-                                        <li>
-                                          Any empty allocation lists (only if
-                                          this was the last asset in the list)
-                                        </li>
-                                      </ul>
-                                    </DialogDescription>
-                                  </DialogHeader>
-                                  <DialogFooter className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+                                  onValueChange={(value) => {
+                                    if (value === "custom_pricing") {
+                                      // Don't auto-update for custom pricing, let user set the price
+                                      setAssetPrices((prev) => ({
+                                        ...prev,
+                                        [asset.id]: {
+                                          pricingOptionId: value,
+                                          price: 0,
+                                        },
+                                      }));
+                                    } else {
+                                      const option =
+                                        getPricingOptionById(value);
+                                      if (option) {
+                                        handlePriceUpdate(
+                                          asset.id,
+                                          value,
+                                          option.price
+                                        );
+                                      }
+                                    }
+                                  }}
+                                >
+                                  <SelectTrigger className="w-32 h-8 text-xs border-none shadow-none hover:bg-muted cursor-pointer">
+                                    <SelectValue placeholder="Set price" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {PRICING_OPTIONS.map((option) => (
+                                      <SelectItem
+                                        key={option.id}
+                                        value={option.id}
+                                      >
+                                        <div className="flex items-center justify-between w-full">
+                                          <div className="flex items-center gap-2">
+                                            <Euro className="h-3 w-3" />
+                                            {option.label} - €{option.price}
+                                          </div>
+                                          {option.id ===
+                                            "qa_team_handles_model" && (
+                                            <Badge
+                                              variant="outline"
+                                              className="ml-2 text-xs bg-amber-50 text-amber-700 border-amber-200"
+                                            >
+                                              QA Handles
+                                            </Badge>
+                                          )}
+                                        </div>
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+
+                                {assetPrices[asset.id]?.pricingOptionId ===
+                                  "custom_pricing" &&
+                                !assetPrices[asset.id]?.price ? (
+                                  <div className="flex items-center gap-1">
+                                    <input
+                                      type="number"
+                                      value={customPrices[asset.id] || ""}
+                                      onChange={(e) =>
+                                        handleCustomPriceChange(
+                                          asset.id,
+                                          parseFloat(e.target.value) || 0
+                                        )
+                                      }
+                                      onKeyDown={(e) => {
+                                        if (
+                                          e.key === "Enter" &&
+                                          !settingPrices.has(asset.id)
+                                        ) {
+                                          handleCustomPriceSubmit(asset.id);
+                                        }
+                                      }}
+                                      disabled={settingPrices.has(asset.id)}
+                                      className="w-16 h-8 text-xs px-2 border rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                                      placeholder="€0"
+                                      min="0"
+                                      step="0.01"
+                                    />
                                     <Button
-                                      variant="destructive"
-                                      onClick={() => deleteAsset(asset.id)}
+                                      size="sm"
+                                      variant="outline"
+                                      className="h-8 px-2 text-xs"
+                                      onClick={() =>
+                                        handleCustomPriceSubmit(asset.id)
+                                      }
+                                      disabled={settingPrices.has(asset.id)}
+                                    >
+                                      {settingPrices.has(asset.id) ? (
+                                        <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-current" />
+                                      ) : (
+                                        "Set"
+                                      )}
+                                    </Button>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center gap-1">
+                                    {assetPrices[asset.id] && (
+                                      <div className="flex items-center gap-1">
+                                        {assetPrices[asset.id]
+                                          .pricingOptionId ===
+                                        "qa_team_handles_model" ? (
+                                          <Badge
+                                            variant="outline"
+                                            className="text-xs bg-amber-50 text-amber-700 border-amber-200"
+                                            title="QA team will handle this model"
+                                          >
+                                            0€ - QA Handling
+                                          </Badge>
+                                        ) : (
+                                          <span className="text-xs font-medium">
+                                            €{assetPrices[asset.id].price}
+                                          </span>
+                                        )}
+                                      </div>
+                                    )}
+                                    <Popover>
+                                      <PopoverTrigger asChild>
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="h-4 w-4 p-0 hover:bg-muted"
+                                        >
+                                          <StickyNote
+                                            className={`h-3 w-3 ${
+                                              pricingComments[asset.id]
+                                                ? "text-blue-600 hover:text-blue-700"
+                                                : "text-muted-foreground hover:text-foreground"
+                                            }`}
+                                          />
+                                        </Button>
+                                      </PopoverTrigger>
+                                      <PopoverContent className="w-80 p-3">
+                                        <div className="space-y-3">
+                                          <h4 className="font-medium text-sm">
+                                            Pricing Note
+                                          </h4>
+                                          <Textarea
+                                            placeholder="Add pricing note..."
+                                            value={
+                                              pricingComments[asset.id] || ""
+                                            }
+                                            onChange={(e) => {
+                                              setPricingComments((prev) => ({
+                                                ...prev,
+                                                [asset.id]: e.target.value,
+                                              }));
+                                            }}
+                                            onBlur={() => {
+                                              if (
+                                                pricingComments[asset.id] !==
+                                                undefined
+                                              ) {
+                                                handlePricingCommentUpdate(
+                                                  asset.id,
+                                                  pricingComments[asset.id]
+                                                );
+                                              }
+                                            }}
+                                            className="min-h-[60px] max-h-[120px] resize-none text-xs"
+                                            rows={3}
+                                          />
+                                        </div>
+                                      </PopoverContent>
+                                    </Popover>
+                                  </div>
+                                )}
+                              </div>
+                            </TableCell>
+
+                            <TableCell className="text-center">
+                              <div className="flex items-center justify-center gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="cursor-pointer h-8 w-8 sm:h-10 sm:w-10"
+                                  onClick={() => {
+                                    // Preserve current filter parameters when navigating to asset detail
+                                    const params = new URLSearchParams();
+                                    params.set("from", "admin-review");
+                                    if (clientFilters.length > 0) {
+                                      params.set(
+                                        "client",
+                                        clientFilters.join(",")
+                                      );
+                                    }
+                                    if (batchFilters.length > 0) {
+                                      params.set(
+                                        "batch",
+                                        batchFilters.join(",")
+                                      );
+                                    }
+                                    if (modelerFilters.length > 0) {
+                                      params.set(
+                                        "modeler",
+                                        modelerFilters.join(",")
+                                      );
+                                    }
+                                    if (modelerEmail) {
+                                      params.set("email", modelerEmail);
+                                    }
+                                    router.push(
+                                      `/client-review/${asset.id}?${params.toString()}`
+                                    );
+                                  }}
+                                >
+                                  <Eye className="h-4 w-4 sm:h-5 sm:w-5" />
+                                </Button>
+                                <Dialog>
+                                  <DialogTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="cursor-pointer text-error hover:text-error hover:bg-error/10 h-8 w-8 sm:h-10 sm:w-10"
                                       disabled={deletingAsset === asset.id}
-                                      className="w-full sm:w-auto text-sm"
                                     >
                                       {deletingAsset === asset.id ? (
-                                        <div className="animate-spin rounded-full h-3 w-3 sm:h-4 sm:w-4 border-b-2 border-white mr-2" />
-                                      ) : null}
-                                      Delete Asset
+                                        <div className="animate-spin rounded-full h-3 w-3 sm:h-4 sm:w-4 border-b-2 border-error" />
+                                      ) : (
+                                        <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
+                                      )}
                                     </Button>
-                                  </DialogFooter>
-                                </DialogContent>
-                              </Dialog>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      )
+                                  </DialogTrigger>
+                                  <DialogContent className="w-[95vw] sm:w-full max-w-md h-fit overflow-y-auto">
+                                    <DialogHeader className="pb-3 sm:pb-4">
+                                      <DialogTitle className="text-base sm:text-lg">
+                                        Delete Asset
+                                      </DialogTitle>
+                                      <DialogDescription className="text-xs sm:text-sm">
+                                        Are you sure you want to delete this
+                                        asset? This action cannot be undone and
+                                        will permanently delete:
+                                        <ul className="list-disc list-inside mt-2 space-y-1">
+                                          <li>The asset itself</li>
+                                          <li>All assignments and comments</li>
+                                          <li>All revision history</li>
+                                          <li>All QA approvals</li>
+                                          <li>
+                                            Any empty allocation lists (only if
+                                            this was the last asset in the list)
+                                          </li>
+                                        </ul>
+                                      </DialogDescription>
+                                    </DialogHeader>
+                                    <DialogFooter className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+                                      <Button
+                                        variant="destructive"
+                                        onClick={() => deleteAsset(asset.id)}
+                                        disabled={deletingAsset === asset.id}
+                                        className="w-full sm:w-auto text-sm"
+                                      >
+                                        {deletingAsset === asset.id ? (
+                                          <div className="animate-spin rounded-full h-3 w-3 sm:h-4 sm:w-4 border-b-2 border-white mr-2" />
+                                        ) : null}
+                                        Delete Asset
+                                      </Button>
+                                    </DialogFooter>
+                                  </DialogContent>
+                                </Dialog>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      }
                     )
                   )}
                 </TableBody>
@@ -6251,7 +6799,7 @@ export default function AdminReviewPage() {
               ) : (
                 <>
                   <CheckCircle className="h-4 w-4" />
-                  Mark as Approved ({selected.size})
+                  Transfer To Library ({selected.size})
                 </>
               )}
             </Button>

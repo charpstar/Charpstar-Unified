@@ -98,6 +98,8 @@ interface BatchAsset {
   bonus?: number;
   allocation_list_id?: string;
   pricing_comment?: string;
+  qa_team_handles_model?: boolean;
+  pricing_option_id?: string;
 }
 
 interface AllocationList {
@@ -501,7 +503,9 @@ export default function BatchDetailPage() {
               product_link,
               reference,
               pricing_comment,
-              measurements
+              measurements,
+              qa_team_handles_model,
+              pricing_option_id
             )
           )
         `
@@ -527,6 +531,8 @@ export default function BatchDetailPage() {
               bonus: list.bonus,
               deadline: list.deadline,
               allocation_list_id: list.id,
+              qa_team_handles_model: assignment.onboarding_assets.qa_team_handles_model,
+              pricing_option_id: assignment.onboarding_assets.pricing_option_id,
             }))
             .filter(Boolean) as BatchAsset[];
 
@@ -567,11 +573,14 @@ export default function BatchDetailPage() {
         (asset) => asset.status === "delivered_by_artist"
       ).length;
 
-      // Calculate earnings statistics
-      const totalBaseEarnings = allAssets.reduce(
-        (sum, asset) => sum + (asset.price || 0),
-        0
-      );
+      // Calculate earnings statistics (exclude QA-handled models)
+      const totalBaseEarnings = allAssets
+        .filter(
+          (asset) =>
+            !asset.qa_team_handles_model &&
+            asset.pricing_option_id !== "qa_team_handles_model"
+        )
+        .reduce((sum, asset) => sum + (asset.price || 0), 0);
 
       // Add correction amounts from allocation lists
       const totalCorrections = processedLists.reduce(
@@ -579,33 +588,55 @@ export default function BatchDetailPage() {
         0
       );
 
-      const totalBonusEarnings = allAssets.reduce((sum, asset) => {
-        const bonus = asset.bonus || 0;
-        return sum + ((asset.price || 0) * bonus) / 100;
-      }, 0);
+      const totalBonusEarnings = allAssets
+        .filter(
+          (asset) =>
+            !asset.qa_team_handles_model &&
+            asset.pricing_option_id !== "qa_team_handles_model"
+        )
+        .reduce((sum, asset) => {
+          const bonus = asset.bonus || 0;
+          return sum + ((asset.price || 0) * bonus) / 100;
+        }, 0);
 
       const totalPotentialEarnings =
         totalBaseEarnings + totalBonusEarnings + totalCorrections;
 
-      // Calculate earnings immediately for assets approved by client
+      // Calculate earnings immediately for assets approved by client (exclude QA-handled)
       const completedEarnings =
         allAssets
-          .filter((asset) => asset.status === "approved_by_client")
+          .filter(
+            (asset) =>
+              asset.status === "approved_by_client" &&
+              !asset.qa_team_handles_model &&
+              asset.pricing_option_id !== "qa_team_handles_model"
+          )
           .reduce((sum, asset) => {
             const bonus = asset.bonus || 0;
             return sum + (asset.price || 0) * (1 + bonus / 100);
           }, 0) + totalCorrections;
 
-      // Pending earnings include everything that hasn't been approved by client yet
+      // Pending earnings include everything that hasn't been approved by client yet (exclude QA-handled)
       const pendingEarnings = allAssets
-        .filter((asset) => asset.status !== "approved_by_client")
+        .filter(
+          (asset) =>
+            asset.status !== "approved_by_client" &&
+            !asset.qa_team_handles_model &&
+            asset.pricing_option_id !== "qa_team_handles_model"
+        )
         .reduce((sum, asset) => {
           const bonus = asset.bonus || 0;
           return sum + (asset.price || 0) * (1 + bonus / 100);
         }, 0);
 
+      // Calculate average price excluding QA-handled models
+      const nonQAAssets = allAssets.filter(
+        (asset) =>
+          !asset.qa_team_handles_model &&
+          asset.pricing_option_id !== "qa_team_handles_model"
+      );
       const averageAssetPrice =
-        totalAssets > 0 ? totalBaseEarnings / totalAssets : 0;
+        nonQAAssets.length > 0 ? totalBaseEarnings / nonQAAssets.length : 0;
 
       setBatchStats({
         totalAssets,
@@ -671,10 +702,14 @@ export default function BatchDetailPage() {
       (asset) => asset.status === "delivered_by_artist"
     ).length;
 
-    const totalBaseEarnings = allAssets.reduce(
-      (sum, asset) => sum + (asset.price || 0),
-      0
-    );
+    // Calculate earnings statistics (exclude QA-handled models)
+    const totalBaseEarnings = allAssets
+      .filter(
+        (asset) =>
+          !asset.qa_team_handles_model &&
+          asset.pricing_option_id !== "qa_team_handles_model"
+      )
+      .reduce((sum, asset) => sum + (asset.price || 0), 0);
 
     // Add correction amounts from allocation lists
     const totalCorrections = lists.reduce(
@@ -682,31 +717,53 @@ export default function BatchDetailPage() {
       0
     );
 
-    const totalBonusEarnings = allAssets.reduce((sum, asset) => {
-      const bonus = asset.bonus || 0;
-      return sum + ((asset.price || 0) * bonus) / 100;
-    }, 0);
+    const totalBonusEarnings = allAssets
+      .filter(
+        (asset) =>
+          !asset.qa_team_handles_model &&
+          asset.pricing_option_id !== "qa_team_handles_model"
+      )
+      .reduce((sum, asset) => {
+        const bonus = asset.bonus || 0;
+        return sum + ((asset.price || 0) * bonus) / 100;
+      }, 0);
 
     const totalPotentialEarnings =
       totalBaseEarnings + totalBonusEarnings + totalCorrections;
 
     const completedEarnings =
       allAssets
-        .filter((asset) => asset.status === "approved_by_client")
+        .filter(
+          (asset) =>
+            asset.status === "approved_by_client" &&
+            !asset.qa_team_handles_model &&
+            asset.pricing_option_id !== "qa_team_handles_model"
+        )
         .reduce((sum, asset) => {
           const bonus = asset.bonus || 0;
           return sum + (asset.price || 0) * (1 + bonus / 100);
         }, 0) + totalCorrections;
 
     const pendingEarnings = allAssets
-      .filter((asset) => asset.status !== "approved_by_client")
+      .filter(
+        (asset) =>
+          asset.status !== "approved_by_client" &&
+          !asset.qa_team_handles_model &&
+          asset.pricing_option_id !== "qa_team_handles_model"
+      )
       .reduce((sum, asset) => {
         const bonus = asset.bonus || 0;
         return sum + (asset.price || 0) * (1 + bonus / 100);
       }, 0);
 
+    // Calculate average price excluding QA-handled models
+    const nonQAAssets = allAssets.filter(
+      (asset) =>
+        !asset.qa_team_handles_model &&
+        asset.pricing_option_id !== "qa_team_handles_model"
+    );
     const averageAssetPrice =
-      totalAssets > 0 ? totalBaseEarnings / totalAssets : 0;
+      nonQAAssets.length > 0 ? totalBaseEarnings / nonQAAssets.length : 0;
 
     setBatchStats({
       totalAssets,
@@ -2138,8 +2195,17 @@ export default function BatchDetailPage() {
                                         </Badge>
                                       </TableCell>
                                       <TableCell className="py-2 text-left">
-                                        {asset.price ? (
-                                          <div className="flex items-center gap-1 align-middle justify-center text-center text-sm ">
+                                        {asset.qa_team_handles_model ||
+                                        asset.pricing_option_id ===
+                                          "qa_team_handles_model" ? (
+                                          <Badge
+                                            variant="outline"
+                                            className="text-xs bg-amber-50 text-amber-700 border-amber-200"
+                                          >
+                                            QA
+                                          </Badge>
+                                        ) : asset.price ? (
+                                          <div className="flex items-center gap-1 text-sm">
                                             <Euro className="h-3 w-3 text-success" />
                                             <span className="font-semibold">
                                               {asset.price.toFixed(2)}
@@ -2191,122 +2257,154 @@ export default function BatchDetailPage() {
                                         </div>
                                       </TableCell>
                                       <TableCell className="py-2 text-left">
-                                        <div className="flex flex-col gap-1">
-                                          {asset.glb_link ? (
+                                        {asset.qa_team_handles_model ||
+                                        asset.pricing_option_id ===
+                                          "qa_team_handles_model" ? (
+                                          <span className="text-xs text-muted-foreground">
+                                            -
+                                          </span>
+                                        ) : (
+                                          <div className="flex flex-col gap-1">
+                                            {asset.glb_link ? (
+                                              <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => {
+                                                  const fileName =
+                                                    asset.glb_link
+                                                      ?.split("/")
+                                                      .pop() ||
+                                                    `${asset.article_id}.glb`;
+                                                  handleFileDownload(
+                                                    asset.glb_link!,
+                                                    fileName
+                                                  );
+                                                }}
+                                                className="text-xs h-6 px-2 w-full hover:text-blue-700 hover:underline"
+                                              >
+                                                <Download className="h-3 w-3 mr-1" />
+                                                Download
+                                              </Button>
+                                            ) : null}
                                             <Button
-                                              variant="ghost"
+                                              variant={
+                                                asset.glb_link
+                                                  ? "ghost"
+                                                  : "default"
+                                              }
+                                              size="sm"
+                                              onClick={() =>
+                                                handleOpenUploadDialog(
+                                                  asset,
+                                                  "glb"
+                                                )
+                                              }
+                                              disabled={uploadingGLB === asset.id}
+                                              className={`text-xs h-6 px-2 w-full ${
+                                                asset.glb_link
+                                                  ? "hover:text-blue-700 hover:underline"
+                                                  : " text-white"
+                                              }`}
+                                            >
+                                              {uploadingGLB === asset.id ? (
+                                                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-current mr-1 dark:border-border dark:text-muted-foreground text-foreground" />
+                                              ) : (
+                                                <Upload className="h-3 w-3 mr-1" />
+                                              )}
+                                              {asset.glb_link
+                                                ? "Update GLB"
+                                                : "Upload GLB"}
+                                            </Button>
+                                          </div>
+                                        )}
+                                      </TableCell>
+                                      <TableCell className="py-2 text-left">
+                                        {asset.qa_team_handles_model ||
+                                        asset.pricing_option_id ===
+                                          "qa_team_handles_model" ? (
+                                          <span className="text-xs text-muted-foreground">
+                                            -
+                                          </span>
+                                        ) : (
+                                          <div className="flex flex-col gap-1">
+                                            <Button
+                                              variant="outline"
                                               size="sm"
                                               onClick={() => {
-                                                const fileName =
-                                                  asset.glb_link
-                                                    ?.split("/")
-                                                    .pop() ||
-                                                  `${asset.article_id}.glb`;
-                                                handleFileDownload(
-                                                  asset.glb_link!,
-                                                  fileName
-                                                );
+                                                setSelectedAssetForView(asset);
+                                                setShowViewRefDialog(true);
                                               }}
-                                              className="text-xs h-6 px-2 w-full hover:text-blue-700 hover:underline"
+                                              className="text-xs h-6 px-2 w-full border-gray-200 text-gray-700 hover:bg-gray-50 dark:border-border dark:hover:bg-muted/50 dark:text-muted-foreground"
                                             >
-                                              <Download className="h-3 w-3 mr-1" />
-                                              Download
-                                            </Button>
-                                          ) : null}
-                                          <Button
-                                            variant={
-                                              asset.glb_link
-                                                ? "ghost"
-                                                : "default"
-                                            }
-                                            size="sm"
-                                            onClick={() =>
-                                              handleOpenUploadDialog(
-                                                asset,
-                                                "glb"
-                                              )
-                                            }
-                                            disabled={uploadingGLB === asset.id}
-                                            className={`text-xs h-6 px-2 w-full ${
-                                              asset.glb_link
-                                                ? "hover:text-blue-700 hover:underline"
-                                                : " text-white"
-                                            }`}
-                                          >
-                                            {uploadingGLB === asset.id ? (
-                                              <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-current mr-1 dark:border-border dark:text-muted-foreground text-foreground" />
-                                            ) : (
-                                              <Upload className="h-3 w-3 mr-1" />
-                                            )}
-                                            {asset.glb_link
-                                              ? "Update GLB"
-                                              : "Upload GLB"}
-                                          </Button>
-                                        </div>
-                                      </TableCell>
-                                      <TableCell className="py-2 text-left">
-                                        <div className="flex flex-col gap-1">
-                                          <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => {
-                                              setSelectedAssetForView(asset);
-                                              setShowViewRefDialog(true);
-                                            }}
-                                            className="text-xs h-6 px-2 w-full border-gray-200 text-gray-700 hover:bg-gray-50 dark:border-border dark:hover:bg-muted/50 dark:text-muted-foreground"
-                                          >
-                                            <FileText className="h-3 w-3 mr-1" />
-                                            Ref (
-                                            {separateReferences(
-                                              asset.reference || null
-                                            ).imageReferences.length +
-                                              separateReferences(
+                                              <FileText className="h-3 w-3 mr-1" />
+                                              Ref (
+                                              {separateReferences(
                                                 asset.reference || null
-                                              ).glbFiles.length +
-                                              (asset.glb_link ? 1 : 0)}
-                                            )
-                                          </Button>
-                                        </div>
-                                      </TableCell>
-                                      <TableCell className="py-2 text-left">
-                                        <div className="flex flex-col items-center gap-1">
-                                          <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            className="w-full h-6 px-2 text-xs hover:text-purple-700 hover:underline"
-                                            onClick={() =>
-                                              window.open(
-                                                `/modeler-review/${asset.id}?from=my-assignments&client=${encodeURIComponent(client)}&batch=${batch}`,
-                                                "_blank",
-                                                "noopener,noreferrer"
+                                              ).imageReferences.length +
+                                                separateReferences(
+                                                  asset.reference || null
+                                                ).glbFiles.length +
+                                                (asset.glb_link ? 1 : 0)}
                                               )
-                                            }
-                                          >
-                                            <Eye className="h-4 w-4 mr-1" />
-                                          </Button>
-                                        </div>
+                                            </Button>
+                                          </div>
+                                        )}
                                       </TableCell>
                                       <TableCell className="py-2 text-left">
-                                        <div className="flex justify-center">
-                                          {asset.product_link ? (
+                                        {asset.qa_team_handles_model ||
+                                        asset.pricing_option_id ===
+                                          "qa_team_handles_model" ? (
+                                          <span className="text-xs text-muted-foreground">
+                                            -
+                                          </span>
+                                        ) : (
+                                          <div className="flex flex-col gap-1">
                                             <Button
                                               variant="ghost"
                                               size="sm"
-                                              className="text-xs text-blue-600 hover:text-blue-700 hover:underline"
+                                              className="w-fit h-6 px-2 text-xs hover:text-purple-700 hover:underline"
                                               onClick={() =>
-                                                handleOpenProductLink(
-                                                  asset.product_link || ""
+                                                window.open(
+                                                  `/modeler-review/${asset.id}?from=my-assignments&client=${encodeURIComponent(client)}&batch=${batch}`,
+                                                  "_blank",
+                                                  "noopener,noreferrer"
                                                 )
                                               }
                                             >
-                                              Product Link
+                                              <Eye className="h-4 w-4 mr-1" />
                                             </Button>
-                                          ) : (
-                                            <span className="text-xs text-muted-foreground">
-                                              -
-                                            </span>
-                                          )}
-                                        </div>
+                                          </div>
+                                        )}
+                                      </TableCell>
+                                      <TableCell className="py-2 text-left">
+                                        {asset.qa_team_handles_model ||
+                                        asset.pricing_option_id ===
+                                          "qa_team_handles_model" ? (
+                                          <span className="text-xs text-muted-foreground">
+                                            -
+                                          </span>
+                                        ) : (
+                                          <div>
+                                            {asset.product_link ? (
+                                              <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="text-xs text-blue-600 hover:text-blue-700 hover:underline"
+                                                onClick={() =>
+                                                  handleOpenProductLink(
+                                                    asset.product_link || ""
+                                                  )
+                                                }
+                                              >
+                                                Product Link
+                                              </Button>
+                                            ) : (
+                                              <span className="text-xs text-muted-foreground">
+                                                -
+                                              </span>
+                                            )}
+                                          </div>
+                                        )}
                                       </TableCell>
                                     </TableRow>
                                   ))}
@@ -2357,20 +2455,24 @@ export default function BatchDetailPage() {
                                           }
                                         </p>
                                       </div>
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        className="h-7 w-7 p-0 hover:text-purple-700"
-                                        onClick={() =>
-                                          window.open(
-                                            `/modeler-review/${asset.id}?from=my-assignments&client=${encodeURIComponent(client)}&batch=${batch}`,
-                                            "_blank",
-                                            "noopener,noreferrer"
-                                          )
-                                        }
-                                      >
-                                        <Eye className="h-3 w-3" />
-                                      </Button>
+                                      {!(asset.qa_team_handles_model ||
+                                        asset.pricing_option_id ===
+                                          "qa_team_handles_model") && (
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="h-7 w-7 p-0 hover:text-purple-700"
+                                          onClick={() =>
+                                            window.open(
+                                              `/modeler-review/${asset.id}?from=my-assignments&client=${encodeURIComponent(client)}&batch=${batch}`,
+                                              "_blank",
+                                              "noopener,noreferrer"
+                                            )
+                                          }
+                                        >
+                                          <Eye className="h-3 w-3" />
+                                        </Button>
+                                      )}
                                     </div>
 
                                     {/* Details */}
@@ -2390,7 +2492,16 @@ export default function BatchDetailPage() {
                                         <span className="text-muted-foreground">
                                           Price:
                                         </span>
-                                        {asset.price ? (
+                                        {asset.qa_team_handles_model ||
+                                        asset.pricing_option_id ===
+                                          "qa_team_handles_model" ? (
+                                          <Badge
+                                            variant="outline"
+                                            className="text-xs ml-1 bg-amber-50 text-amber-700 border-amber-200"
+                                          >
+                                            QA
+                                          </Badge>
+                                        ) : asset.price ? (
                                           <div className="flex items-center gap-1 ml-1">
                                             <span className="font-semibold">
                                               €{asset.price.toFixed(2)}
@@ -2448,93 +2559,104 @@ export default function BatchDetailPage() {
                                     </div>
 
                                     {/* Actions */}
-                                    <div className="flex flex-wrap gap-2">
-                                      {/* GLB Actions */}
-                                      <div className="flex gap-1">
-                                        {asset.glb_link ? (
+                                    {!(asset.qa_team_handles_model ||
+                                      asset.pricing_option_id ===
+                                        "qa_team_handles_model") && (
+                                      <div className="flex flex-wrap gap-2">
+                                        {/* GLB Actions */}
+                                        <div className="flex gap-1">
+                                          {asset.glb_link ? (
+                                            <Button
+                                              variant="ghost"
+                                              size="sm"
+                                              onClick={() => {
+                                                const fileName =
+                                                  asset.glb_link
+                                                    ?.split("/")
+                                                    .pop() ||
+                                                  `${asset.article_id}.glb`;
+                                                handleFileDownload(
+                                                  asset.glb_link!,
+                                                  fileName
+                                                );
+                                              }}
+                                              className="text-xs h-6 px-2 hover:text-blue-700"
+                                            >
+                                              <Download className="h-3 w-3 mr-1" />
+                                              GLB
+                                            </Button>
+                                          ) : null}
+                                          <Button
+                                            variant={
+                                              asset.glb_link
+                                                ? "ghost"
+                                                : "default"
+                                            }
+                                            size="sm"
+                                            onClick={() =>
+                                              handleOpenUploadDialog(
+                                                asset,
+                                                "glb"
+                                              )
+                                            }
+                                            disabled={uploadingGLB === asset.id}
+                                            className={`text-xs h-6 px-2 ${
+                                              asset.glb_link
+                                                ? "hover:text-blue-700"
+                                                : "text-white"
+                                            }`}
+                                          >
+                                            {uploadingGLB === asset.id ? (
+                                              <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-current mr-1" />
+                                            ) : (
+                                              <Upload className="h-3 w-3 mr-1" />
+                                            )}
+                                            {asset.glb_link
+                                              ? "Update"
+                                              : "Upload"}
+                                          </Button>
+                                        </div>
+
+                                        {/* References */}
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          onClick={() => {
+                                            setSelectedAssetForView(asset);
+                                            setShowViewRefDialog(true);
+                                          }}
+                                          className="text-xs h-6 px-2"
+                                        >
+                                          <FileText className="h-3 w-3 mr-1" />
+                                          Ref (
+                                          {separateReferences(
+                                            asset.reference || null
+                                          ).imageReferences.length +
+                                            separateReferences(
+                                              asset.reference || null
+                                            ).glbFiles.length +
+                                            (asset.glb_link ? 1 : 0)}
+                                          )
+                                        </Button>
+
+                                        {/* Product Link */}
+                                        {asset.product_link && (
                                           <Button
                                             variant="ghost"
                                             size="sm"
-                                            onClick={() => {
-                                              const fileName =
-                                                asset.glb_link
-                                                  ?.split("/")
-                                                  .pop() ||
-                                                `${asset.article_id}.glb`;
-                                              handleFileDownload(
-                                                asset.glb_link!,
-                                                fileName
-                                              );
-                                            }}
-                                            className="text-xs h-6 px-2 hover:text-blue-700"
+                                            className="text-xs h-6 px-2 text-blue-600 hover:text-blue-700"
+                                            onClick={() =>
+                                              handleOpenProductLink(
+                                                asset.product_link || ""
+                                              )
+                                            }
                                           >
-                                            <Download className="h-3 w-3 mr-1" />
-                                            GLB
+                                            <Link2 className="h-3 w-3 mr-1" />
+                                            Link
                                           </Button>
-                                        ) : null}
-                                        <Button
-                                          variant={
-                                            asset.glb_link ? "ghost" : "default"
-                                          }
-                                          size="sm"
-                                          onClick={() =>
-                                            handleOpenUploadDialog(asset, "glb")
-                                          }
-                                          disabled={uploadingGLB === asset.id}
-                                          className={`text-xs h-6 px-2 ${
-                                            asset.glb_link
-                                              ? "hover:text-blue-700"
-                                              : "text-white"
-                                          }`}
-                                        >
-                                          {uploadingGLB === asset.id ? (
-                                            <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-current mr-1" />
-                                          ) : (
-                                            <Upload className="h-3 w-3 mr-1" />
-                                          )}
-                                          {asset.glb_link ? "Update" : "Upload"}
-                                        </Button>
+                                        )}
                                       </div>
-
-                                      {/* References */}
-                                      <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => {
-                                          setSelectedAssetForView(asset);
-                                          setShowViewRefDialog(true);
-                                        }}
-                                        className="text-xs h-6 px-2"
-                                      >
-                                        <FileText className="h-3 w-3 mr-1" />
-                                        Ref (
-                                        {separateReferences(
-                                          asset.reference || null
-                                        ).imageReferences.length +
-                                          separateReferences(
-                                            asset.reference || null
-                                          ).glbFiles.length +
-                                          (asset.glb_link ? 1 : 0)}
-                                        )
-                                      </Button>
-
-                                      {/* Product Link */}
-                                      {asset.product_link && (
-                                        <Button
-                                          variant="ghost"
-                                          size="sm"
-                                          className="text-xs h-6 px-2 text-blue-600 hover:text-blue-700"
-                                          onClick={() =>
-                                            handleOpenProductLink(
-                                              asset.product_link || ""
-                                            )
-                                          }
-                                        >
-                                          <Link2 className="h-3 w-3 mr-1" />
-                                          Link
-                                        </Button>
-                                      )}
-                                    </div>
+                                    )}
                                   </div>
                                 </Card>
                               ))}

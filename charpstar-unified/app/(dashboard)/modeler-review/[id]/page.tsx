@@ -1706,13 +1706,13 @@ export default function ModelerReviewPage() {
   }
 
   // Show access denied only after user context has loaded and user doesn't have access
-  if (user.metadata?.role !== "modeler") {
+  if (user.metadata?.role !== "modeler" && user.metadata?.role !== "qa") {
     return (
       <div className="container mx-auto p-6 space-y-6">
         <div className="text-center">
           <h1 className="text-2xl font-bold">Access Denied</h1>
           <p className="text-muted-foreground">
-            This page is only available for modelers.
+            This page is only available for modelers and QA team members.
           </p>
         </div>
       </div>
@@ -2291,9 +2291,7 @@ export default function ModelerReviewPage() {
                   <p className="text-muted-foreground mb-4">
                     No 3D model available for this asset
                   </p>
-                  <p className="text-xs text-muted-foreground">
-                    Debug: asset.glb_link = {String(asset?.glb_link)}
-                  </p>
+
                   <Button onClick={handleBackNavigation}>
                     <ArrowLeft className="h-4 w-4 mr-2" />
                     Back

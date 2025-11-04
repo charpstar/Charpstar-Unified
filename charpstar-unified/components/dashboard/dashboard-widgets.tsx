@@ -2789,19 +2789,21 @@ export function ClientAssetCountWidget() {
 
         if (contractsError) throw contractsError;
 
-        // Query onboarding_assets table - count all except where transferred = true
+        // Query onboarding_assets table - count all except where transferred = true and exclude variations
         const { data: onboardingData, error: onboardingError } = await supabase
           .from("onboarding_assets")
-          .select("client, transferred")
-          .in("client", clientCompanies);
+          .select("client, transferred, is_variation")
+          .in("client", clientCompanies)
+          .or("is_variation.is.null,is_variation.eq.false");
 
         if (onboardingError) throw onboardingError;
 
-        // Query assets table - count all except where active = false
+        // Query assets table - count all except where active = false and exclude variations
         const { data: assetsData, error: assetsError } = await supabase
           .from("assets")
-          .select("client, active")
-          .in("client", clientCompanies);
+          .select("client, active, is_variation")
+          .in("client", clientCompanies)
+          .or("is_variation.is.null,is_variation.eq.false");
 
         if (assetsError) throw assetsError;
 
@@ -2843,20 +2845,22 @@ export function ClientAssetCountWidget() {
             companyAssetsData
           );
 
-          // Filter onboarding_assets: exclude where transferred = true
+          // Filter onboarding_assets: exclude where transferred = true and exclude variations
           const onboardingCount =
             onboardingData?.filter(
               (item) =>
                 item.client === companyName &&
-                (item.transferred === false || item.transferred === null)
+                (item.transferred === false || item.transferred === null) &&
+                (item.is_variation === false || item.is_variation === null)
             ).length || 0;
 
-          // Filter assets: exclude where active = false
+          // Filter assets: exclude where active = false and exclude variations
           const assetsCount =
             assetsData?.filter(
               (item) =>
                 item.client === companyName &&
-                (item.active === true || item.active === null)
+                (item.active === true || item.active === null) &&
+                (item.is_variation === false || item.is_variation === null)
             ).length || 0;
 
           const contract = contracts?.find((c) => c.name === companyName);
@@ -3218,7 +3222,7 @@ export function CostSummaryWidget() {
         const assetIds = assignments?.map((a) => a.asset_id) || [];
         const { data: assets, error: assetsError } = await supabase
           .from("onboarding_assets")
-          .select("id, status, created_at")
+          .select("id, status, created_at, qa_team_handles_model")
           .in("id", assetIds);
 
         if (assetsError) throw assetsError;
@@ -3233,6 +3237,9 @@ export function CostSummaryWidget() {
         assignments?.forEach((assignment) => {
           const asset = assets?.find((a) => a.id === assignment.asset_id);
           if (!asset) return;
+
+          // Skip QA-handled models (they don't count toward modeler costs)
+          if (asset.qa_team_handles_model) return;
 
           const basePrice = assignment.price || 0;
           const bonusPercentage =

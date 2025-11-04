@@ -60,6 +60,7 @@ interface UnallocatedAsset {
   status: string;
   pricing_option_id?: string;
   price?: number;
+  qa_team_handles_model?: boolean;
 }
 
 interface User {
@@ -200,11 +201,20 @@ const PRICING_OPTIONS: PricingOption[] = [
     price: 5,
     description: "Additional sizes for already made 3D models",
   },
+
+  // QA Team Handling
+  {
+    id: "qa_team_handles_model",
+    label: "0€ - QA Team Will Handle Model",
+    price: 0,
+    description: "QA team will handle this model (too easy for modelers)",
+  },
 ];
 
 // Derive human-readable task type from pricing option id
 const getTaskTypeFromPricingOptionId = (pricingOptionId: string): string => {
   if (!pricingOptionId) return "Unknown";
+  if (pricingOptionId === "qa_team_handles_model") return "QA Handles Model";
   if (pricingOptionId.startsWith("pbr_3d_model_"))
     return "PBR 3D Model Creation";
   if (pricingOptionId.startsWith("hard_3d_model_")) return "Hard 3D Model";
@@ -565,7 +575,9 @@ export default function AllocateAssetsPage() {
         const { data: preSelectedAssets, error: preSelectedError } =
           await supabase
             .from("onboarding_assets")
-            .select("*, pricing_option_id, price, pricing_comment")
+            .select(
+              "*, pricing_option_id, price, pricing_comment, qa_team_handles_model"
+            )
             .in("id", selectedAssetsParam);
 
         if (preSelectedError) throw preSelectedError;
@@ -598,7 +610,9 @@ export default function AllocateAssetsPage() {
       // Fetch unallocated assets with pricing data
       const { data, error } = await supabase
         .from("onboarding_assets")
-        .select("*, pricing_option_id, price, pricing_comment")
+        .select(
+          "*, pricing_option_id, price, pricing_comment, qa_team_handles_model"
+        )
         .not("id", "in", `(${assignedAssetIds.join(",")})`);
 
       if (error) throw error;
@@ -829,49 +843,61 @@ export default function AllocateAssetsPage() {
       }
     }
 
-    const data: AllocationData[] = Array.from(selectedAssets)
-      .map((assetId) => {
-        const asset = assets.find((a) => a.id === assetId);
+    const data: AllocationData[] = Array.from(selectedAssets).map((assetId) => {
+      const asset = assets.find((a) => a.id === assetId);
 
-        // Prioritize existing pricing from admin-review
-        const existingPricingOptionId = asset?.pricing_option_id;
-        const existingPrice = asset?.price;
+      // Prioritize existing pricing from admin-review
+      const existingPricingOptionId = asset?.pricing_option_id;
+      const existingPrice = asset?.price;
+      const isQAHandled = asset?.qa_team_handles_model;
 
-        // Use existing pricing from admin-review if available
-        if (existingPricingOptionId && existingPrice && existingPrice > 0) {
-          return {
-            assetId,
-            modelerId:
-              globalTeamAssignment.modelerId ||
-              (modelers.length > 0 ? modelers[0].id : ""),
-            price: existingPrice,
-            pricingOptionId: existingPricingOptionId,
-          };
-        }
+      // Use existing pricing from admin-review if available (including QA-handled with price 0)
+      if (
+        existingPricingOptionId &&
+        existingPrice !== undefined &&
+        (existingPrice > 0 || isQAHandled)
+      ) {
+        return {
+          assetId,
+          modelerId:
+            globalTeamAssignment.modelerId ||
+            (modelers.length > 0 ? modelers[0].id : ""),
+          price: existingPrice ?? 0,
+          pricingOptionId: existingPricingOptionId,
+        };
+      }
 
-        // If no existing pricing, return null to filter out later
-        return null;
-      })
-      .filter((item): item is AllocationData => item !== null);
+      // Include all assets, even without pricing - they can be priced in step 2
+      // Default to empty pricing option and 0 price if no existing pricing
+      return {
+        assetId,
+        modelerId:
+          globalTeamAssignment.modelerId ||
+          (modelers.length > 0 ? modelers[0].id : ""),
+        price: existingPrice ?? 0,
+        pricingOptionId: existingPricingOptionId || "",
+      };
+    });
 
     setAllocationData(data);
 
     // Show informative message about pricing source
     const totalAssets = selectedAssets.size;
-    const assetsWithPricing = data.length;
+    const assetsWithPricing = data.filter(
+      (item) =>
+        item.pricingOptionId &&
+        (item.price > 0 || item.pricingOptionId === "qa_team_handles_model")
+    ).length;
 
-    if (assetsWithPricing > 0) {
-      toast.success(
-        `${assetsWithPricing} asset(s) loaded with pricing from admin review.`,
-        { duration: 4000 }
+    if (assetsWithPricing > 0 && assetsWithPricing < totalAssets) {
+      toast.info(
+        `${assetsWithPricing} of ${totalAssets} asset(s) have pricing set. You can set pricing for the remaining assets in Step 2.`,
+        { duration: 5000 }
       );
-    }
-
-    if (totalAssets > assetsWithPricing) {
-      const missingPricingCount = totalAssets - assetsWithPricing;
-      toast.warning(
-        `${missingPricingCount} asset(s) excluded - no pricing set in admin review. Only assets with existing pricing can be allocated.`,
-        { duration: 8000 }
+    } else if (assetsWithPricing === totalAssets && totalAssets > 0) {
+      toast.success(
+        `All ${totalAssets} asset(s) loaded with pricing from admin review.`,
+        { duration: 4000 }
       );
     }
   };
@@ -1325,9 +1351,15 @@ export default function AllocateAssetsPage() {
         return;
       }
 
-      const hasInvalidPrices = allocationData.some((data) => data.price <= 0);
+      // Allow price 0 only for QA-handled models
+      const hasInvalidPrices = allocationData.some(
+        (data) =>
+          data.price <= 0 && data.pricingOptionId !== "qa_team_handles_model"
+      );
       if (hasInvalidPrices) {
-        toast.error("Please set a valid price for all assets");
+        toast.error(
+          "Please set a valid price for all assets (0€ is only allowed for QA-handled models)"
+        );
         return;
       }
 
@@ -1388,6 +1420,13 @@ export default function AllocateAssetsPage() {
               return acc;
             },
             {} as Record<string, number>
+          ),
+          pricingOptions: assetsToAllocate.reduce(
+            (acc, data) => {
+              acc[data.assetId] = data.pricingOptionId;
+              return acc;
+            },
+            {} as Record<string, string>
           ),
           // Provisional QA override
           provisionalQA:
@@ -1457,6 +1496,10 @@ export default function AllocateAssetsPage() {
   // Get current pricing options based on tier
   const getCurrentPricingOptions = () => {
     return PRICING_OPTIONS.filter((option) => {
+      // Always include QA team handling option
+      if (option.id === "qa_team_handles_model") {
+        return true;
+      }
       if (pricingTier === "first_list") {
         return option.id.includes("_first") && !option.id.includes("after_");
       } else if (pricingTier === "after_first_deadline") {
@@ -1471,7 +1514,12 @@ export default function AllocateAssetsPage() {
   // Get pricing option by ID
   const getPricingOptionById = (id: string) => {
     const options = getCurrentPricingOptions();
-    return options.find((option) => option.id === id);
+    const found = options.find((option) => option.id === id);
+    // If not found in filtered options, search all PRICING_OPTIONS (useful for QA option or pre-set pricing)
+    if (!found) {
+      return PRICING_OPTIONS.find((option) => option.id === id);
+    }
+    return found;
   };
 
   // Handle pricing comment updates
@@ -1930,17 +1978,6 @@ export default function AllocateAssetsPage() {
                   Assets to be assigned ({allocationData.length} of{" "}
                   {selectedAssets.size})
                 </h3>
-                {allocationData.length < selectedAssets.size && (
-                  <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                    <p className="text-sm text-amber-800">
-                      <strong>Note:</strong>{" "}
-                      {selectedAssets.size - allocationData.length} asset(s)
-                      excluded because they don&apos;t have pricing set in admin
-                      review. Only assets with existing pricing can be
-                      allocated.
-                    </p>
-                  </div>
-                )}
 
                 <div className="overflow-y-auto max-h-[400px] border rounded-lg">
                   <table className="w-full text-sm">
@@ -1995,7 +2032,9 @@ export default function AllocateAssetsPage() {
                             <td className="px-3 py-2 text-center">
                               <Badge variant="outline" className="text-xs">
                                 {getTaskTypeFromPricingOptionId(
-                                  data.pricingOptionId
+                                  data.pricingOptionId ||
+                                    asset?.pricing_option_id ||
+                                    ""
                                 )}
                               </Badge>
                             </td>
@@ -2346,8 +2385,9 @@ export default function AllocateAssetsPage() {
                             const asset = getAssetById(data.assetId);
                             return (
                               asset?.pricing_option_id &&
-                              asset?.price &&
-                              asset.price > 0
+                              asset?.price !== undefined &&
+                              (asset.price > 0 ||
+                                asset.qa_team_handles_model === true)
                             );
                           }
                         );
@@ -2356,8 +2396,9 @@ export default function AllocateAssetsPage() {
                             const asset = getAssetById(data.assetId);
                             return !(
                               asset?.pricing_option_id &&
-                              asset?.price &&
-                              asset.price > 0
+                              asset?.price !== undefined &&
+                              (asset.price > 0 ||
+                                asset.qa_team_handles_model === true)
                             );
                           }
                         );
@@ -2390,8 +2431,9 @@ export default function AllocateAssetsPage() {
                         const asset = getAssetById(data.assetId);
                         return !(
                           asset?.pricing_option_id &&
-                          asset?.price &&
-                          asset.price > 0
+                          asset?.price !== undefined &&
+                          (asset.price > 0 ||
+                            asset.qa_team_handles_model === true)
                         );
                       }
                     );
@@ -2546,8 +2588,9 @@ export default function AllocateAssetsPage() {
                                 const asset = getAssetById(data.assetId);
                                 const hasExistingPricing =
                                   asset?.pricing_option_id &&
-                                  asset?.price &&
-                                  asset.price > 0;
+                                  asset?.price !== undefined &&
+                                  (asset.price > 0 ||
+                                    asset.qa_team_handles_model === true);
 
                                 if (hasExistingPricing) {
                                   // Show disabled checkbox for admin-set pricing
@@ -2621,24 +2664,41 @@ export default function AllocateAssetsPage() {
                                   const asset = getAssetById(data.assetId);
                                   const hasExistingPricing =
                                     asset?.pricing_option_id &&
-                                    asset?.price &&
-                                    asset.price > 0;
+                                    asset?.price !== undefined &&
+                                    (asset.price > 0 ||
+                                      asset.qa_team_handles_model === true);
 
                                   if (hasExistingPricing) {
                                     // Show read-only info for admin-set pricing
+                                    const option = getPricingOptionById(
+                                      data.pricingOptionId
+                                    );
+                                    const isQAHandled =
+                                      asset?.qa_team_handles_model ||
+                                      data.pricingOptionId ===
+                                        "qa_team_handles_model";
+
                                     return (
                                       <div className="space-y-1">
                                         <div className="text-xs text-muted-foreground">
                                           Set in Admin Review
                                         </div>
-                                        <Badge
-                                          variant="outline"
-                                          className="text-xs bg-green-50 text-green-700 border-green-200"
-                                        >
-                                          {getPricingOptionById(
-                                            data.pricingOptionId
-                                          )?.label || data.pricingOptionId}
-                                        </Badge>
+                                        {isQAHandled ? (
+                                          <Badge
+                                            variant="outline"
+                                            className="text-xs bg-amber-50 text-amber-700 border-amber-200"
+                                          >
+                                            0€ - QA Handling
+                                          </Badge>
+                                        ) : (
+                                          <Badge
+                                            variant="outline"
+                                            className="text-xs bg-green-50 text-green-700 border-green-200"
+                                          >
+                                            {option?.label ||
+                                              data.pricingOptionId}
+                                          </Badge>
+                                        )}
                                       </div>
                                     );
                                   } else {
@@ -2666,12 +2726,27 @@ export default function AllocateAssetsPage() {
                                         </SelectTrigger>
                                         <SelectContent>
                                           {getCurrentPricingOptions().map(
-                                            (option) => (
+                                            (pricingOption) => (
                                               <SelectItem
-                                                key={option.id}
-                                                value={option.id}
+                                                key={pricingOption.id}
+                                                value={pricingOption.id}
                                               >
-                                                {option.label} - €{option.price}
+                                                <div className="flex items-center justify-between w-full">
+                                                  <div className="flex items-center gap-2 text-left">
+                                                    <Euro className="h-3 w-3" />
+                                                    {pricingOption.label} - €
+                                                    {pricingOption.price}
+                                                  </div>
+                                                  {pricingOption.id ===
+                                                    "qa_team_handles_model" && (
+                                                    <Badge
+                                                      variant="outline"
+                                                      className="ml-2 text-xs bg-amber-50 text-amber-700 border-amber-200"
+                                                    >
+                                                      QA Handles
+                                                    </Badge>
+                                                  )}
+                                                </div>
                                               </SelectItem>
                                             )
                                           )}
@@ -2692,77 +2767,77 @@ export default function AllocateAssetsPage() {
                                     asset.price > 0;
 
                                   if (hasExistingPricing) {
-                                    // Show editable price input with admin badge for existing pricing
+                                    // Show read-only price for admin-set pricing (auto-set from pricing option)
+                                    const isQAHandled =
+                                      asset?.qa_team_handles_model ||
+                                      data.pricingOptionId ===
+                                        "qa_team_handles_model";
+
                                     return (
                                       <div className="flex flex-col items-center gap-1">
-                                        <div className="flex items-center gap-2">
-                                          <Input
-                                            type="number"
-                                            value={data.price}
-                                            onChange={(e) =>
-                                              updateAllocationData(
-                                                data.assetId,
-                                                "price",
-                                                parseFloat(e.target.value) || 0
-                                              )
-                                            }
-                                            className="w-20 h-8 text-xs font-medium text-green-600"
-                                            placeholder="0.00"
-                                            step="0.01"
-                                            min="0"
-                                          />
-                                          <Popover>
-                                            <PopoverTrigger asChild>
-                                              <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                className="h-6 w-6 p-0 hover:bg-amber-100"
-                                              >
-                                                <StickyNote className="h-3 w-3 text-amber-600" />
-                                              </Button>
-                                            </PopoverTrigger>
-                                            <PopoverContent className="w-80 p-3">
-                                              <div className="space-y-3">
-                                                <h4 className="font-medium text-sm">
-                                                  Pricing Note
-                                                </h4>
-                                                <Textarea
-                                                  placeholder="Add pricing note..."
-                                                  value={
+                                        {isQAHandled ? (
+                                          <Badge
+                                            variant="outline"
+                                            className="text-xs bg-amber-50 text-amber-700 border-amber-200"
+                                          >
+                                            0€ - QA Handling
+                                          </Badge>
+                                        ) : (
+                                          <span className="text-xs font-medium text-green-600">
+                                            €{data.price}
+                                          </span>
+                                        )}
+                                        <Popover>
+                                          <PopoverTrigger asChild>
+                                            <Button
+                                              variant="ghost"
+                                              size="sm"
+                                              className="h-6 w-6 p-0 hover:bg-amber-100"
+                                            >
+                                              <StickyNote className="h-3 w-3 text-amber-600" />
+                                            </Button>
+                                          </PopoverTrigger>
+                                          <PopoverContent className="w-80 p-3">
+                                            <div className="space-y-3">
+                                              <h4 className="font-medium text-sm">
+                                                Pricing Note
+                                              </h4>
+                                              <Textarea
+                                                placeholder="Add pricing note..."
+                                                value={
+                                                  pricingComments[
+                                                    data.assetId
+                                                  ] || ""
+                                                }
+                                                onChange={(e) => {
+                                                  setPricingComments(
+                                                    (prev) => ({
+                                                      ...prev,
+                                                      [data.assetId]:
+                                                        e.target.value,
+                                                    })
+                                                  );
+                                                }}
+                                                onBlur={() => {
+                                                  if (
                                                     pricingComments[
                                                       data.assetId
-                                                    ] || ""
-                                                  }
-                                                  onChange={(e) => {
-                                                    setPricingComments(
-                                                      (prev) => ({
-                                                        ...prev,
-                                                        [data.assetId]:
-                                                          e.target.value,
-                                                      })
-                                                    );
-                                                  }}
-                                                  onBlur={() => {
-                                                    if (
+                                                    ] !== undefined
+                                                  ) {
+                                                    handlePricingCommentUpdate(
+                                                      data.assetId,
                                                       pricingComments[
                                                         data.assetId
-                                                      ] !== undefined
-                                                    ) {
-                                                      handlePricingCommentUpdate(
-                                                        data.assetId,
-                                                        pricingComments[
-                                                          data.assetId
-                                                        ]
-                                                      );
-                                                    }
-                                                  }}
-                                                  className="min-h-[60px] max-h-[120px] resize-none text-xs"
-                                                  rows={3}
-                                                />
-                                              </div>
-                                            </PopoverContent>
-                                          </Popover>
-                                        </div>
+                                                      ]
+                                                    );
+                                                  }
+                                                }}
+                                                className="min-h-[60px] max-h-[120px] resize-none text-xs"
+                                                rows={3}
+                                              />
+                                            </div>
+                                          </PopoverContent>
+                                        </Popover>
                                       </div>
                                     );
                                   } else {
@@ -2840,83 +2915,77 @@ export default function AllocateAssetsPage() {
                                           </PopoverContent>
                                         </Popover>
                                       </div>
-                                    ) : (
+                                    ) : data.pricingOptionId ===
+                                      "qa_team_handles_model" ? (
+                                      <Badge
+                                        variant="outline"
+                                        className="text-xs bg-amber-50 text-amber-700 border-amber-200"
+                                        title="QA team will handle this model"
+                                      >
+                                        0€ - QA Handling
+                                      </Badge>
+                                    ) : data.pricingOptionId ? (
+                                      // Show auto-set price from pricing option (read-only)
                                       <div className="flex flex-col items-center gap-1">
-                                        <div className="flex items-center gap-2">
-                                          <Input
-                                            type="number"
-                                            value={data.price}
-                                            onChange={(e) =>
-                                              updateAllocationData(
-                                                data.assetId,
-                                                "price",
-                                                parseFloat(e.target.value) || 0
-                                              )
-                                            }
-                                            className="w-20 h-8 text-xs font-medium"
-                                            placeholder="0.00"
-                                            step="0.01"
-                                            min="0"
-                                          />
-                                          <Popover>
-                                            <PopoverTrigger asChild>
-                                              <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                className="h-6 w-6 p-0 hover:bg-amber-100"
-                                              >
-                                                <StickyNote className="h-3 w-3 text-amber-600" />
-                                              </Button>
-                                            </PopoverTrigger>
-                                            <PopoverContent className="w-80 p-3">
-                                              <div className="space-y-3">
-                                                <h4 className="font-medium text-sm">
-                                                  Pricing Note
-                                                </h4>
-                                                <Textarea
-                                                  placeholder="Add pricing note..."
-                                                  value={
+                                        <span className="text-xs font-medium">
+                                          €{data.price}
+                                        </span>
+                                        <Popover>
+                                          <PopoverTrigger asChild>
+                                            <Button
+                                              variant="ghost"
+                                              size="sm"
+                                              className="h-6 w-6 p-0 hover:bg-amber-100"
+                                            >
+                                              <StickyNote className="h-3 w-3 text-amber-600" />
+                                            </Button>
+                                          </PopoverTrigger>
+                                          <PopoverContent className="w-80 p-3">
+                                            <div className="space-y-3">
+                                              <h4 className="font-medium text-sm">
+                                                Pricing Note
+                                              </h4>
+                                              <Textarea
+                                                placeholder="Add pricing note..."
+                                                value={
+                                                  pricingComments[
+                                                    data.assetId
+                                                  ] || ""
+                                                }
+                                                onChange={(e) => {
+                                                  setPricingComments(
+                                                    (prev) => ({
+                                                      ...prev,
+                                                      [data.assetId]:
+                                                        e.target.value,
+                                                    })
+                                                  );
+                                                }}
+                                                onBlur={() => {
+                                                  if (
                                                     pricingComments[
                                                       data.assetId
-                                                    ] || ""
-                                                  }
-                                                  onChange={(e) => {
-                                                    setPricingComments(
-                                                      (prev) => ({
-                                                        ...prev,
-                                                        [data.assetId]:
-                                                          e.target.value,
-                                                      })
-                                                    );
-                                                  }}
-                                                  onBlur={() => {
-                                                    if (
+                                                    ] !== undefined
+                                                  ) {
+                                                    handlePricingCommentUpdate(
+                                                      data.assetId,
                                                       pricingComments[
                                                         data.assetId
-                                                      ] !== undefined
-                                                    ) {
-                                                      handlePricingCommentUpdate(
-                                                        data.assetId,
-                                                        pricingComments[
-                                                          data.assetId
-                                                        ]
-                                                      );
-                                                    }
-                                                  }}
-                                                  className="min-h-[60px] max-h-[120px] resize-none text-xs"
-                                                  rows={3}
-                                                />
-                                              </div>
-                                            </PopoverContent>
-                                          </Popover>
-                                        </div>
-                                        <Badge
-                                          variant="outline"
-                                          className="text-xs bg-gray-50 text-gray-600 border-gray-200"
-                                        >
-                                          Manual
-                                        </Badge>
+                                                      ]
+                                                    );
+                                                  }
+                                                }}
+                                                className="min-h-[60px] max-h-[120px] resize-none text-xs"
+                                                rows={3}
+                                              />
+                                            </div>
+                                          </PopoverContent>
+                                        </Popover>
                                       </div>
+                                    ) : (
+                                      <span className="text-xs text-muted-foreground">
+                                        Select pricing option
+                                      </span>
                                     );
                                   }
                                 })()}
@@ -2969,7 +3038,7 @@ export default function AllocateAssetsPage() {
                       <strong>Note:</strong> Client specifications and project
                       requirements are now managed in the
                       <button
-                        onClick={() => window.open("/admin/clients", "_blank")}
+                        onClick={() => window.open("/users", "_blank")}
                         className="underline font-medium hover:text-blue-600 cursor-pointer bg-transparent border-none p-0"
                       >
                         {" "}
@@ -2994,7 +3063,12 @@ export default function AllocateAssetsPage() {
                 <div className="text-sm text-muted-foreground space-y-1">
                   {groupSettings.deadline &&
                   allocationData.length > 0 &&
-                  allocationData.every((data) => data.price > 0) ? (
+                  allocationData.every(
+                    (data) =>
+                      data.pricingOptionId &&
+                      (data.price > 0 ||
+                        data.pricingOptionId === "qa_team_handles_model")
+                  ) ? (
                     <span className="flex items-center gap-2">
                       <Euro className="h-4 w-4" />
                       Ready to allocate {allocationData.length} asset(s)
@@ -3045,8 +3119,12 @@ export default function AllocateAssetsPage() {
                     ).length === 0 ||
                     !groupSettings.deadline ||
                     allocationData.length === 0 ||
-                    allocationData.some((data) => data.price <= 0) ||
-                    allocationData.some((data) => !data.pricingOptionId)
+                    allocationData.some(
+                      (data) =>
+                        !data.pricingOptionId ||
+                        (data.price <= 0 &&
+                          data.pricingOptionId !== "qa_team_handles_model")
+                    )
                   }
                   className="flex items-center gap-2"
                 >

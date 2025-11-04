@@ -189,6 +189,12 @@ const PRICING_OPTIONS: PricingOption[] = [
     price: 0,
     description: "Custom pricing",
   },
+  {
+    id: "qa_team_handles_model",
+    label: "0€ - QA Team Will Handle Model",
+    price: 0,
+    description: "QA team will handle this model (too easy for modelers)",
+  },
 ];
 
 export default function CostTrackingPage() {
@@ -429,7 +435,8 @@ export default function CostTrackingPage() {
           client,
           batch,
           status,
-          created_at
+          created_at,
+          qa_team_handles_model
         `
         )
         .in("id", Array.from(assignedAssetIds));
@@ -439,40 +446,42 @@ export default function CostTrackingPage() {
         throw assetsError;
       }
 
-      // Process assets - include all assets that have been assigned to modelers
+      // Process assets - exclude QA-handled models from modeler cost tracking
       const processedAssets: AssetCost[] =
-        assignedAssets?.map((asset) => {
-          const modelerInfo = assetToModeler.get(asset.id) || {
-            email: "Unknown",
-            name: "Unknown",
-            price: 50,
-            bonus: 0,
-          };
+        assignedAssets
+          ?.filter((asset) => !asset.qa_team_handles_model) // Exclude QA-handled models
+          .map((asset) => {
+            const modelerInfo = assetToModeler.get(asset.id) || {
+              email: "Unknown",
+              name: "Unknown",
+              price: 50,
+              bonus: 0,
+            };
 
-          // Use assignment price from asset_assignments, fallback to default
-          const price = modelerInfo.price || 50;
-          // Use bonus percentage from allocation_lists
-          const bonusPercentage = modelerInfo.bonus || 0;
-          const bonusAmount = price * (bonusPercentage / 100);
-          const totalCost = price + bonusAmount;
+            // Use assignment price from asset_assignments, fallback to default
+            const price = modelerInfo.price || 50;
+            // Use bonus percentage from allocation_lists
+            const bonusPercentage = modelerInfo.bonus || 0;
+            const bonusAmount = price * (bonusPercentage / 100);
+            const totalCost = price + bonusAmount;
 
-          // Only mark as completed when client has approved, not when modeler delivers
-          // delivered_by_artist = modeler finished, waiting for QA review
-          // approved = QA approved, waiting for client review
-          // approved_by_client = client approved, truly completed
-          return {
-            ...asset,
-            price: price, // Use the price from asset_assignments
-            bonus_percentage: bonusPercentage,
-            bonus_amount: bonusAmount,
-            total_cost: totalCost,
-            modeler_email: modelerInfo.email,
-            status: asset.status, // Preserve the original status
-            allocation_list_completed:
-              asset.status === "approved" ||
-              asset.status === "approved_by_client",
-          };
-        }) || [];
+            // Only mark as completed when client has approved, not when modeler delivers
+            // delivered_by_artist = modeler finished, waiting for QA review
+            // approved = QA approved, waiting for client review
+            // approved_by_client = client approved, truly completed
+            return {
+              ...asset,
+              price: price, // Use the price from asset_assignments
+              bonus_percentage: bonusPercentage,
+              bonus_amount: bonusAmount,
+              total_cost: totalCost,
+              modeler_email: modelerInfo.email,
+              status: asset.status, // Preserve the original status
+              allocation_list_completed:
+                asset.status === "approved" ||
+                asset.status === "approved_by_client",
+            };
+          }) || [];
 
       // Calculate cost summary - only include completed costs (approved by client, not just delivered by artist)
       const totalSpent = processedAssets
