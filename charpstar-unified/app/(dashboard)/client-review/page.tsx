@@ -25,6 +25,7 @@ import { Button } from "@/components/ui/display";
 import { ViewReferencesDialog } from "@/components/ui/containers/ViewReferencesDialog";
 import { AddReferenceDialog } from "@/components/ui/containers/AddReferenceDialog";
 import { ActivityLogsDialog } from "@/components/ui/containers/ActivityLogsDialog";
+import { ShareForReviewDialog } from "@/components/ui/containers/ShareForReviewDialog";
 import {
   Eye,
   ChevronLeft,
@@ -40,6 +41,8 @@ import {
   Plus,
   Trash2,
   Layers,
+  //eslint-disable-next-line @typescript-eslint/no-unused-vars
+  Share,
 } from "lucide-react";
 
 import { useRouter, useSearchParams } from "next/navigation";
@@ -250,7 +253,6 @@ export default function ReviewDashboardPage() {
     Record<string, number>
   >({});
   const [bulkPriority, setBulkPriority] = useState<number>(2);
-  const [bulkStatus, setBulkStatus] = useState<string>("approved_by_client");
   const [allocatedAssets, setAllocatedAssets] = useState<Set<string>>(
     new Set()
   );
@@ -274,6 +276,9 @@ export default function ReviewDashboardPage() {
 
   // Activity logs dialog state
   const [showLogsDialog, setShowLogsDialog] = useState(false);
+
+  // Share for review dialog state
+  const [showShareDialog, setShowShareDialog] = useState(false);
 
   // Delete confirmation dialog state
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -754,80 +759,6 @@ export default function ReviewDashboardPage() {
     }
   };
 
-  const handleBulkStatusChange = async () => {
-    if (selected.size === 0) return;
-
-    startLoading();
-    try {
-      const selectedIds = Array.from(selected);
-
-      // If updating to approved_by_client, use the bulk API endpoint to trigger auto-transfer
-      if (bulkStatus === "approved_by_client") {
-        const response = await fetch("/api/assets/bulk-complete", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            assetIds: selectedIds,
-            status: "approved_by_client",
-          }),
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || `Failed to update assets`);
-        }
-
-        await response.json();
-
-        // Update local state
-        setAssets((prev) =>
-          prev.map((a) =>
-            selectedIds.includes(a.id) ? { ...a, status: bulkStatus } : a
-          )
-        );
-
-        toast.success(
-          `Successfully updated ${selectedIds.length} product(s) to approved by client status and transferred to assets table`
-        );
-      } else {
-        // For other statuses, update directly in database
-        setAssets((prev) =>
-          prev.map((a) =>
-            selectedIds.includes(a.id) ? { ...a, status: bulkStatus } : a
-          )
-        );
-
-        const { error } = await supabase
-          .from("onboarding_assets")
-          .update({ status: bulkStatus })
-          .in("id", selectedIds);
-
-        if (error) {
-          console.error("Error updating bulk status:", error);
-          toast.error("Failed to update statuses");
-          // Revert on error - we need to fetch the original statuses
-          fetchAssets();
-          return;
-        }
-
-        toast.success(`Updated status for ${selectedIds.length} product(s)`);
-      }
-
-      setSelected(new Set()); // Clear selection
-    } catch (error) {
-      console.error("Error in bulk status update:", error);
-      toast.error(
-        error instanceof Error ? error.message : "Failed to update statuses"
-      );
-      // Revert on error
-      fetchAssets();
-    } finally {
-      stopLoading();
-    }
-  };
-
   // Helper function to parse references
   const parseReferences = (
     referenceImages: string[] | string | null
@@ -1100,37 +1031,18 @@ export default function ReviewDashboardPage() {
                       Set Priority
                     </Button>
                   </div>
-
+                  {/* Share for Review
                   <div className="flex items-center gap-2">
-                    <Select
-                      value={bulkStatus}
-                      onValueChange={(value) => setBulkStatus(value)}
-                    >
-                      <SelectTrigger className="h-8 w-32 text-xs">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="approved_by_client">
-                          Approved
-                        </SelectItem>
-                        <SelectItem value="approved">New Upload</SelectItem>
-                        <SelectItem value="client_revision">
-                          Revision
-                        </SelectItem>
-                        <SelectItem value="revisions">Sent for Rev</SelectItem>
-                        <SelectItem value="in_production">
-                          In Production
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
                     <Button
                       size="sm"
-                      onClick={handleBulkStatusChange}
+                      onClick={() => setShowShareDialog(true)}
                       className="h-8 px-3 text-xs"
                     >
-                      Set Status
+                      <Share className="h-3 w-3 mr-1" />
+                      Share for Review
                     </Button>
                   </div>
+                  */}
                 </>
               )}
 
@@ -2150,6 +2062,17 @@ export default function ReviewDashboardPage() {
         open={showLogsDialog}
         onOpenChange={setShowLogsDialog}
         assetIds={assets.map((asset) => asset.id)}
+      />
+
+      {/* Share for Review Dialog */}
+      <ShareForReviewDialog
+        open={showShareDialog}
+        onOpenChange={setShowShareDialog}
+        assetIds={Array.from(selected)}
+        assetCount={selected.size}
+        onSuccess={() => {
+          setSelected(new Set()); // Clear selection after sharing
+        }}
       />
 
       {/* Delete Confirmation Dialog */}

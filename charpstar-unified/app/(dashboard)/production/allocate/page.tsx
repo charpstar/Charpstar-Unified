@@ -39,6 +39,7 @@ import {
   Clock,
   X,
   StickyNote,
+  Pencil,
 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { toast } from "sonner";
@@ -295,6 +296,12 @@ export default function AllocateAssetsPage() {
   // Ref to prevent infinite loops when updating pricing
   const isUpdatingPricing = useRef(false);
 
+  // State for editing prices
+  const [editingPriceAssetId, setEditingPriceAssetId] = useState<string | null>(
+    null
+  );
+  const [editingPriceValue, setEditingPriceValue] = useState<string>("");
+
   // Add new assets to allocation data with correct pricing
 
   // Update pricing when pricing tier changes
@@ -319,6 +326,18 @@ export default function AllocateAssetsPage() {
       const updatedData = allocationData.map((item) => {
         let newPricingOptionId = item.pricingOptionId;
         let newPrice = item.price;
+
+        // Preserve price for QA-handled models or items without pricing option
+        if (
+          !item.pricingOptionId ||
+          item.pricingOptionId === "qa_team_handles_model"
+        ) {
+          return {
+            ...item,
+            pricingOptionId: newPricingOptionId,
+            price: newPrice, // Preserve existing price (should be 0 for QA-handled)
+          };
+        }
 
         // Define pricing mappings for all product types
         const pricingMappings: Record<
@@ -358,7 +377,7 @@ export default function AllocateAssetsPage() {
             afterSecondDeadlinePrice: 30,
           },
 
-          // Hard Surface 3D Model (always custom pricing)
+          // Hard Surface 3D Model (always custom pricing - preserve existing price)
           hard_3d_model_first: {
             first_list: "hard_3d_model_first",
             after_first_deadline: "hard_3d_model_after_first",
@@ -468,14 +487,33 @@ export default function AllocateAssetsPage() {
         if (mapping) {
           if (newPricingTier === "after_second_deadline") {
             newPricingOptionId = mapping.after_second_deadline;
-            newPrice = mapping.afterSecondDeadlinePrice;
+            // For hard surface models, preserve existing custom price
+            if (item.pricingOptionId.includes("hard_3d_model")) {
+              newPrice = item.price > 0 ? item.price : 0;
+            } else {
+              newPrice = mapping.afterSecondDeadlinePrice;
+            }
           } else if (newPricingTier === "after_first_deadline") {
             newPricingOptionId = mapping.after_first_deadline;
-            newPrice = mapping.afterFirstDeadlinePrice;
+            // For hard surface models, preserve existing custom price
+            if (item.pricingOptionId.includes("hard_3d_model")) {
+              newPrice = item.price > 0 ? item.price : 0;
+            } else {
+              newPrice = mapping.afterFirstDeadlinePrice;
+            }
           } else if (newPricingTier === "first_list") {
             newPricingOptionId = mapping.first_list;
-            newPrice = mapping.firstListPrice;
+            // For hard surface models, preserve existing custom price
+            if (item.pricingOptionId.includes("hard_3d_model")) {
+              newPrice = item.price > 0 ? item.price : 0;
+            } else {
+              newPrice = mapping.firstListPrice;
+            }
           }
+        } else {
+          // No mapping found - preserve existing price and pricing option
+          // This handles cases where pricing option might be invalid or custom
+          newPrice = item.price;
         }
 
         return {
@@ -487,12 +525,35 @@ export default function AllocateAssetsPage() {
 
       setAllocationData(updatedData);
 
+      // Persist auto-detected pricing changes to localStorage
+      try {
+        const storageKey = `allocation_edited_prices_${Array.from(selectedAssets).sort().join("_")}`;
+        const existingEdits = JSON.parse(
+          localStorage.getItem(storageKey) || "{}"
+        );
+
+        // Update localStorage with all pricing changes
+        updatedData.forEach((item) => {
+          existingEdits[item.assetId] = {
+            price: item.price,
+            pricingOptionId: item.pricingOptionId,
+          };
+        });
+
+        localStorage.setItem(storageKey, JSON.stringify(existingEdits));
+      } catch (error) {
+        console.error(
+          "Error saving auto-detected pricing to localStorage:",
+          error
+        );
+      }
+
       // Reset the guard after a short delay to allow state to settle
       setTimeout(() => {
         isUpdatingPricing.current = false;
       }, 100);
     },
-    [allocationData]
+    [allocationData, selectedAssets]
   );
 
   // Check if modeler has completed their deadlines and set pricing tier accordingly
@@ -843,8 +904,38 @@ export default function AllocateAssetsPage() {
       }
     }
 
+    // Load edited prices from localStorage if they exist
+    let editedPrices: Record<
+      string,
+      { price: number; pricingOptionId: string }
+    > = {};
+    try {
+      const storageKey = `allocation_edited_prices_${Array.from(selectedAssets).sort().join("_")}`;
+      const stored = localStorage.getItem(storageKey);
+      if (stored) {
+        editedPrices = JSON.parse(stored);
+      }
+    } catch (error) {
+      console.error("Error loading edited prices from localStorage:", error);
+    }
+
     const data: AllocationData[] = Array.from(selectedAssets).map((assetId) => {
       const asset = assets.find((a) => a.id === assetId);
+
+      // Check if this asset has edited prices in localStorage
+      const editedPrice = editedPrices[assetId];
+
+      // Prioritize edited prices from localStorage, then existing pricing from admin-review
+      if (editedPrice) {
+        return {
+          assetId,
+          modelerId:
+            globalTeamAssignment.modelerId ||
+            (modelers.length > 0 ? modelers[0].id : ""),
+          price: editedPrice.price,
+          pricingOptionId: editedPrice.pricingOptionId,
+        };
+      }
 
       // Prioritize existing pricing from admin-review
       const existingPricingOptionId = asset?.pricing_option_id;
@@ -880,6 +971,32 @@ export default function AllocateAssetsPage() {
     });
 
     setAllocationData(data);
+
+    // Persist initial prices from database to localStorage so they persist on reload
+    try {
+      const storageKey = `allocation_edited_prices_${Array.from(selectedAssets).sort().join("_")}`;
+      const existingEdits = JSON.parse(
+        localStorage.getItem(storageKey) || "{}"
+      );
+
+      // Only save if not already in localStorage (to preserve manual edits)
+      data.forEach((item) => {
+        if (
+          !existingEdits[item.assetId] &&
+          item.price > 0 &&
+          item.pricingOptionId
+        ) {
+          existingEdits[item.assetId] = {
+            price: item.price,
+            pricingOptionId: item.pricingOptionId,
+          };
+        }
+      });
+
+      localStorage.setItem(storageKey, JSON.stringify(existingEdits));
+    } catch (error) {
+      console.error("Error saving initial prices to localStorage:", error);
+    }
 
     // Show informative message about pricing source
     const totalAssets = selectedAssets.size;
@@ -932,14 +1049,17 @@ export default function AllocateAssetsPage() {
   // Auto-detect pricing tier based on loaded assets pricing (HIGHEST PRIORITY)
   // This effect runs after allocation data is loaded and overrides any modeler-based pricing
   useEffect(() => {
-    if (allocationData.length > 0) {
+    if (allocationData.length > 0 && !isUpdatingPricing.current) {
       const detectedTier = detectPricingTierFromAssets(allocationData);
 
-      // Always update to the detected tier if we have one
-      if (detectedTier) {
+      // Always update to the detected tier if we have one and it's different from current
+      if (detectedTier && detectedTier !== pricingTier) {
         setPricingTier(detectedTier);
         const bonusPercentage = detectedTier === "first_list" ? 15 : 30;
         setGroupSettings((prev) => ({ ...prev, bonus: bonusPercentage }));
+
+        // Update prices to match the detected tier (this will also persist to localStorage)
+        updatePricingForTierChange(detectedTier);
 
         // Only show notification once per session and only if tier changed
         if (!hasShownAutoDetectNotification.current) {
@@ -951,18 +1071,21 @@ export default function AllocateAssetsPage() {
         }
       }
     }
-  }, [allocationData]); // Removed pricingTier from dependencies to prevent loop
+  }, [allocationData, pricingTier, updatePricingForTierChange]); // Added updatePricingForTierChange to dependencies
 
   // Auto-detect pricing tier when moving to step 2
   useEffect(() => {
-    if (step === 2 && allocationData.length > 0) {
+    if (step === 2 && allocationData.length > 0 && !isUpdatingPricing.current) {
       const detectedTier = detectPricingTierFromAssets(allocationData);
 
-      // Always update to the detected tier if we have one
-      if (detectedTier) {
+      // Always update to the detected tier if we have one and it's different from current
+      if (detectedTier && detectedTier !== pricingTier) {
         setPricingTier(detectedTier);
         const bonusPercentage = detectedTier === "first_list" ? 15 : 30;
         setGroupSettings((prev) => ({ ...prev, bonus: bonusPercentage }));
+
+        // Update prices to match the detected tier (this will also persist to localStorage)
+        updatePricingForTierChange(detectedTier);
 
         // Show notification when entering step 2 if not shown before
         if (!hasShownAutoDetectNotification.current) {
@@ -974,7 +1097,7 @@ export default function AllocateAssetsPage() {
         }
       }
     }
-  }, [step, allocationData]);
+  }, [step, allocationData, pricingTier, updatePricingForTierChange]);
 
   // Helper function to detect pricing tier from asset pricing
   const detectPricingTierFromAssets = (data: AllocationData[]) => {
@@ -1081,11 +1204,33 @@ export default function AllocateAssetsPage() {
     field: keyof AllocationData,
     value: any
   ) => {
-    setAllocationData((prev) =>
-      prev.map((item) =>
+    setAllocationData((prev) => {
+      const updated = prev.map((item) =>
         item.assetId === assetId ? { ...item, [field]: value } : item
-      )
-    );
+      );
+
+      // Persist pricing changes to localStorage
+      if (field === "price" || field === "pricingOptionId") {
+        try {
+          const storageKey = `allocation_edited_prices_${Array.from(selectedAssets).sort().join("_")}`;
+          const existingEdits = JSON.parse(
+            localStorage.getItem(storageKey) || "{}"
+          );
+          const updatedItem = updated.find((item) => item.assetId === assetId);
+          if (updatedItem) {
+            existingEdits[assetId] = {
+              price: updatedItem.price,
+              pricingOptionId: updatedItem.pricingOptionId,
+            };
+            localStorage.setItem(storageKey, JSON.stringify(existingEdits));
+          }
+        } catch (error) {
+          console.error("Error saving edited prices to localStorage:", error);
+        }
+      }
+
+      return updated;
+    });
   };
 
   // Update global team assignment and check pricing tier
@@ -1133,7 +1278,7 @@ export default function AllocateAssetsPage() {
         .in("asset_id", assetIds)
         .eq("role", "modeler")
         .neq("user_id", newModelerId)
-        .order("created_at", { ascending: false });
+        .order("accepted_at", { ascending: false });
 
       if (error) {
         console.error("Error fetching previous assignments:", error);
@@ -1453,6 +1598,14 @@ export default function AllocateAssetsPage() {
       // Clear existing assignments since allocation is successful
       setExistingAssignments([]);
 
+      // Clear edited prices from localStorage after successful allocation
+      try {
+        const storageKey = `allocation_edited_prices_${Array.from(selectedAssets).sort().join("_")}`;
+        localStorage.removeItem(storageKey);
+      } catch (error) {
+        console.error("Error clearing edited prices from localStorage:", error);
+      }
+
       // Check if this was a re-allocation
       const wasReallocation =
         existingAssignmentsData && existingAssignmentsData.length > 0;
@@ -1520,6 +1673,61 @@ export default function AllocateAssetsPage() {
       return PRICING_OPTIONS.find((option) => option.id === id);
     }
     return found;
+  };
+
+  // Function to find matching pricing option based on price
+  const findPricingOptionByPrice = (
+    price: number,
+    currentPricingOptionId: string
+  ): string => {
+    const currentOptions = getCurrentPricingOptions();
+
+    // If price is 0, check if it should be QA-handled
+    if (price === 0) {
+      return "qa_team_handles_model";
+    }
+
+    // Find the pricing option with matching price
+    const matchingOption = currentOptions.find(
+      (option) => option.price === price
+    );
+
+    if (matchingOption) {
+      return matchingOption.id;
+    }
+
+    // If no exact match, check if current option is hard surface (custom pricing)
+    if (currentPricingOptionId.includes("hard_3d_model")) {
+      // Keep the same hard surface option but with updated tier
+      if (pricingTier === "after_second_deadline") {
+        return "hard_3d_model_after_second";
+      } else if (pricingTier === "after_first_deadline") {
+        return "hard_3d_model_after_first";
+      } else {
+        return "hard_3d_model_first";
+      }
+    }
+
+    // Default to current option if no match found
+    return currentPricingOptionId || currentOptions[0]?.id || "";
+  };
+
+  // Handle price edit with automatic pricing option update
+  const handlePriceEdit = (assetId: string, newPrice: number) => {
+    const allocationItem = allocationData.find(
+      (item) => item.assetId === assetId
+    );
+    if (!allocationItem) return;
+
+    // Find matching pricing option
+    const newPricingOptionId = findPricingOptionByPrice(
+      newPrice,
+      allocationItem.pricingOptionId
+    );
+
+    // Update both price and pricing option (updateAllocationData will persist to localStorage)
+    updateAllocationData(assetId, "price", newPrice);
+    updateAllocationData(assetId, "pricingOptionId", newPricingOptionId);
   };
 
   // Handle pricing comment updates
@@ -1625,7 +1833,7 @@ export default function AllocateAssetsPage() {
               <Euro className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-sm font-medium">Step 2: Pricing & Deadline</p>
+              <p className="text-sm font-medium">Step 2: Bonus & Deadline</p>
               <p className="text-xs text-muted-foreground">
                 {groupSettings.deadline ? "Deadline set" : "No deadline set"}
               </p>
@@ -2767,11 +2975,14 @@ export default function AllocateAssetsPage() {
                                     asset.price > 0;
 
                                   if (hasExistingPricing) {
-                                    // Show read-only price for admin-set pricing (auto-set from pricing option)
+                                    // Show editable price for admin-set pricing
                                     const isQAHandled =
                                       asset?.qa_team_handles_model ||
                                       data.pricingOptionId ===
                                         "qa_team_handles_model";
+
+                                    const isEditing =
+                                      editingPriceAssetId === data.assetId;
 
                                     return (
                                       <div className="flex flex-col items-center gap-1">
@@ -2782,10 +2993,77 @@ export default function AllocateAssetsPage() {
                                           >
                                             0€ - QA Handling
                                           </Badge>
+                                        ) : isEditing ? (
+                                          <div className="flex items-center gap-1">
+                                            <Input
+                                              type="number"
+                                              value={
+                                                editingPriceValue !== ""
+                                                  ? editingPriceValue
+                                                  : data.price
+                                              }
+                                              onChange={(e) =>
+                                                setEditingPriceValue(
+                                                  e.target.value
+                                                )
+                                              }
+                                              onBlur={() => {
+                                                const newPrice =
+                                                  parseFloat(
+                                                    editingPriceValue
+                                                  ) || 0;
+                                                handlePriceEdit(
+                                                  data.assetId,
+                                                  newPrice
+                                                );
+                                                setEditingPriceAssetId(null);
+                                                setEditingPriceValue("");
+                                              }}
+                                              onKeyDown={(e) => {
+                                                if (e.key === "Enter") {
+                                                  const newPrice =
+                                                    parseFloat(
+                                                      editingPriceValue
+                                                    ) || 0;
+                                                  handlePriceEdit(
+                                                    data.assetId,
+                                                    newPrice
+                                                  );
+                                                  setEditingPriceAssetId(null);
+                                                  setEditingPriceValue("");
+                                                } else if (e.key === "Escape") {
+                                                  setEditingPriceAssetId(null);
+                                                  setEditingPriceValue("");
+                                                }
+                                              }}
+                                              className="w-20 h-8 text-xs"
+                                              placeholder="0.00"
+                                              step="0.01"
+                                              min="0"
+                                              autoFocus
+                                            />
+                                          </div>
                                         ) : (
-                                          <span className="text-xs font-medium text-green-600">
-                                            €{data.price}
-                                          </span>
+                                          <div className="flex items-center gap-1">
+                                            <span className="text-xs font-medium text-green-600">
+                                              €{data.price}
+                                            </span>
+                                            <Button
+                                              variant="ghost"
+                                              size="sm"
+                                              className="h-5 w-5 p-0 hover:bg-primary/10"
+                                              onClick={() => {
+                                                setEditingPriceAssetId(
+                                                  data.assetId
+                                                );
+                                                setEditingPriceValue(
+                                                  data.price.toString()
+                                                );
+                                              }}
+                                            >
+                                              <Pencil className="h-3 w-3 text-muted-foreground hover:text-primary" />
+                                            </Button>
+                                          </div>
                                         )}
                                         <Popover>
                                           <PopoverTrigger asChild>
@@ -2851,13 +3129,14 @@ export default function AllocateAssetsPage() {
                                         <Input
                                           type="number"
                                           value={data.price}
-                                          onChange={(e) =>
-                                            updateAllocationData(
+                                          onChange={(e) => {
+                                            const newPrice =
+                                              parseFloat(e.target.value) || 0;
+                                            handlePriceEdit(
                                               data.assetId,
-                                              "price",
-                                              parseFloat(e.target.value) || 0
-                                            )
-                                          }
+                                              newPrice
+                                            );
+                                          }}
                                           className="w-20 h-8 text-xs"
                                           placeholder="0.00"
                                           step="0.01"
@@ -2925,63 +3204,146 @@ export default function AllocateAssetsPage() {
                                         0€ - QA Handling
                                       </Badge>
                                     ) : data.pricingOptionId ? (
-                                      // Show auto-set price from pricing option (read-only)
-                                      <div className="flex flex-col items-center gap-1">
-                                        <span className="text-xs font-medium">
-                                          €{data.price}
-                                        </span>
-                                        <Popover>
-                                          <PopoverTrigger asChild>
-                                            <Button
-                                              variant="ghost"
-                                              size="sm"
-                                              className="h-6 w-6 p-0 hover:bg-amber-100"
-                                            >
-                                              <StickyNote className="h-3 w-3 text-amber-600" />
-                                            </Button>
-                                          </PopoverTrigger>
-                                          <PopoverContent className="w-80 p-3">
-                                            <div className="space-y-3">
-                                              <h4 className="font-medium text-sm">
-                                                Pricing Note
-                                              </h4>
-                                              <Textarea
-                                                placeholder="Add pricing note..."
-                                                value={
-                                                  pricingComments[
-                                                    data.assetId
-                                                  ] || ""
-                                                }
-                                                onChange={(e) => {
-                                                  setPricingComments(
-                                                    (prev) => ({
-                                                      ...prev,
-                                                      [data.assetId]:
-                                                        e.target.value,
-                                                    })
-                                                  );
-                                                }}
-                                                onBlur={() => {
-                                                  if (
-                                                    pricingComments[
-                                                      data.assetId
-                                                    ] !== undefined
-                                                  ) {
-                                                    handlePricingCommentUpdate(
+                                      // Show editable price from pricing option
+                                      (() => {
+                                        const isEditing =
+                                          editingPriceAssetId === data.assetId;
+                                        return (
+                                          <div className="flex flex-col items-center gap-1">
+                                            {isEditing ? (
+                                              <div className="flex items-center gap-1">
+                                                <Input
+                                                  type="number"
+                                                  value={
+                                                    editingPriceValue !== ""
+                                                      ? editingPriceValue
+                                                      : data.price
+                                                  }
+                                                  onChange={(e) =>
+                                                    setEditingPriceValue(
+                                                      e.target.value
+                                                    )
+                                                  }
+                                                  onBlur={() => {
+                                                    const newPrice =
+                                                      parseFloat(
+                                                        editingPriceValue
+                                                      ) || 0;
+                                                    handlePriceEdit(
                                                       data.assetId,
+                                                      newPrice
+                                                    );
+                                                    setEditingPriceAssetId(
+                                                      null
+                                                    );
+                                                    setEditingPriceValue("");
+                                                  }}
+                                                  onKeyDown={(e) => {
+                                                    if (e.key === "Enter") {
+                                                      const newPrice =
+                                                        parseFloat(
+                                                          editingPriceValue
+                                                        ) || 0;
+                                                      handlePriceEdit(
+                                                        data.assetId,
+                                                        newPrice
+                                                      );
+                                                      setEditingPriceAssetId(
+                                                        null
+                                                      );
+                                                      setEditingPriceValue("");
+                                                    } else if (
+                                                      e.key === "Escape"
+                                                    ) {
+                                                      setEditingPriceAssetId(
+                                                        null
+                                                      );
+                                                      setEditingPriceValue("");
+                                                    }
+                                                  }}
+                                                  className="w-20 h-8 text-xs"
+                                                  placeholder="0.00"
+                                                  step="0.01"
+                                                  min="0"
+                                                  autoFocus
+                                                />
+                                              </div>
+                                            ) : (
+                                              <div className="flex items-center gap-1">
+                                                <span className="text-xs font-medium">
+                                                  €{data.price}
+                                                </span>
+                                                <Button
+                                                  variant="ghost"
+                                                  size="sm"
+                                                  className="h-5 w-5 p-0 hover:bg-primary/10"
+                                                  onClick={() => {
+                                                    setEditingPriceAssetId(
+                                                      data.assetId
+                                                    );
+                                                    setEditingPriceValue(
+                                                      data.price.toString()
+                                                    );
+                                                  }}
+                                                >
+                                                  <Pencil className="h-3 w-3 text-muted-foreground hover:text-primary" />
+                                                </Button>
+                                              </div>
+                                            )}
+                                            <Popover>
+                                              <PopoverTrigger asChild>
+                                                <Button
+                                                  variant="ghost"
+                                                  size="sm"
+                                                  className="h-6 w-6 p-0 hover:bg-amber-100"
+                                                >
+                                                  <StickyNote className="h-3 w-3 text-amber-600" />
+                                                </Button>
+                                              </PopoverTrigger>
+                                              <PopoverContent className="w-80 p-3">
+                                                <div className="space-y-3">
+                                                  <h4 className="font-medium text-sm">
+                                                    Pricing Note
+                                                  </h4>
+                                                  <Textarea
+                                                    placeholder="Add pricing note..."
+                                                    value={
                                                       pricingComments[
                                                         data.assetId
-                                                      ]
-                                                    );
-                                                  }
-                                                }}
-                                                className="min-h-[60px] max-h-[120px] resize-none text-xs"
-                                                rows={3}
-                                              />
-                                            </div>
-                                          </PopoverContent>
-                                        </Popover>
-                                      </div>
+                                                      ] || ""
+                                                    }
+                                                    onChange={(e) => {
+                                                      setPricingComments(
+                                                        (prev) => ({
+                                                          ...prev,
+                                                          [data.assetId]:
+                                                            e.target.value,
+                                                        })
+                                                      );
+                                                    }}
+                                                    onBlur={() => {
+                                                      if (
+                                                        pricingComments[
+                                                          data.assetId
+                                                        ] !== undefined
+                                                      ) {
+                                                        handlePricingCommentUpdate(
+                                                          data.assetId,
+                                                          pricingComments[
+                                                            data.assetId
+                                                          ]
+                                                        );
+                                                      }
+                                                    }}
+                                                    className="min-h-[60px] max-h-[120px] resize-none text-xs"
+                                                    rows={3}
+                                                  />
+                                                </div>
+                                              </PopoverContent>
+                                            </Popover>
+                                          </div>
+                                        );
+                                      })()
                                     ) : (
                                       <span className="text-xs text-muted-foreground">
                                         Select pricing option

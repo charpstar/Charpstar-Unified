@@ -22,7 +22,7 @@ export function SharedLayout({ children }: { children: React.ReactNode }) {
 
   // List all routes where you DON'T want the sidebar (and bg-muted)
   // These are typically authentication pages or standalone pages
-  const noSidebarRoutes = ["/auth", "/reset-password"];
+  const noSidebarRoutes = ["/auth", "/reset-password", "/shared-review"];
   const hideSidebar = noSidebarRoutes.some((route) =>
     pathname.startsWith(route)
   );
@@ -30,7 +30,7 @@ export function SharedLayout({ children }: { children: React.ReactNode }) {
   // Conditional class for the main content wrapper
   // Applies different styling based on whether sidebar is present
   const mainContentClass = [
-    "flex-1 flex flex-col min-h-screen w-full overflow-x-hidden p-4 bg-muted ",
+    "flex-1 flex flex-col w-full overflow-x-hidden p-4 bg-muted",
     !hideSidebar && "bg-muted",
   ]
     .filter(Boolean)
@@ -48,7 +48,7 @@ export function SharedLayout({ children }: { children: React.ReactNode }) {
 
         {/* Main content container with scrolling and proper sizing */}
 
-        <div className="flex-1 overflow-y-auto rounded-b-lg justify-center items-center bg-background h-full max-h-[calc(100vh-80px)] scrollbar-gutter-stable">
+        <div className="flex-1 overflow-y-auto rounded-b-lg justify-center items-center bg-background h-full max-h-[calc(100vh-35px)] scrollbar-gutter-stable">
           {children}
         </div>
       </div>
