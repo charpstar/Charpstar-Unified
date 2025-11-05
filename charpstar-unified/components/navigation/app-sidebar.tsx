@@ -21,6 +21,7 @@ import {
   BarChart3,
   UserPlus,
   Monitor,
+  Ticket,
 } from "lucide-react";
 
 import NavMain from "@/components/navigation/nav-main";
@@ -293,6 +294,11 @@ export default function AppSidebar({
             url: "/admin/analytics",
             icon: BarChart3,
           },
+          {
+            title: " Internal Tickets",
+            url: "/reminders",
+            icon: Ticket,
+          },
         ]
       : [];
 
@@ -350,6 +356,11 @@ export default function AppSidebar({
             title: "Users",
             url: "/users",
             icon: Users,
+          },
+          {
+            title: "Internal Tickets",
+            url: "/reminders",
+            icon: Ticket,
           },
         ]
       : [];

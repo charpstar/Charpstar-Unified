@@ -19,6 +19,7 @@ const TITLES = {
   "/dashboard": "Dashboard",
   "/analytics": "Analytics",
   "/asset-library": "My 3D Models",
+  "/admin/analytics": "Analytics",
   "/users": "Users",
   "/admin": "Admin",
   "/cvr": "CVR",
@@ -50,6 +51,7 @@ const TITLES = {
   "/texture-library": "Texture Library",
   "/faq": "FAQ",
   "/modular-3d-creator": "Modular 3D Creator",
+  "/reminders": "Reminders",
   "/my-assignments/[client]/[batch]": "My Assignments",
   "/bug-report": "Report Bug",
 };

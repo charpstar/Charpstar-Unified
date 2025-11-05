@@ -64,16 +64,20 @@ export default function Modular3DCreatorPage() {
 
       <div className="flex flex-col lg:flex-row flex-1 min-h-0 overflow-hidden">
         {/* Viewer Area - White background like reference */}
-        <div className="flex-1 min-h-0 overflow-hidden bg-white dark:bg-background">
+        <div className="flex-1 min-h-0 overflow-hidden bg-background dark:bg-muted/20 dark:bg-background">
           <div id={mountId} className="w-full h-full" />
         </div>
 
         {/* Step Panel - Stronger gray background, increased width */}
-        <div className={`flex-shrink-0 transition-all duration-500 ${isStepPanelCollapsed ? "w-20" : "w-[550px]"} h-full min-h-0 overflow-hidden bg-muted/50 dark:bg-muted/30`}>
+        <div
+          className={`flex-shrink-0 transition-all duration-500 ${isStepPanelCollapsed ? "w-20" : "w-[550px]"} h-full min-h-0 overflow-hidden bg-muted/50 dark:bg-muted/30`}
+        >
           <ModularStepPanel
             onPlaceAsset={handlePlaceAsset}
             isCollapsed={isStepPanelCollapsed}
-            onToggleCollapse={() => setIsStepPanelCollapsed(!isStepPanelCollapsed)}
+            onToggleCollapse={() =>
+              setIsStepPanelCollapsed(!isStepPanelCollapsed)
+            }
           />
         </div>
       </div>
@@ -93,4 +97,3 @@ export default function Modular3DCreatorPage() {
     </div>
   );
 }
-
