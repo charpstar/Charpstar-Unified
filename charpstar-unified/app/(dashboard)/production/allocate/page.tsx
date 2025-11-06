@@ -2,14 +2,14 @@
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/containers";
+
 import { Button } from "@/components/ui/display";
 import { Badge } from "@/components/ui/feedback";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/display/tooltip";
 import { Input } from "@/components/ui/inputs";
 import { Checkbox } from "@/components/ui/inputs/checkbox";
 import { Switch } from "@/components/ui/inputs";
@@ -20,6 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/inputs";
+import { Combobox } from "@/components/ui/inputs/combobox";
 
 import { Calendar } from "@/components/ui/utilities";
 import {
@@ -39,7 +40,6 @@ import {
   Clock,
   X,
   StickyNote,
-  Pencil,
 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { toast } from "sonner";
@@ -73,6 +73,7 @@ interface User {
   daily_hours?: number;
   model_types?: string[];
   software_experience?: string[];
+  displayName?: string; // Auth display name from user_metadata
 }
 
 interface AllocationData {
@@ -203,6 +204,14 @@ const PRICING_OPTIONS: PricingOption[] = [
     description: "Additional sizes for already made 3D models",
   },
 
+  // Custom pricing option
+  {
+    id: "custom_pricing",
+    label: "Custom Pricing",
+    price: 0, // Will be set by user
+    description: "Set a custom price for this asset",
+  },
+
   // QA Team Handling
   {
     id: "qa_team_handles_model",
@@ -237,10 +246,13 @@ export default function AllocateAssetsPage() {
   const [step, setStep] = useState<1 | 2>(() => {
     const stepParam = searchParams.get("step");
     if (stepParam === "2") return 2;
+    if (stepParam === "1") return 1;
     return 1;
   });
   const [assets, setAssets] = useState<UnallocatedAsset[]>([]);
   const [selectedAssets, setSelectedAssets] = useState<Set<string>>(new Set());
+  // Store the order of selected assets from URL params to preserve admin-review order
+  const [selectedAssetsOrder, setSelectedAssetsOrder] = useState<string[]>([]);
   const [allocating, setAllocating] = useState(false);
 
   const [allocationData, setAllocationData] = useState<AllocationData[]>([]);
@@ -296,11 +308,9 @@ export default function AllocateAssetsPage() {
   // Ref to prevent infinite loops when updating pricing
   const isUpdatingPricing = useRef(false);
 
-  // State for editing prices
-  const [editingPriceAssetId, setEditingPriceAssetId] = useState<string | null>(
-    null
-  );
-  const [editingPriceValue, setEditingPriceValue] = useState<string>("");
+  // Custom pricing state (same as admin-review)
+  const [customPrices, setCustomPrices] = useState<Record<string, number>>({});
+  const [settingPrices, setSettingPrices] = useState<Set<string>>(new Set());
 
   // Add new assets to allocation data with correct pricing
 
@@ -523,6 +533,18 @@ export default function AllocateAssetsPage() {
         };
       });
 
+      // Ensure order is preserved based on selectedAssetsOrder
+      if (selectedAssetsOrder.length > 0) {
+        const orderMap = new Map(
+          selectedAssetsOrder.map((id, index) => [id, index])
+        );
+        updatedData.sort((a, b) => {
+          const orderA = orderMap.get(a.assetId) ?? Infinity;
+          const orderB = orderMap.get(b.assetId) ?? Infinity;
+          return orderA - orderB;
+        });
+      }
+
       setAllocationData(updatedData);
 
       // Persist auto-detected pricing changes to localStorage
@@ -632,6 +654,7 @@ export default function AllocateAssetsPage() {
       const selectedAssetsParam = searchParams.getAll("selectedAssets");
 
       // If we have pre-selected assets, fetch them regardless of assignment status
+      // Order by upload_order to match admin-review page order
       if (selectedAssetsParam.length > 0) {
         const { data: preSelectedAssets, error: preSelectedError } =
           await supabase
@@ -639,11 +662,18 @@ export default function AllocateAssetsPage() {
             .select(
               "*, pricing_option_id, price, pricing_comment, qa_team_handles_model"
             )
-            .in("id", selectedAssetsParam);
+            .in("id", selectedAssetsParam)
+            .order("upload_order", { ascending: true });
 
         if (preSelectedError) throw preSelectedError;
 
         setAssets(preSelectedAssets || []);
+
+        // Store the order from the fetched assets (admin-review order)
+        if (preSelectedAssets && preSelectedAssets.length > 0) {
+          const orderedIds = preSelectedAssets.map((asset) => asset.id);
+          setSelectedAssetsOrder(orderedIds);
+        }
 
         // Initialize pricing comments
         const initialPricingComments: Record<string, string> = {};
@@ -699,7 +729,14 @@ export default function AllocateAssetsPage() {
   // Fetch users
   const fetchUsers = async () => {
     try {
-      const { data, error } = await supabase
+      // Fetch users with auth metadata from API
+      const response = await fetch("/api/users?role=modeler");
+      if (!response.ok) throw new Error("Failed to fetch users");
+
+      const { users: usersWithAuth } = await response.json();
+
+      // Then fetch additional profile data
+      const { data: profiles, error } = await supabase
         .from("profiles")
         .select(
           "id, email, title, role, exclusive_work, daily_hours, model_types, software_experience"
@@ -708,7 +745,31 @@ export default function AllocateAssetsPage() {
 
       if (error) throw error;
 
-      setUsers(data || []);
+      // Combine auth data with profile data
+      const combinedUsers =
+        profiles?.map((profile) => {
+          const authUser = usersWithAuth?.find((u: any) => u.id === profile.id);
+          // Get display name from auth metadata (name, or first_name + last_name)
+          // Check if name exists and is not empty string
+          const authDisplayName =
+            authUser?.name && authUser.name.trim() !== ""
+              ? authUser.name
+              : null;
+          // Fallback chain: auth display name -> profile title -> email (as last resort) -> Unknown User
+          const displayName =
+            authDisplayName ||
+            (profile.title && profile.title.trim() !== ""
+              ? profile.title
+              : null) ||
+            profile.email ||
+            "Unknown User";
+          return {
+            ...profile,
+            displayName: displayName,
+          };
+        }) || [];
+
+      setUsers(combinedUsers);
     } catch (error) {
       console.error("Error fetching users:", error);
       toast.error("Failed to fetch users");
@@ -887,11 +948,12 @@ export default function AllocateAssetsPage() {
   };
 
   // Initialize allocation data for selected assets
-  const initializeAllocationData = () => {
+  const initializeAllocationData = (overrideModelerId?: string) => {
     const modelers = users.filter((u) => u.role === "modeler");
+    const modelerIdToUse = overrideModelerId || globalTeamAssignment.modelerId;
 
     // Set global team assignment defaults
-    if (modelers.length > 0 && !globalTeamAssignment.modelerId) {
+    if (modelers.length > 0 && !modelerIdToUse) {
       const defaultModelerId = modelers[0].id;
       setGlobalTeamAssignment((prev) => ({
         ...prev,
@@ -919,7 +981,14 @@ export default function AllocateAssetsPage() {
       console.error("Error loading edited prices from localStorage:", error);
     }
 
-    const data: AllocationData[] = Array.from(selectedAssets).map((assetId) => {
+    // Use the preserved order from admin-review (upload_order), or fallback to Set order
+    // The order comes from assets fetched sorted by upload_order (matching admin-review)
+    const orderedAssetIds =
+      selectedAssetsOrder.length > 0
+        ? selectedAssetsOrder.filter((id) => selectedAssets.has(id))
+        : Array.from(selectedAssets);
+
+    const data: AllocationData[] = orderedAssetIds.map((assetId) => {
       const asset = assets.find((a) => a.id === assetId);
 
       // Check if this asset has edited prices in localStorage
@@ -930,8 +999,7 @@ export default function AllocateAssetsPage() {
         return {
           assetId,
           modelerId:
-            globalTeamAssignment.modelerId ||
-            (modelers.length > 0 ? modelers[0].id : ""),
+            modelerIdToUse || (modelers.length > 0 ? modelers[0].id : ""),
           price: editedPrice.price,
           pricingOptionId: editedPrice.pricingOptionId,
         };
@@ -951,8 +1019,7 @@ export default function AllocateAssetsPage() {
         return {
           assetId,
           modelerId:
-            globalTeamAssignment.modelerId ||
-            (modelers.length > 0 ? modelers[0].id : ""),
+            modelerIdToUse || (modelers.length > 0 ? modelers[0].id : ""),
           price: existingPrice ?? 0,
           pricingOptionId: existingPricingOptionId,
         };
@@ -963,8 +1030,7 @@ export default function AllocateAssetsPage() {
       return {
         assetId,
         modelerId:
-          globalTeamAssignment.modelerId ||
-          (modelers.length > 0 ? modelers[0].id : ""),
+          modelerIdToUse || (modelers.length > 0 ? modelers[0].id : ""),
         price: existingPrice ?? 0,
         pricingOptionId: existingPricingOptionId || "",
       };
@@ -997,26 +1063,6 @@ export default function AllocateAssetsPage() {
     } catch (error) {
       console.error("Error saving initial prices to localStorage:", error);
     }
-
-    // Show informative message about pricing source
-    const totalAssets = selectedAssets.size;
-    const assetsWithPricing = data.filter(
-      (item) =>
-        item.pricingOptionId &&
-        (item.price > 0 || item.pricingOptionId === "qa_team_handles_model")
-    ).length;
-
-    if (assetsWithPricing > 0 && assetsWithPricing < totalAssets) {
-      toast.info(
-        `${assetsWithPricing} of ${totalAssets} asset(s) have pricing set. You can set pricing for the remaining assets in Step 2.`,
-        { duration: 5000 }
-      );
-    } else if (assetsWithPricing === totalAssets && totalAssets > 0) {
-      toast.success(
-        `All ${totalAssets} asset(s) loaded with pricing from admin review.`,
-        { duration: 4000 }
-      );
-    }
   };
 
   // Initialize allocation data when users are loaded and we have pre-selected assets
@@ -1029,6 +1075,65 @@ export default function AllocateAssetsPage() {
       initializeAllocationData();
     }
   }, [users, selectedAssets, allocationData.length]);
+
+  // Reinitialize allocation data when selected assets change (e.g., user selects different assets)
+  // Use a ref to track previous selected assets to avoid unnecessary re-renders
+  const prevSelectedAssetsRef = useRef<string>("");
+
+  useEffect(() => {
+    if (users.length > 0 && selectedAssets.size > 0) {
+      // Create a stable string representation of selected assets for comparison
+      const selectedAssetsStr = Array.from(selectedAssets).sort().join(",");
+
+      // Only reinitialize if selected assets actually changed
+      if (prevSelectedAssetsRef.current !== selectedAssetsStr) {
+        prevSelectedAssetsRef.current = selectedAssetsStr;
+
+        // Clear all old localStorage entries for edited prices
+        // Keep only the current allocation's edited prices
+        try {
+          const currentStorageKey = `allocation_edited_prices_${Array.from(selectedAssets).sort().join("_")}`;
+          const allKeys: string[] = [];
+          for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith("allocation_edited_prices_")) {
+              allKeys.push(key);
+            }
+          }
+          // Remove all old entries except the current one
+          allKeys.forEach((key) => {
+            if (key !== currentStorageKey) {
+              localStorage.removeItem(key);
+            }
+          });
+        } catch (error) {
+          console.error("Error clearing old localStorage entries:", error);
+        }
+
+        // Check if the current allocation data matches the selected assets
+        if (allocationData.length > 0) {
+          const currentAssetIds = new Set(
+            allocationData.map((item) => item.assetId)
+          );
+          const selectedAssetIds = selectedAssets;
+
+          // Check if sets are different (different size or different items)
+          const setsAreDifferent =
+            currentAssetIds.size !== selectedAssetIds.size ||
+            Array.from(selectedAssetIds).some(
+              (id) => !currentAssetIds.has(id)
+            ) ||
+            Array.from(currentAssetIds).some((id) => !selectedAssetIds.has(id));
+
+          if (setsAreDifferent) {
+            // Clear existing allocation data - the first useEffect will reinitialize it
+            // This ensures prices are loaded from the database for the new assets
+            setAllocationData([]);
+          }
+        }
+      }
+    }
+  }, [selectedAssets, users, allocationData]);
 
   // Check pricing tier for currently selected modeler when users are loaded (only if no allocation data exists)
   useEffect(() => {
@@ -1143,35 +1248,81 @@ export default function AllocateAssetsPage() {
     return "after_second_deadline";
   };
 
+  // Clear old localStorage entries on component mount
+  useEffect(() => {
+    try {
+      const allKeys: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith("allocation_edited_prices_")) {
+          allKeys.push(key);
+        }
+      }
+      // If we have selected assets, keep only the current one, otherwise clear all
+      if (selectedAssets.size > 0) {
+        const currentStorageKey = `allocation_edited_prices_${Array.from(selectedAssets).sort().join("_")}`;
+        allKeys.forEach((key) => {
+          if (key !== currentStorageKey) {
+            localStorage.removeItem(key);
+          }
+        });
+      } else {
+        // Clear all if no assets are selected
+        allKeys.forEach((key) => {
+          localStorage.removeItem(key);
+        });
+      }
+    } catch (error) {
+      console.error("Error clearing old localStorage entries on mount:", error);
+    }
+  }, []); // Run only on mount
+
   // Check for pre-selected assets from admin-review page
   useEffect(() => {
     const selectedAssetsParam = searchParams.getAll("selectedAssets");
     if (selectedAssetsParam.length > 0) {
       // Set the selected assets from URL parameters
+      // Note: Order will be set from database query (upload_order) in fetchUnallocatedAssets
       setSelectedAssets(new Set(selectedAssetsParam));
-      // Start with step 1 (team assignment) if we have pre-selected assets
-      setStep(1);
+      // Only set step=1 if no step parameter exists in URL
+      // This allows navigation to step 2 to work properly
+      const stepParam = searchParams.get("step");
+      if (!stepParam) {
+        const params = new URLSearchParams(searchParams.toString());
+        params.set("step", "1");
+        router.replace(`${window.location.pathname}?${params.toString()}`, {
+          scroll: false,
+        });
+        setStep(1);
+      }
     }
-  }, [searchParams]);
+  }, [searchParams, router]);
 
-  // Sync step state with URL params
+  // Sync step state with URL params and ensure step is always in URL
   useEffect(() => {
     const stepParam = searchParams.get("step");
     if (stepParam === "2" && step !== 2) {
       setStep(2);
-    } else if (!stepParam && step !== 1) {
+    } else if (stepParam === "1" && step !== 1) {
       setStep(1);
+    } else if (!stepParam) {
+      // Ensure step is always in URL - default to step 1 if not present
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("step", step === 2 ? "2" : "1");
+      router.replace(`${window.location.pathname}?${params.toString()}`, {
+        scroll: false,
+      });
     }
-  }, [searchParams, step]);
+  }, [searchParams, step, router]);
 
   // Handle next step
   const handleNextStep = () => {
     if (step < 2) {
       setStep(2);
-      // Update URL to persist step state
+      // Update URL to persist step state - use push to create history entry
       const params = new URLSearchParams(searchParams.toString());
       params.set("step", "2");
-      router.replace(`${window.location.pathname}?${params.toString()}`, {
+      router.push(`${window.location.pathname}?${params.toString()}`, {
         scroll: false,
       });
       // Clear file history when moving to next step
@@ -1185,10 +1336,10 @@ export default function AllocateAssetsPage() {
   const handleBackStep = () => {
     if (step > 1) {
       setStep(1);
-      // Update URL to persist step state
+      // Update URL to persist step state - use push to create history entry
       const params = new URLSearchParams(searchParams.toString());
-      params.delete("step"); // Remove step param to default to step 1
-      router.replace(`${window.location.pathname}?${params.toString()}`, {
+      params.set("step", "1");
+      router.push(`${window.location.pathname}?${params.toString()}`, {
         scroll: false,
       });
       // Clear file history when going back
@@ -1205,9 +1356,22 @@ export default function AllocateAssetsPage() {
     value: any
   ) => {
     setAllocationData((prev) => {
+      // Maintain the order when updating
       const updated = prev.map((item) =>
         item.assetId === assetId ? { ...item, [field]: value } : item
       );
+
+      // Ensure order is preserved based on selectedAssetsOrder
+      if (selectedAssetsOrder.length > 0) {
+        const orderMap = new Map(
+          selectedAssetsOrder.map((id, index) => [id, index])
+        );
+        updated.sort((a, b) => {
+          const orderA = orderMap.get(a.assetId) ?? Infinity;
+          const orderB = orderMap.get(b.assetId) ?? Infinity;
+          return orderA - orderB;
+        });
+      }
 
       // Persist pricing changes to localStorage
       if (field === "price" || field === "pricingOptionId") {
@@ -1235,6 +1399,8 @@ export default function AllocateAssetsPage() {
 
   // Update global team assignment and check pricing tier
   const updateGlobalTeamAssignment = (field: "modelerId", value: string) => {
+    const previousModelerId = globalTeamAssignment.modelerId;
+
     setGlobalTeamAssignment((prev) => ({
       ...prev,
       [field]: value,
@@ -1242,9 +1408,68 @@ export default function AllocateAssetsPage() {
 
     // If updating modeler, check their pricing tier and handle other modeler-specific logic
     if (field === "modelerId" && value) {
-      // Only check pricing tier for the new modeler if we don't have allocation data
-      // (allocation data-based pricing takes priority)
-      if (allocationData.length === 0) {
+      // Preserve all current prices when changing modelers
+      // Save all current allocation data prices to localStorage before reinitializing
+      if (
+        selectedAssets.size > 0 &&
+        previousModelerId !== value &&
+        allocationData.length > 0
+      ) {
+        try {
+          const storageKey = `allocation_edited_prices_${Array.from(selectedAssets).sort().join("_")}`;
+
+          // Preserve ALL current prices from allocationData
+          // This ensures manually edited prices persist when changing modelers
+          const preservedEdits: Record<
+            string,
+            { price: number; pricingOptionId: string }
+          > = {};
+
+          allocationData.forEach((item) => {
+            preservedEdits[item.assetId] = {
+              price: item.price,
+              pricingOptionId: item.pricingOptionId,
+            };
+          });
+
+          // Save all current prices to localStorage
+          localStorage.setItem(storageKey, JSON.stringify(preservedEdits));
+        } catch (error) {
+          console.error("Error preserving prices on modeler change:", error);
+        }
+      }
+
+      // If we have allocation data and modeler changed, update modelerId without reinitializing
+      // This preserves all current prices
+      if (
+        allocationData.length > 0 &&
+        selectedAssets.size > 0 &&
+        previousModelerId !== value
+      ) {
+        // Just update the modelerId in existing allocation data, don't reinitialize
+        setAllocationData((prev) => {
+          const updated = prev.map((item) => ({
+            ...item,
+            modelerId: value,
+          }));
+
+          // Ensure order is preserved based on selectedAssetsOrder
+          if (selectedAssetsOrder.length > 0) {
+            const orderMap = new Map(
+              selectedAssetsOrder.map((id, index) => [id, index])
+            );
+            updated.sort((a, b) => {
+              const orderA = orderMap.get(a.assetId) ?? Infinity;
+              const orderB = orderMap.get(b.assetId) ?? Infinity;
+              return orderA - orderB;
+            });
+          }
+
+          return updated;
+        });
+      } else if (allocationData.length === 0) {
+        // Only check pricing tier for the new modeler if we don't have allocation data
+        // (allocation data-based pricing takes priority)
         checkModelerPricingTier(value);
       }
       // Clear previous file history when modeler changes
@@ -1376,7 +1601,11 @@ export default function AllocateAssetsPage() {
                 userProfile?.title || userProfile?.email || "Unknown",
               files: {
                 glb_link: asset.glb_link,
-                reference: asset.reference,
+                reference: Array.isArray(asset.reference)
+                  ? asset.reference
+                  : asset.reference
+                    ? [asset.reference]
+                    : undefined,
                 other_files: [
                   ...(asset.product_link ? [asset.product_link] : []),
                   ...assetGlbHistory.map((h) => h.glb_url),
@@ -1392,37 +1621,6 @@ export default function AllocateAssetsPage() {
     } catch (error) {
       console.error("Error checking for previous modeler files:", error);
     }
-  };
-
-  // Handle file download
-  const handleFileDownload = (url: string, fileName: string) => {
-    try {
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = fileName;
-      link.target = "_blank";
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    } catch (error) {
-      console.error("Error downloading file:", error);
-      // Fallback to opening in new tab
-      window.open(url, "_blank");
-    }
-  };
-
-  // Bulk pricing functions
-  const applyBulkPricing = (pricingOptionId: string) => {
-    const option = getPricingOptionById(pricingOptionId);
-    const price = option?.price || 0;
-
-    setAllocationData((prev) =>
-      prev.map((item) =>
-        selectedForPricing.has(item.assetId)
-          ? { ...item, pricingOptionId, price }
-          : item
-      )
-    );
   };
 
   // Toggle product selection for pricing
@@ -1649,17 +1847,26 @@ export default function AllocateAssetsPage() {
   // Get current pricing options based on tier
   const getCurrentPricingOptions = () => {
     return PRICING_OPTIONS.filter((option) => {
-      // Always include QA team handling option
-      if (option.id === "qa_team_handles_model") {
+      // Always include QA team handling option and custom pricing
+      if (
+        option.id === "qa_team_handles_model" ||
+        option.id === "custom_pricing"
+      ) {
         return true;
       }
+
+      // Filter based on pricing tier
       if (pricingTier === "first_list") {
-        return option.id.includes("_first") && !option.id.includes("after_");
+        // First list: options ending with "_first" but not containing "after_"
+        return option.id.endsWith("_first") && !option.id.includes("after_");
       } else if (pricingTier === "after_first_deadline") {
+        // After first deadline: options containing "after_first"
         return option.id.includes("after_first");
       } else if (pricingTier === "after_second_deadline") {
+        // After second deadline (Premium Tier): options containing "after_second"
         return option.id.includes("after_second");
       }
+
       return false;
     });
   };
@@ -1676,6 +1883,7 @@ export default function AllocateAssetsPage() {
   };
 
   // Function to find matching pricing option based on price
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const findPricingOptionByPrice = (
     price: number,
     currentPricingOptionId: string
@@ -1713,21 +1921,88 @@ export default function AllocateAssetsPage() {
   };
 
   // Handle price edit with automatic pricing option update
-  const handlePriceEdit = (assetId: string, newPrice: number) => {
-    const allocationItem = allocationData.find(
-      (item) => item.assetId === assetId
-    );
-    if (!allocationItem) return;
+  // Handle price update (same as admin-review)
+  const handlePriceUpdate = async (
+    assetId: string,
+    pricingOptionId: string,
+    price: number
+  ) => {
+    try {
+      // Auto-set price to 0 for QA team handles model option
+      const priceToUse =
+        pricingOptionId === "qa_team_handles_model" ? 0 : price;
 
-    // Find matching pricing option
-    const newPricingOptionId = findPricingOptionByPrice(
-      newPrice,
-      allocationItem.pricingOptionId
-    );
+      const response = await fetch("/api/assets/update-price", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          assetId,
+          pricingOptionId,
+          price: priceToUse,
+          qaTeamHandlesModel: pricingOptionId === "qa_team_handles_model",
+        }),
+      });
 
-    // Update both price and pricing option (updateAllocationData will persist to localStorage)
-    updateAllocationData(assetId, "price", newPrice);
-    updateAllocationData(assetId, "pricingOptionId", newPricingOptionId);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to update price");
+      }
+
+      // Update local allocation data
+      updateAllocationData(assetId, "price", priceToUse);
+      updateAllocationData(assetId, "pricingOptionId", pricingOptionId);
+
+      // If it's custom pricing, also update the custom price
+      if (pricingOptionId === "custom_pricing") {
+        setCustomPrices((prev) => ({
+          ...prev,
+          [assetId]: price,
+        }));
+      }
+
+      if (pricingOptionId === "qa_team_handles_model") {
+        toast.success("Price set to 0€ - QA team will handle this model");
+      } else {
+        toast.success("Price updated successfully");
+      }
+    } catch (error) {
+      console.error("Error updating price:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Failed to update price"
+      );
+    }
+  };
+
+  const handleCustomPriceChange = (assetId: string, price: number) => {
+    setCustomPrices((prev) => ({
+      ...prev,
+      [assetId]: price,
+    }));
+  };
+
+  const handleCustomPriceSubmit = async (assetId: string) => {
+    const customPrice = customPrices[assetId];
+    if (customPrice !== undefined && customPrice > 0) {
+      // Add to loading state
+      setSettingPrices((prev) => new Set(prev).add(assetId));
+
+      try {
+        await handlePriceUpdate(assetId, "custom_pricing", customPrice);
+        toast.success("Custom price set successfully");
+      } catch (error) {
+        console.error("Error setting custom price:", error);
+        toast.error("Failed to set custom price");
+      } finally {
+        // Remove from loading state
+        setSettingPrices((prev) => {
+          const next = new Set(prev);
+          next.delete(assetId);
+          return next;
+        });
+      }
+    }
   };
 
   // Handle pricing comment updates
@@ -1767,125 +2042,211 @@ export default function AllocateAssetsPage() {
   return (
     <div className="container mx-auto p-6 space-y-6">
       {/* Header */}
-      <div className="mb-6">
-        <div className="flex items-center gap-4 mb-4">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => router.push("/production")}
-            className="gap-2"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Back to Production
-          </Button>
-        </div>
-        <div className="flex items-center gap-3 mb-2">
-          <Package className="h-6 w-6 text-primary" />
-          <h1 className="text-3xl font-bold">
-            {searchParams.getAll("selectedAssets").length > 0
-              ? "Assign Selected Assets"
-              : "Allocate Assets"}
-          </h1>
-        </div>
-        <div className="flex items-center gap-4 text-muted-foreground">
-          <p>
-            {step === 1
-              ? "Assign modelers to selected assets"
-              : "Set pricing and deadline for the asset group"}
-          </p>
-          {selectedAssets.size > 0 && (
-            <Badge variant="outline" className="text-sm">
-              {selectedAssets.size} assets selected
-            </Badge>
-          )}
-        </div>
-      </div>
 
       {/* Progress Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Card
-          className={`p-4 transition-all duration-200 ${step >= 1 ? "ring-2 ring-primary/20 bg-primary/5" : "bg-muted/50"}`}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        <div
+          className={`p-5 rounded-xl transition-all duration-300 ${
+            step >= 1 ? "ring-2 ring-primary/20" : ""
+          }`}
+          style={{
+            background:
+              step >= 1 ? "var(--surface-elevated)" : "var(--surface-raised)",
+            boxShadow: step >= 1 ? "var(--shadow-lg)" : "var(--shadow-sm)",
+            border:
+              step >= 1
+                ? "1px solid var(--border-highlight)"
+                : "1px solid var(--border-light)",
+          }}
         >
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4">
             <div
-              className={`p-2 rounded-lg ${step >= 1 ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}
+              className={`p-3 rounded-lg transition-all duration-300 ${
+                step >= 1 ? "" : "opacity-60"
+              }`}
+              style={{
+                background:
+                  step >= 1 ? "var(--gradient-shine)" : "var(--muted)",
+                boxShadow: step >= 1 ? "var(--shadow-sm)" : "none",
+                color: step >= 1 ? "var(--primary)" : "var(--muted-foreground)",
+              }}
             >
               <User className="h-5 w-5" />
             </div>
-            <div>
-              <p className="text-sm font-medium">Step 1: Assign Modeler</p>
-              <p className="text-xs text-muted-foreground">
+            <div className="flex-1">
+              <p
+                className="text-sm font-semibold mb-1"
+                style={{ color: "var(--foreground)" }}
+              >
+                Step 1: Assign Modeler
+              </p>
+              <p
+                className="text-xs"
+                style={{ color: "var(--muted-foreground)" }}
+              >
                 {globalTeamAssignment.modelerId
                   ? "Modeler assigned"
                   : "No modeler assigned"}
               </p>
             </div>
+            {step >= 1 && (
+              <div
+                className="w-2 h-2 rounded-full"
+                style={{
+                  background: "var(--primary)",
+                  boxShadow: "var(--glow-sm)",
+                }}
+              />
+            )}
           </div>
-        </Card>
+        </div>
 
-        <Card
-          className={`p-4 transition-all duration-200 ${step >= 2 ? "ring-2 ring-primary/20 bg-primary/5" : "bg-muted/50"}`}
+        <div
+          className={`p-5 rounded-xl transition-all duration-300 ${
+            step >= 2 ? "ring-2 ring-primary/20" : ""
+          }`}
+          style={{
+            background:
+              step >= 2 ? "var(--surface-elevated)" : "var(--surface-raised)",
+            boxShadow: step >= 2 ? "var(--shadow-lg)" : "var(--shadow-sm)",
+            border:
+              step >= 2
+                ? "1px solid var(--border-highlight)"
+                : "1px solid var(--border-light)",
+          }}
         >
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4">
             <div
-              className={`p-2 rounded-lg ${step >= 2 ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}
+              className={`p-3 rounded-lg transition-all duration-300 ${
+                step >= 2 ? "" : "opacity-60"
+              }`}
+              style={{
+                background:
+                  step >= 2 ? "var(--gradient-shine)" : "var(--muted)",
+                boxShadow: step >= 2 ? "var(--shadow-sm)" : "none",
+                color: step >= 2 ? "var(--primary)" : "var(--muted-foreground)",
+              }}
             >
               <Euro className="h-5 w-5" />
             </div>
-            <div>
-              <p className="text-sm font-medium">Step 2: Bonus & Deadline</p>
-              <p className="text-xs text-muted-foreground">
+            <div className="flex-1">
+              <p
+                className="text-sm font-semibold mb-1"
+                style={{ color: "var(--foreground)" }}
+              >
+                Step 2: Bonus & Deadline
+              </p>
+              <p
+                className="text-xs"
+                style={{ color: "var(--muted-foreground)" }}
+              >
                 {groupSettings.deadline ? "Deadline set" : "No deadline set"}
               </p>
             </div>
+            {step >= 2 && (
+              <div
+                className="w-2 h-2 rounded-full"
+                style={{
+                  background: "var(--primary)",
+                  boxShadow: "var(--glow-sm)",
+                }}
+              />
+            )}
           </div>
-        </Card>
+        </div>
       </div>
 
       {step === 1 ? (
         /* Step 1: Team Assignment */
-        <Card>
-          <CardHeader>
-            <CardTitle>Assign Modeler</CardTitle>
-            <p className="text-sm text-muted-foreground">
+        <div
+          className="rounded-xl overflow-hidden"
+          style={{
+            background: "var(--surface-raised)",
+            boxShadow: "var(--shadow-lg)",
+            border: "1px solid var(--border-light)",
+          }}
+        >
+          <div
+            className="p-4 border-b"
+            style={{
+              background: "var(--gradient-shine)",
+              borderColor: "var(--border-light)",
+            }}
+          >
+            <h2
+              className="text-xl font-semibold mb-2"
+              style={{ color: "var(--foreground)" }}
+            >
+              Assign Modeler
+            </h2>
+            <p className="text-sm" style={{ color: "var(--muted-foreground)" }}>
               Select a modeler to assign the selected assets to
             </p>
-          </CardHeader>
-          <CardContent>
+          </div>
+          <div className="p-6">
             <div className="space-y-6">
               {/* Global Team Assignment */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Left Column: Modeler Assignment */}
                 <div className="space-y-3">
-                  <label className="text-sm font-medium flex items-center">
-                    <User className="h-4 w-4 mr-2" />
+                  <label
+                    className="text-sm font-semibold flex items-center"
+                    style={{ color: "var(--foreground)" }}
+                  >
+                    <div
+                      className="p-1.5 rounded mr-2"
+                      style={{
+                        background: "var(--gradient-shine)",
+                        boxShadow: "var(--shadow-sm)",
+                      }}
+                    >
+                      <User
+                        className="h-4 w-4"
+                        style={{ color: "var(--primary)" }}
+                      />
+                    </div>
                     Modeler
                   </label>
-                  <Select
-                    value={globalTeamAssignment.modelerId}
-                    onValueChange={(value) =>
-                      updateGlobalTeamAssignment("modelerId", value)
-                    }
+                  <div
+                    style={{
+                      boxShadow: "var(--shadow-sm)",
+                    }}
+                    className="max-w-xs"
                   >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Choose modeler" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {users
+                    <Combobox
+                      value={globalTeamAssignment.modelerId}
+                      onChange={(value) =>
+                        updateGlobalTeamAssignment("modelerId", value)
+                      }
+                      placeholder="Choose modeler"
+                      options={users
                         .filter((u) => u.role === "modeler")
-                        .map((user) => (
-                          <SelectItem key={user.id} value={user.id}>
-                            {user.email}
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
+                        .map((user) => ({
+                          value: user.id,
+                          label: user.displayName || "Unknown User",
+                        }))}
+                    />
+                  </div>
                 </div>
 
                 {/* Right Column: Selected Modeler Profile Information */}
                 <div className="space-y-3">
-                  <label className="text-sm font-medium flex items-center">
-                    <User className="h-4 w-4 mr-2" />
+                  <label
+                    className="text-sm font-semibold flex items-center"
+                    style={{ color: "var(--foreground)" }}
+                  >
+                    <div
+                      className="p-1.5 rounded mr-2"
+                      style={{
+                        background: "var(--gradient-shine)",
+                        boxShadow: "var(--shadow-sm)",
+                      }}
+                    >
+                      <User
+                        className="h-4 w-4"
+                        style={{ color: "var(--primary)" }}
+                      />
+                    </div>
                     Modeler Profile
                   </label>
                   {globalTeamAssignment.modelerId ? (
@@ -1901,11 +2262,20 @@ export default function AllocateAssetsPage() {
                         ) || [];
 
                       return (
-                        <div className="p-4 border rounded-lg bg-muted/30 space-y-3">
+                        <div
+                          className="p-5 rounded-xl space-y-4"
+                          style={{
+                            background: "var(--surface-elevated)",
+                            boxShadow: "var(--shadow-md)",
+                            border: "1px solid var(--border-light)",
+                          }}
+                        >
                           {/* Basic Info */}
                           <div className="flex items-center justify-between">
                             <span className="text-sm font-medium">
-                              {selectedModeler.email}
+                              {selectedModeler.displayName ||
+                                selectedModeler.title ||
+                                selectedModeler.email}
                             </span>
                             <div className="flex gap-2">
                               <Button
@@ -1947,16 +2317,17 @@ export default function AllocateAssetsPage() {
 
                           {/* QA Assignment Info */}
                           {qaAssignments.length > 0 && (
-                            <div className="p-2 bg-muted/50 rounded">
-                              <div className="text-xs font-medium text-muted-foreground mb-1">
+                            <div className="space-y-2">
+                              <div className="text-xs font-medium text-muted-foreground">
                                 Assigned QA{qaAssignments.length > 1 ? "s" : ""}
                                 :
                               </div>
-                              <div className="space-y-1">
+                              <div className="flex flex-wrap gap-2">
                                 {qaAssignments.map((qa) => (
-                                  <div
+                                  <Badge
                                     key={qa.qaId}
-                                    className="flex items-center justify-between text-sm bg-background px-2 py-1 rounded"
+                                    variant="secondary"
+                                    className="flex items-center gap-1.5 px-2.5 py-1 text-xs bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100"
                                   >
                                     <span>{qa.qaTitle || qa.qaEmail}</span>
                                     <Button
@@ -1964,52 +2335,79 @@ export default function AllocateAssetsPage() {
                                       size="sm"
                                       onClick={() => removeQA(qa.qaId)}
                                       disabled={allocatingQA}
-                                      className="h-5 w-5 p-0 hover:bg-destructive/10 hover:text-destructive"
+                                      className="h-4 w-4 p-0 hover:bg-destructive/20 hover:text-destructive rounded-full -mr-1"
+                                      title="Remove QA"
                                     >
                                       <X className="h-3 w-3" />
                                     </Button>
-                                  </div>
+                                  </Badge>
                                 ))}
                               </div>
                             </div>
                           )}
 
                           {/* QA Assignment Section - Always Visible */}
-                          <div className="p-2 rounded bg-muted/30">
-                            <div className="text-xs font-medium text-foreground mb-1">
+                          <div
+                            className="p-4 rounded-lg space-y-3"
+                            style={{
+                              background: "var(--surface-raised)",
+                              boxShadow: "var(--shadow-sm)",
+                              border: "1px solid var(--border-light)",
+                            }}
+                          >
+                            <div
+                              className="text-xs font-semibold"
+                              style={{ color: "var(--foreground)" }}
+                            >
                               {qaAssignments.length > 0
                                 ? "Add Additional QA:"
                                 : " No QA Assigned - Add QA:"}
                             </div>
                             {qaAssignments.length === 0 && (
-                              <div className="text-sm text-muted-foreground mb-2">
+                              <div
+                                className="text-xs"
+                                style={{ color: "var(--muted-foreground)" }}
+                              >
                                 Assets cannot be allocated until a QA is
                                 assigned.
                               </div>
                             )}
                             <div className="space-y-2">
                               <div className="flex gap-2">
-                                <Select
-                                  value={selectedQA}
-                                  onValueChange={setSelectedQA}
+                                <div
+                                  style={{
+                                    boxShadow: "var(--shadow-sm)",
+                                    flex: 1,
+                                  }}
                                 >
-                                  <SelectTrigger className="h-8 text-xs">
-                                    <SelectValue placeholder="Select QA" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {availableQAs.map((qa) => (
-                                      <SelectItem key={qa.id} value={qa.id}>
-                                        {qa.title || qa.email}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
+                                  <Select
+                                    value={selectedQA}
+                                    onValueChange={setSelectedQA}
+                                  >
+                                    <SelectTrigger className="h-8 text-xs">
+                                      <SelectValue placeholder="Select QA" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {availableQAs.map((qa) => (
+                                        <SelectItem key={qa.id} value={qa.id}>
+                                          {qa.title || qa.email}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
                                 <Button
                                   variant="outline"
                                   size="sm"
                                   onClick={allocateQA}
                                   disabled={!selectedQA || allocatingQA}
-                                  className="text-xs h-8 px-3"
+                                  className="text-xs h-8 px-3 transition-all duration-200"
+                                  style={{
+                                    boxShadow:
+                                      !selectedQA || allocatingQA
+                                        ? "none"
+                                        : "var(--shadow-sm)",
+                                  }}
                                 >
                                   {allocatingQA ? "Assigning..." : "Assign QA"}
                                 </Button>
@@ -2018,7 +2416,14 @@ export default function AllocateAssetsPage() {
                           </div>
 
                           {/* Provisional QA Section */}
-                          <div className="p-3 rounded-lg bg-muted/30 space-y-3">
+                          <div
+                            className="p-4 rounded-lg space-y-3"
+                            style={{
+                              background: "var(--surface-raised)",
+                              boxShadow: "var(--shadow-sm)",
+                              border: "1px solid var(--border-light)",
+                            }}
+                          >
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-2">
                                 <label className="text-sm font-medium text-foreground">
@@ -2181,25 +2586,63 @@ export default function AllocateAssetsPage() {
                 </div>
               </div>
 
-              <div className="border-t pt-6">
-                <h3 className="text-lg font-medium mb-4">
+              <div
+                className="pt-6 mt-6"
+                style={{
+                  borderTop: "1px solid var(--border-light)",
+                }}
+              >
+                <h3
+                  className="text-lg font-semibold mb-4"
+                  style={{ color: "var(--foreground)" }}
+                >
                   Assets to be assigned ({allocationData.length} of{" "}
                   {selectedAssets.size})
                 </h3>
 
-                <div className="overflow-y-auto max-h-[400px] border rounded-lg">
+                <div
+                  className="overflow-y-auto max-h-[400px] rounded-lg"
+                  style={{
+                    boxShadow: "var(--shadow-md)",
+                    border: "1px solid var(--border-light)",
+                  }}
+                >
                   <table className="w-full text-sm">
-                    <thead className="bg-muted">
+                    <thead
+                      style={{
+                        background: "var(--surface-raised)",
+                        borderBottom: "1px solid var(--border-light)",
+                      }}
+                    >
                       <tr>
-                        <th className="px-3 py-2 text-left font-medium">
+                        <th
+                          className="px-4 py-3 text-left font-semibold"
+                          style={{ color: "var(--foreground)" }}
+                        >
                           Product Name
                         </th>
-                        <th className="px-3 py-2 text-left font-medium">
+                        <th
+                          className="px-4 py-3 text-left font-semibold"
+                          style={{ color: "var(--foreground)" }}
+                        >
                           Article ID
                         </th>
-                        <th className="px-3 py-2 font-medium">Category</th>
-                        <th className="px-3 py-2 font-medium">Client</th>
-                        <th className="px-3 py-2 font-medium text-center">
+                        <th
+                          className="px-4 py-3 font-semibold text-center"
+                          style={{ color: "var(--foreground)" }}
+                        >
+                          Category
+                        </th>
+                        <th
+                          className="px-4 py-3 font-semibold text-center"
+                          style={{ color: "var(--foreground)" }}
+                        >
+                          Client
+                        </th>
+                        <th
+                          className="px-4 py-3 font-semibold text-center"
+                          style={{ color: "var(--foreground)" }}
+                        >
                           Task Type
                         </th>
                       </tr>
@@ -2212,7 +2655,17 @@ export default function AllocateAssetsPage() {
                         return (
                           <tr
                             key={data.assetId}
-                            className="border-t hover:bg-muted/50 transition-colors"
+                            className="transition-all duration-200"
+                            style={{
+                              borderTop: "1px solid var(--border-light)",
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.background =
+                                "var(--surface-raised)";
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.background = "transparent";
+                            }}
                           >
                             <td className="px-3 py-2">
                               <div
@@ -2254,169 +2707,30 @@ export default function AllocateAssetsPage() {
                 </div>
               </div>
 
-              {/* Previous Modeler Files (when reassigning) */}
-              {assetFileHistory.length > 0 && (
-                <div className="border-t pt-6">
-                  <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
-                    <Package className="h-5 w-5 text-amber-600" />
-                    Previous Modeler Files Available
-                  </h3>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    The following assets have files from previous modelers that
-                    can be downloaded:
-                  </p>
-
-                  {/* Summary */}
-                  <div className="mb-4 p-3 bg-amber-100/50 rounded-lg border border-amber-200">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="font-medium text-amber-800">
-                        Total Files Available:{" "}
-                        {assetFileHistory.reduce((total, history) => {
-                          let count = 0;
-                          if (history.files.glb_link) count++;
-                          if (history.files.reference)
-                            count += history.files.reference.length;
-                          if (history.files.other_files)
-                            count += history.files.other_files.length;
-                          return total + count;
-                        }, 0)}
-                      </span>
-                      <span className="text-amber-700">
-                        Across {assetFileHistory.length} asset(s)
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="space-y-4">
-                    {assetFileHistory.map((history) => {
-                      const asset = getAssetById(history.assetId);
-                      if (!asset) return null;
-
-                      return (
-                        <Card
-                          key={history.assetId}
-                          className="p-4 border-amber-200 bg-amber-50/50"
-                        >
-                          <div className="space-y-3">
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <h4 className="font-medium text-sm">
-                                  {asset.product_name} ({asset.article_id})
-                                </h4>
-                                <p className="text-xs text-muted-foreground">
-                                  Previously worked on by:{" "}
-                                  {history.previousModelerName}
-                                </p>
-                              </div>
-                            </div>
-
-                            <div className="space-y-2">
-                              {history.files.glb_link && (
-                                <div className="flex items-center gap-2">
-                                  <Badge variant="outline" className="text-xs">
-                                    Current GLB File
-                                  </Badge>
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() =>
-                                      handleFileDownload(
-                                        history.files.glb_link!,
-                                        `${asset.article_id}.glb`
-                                      )
-                                    }
-                                    className="text-xs h-6 px-2"
-                                    title={`Download GLB: ${asset.article_id}.glb`}
-                                  >
-                                    Download
-                                  </Button>
-                                </div>
-                              )}
-
-                              {history.files.reference &&
-                                history.files.reference.length > 0 && (
-                                  <div className="space-y-1">
-                                    <p className="text-xs font-medium text-muted-foreground">
-                                      Reference Images (
-                                      {history.files.reference.length})
-                                    </p>
-                                    <div className="flex flex-wrap gap-1">
-                                      {history.files.reference.map(
-                                        (ref, index) => (
-                                          <Button
-                                            key={index}
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() =>
-                                              handleFileDownload(
-                                                ref,
-                                                `ref-${index + 1}.png`
-                                              )
-                                            }
-                                            className="text-xs h-6 px-2"
-                                            title={`Download Reference Image ${index + 1}`}
-                                          >
-                                            Ref {index + 1}
-                                          </Button>
-                                        )
-                                      )}
-                                    </div>
-                                  </div>
-                                )}
-
-                              {history.files.other_files &&
-                                history.files.other_files.length > 0 && (
-                                  <div className="space-y-1">
-                                    <p className="text-xs font-medium text-muted-foreground">
-                                      Additional Files (
-                                      {history.files.other_files.length})
-                                    </p>
-                                    <div className="flex flex-wrap gap-1">
-                                      {history.files.other_files!.map(
-                                        (file, index) => {
-                                          const fileName =
-                                            file.split("/").pop() ||
-                                            `file-${index + 1}`;
-                                          const fileExtension =
-                                            fileName.split(".").pop() || "file";
-                                          return (
-                                            <Button
-                                              key={index}
-                                              variant="outline"
-                                              size="sm"
-                                              onClick={() =>
-                                                handleFileDownload(
-                                                  file,
-                                                  fileName
-                                                )
-                                              }
-                                              className="text-xs h-6 px-2"
-                                              title={`Download: ${fileName}`}
-                                            >
-                                              {fileExtension.toUpperCase()}{" "}
-                                              {index + 1}
-                                            </Button>
-                                          );
-                                        }
-                                      )}
-                                    </div>
-                                  </div>
-                                )}
-                            </div>
-                          </div>
-                        </Card>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
               {/* Step Navigation */}
-              <div className="flex items-center justify-between pt-6 border-t mt-6">
-                <div className="text-sm text-muted-foreground">
+              <div
+                className="flex items-center justify-between pt-6 mt-6"
+                style={{
+                  borderTop: "1px solid var(--border-light)",
+                }}
+              >
+                <div
+                  className="text-sm"
+                  style={{ color: "var(--muted-foreground)" }}
+                >
                   {globalTeamAssignment.modelerId ? (
                     <span className="flex items-center gap-2">
-                      <User className="h-4 w-4" />
+                      <div
+                        className="p-1 rounded"
+                        style={{
+                          background: "var(--gradient-shine)",
+                        }}
+                      >
+                        <User
+                          className="h-4 w-4"
+                          style={{ color: "var(--primary)" }}
+                        />
+                      </div>
                       {(() => {
                         const qaAssignments =
                           modelerQAAssignments.get(
@@ -2432,81 +2746,132 @@ export default function AllocateAssetsPage() {
                     "Select a modeler to continue"
                   )}
                 </div>
-                <Button
-                  onClick={handleNextStep}
-                  disabled={
-                    !globalTeamAssignment.modelerId ||
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="inline-block">
+                      <Button
+                        onClick={handleNextStep}
+                        disabled={
+                          !globalTeamAssignment.modelerId ||
+                          (
+                            modelerQAAssignments.get(
+                              globalTeamAssignment.modelerId
+                            ) || []
+                          ).length === 0
+                        }
+                        className="flex items-center gap-2 transition-all duration-200"
+                        style={{
+                          boxShadow:
+                            !globalTeamAssignment.modelerId ||
+                            (
+                              modelerQAAssignments.get(
+                                globalTeamAssignment.modelerId
+                              ) || []
+                            ).length === 0
+                              ? "none"
+                              : "var(--shadow-md)",
+                        }}
+                      >
+                        <ArrowRight className="h-4 w-4" />
+                        Continue to Pricing
+                      </Button>
+                    </span>
+                  </TooltipTrigger>
+                  {(!globalTeamAssignment.modelerId ||
                     (
                       modelerQAAssignments.get(
                         globalTeamAssignment.modelerId
                       ) || []
-                    ).length === 0
-                  }
-                  className="flex items-center gap-2"
-                >
-                  <ArrowRight className="h-4 w-4" />
-                  Continue to Pricing
-                </Button>
+                    ).length === 0) && (
+                    <TooltipContent>
+                      {!globalTeamAssignment.modelerId
+                        ? "Please select a modeler to continue"
+                        : "No QA assigned - Please add a QA to the selected modeler"}
+                    </TooltipContent>
+                  )}
+                </Tooltip>
               </div>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       ) : (
         /* Step 2: Group Pricing */
-        <Card>
-          <CardHeader>
-            <CardTitle>Set Pricing & Deadline for Asset Group</CardTitle>
-          </CardHeader>
-          <CardContent>
+        <div
+          className="rounded-xl overflow-hidden"
+          style={{
+            background: "var(--surface-raised)",
+            boxShadow: "var(--shadow-lg)",
+            border: "1px solid var(--border-light)",
+          }}
+        >
+          <div
+            className="p-4 border-b"
+            style={{
+              background: "var(--gradient-shine)",
+              borderColor: "var(--border-light)",
+            }}
+          >
+            <h2
+              className="text-xl font-semibold mb-2"
+              style={{ color: "var(--foreground)" }}
+            >
+              Set Pricing & Deadline for Asset Group
+            </h2>
+          </div>
+          <div className="p-6">
             {/* Group Settings */}
             <div className="space-y-6">
               {/* Pricing Tier Selection */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <label className="text-sm font-medium">Pricing Tier</label>
-                  {(() => {
-                    const detectedTier =
-                      detectPricingTierFromAssets(allocationData);
-                    if (detectedTier && detectedTier === pricingTier) {
-                      return (
-                        <Badge
-                          variant="outline"
-                          className="text-xs bg-green-50 text-green-700 border-green-200"
-                        >
-                          Auto-detected
-                        </Badge>
-                      );
-                    }
-                    return null;
-                  })()}
+                  <label
+                    className="text-sm font-semibold flex items-center"
+                    style={{ color: "var(--foreground)" }}
+                  >
+                    <div
+                      className="p-1.5 rounded mr-2"
+                      style={{
+                        background: "var(--gradient-shine)",
+                        boxShadow: "var(--shadow-sm)",
+                      }}
+                    >
+                      <Euro
+                        className="h-4 w-4"
+                        style={{ color: "var(--primary)" }}
+                      />
+                    </div>
+                    Pricing Tier
+                  </label>
                 </div>
-                <Select
-                  value={pricingTier}
-                  onValueChange={(
-                    value:
-                      | "first_list"
-                      | "after_first_deadline"
-                      | "after_second_deadline"
-                  ) => {
-                    setPricingTier(value);
-                    updatePricingForTierChange(value);
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select pricing tier" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="first_list">
-                      First List Pricing
-                    </SelectItem>
-                    <SelectItem value="after_first_deadline">
-                      After First Deadline
-                    </SelectItem>
-                    <SelectItem value="after_second_deadline">
-                      Premium Tier (After Second Deadline)
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
+                <div style={{ boxShadow: "var(--shadow-sm)" }}>
+                  <Select
+                    value={pricingTier}
+                    onValueChange={(
+                      value:
+                        | "first_list"
+                        | "after_first_deadline"
+                        | "after_second_deadline"
+                    ) => {
+                      setPricingTier(value);
+                      updatePricingForTierChange(value);
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select pricing tier" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-[200px]" position="popper">
+                      <SelectItem value="first_list">
+                        First List Pricing
+                      </SelectItem>
+                      <SelectItem value="after_first_deadline">
+                        After First Deadline
+                      </SelectItem>
+                      <SelectItem value="after_second_deadline">
+                        Premium Tier (After Second Deadline)
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
                 {(() => {
                   const detectedTier =
                     detectPricingTierFromAssets(allocationData);
@@ -2525,198 +2890,129 @@ export default function AllocateAssetsPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Deadline */}
                 <div className="space-y-2">
-                  <label className="text-sm font-medium flex items-center">
-                    <CalendarIcon className="h-4 w-4 mr-2" />
+                  <label
+                    className="text-sm font-semibold flex items-center"
+                    style={{ color: "var(--foreground)" }}
+                  >
+                    <div
+                      className="p-1.5 rounded mr-2"
+                      style={{
+                        background: "var(--gradient-shine)",
+                        boxShadow: "var(--shadow-sm)",
+                      }}
+                    >
+                      <CalendarIcon
+                        className="h-4 w-4"
+                        style={{ color: "var(--primary)" }}
+                      />
+                    </div>
                     Deadline
                   </label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className="w-full justify-start text-left font-normal"
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {format(new Date(groupSettings.deadline), "PPP")}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={new Date(groupSettings.deadline)}
-                        onSelect={(date) => {
-                          setGroupSettings((prev) => ({
-                            ...prev,
-                            deadline: format(date || new Date(), "yyyy-MM-dd"),
-                          }));
-                        }}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
+                  <div style={{ boxShadow: "var(--shadow-sm)" }}>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className="w-full justify-start text-left font-normal"
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {format(new Date(groupSettings.deadline), "PPP")}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={new Date(groupSettings.deadline)}
+                          onSelect={(date) => {
+                            setGroupSettings((prev) => ({
+                              ...prev,
+                              deadline: format(
+                                date || new Date(),
+                                "yyyy-MM-dd"
+                              ),
+                            }));
+                          }}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
                 </div>
 
                 {/* Bonus */}
                 <div className="space-y-2">
-                  <label className="text-sm font-medium flex items-center">
-                    <Euro className="h-4 w-4 mr-2" />
+                  <label
+                    className="text-sm font-semibold flex items-center"
+                    style={{ color: "var(--foreground)" }}
+                  >
+                    <div
+                      className="p-1.5 rounded mr-2"
+                      style={{
+                        background: "var(--gradient-shine)",
+                        boxShadow: "var(--shadow-sm)",
+                      }}
+                    >
+                      <Euro
+                        className="h-4 w-4"
+                        style={{ color: "var(--primary)" }}
+                      />
+                    </div>
                     Bonus (%)
                   </label>
-                  <Input
-                    type="number"
-                    placeholder="0"
-                    value={groupSettings.bonus === 0 ? "" : groupSettings.bonus}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      setGroupSettings((prev) => ({
-                        ...prev,
-                        bonus: value === "" ? 0 : parseInt(value) || 0,
-                      }));
-                    }}
-                  />
+                  <div style={{ boxShadow: "var(--shadow-sm)" }}>
+                    <Input
+                      type="number"
+                      placeholder="0"
+                      value={
+                        groupSettings.bonus === 0 ? "" : groupSettings.bonus
+                      }
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        setGroupSettings((prev) => ({
+                          ...prev,
+                          bonus: value === "" ? 0 : parseInt(value) || 0,
+                        }));
+                      }}
+                    />
+                  </div>
                 </div>
               </div>
 
               {/* Project Specifications & Financial Details */}
 
               {/* Individual Asset Pricing */}
-              <div className="border-t pt-6">
-                <h3 className="text-lg font-medium mb-4">Asset Pricing</h3>
+              <div
+                className="pt-6 mt-6"
+                style={{
+                  borderTop: "1px solid var(--border-light)",
+                }}
+              >
+                <h3
+                  className="text-lg font-semibold mb-4"
+                  style={{ color: "var(--foreground)" }}
+                >
+                  Asset Pricing
+                </h3>
 
                 {/* Pricing Info & Controls */}
-                <div className="mb-4 p-4 bg-muted/50 rounded-lg">
-                  <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-                    <h4 className="font-medium">Pricing Information</h4>
-                    <div className="flex gap-2">
-                      {(() => {
-                        const assetsWithAdminPricing = allocationData.filter(
-                          (data) => {
-                            const asset = getAssetById(data.assetId);
-                            return (
-                              asset?.pricing_option_id &&
-                              asset?.price !== undefined &&
-                              (asset.price > 0 ||
-                                asset.qa_team_handles_model === true)
-                            );
-                          }
-                        );
-                        const assetsWithoutPricing = allocationData.filter(
-                          (data) => {
-                            const asset = getAssetById(data.assetId);
-                            return !(
-                              asset?.pricing_option_id &&
-                              asset?.price !== undefined &&
-                              (asset.price > 0 ||
-                                asset.qa_team_handles_model === true)
-                            );
-                          }
-                        );
-
-                        return (
-                          <div className="flex items-center gap-3 text-sm">
-                            <div className="flex items-center gap-1">
-                              <div className="w-3 h-3 bg-green-500 rounded"></div>
-                              <span>
-                                {assetsWithAdminPricing.length} Admin Set
-                              </span>
-                            </div>
-                            {assetsWithoutPricing.length > 0 && (
-                              <div className="flex items-center gap-1">
-                                <div className="w-3 h-3 bg-amber-500 rounded"></div>
-                                <span>
-                                  {assetsWithoutPricing.length} Manual
-                                </span>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })()}
-                    </div>
-                  </div>
-
-                  {(() => {
-                    const assetsWithoutPricing = allocationData.filter(
-                      (data) => {
-                        const asset = getAssetById(data.assetId);
-                        return !(
-                          asset?.pricing_option_id &&
-                          asset?.price !== undefined &&
-                          (asset.price > 0 ||
-                            asset.qa_team_handles_model === true)
-                        );
-                      }
-                    );
-
-                    if (assetsWithoutPricing.length === 0) {
-                      return (
-                        <div className="text-sm text-green-600 bg-green-50 p-3 rounded border border-green-200">
-                          ✓ All assets have pricing set by admin. No manual
-                          pricing needed.
-                        </div>
-                      );
-                    }
-
-                    return (
-                      <div className="space-y-3">
-                        <div className="text-sm text-amber-600 bg-amber-50 p-3 rounded border border-amber-200">
-                          {assetsWithoutPricing.length} asset(s) need manual
-                          pricing. Select them below to apply bulk pricing.
-                        </div>
-
-                        <div className="flex gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              const manualAssetIds = assetsWithoutPricing.map(
-                                (data) => data.assetId
-                              );
-                              setSelectedForPricing(new Set(manualAssetIds));
-                            }}
-                          >
-                            Select Manual Assets
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={clearPricingSelections}
-                          >
-                            Clear Selection
-                          </Button>
-                        </div>
-
-                        {selectedForPricing.size > 0 && (
-                          <div className="space-y-2">
-                            <div className="text-xs text-muted-foreground">
-                              {selectedForPricing.size} asset(s) selected for
-                              bulk pricing
-                            </div>
-                            <div className="flex flex-wrap gap-2">
-                              {getCurrentPricingOptions().map((option) => (
-                                <Button
-                                  key={option.id}
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => applyBulkPricing(option.id)}
-                                  className="justify-start text-xs"
-                                >
-                                  <Euro className="h-3 w-3 mr-1" />
-                                  {option.label} - €{option.price}
-                                </Button>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })()}
-                </div>
 
                 {/* Assets Table */}
-                <div className="overflow-y-auto border rounded-lg max-h-[500px]">
+                <div
+                  className="overflow-y-auto rounded-lg max-h-[500px]"
+                  style={{
+                    boxShadow: "var(--shadow-md)",
+                    border: "1px solid var(--border-light)",
+                  }}
+                >
                   <table className="w-full text-sm">
-                    <thead className="bg-muted/70">
+                    <thead
+                      style={{
+                        background: "var(--surface-raised)",
+                        borderBottom: "1px solid var(--border-light)",
+                      }}
+                    >
                       <tr>
-                        <th className="p-2 w-8">
+                        <th className="p-3 w-8">
                           {(() => {
                             const manualAssets = allocationData.filter(
                               (data) => {
@@ -2766,13 +3062,48 @@ export default function AllocateAssetsPage() {
                             );
                           })()}
                         </th>
-                        <th className="p-2 text-left">Product Name</th>
-                        <th className="p-2 text-left">Article ID</th>
-                        <th className="p-2">Category</th>
-                        <th className="p-2">Product Link</th>
-                        <th className="p-2">Task Type</th>
-                        <th className="p-2">Pricing Option</th>
-                        <th className="p-2">Price (€)</th>
+                        <th
+                          className="p-3 text-left font-semibold"
+                          style={{ color: "var(--foreground)" }}
+                        >
+                          Product Name
+                        </th>
+                        <th
+                          className="p-3 text-left font-semibold"
+                          style={{ color: "var(--foreground)" }}
+                        >
+                          Article ID
+                        </th>
+                        <th
+                          className="p-3 font-semibold text-center"
+                          style={{ color: "var(--foreground)" }}
+                        >
+                          Category
+                        </th>
+                        <th
+                          className="p-3 font-semibold text-center"
+                          style={{ color: "var(--foreground)" }}
+                        >
+                          Product Link
+                        </th>
+                        <th
+                          className="p-3 font-semibold text-center"
+                          style={{ color: "var(--foreground)" }}
+                        >
+                          Task Type
+                        </th>
+                        <th
+                          className="p-3 font-semibold text-center"
+                          style={{ color: "var(--foreground)" }}
+                        >
+                          Pricing Option
+                        </th>
+                        <th
+                          className="p-3 font-semibold text-center"
+                          style={{ color: "var(--foreground)" }}
+                        >
+                          Price (€)
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
@@ -2787,9 +3118,25 @@ export default function AllocateAssetsPage() {
                         return (
                           <tr
                             key={data.assetId}
-                            className={`border-t hover:bg-muted/50 transition-colors ${
-                              isSelectedForPricing ? "bg-primary/5" : ""
-                            }`}
+                            className="transition-all duration-200"
+                            style={{
+                              borderTop: "1px solid var(--border-light)",
+                              background: isSelectedForPricing
+                                ? "var(--surface-elevated)"
+                                : "transparent",
+                            }}
+                            onMouseEnter={(e) => {
+                              if (!isSelectedForPricing) {
+                                e.currentTarget.style.background =
+                                  "var(--surface-raised)";
+                              }
+                            }}
+                            onMouseLeave={(e) => {
+                              if (!isSelectedForPricing) {
+                                e.currentTarget.style.background =
+                                  "transparent";
+                              }
+                            }}
                           >
                             <td className="p-2 text-center">
                               {(() => {
@@ -2868,334 +3215,109 @@ export default function AllocateAssetsPage() {
                             </td>
                             <td className="p-2 text-center">
                               <div className="flex flex-col gap-1">
-                                {(() => {
-                                  const asset = getAssetById(data.assetId);
-                                  const hasExistingPricing =
-                                    asset?.pricing_option_id &&
-                                    asset?.price !== undefined &&
-                                    (asset.price > 0 ||
-                                      asset.qa_team_handles_model === true);
-
-                                  if (hasExistingPricing) {
-                                    // Show read-only info for admin-set pricing
-                                    const option = getPricingOptionById(
-                                      data.pricingOptionId
-                                    );
-                                    const isQAHandled =
-                                      asset?.qa_team_handles_model ||
-                                      data.pricingOptionId ===
-                                        "qa_team_handles_model";
-
-                                    return (
-                                      <div className="space-y-1">
-                                        <div className="text-xs text-muted-foreground">
-                                          Set in Admin Review
-                                        </div>
-                                        {isQAHandled ? (
-                                          <Badge
-                                            variant="outline"
-                                            className="text-xs bg-amber-50 text-amber-700 border-amber-200"
-                                          >
-                                            0€ - QA Handling
-                                          </Badge>
-                                        ) : (
-                                          <Badge
-                                            variant="outline"
-                                            className="text-xs bg-green-50 text-green-700 border-green-200"
-                                          >
-                                            {option?.label ||
-                                              data.pricingOptionId}
-                                          </Badge>
-                                        )}
-                                      </div>
-                                    );
-                                  } else {
-                                    // Allow manual selection for assets without admin pricing
-                                    return (
-                                      <Select
-                                        value={data.pricingOptionId}
-                                        onValueChange={(value) => {
-                                          const option =
-                                            getPricingOptionById(value);
-                                          updateAllocationData(
-                                            data.assetId,
-                                            "pricingOptionId",
-                                            value
-                                          );
-                                          updateAllocationData(
-                                            data.assetId,
-                                            "price",
-                                            option?.price || 0
-                                          );
-                                        }}
-                                      >
-                                        <SelectTrigger className="h-8 text-xs">
-                                          <SelectValue placeholder="Select pricing" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                          {getCurrentPricingOptions().map(
-                                            (pricingOption) => (
-                                              <SelectItem
-                                                key={pricingOption.id}
-                                                value={pricingOption.id}
+                                <Select
+                                  value={data.pricingOptionId || ""}
+                                  onValueChange={(value) => {
+                                    const option = getPricingOptionById(value);
+                                    if (option) {
+                                      handlePriceUpdate(
+                                        data.assetId,
+                                        value,
+                                        option.price
+                                      );
+                                    }
+                                  }}
+                                >
+                                  <SelectTrigger className="w-32 h-8 text-xs">
+                                    <SelectValue placeholder="Set price" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {getCurrentPricingOptions().map(
+                                      (option) => (
+                                        <SelectItem
+                                          key={option.id}
+                                          value={option.id}
+                                        >
+                                          <div className="flex items-center justify-between w-full">
+                                            <div className="flex items-center gap-2 text-left">
+                                              <Euro className="h-3 w-3" />
+                                              {option.id === "custom_pricing"
+                                                ? option.label
+                                                : `${option.label} - €${option.price}`}
+                                            </div>
+                                            {option.id ===
+                                              "qa_team_handles_model" && (
+                                              <Badge
+                                                variant="outline"
+                                                className="ml-2 text-xs bg-amber-50 text-amber-700 border-amber-200"
                                               >
-                                                <div className="flex items-center justify-between w-full">
-                                                  <div className="flex items-center gap-2 text-left">
-                                                    <Euro className="h-3 w-3" />
-                                                    {pricingOption.label} - €
-                                                    {pricingOption.price}
-                                                  </div>
-                                                  {pricingOption.id ===
-                                                    "qa_team_handles_model" && (
-                                                    <Badge
-                                                      variant="outline"
-                                                      className="ml-2 text-xs bg-amber-50 text-amber-700 border-amber-200"
-                                                    >
-                                                      QA Handles
-                                                    </Badge>
-                                                  )}
-                                                </div>
-                                              </SelectItem>
-                                            )
-                                          )}
-                                        </SelectContent>
-                                      </Select>
-                                    );
-                                  }
-                                })()}
+                                                QA Handles
+                                              </Badge>
+                                            )}
+                                            {option.id === "custom_pricing" && (
+                                              <Badge
+                                                variant="outline"
+                                                className="ml-2 text-xs bg-blue-50 text-blue-700 border-blue-200"
+                                              >
+                                                Custom
+                                              </Badge>
+                                            )}
+                                          </div>
+                                        </SelectItem>
+                                      )
+                                    )}
+                                  </SelectContent>
+                                </Select>
                               </div>
                             </td>
                             <td className="p-2 text-center">
                               <div className="flex flex-col items-center gap-1">
-                                {(() => {
-                                  const asset = getAssetById(data.assetId);
-                                  const hasExistingPricing =
-                                    asset?.pricing_option_id &&
-                                    asset?.price &&
-                                    asset.price > 0;
-
-                                  if (hasExistingPricing) {
-                                    // Show editable price for admin-set pricing
-                                    const isQAHandled =
-                                      asset?.qa_team_handles_model ||
-                                      data.pricingOptionId ===
-                                        "qa_team_handles_model";
-
-                                    const isEditing =
-                                      editingPriceAssetId === data.assetId;
-
-                                    return (
-                                      <div className="flex flex-col items-center gap-1">
-                                        {isQAHandled ? (
-                                          <Badge
-                                            variant="outline"
-                                            className="text-xs bg-amber-50 text-amber-700 border-amber-200"
-                                          >
-                                            0€ - QA Handling
-                                          </Badge>
-                                        ) : isEditing ? (
-                                          <div className="flex items-center gap-1">
-                                            <Input
-                                              type="number"
-                                              value={
-                                                editingPriceValue !== ""
-                                                  ? editingPriceValue
-                                                  : data.price
-                                              }
-                                              onChange={(e) =>
-                                                setEditingPriceValue(
-                                                  e.target.value
-                                                )
-                                              }
-                                              onBlur={() => {
-                                                const newPrice =
-                                                  parseFloat(
-                                                    editingPriceValue
-                                                  ) || 0;
-                                                handlePriceEdit(
-                                                  data.assetId,
-                                                  newPrice
-                                                );
-                                                setEditingPriceAssetId(null);
-                                                setEditingPriceValue("");
-                                              }}
-                                              onKeyDown={(e) => {
-                                                if (e.key === "Enter") {
-                                                  const newPrice =
-                                                    parseFloat(
-                                                      editingPriceValue
-                                                    ) || 0;
-                                                  handlePriceEdit(
-                                                    data.assetId,
-                                                    newPrice
-                                                  );
-                                                  setEditingPriceAssetId(null);
-                                                  setEditingPriceValue("");
-                                                } else if (e.key === "Escape") {
-                                                  setEditingPriceAssetId(null);
-                                                  setEditingPriceValue("");
-                                                }
-                                              }}
-                                              className="w-20 h-8 text-xs"
-                                              placeholder="0.00"
-                                              step="0.01"
-                                              min="0"
-                                              autoFocus
-                                            />
-                                          </div>
-                                        ) : (
-                                          <div className="flex items-center gap-1">
-                                            <span className="text-xs font-medium text-green-600">
-                                              €{data.price}
-                                            </span>
-                                            <Button
-                                              variant="ghost"
-                                              size="sm"
-                                              className="h-5 w-5 p-0 hover:bg-primary/10"
-                                              onClick={() => {
-                                                setEditingPriceAssetId(
-                                                  data.assetId
-                                                );
-                                                setEditingPriceValue(
-                                                  data.price.toString()
-                                                );
-                                              }}
-                                            >
-                                              <Pencil className="h-3 w-3 text-muted-foreground hover:text-primary" />
-                                            </Button>
-                                          </div>
-                                        )}
-                                        <Popover>
-                                          <PopoverTrigger asChild>
-                                            <Button
-                                              variant="ghost"
-                                              size="sm"
-                                              className="h-6 w-6 p-0 hover:bg-amber-100"
-                                            >
-                                              <StickyNote className="h-3 w-3 text-amber-600" />
-                                            </Button>
-                                          </PopoverTrigger>
-                                          <PopoverContent className="w-80 p-3">
-                                            <div className="space-y-3">
-                                              <h4 className="font-medium text-sm">
-                                                Pricing Note
-                                              </h4>
-                                              <Textarea
-                                                placeholder="Add pricing note..."
-                                                value={
-                                                  pricingComments[
-                                                    data.assetId
-                                                  ] || ""
-                                                }
-                                                onChange={(e) => {
-                                                  setPricingComments(
-                                                    (prev) => ({
-                                                      ...prev,
-                                                      [data.assetId]:
-                                                        e.target.value,
-                                                    })
-                                                  );
-                                                }}
-                                                onBlur={() => {
-                                                  if (
-                                                    pricingComments[
-                                                      data.assetId
-                                                    ] !== undefined
-                                                  ) {
-                                                    handlePricingCommentUpdate(
-                                                      data.assetId,
-                                                      pricingComments[
-                                                        data.assetId
-                                                      ]
-                                                    );
-                                                  }
-                                                }}
-                                                className="min-h-[60px] max-h-[120px] resize-none text-xs"
-                                                rows={3}
-                                              />
-                                            </div>
-                                          </PopoverContent>
-                                        </Popover>
-                                      </div>
-                                    );
-                                  } else {
-                                    // Allow manual price input for custom pricing
-                                    return data.pricingOptionId.includes(
-                                      "hard_3d_model"
-                                    ) ||
-                                      data.pricingOptionId ===
-                                        "custom_pricing" ? (
-                                      <div className="flex items-center gap-2">
-                                        <Input
-                                          type="number"
-                                          value={data.price}
-                                          onChange={(e) => {
-                                            const newPrice =
-                                              parseFloat(e.target.value) || 0;
-                                            handlePriceEdit(
-                                              data.assetId,
-                                              newPrice
-                                            );
-                                          }}
-                                          className="w-20 h-8 text-xs"
-                                          placeholder="0.00"
-                                          step="0.01"
-                                          min="0"
-                                        />
-                                        <Popover>
-                                          <PopoverTrigger asChild>
-                                            <Button
-                                              variant="ghost"
-                                              size="sm"
-                                              className="h-6 w-6 p-0 hover:bg-amber-100"
-                                            >
-                                              <StickyNote className="h-3 w-3 text-amber-600" />
-                                            </Button>
-                                          </PopoverTrigger>
-                                          <PopoverContent className="w-80 p-3">
-                                            <div className="space-y-3">
-                                              <h4 className="font-medium text-sm">
-                                                Pricing Note
-                                              </h4>
-                                              <Textarea
-                                                placeholder="Add pricing note..."
-                                                value={
-                                                  pricingComments[
-                                                    data.assetId
-                                                  ] || ""
-                                                }
-                                                onChange={(e) => {
-                                                  setPricingComments(
-                                                    (prev) => ({
-                                                      ...prev,
-                                                      [data.assetId]:
-                                                        e.target.value,
-                                                    })
-                                                  );
-                                                }}
-                                                onBlur={() => {
-                                                  if (
-                                                    pricingComments[
-                                                      data.assetId
-                                                    ] !== undefined
-                                                  ) {
-                                                    handlePricingCommentUpdate(
-                                                      data.assetId,
-                                                      pricingComments[
-                                                        data.assetId
-                                                      ]
-                                                    );
-                                                  }
-                                                }}
-                                                className="min-h-[60px] max-h-[120px] resize-none text-xs"
-                                                rows={3}
-                                              />
-                                            </div>
-                                          </PopoverContent>
-                                        </Popover>
-                                      </div>
-                                    ) : data.pricingOptionId ===
-                                      "qa_team_handles_model" ? (
+                                {data.pricingOptionId === "custom_pricing" &&
+                                !data.price ? (
+                                  <div className="flex items-center gap-1">
+                                    <Input
+                                      type="number"
+                                      value={customPrices[data.assetId] || ""}
+                                      onChange={(e) =>
+                                        handleCustomPriceChange(
+                                          data.assetId,
+                                          parseFloat(e.target.value) || 0
+                                        )
+                                      }
+                                      onKeyDown={(e) => {
+                                        if (
+                                          e.key === "Enter" &&
+                                          !settingPrices.has(data.assetId)
+                                        ) {
+                                          handleCustomPriceSubmit(data.assetId);
+                                        }
+                                      }}
+                                      disabled={settingPrices.has(data.assetId)}
+                                      className="w-16 h-8 text-xs px-2 border rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                                      placeholder="€0"
+                                      min="0"
+                                      step="0.01"
+                                    />
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="h-8 px-2 text-xs"
+                                      onClick={() =>
+                                        handleCustomPriceSubmit(data.assetId)
+                                      }
+                                      disabled={settingPrices.has(data.assetId)}
+                                    >
+                                      {settingPrices.has(data.assetId) ? (
+                                        <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-current" />
+                                      ) : (
+                                        "Set"
+                                      )}
+                                    </Button>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center gap-1">
+                                    {data.pricingOptionId ===
+                                    "qa_team_handles_model" ? (
                                       <Badge
                                         variant="outline"
                                         className="text-xs bg-amber-50 text-amber-700 border-amber-200"
@@ -3203,154 +3325,64 @@ export default function AllocateAssetsPage() {
                                       >
                                         0€ - QA Handling
                                       </Badge>
-                                    ) : data.pricingOptionId ? (
-                                      // Show editable price from pricing option
-                                      (() => {
-                                        const isEditing =
-                                          editingPriceAssetId === data.assetId;
-                                        return (
-                                          <div className="flex flex-col items-center gap-1">
-                                            {isEditing ? (
-                                              <div className="flex items-center gap-1">
-                                                <Input
-                                                  type="number"
-                                                  value={
-                                                    editingPriceValue !== ""
-                                                      ? editingPriceValue
-                                                      : data.price
-                                                  }
-                                                  onChange={(e) =>
-                                                    setEditingPriceValue(
-                                                      e.target.value
-                                                    )
-                                                  }
-                                                  onBlur={() => {
-                                                    const newPrice =
-                                                      parseFloat(
-                                                        editingPriceValue
-                                                      ) || 0;
-                                                    handlePriceEdit(
-                                                      data.assetId,
-                                                      newPrice
-                                                    );
-                                                    setEditingPriceAssetId(
-                                                      null
-                                                    );
-                                                    setEditingPriceValue("");
-                                                  }}
-                                                  onKeyDown={(e) => {
-                                                    if (e.key === "Enter") {
-                                                      const newPrice =
-                                                        parseFloat(
-                                                          editingPriceValue
-                                                        ) || 0;
-                                                      handlePriceEdit(
-                                                        data.assetId,
-                                                        newPrice
-                                                      );
-                                                      setEditingPriceAssetId(
-                                                        null
-                                                      );
-                                                      setEditingPriceValue("");
-                                                    } else if (
-                                                      e.key === "Escape"
-                                                    ) {
-                                                      setEditingPriceAssetId(
-                                                        null
-                                                      );
-                                                      setEditingPriceValue("");
-                                                    }
-                                                  }}
-                                                  className="w-20 h-8 text-xs"
-                                                  placeholder="0.00"
-                                                  step="0.01"
-                                                  min="0"
-                                                  autoFocus
-                                                />
-                                              </div>
-                                            ) : (
-                                              <div className="flex items-center gap-1">
-                                                <span className="text-xs font-medium">
-                                                  €{data.price}
-                                                </span>
-                                                <Button
-                                                  variant="ghost"
-                                                  size="sm"
-                                                  className="h-5 w-5 p-0 hover:bg-primary/10"
-                                                  onClick={() => {
-                                                    setEditingPriceAssetId(
-                                                      data.assetId
-                                                    );
-                                                    setEditingPriceValue(
-                                                      data.price.toString()
-                                                    );
-                                                  }}
-                                                >
-                                                  <Pencil className="h-3 w-3 text-muted-foreground hover:text-primary" />
-                                                </Button>
-                                              </div>
-                                            )}
-                                            <Popover>
-                                              <PopoverTrigger asChild>
-                                                <Button
-                                                  variant="ghost"
-                                                  size="sm"
-                                                  className="h-6 w-6 p-0 hover:bg-amber-100"
-                                                >
-                                                  <StickyNote className="h-3 w-3 text-amber-600" />
-                                                </Button>
-                                              </PopoverTrigger>
-                                              <PopoverContent className="w-80 p-3">
-                                                <div className="space-y-3">
-                                                  <h4 className="font-medium text-sm">
-                                                    Pricing Note
-                                                  </h4>
-                                                  <Textarea
-                                                    placeholder="Add pricing note..."
-                                                    value={
-                                                      pricingComments[
-                                                        data.assetId
-                                                      ] || ""
-                                                    }
-                                                    onChange={(e) => {
-                                                      setPricingComments(
-                                                        (prev) => ({
-                                                          ...prev,
-                                                          [data.assetId]:
-                                                            e.target.value,
-                                                        })
-                                                      );
-                                                    }}
-                                                    onBlur={() => {
-                                                      if (
-                                                        pricingComments[
-                                                          data.assetId
-                                                        ] !== undefined
-                                                      ) {
-                                                        handlePricingCommentUpdate(
-                                                          data.assetId,
-                                                          pricingComments[
-                                                            data.assetId
-                                                          ]
-                                                        );
-                                                      }
-                                                    }}
-                                                    className="min-h-[60px] max-h-[120px] resize-none text-xs"
-                                                    rows={3}
-                                                  />
-                                                </div>
-                                              </PopoverContent>
-                                            </Popover>
-                                          </div>
-                                        );
-                                      })()
                                     ) : (
-                                      <span className="text-xs text-muted-foreground">
-                                        Select pricing option
+                                      <span className="text-xs font-medium">
+                                        €{data.price || 0}
                                       </span>
-                                    );
-                                  }
-                                })()}
+                                    )}
+                                    <Popover>
+                                      <PopoverTrigger asChild>
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="h-4 w-4 p-0 hover:bg-muted"
+                                        >
+                                          <StickyNote
+                                            className={`h-3 w-3 ${
+                                              pricingComments[data.assetId]
+                                                ? "text-blue-600 hover:text-blue-700"
+                                                : "text-muted-foreground hover:text-foreground"
+                                            }`}
+                                          />
+                                        </Button>
+                                      </PopoverTrigger>
+                                      <PopoverContent className="w-80 p-3">
+                                        <div className="space-y-3">
+                                          <h4 className="font-medium text-sm">
+                                            Pricing Note
+                                          </h4>
+                                          <Textarea
+                                            placeholder="Add pricing note..."
+                                            value={
+                                              pricingComments[data.assetId] ||
+                                              ""
+                                            }
+                                            onChange={(e) => {
+                                              setPricingComments((prev) => ({
+                                                ...prev,
+                                                [data.assetId]: e.target.value,
+                                              }));
+                                            }}
+                                            onBlur={() => {
+                                              if (
+                                                pricingComments[
+                                                  data.assetId
+                                                ] !== undefined
+                                              ) {
+                                                handlePricingCommentUpdate(
+                                                  data.assetId,
+                                                  pricingComments[data.assetId]
+                                                );
+                                              }
+                                            }}
+                                            className="min-h-[60px] max-h-[120px] resize-none text-xs"
+                                            rows={3}
+                                          />
+                                        </div>
+                                      </PopoverContent>
+                                    </Popover>
+                                  </div>
+                                )}
                               </div>
                             </td>
                           </tr>
@@ -3362,23 +3394,35 @@ export default function AllocateAssetsPage() {
               </div>
 
               {/* Summary */}
-              <div className="p-4 bg-muted rounded-lg">
-                <h4 className="font-medium mb-2">Summary</h4>
-                <div className="space-y-1 text-sm">
-                  <p>
+              <div
+                className="p-5 rounded-xl"
+                style={{
+                  background: "var(--surface-elevated)",
+                  boxShadow: "var(--shadow-md)",
+                  border: "1px solid var(--border-light)",
+                }}
+              >
+                <h4
+                  className="font-semibold mb-3"
+                  style={{ color: "var(--foreground)" }}
+                >
+                  Summary
+                </h4>
+                <div className="space-y-2 text-sm">
+                  <p style={{ color: "var(--foreground)" }}>
                     Assets with Pricing: {allocationData.length} of{" "}
                     {selectedAssets.size}
                   </p>
                   {allocationData.length > 0 && (
                     <>
-                      <p>
+                      <p style={{ color: "var(--foreground)" }}>
                         Total Price: €
                         {allocationData.reduce(
                           (sum, data) => sum + data.price,
                           0
                         )}
                       </p>
-                      <p>
+                      <p style={{ color: "var(--foreground)" }}>
                         Average Price: €
                         {(
                           allocationData.reduce(
@@ -3389,21 +3433,29 @@ export default function AllocateAssetsPage() {
                       </p>
                     </>
                   )}
-                  <p>Bonus: {groupSettings.bonus}%</p>
-                  <p>
+                  <p style={{ color: "var(--foreground)" }}>
+                    Bonus: {groupSettings.bonus}%
+                  </p>
+                  <p style={{ color: "var(--foreground)" }}>
                     Deadline: {format(new Date(groupSettings.deadline), "PPP")}
                   </p>
 
                   {/* Project Specifications Note */}
-                  <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                    <p className="text-blue-800 text-xs">
+                  <div
+                    className="mt-4 p-3 rounded-lg"
+                    style={{
+                      background: "var(--info-muted)",
+                      border: "1px solid var(--info)",
+                      boxShadow: "var(--shadow-sm)",
+                    }}
+                  >
+                    <p className="text-xs" style={{ color: "var(--info)" }}>
                       <strong>Note:</strong> Client specifications and project
                       requirements are now managed in the
                       <button
                         onClick={() => window.open("/users", "_blank")}
-                        className="underline font-medium hover:text-blue-600 cursor-pointer bg-transparent border-none p-0"
+                        className="underline font-medium hover:opacity-80 cursor-pointer bg-transparent border-none p-0 ml-1"
                       >
-                        {" "}
                         Clients Management page
                       </button>
                       .
@@ -3413,11 +3465,19 @@ export default function AllocateAssetsPage() {
               </div>
 
               {/* Step Navigation */}
-              <div className="flex items-center justify-between pt-6 border-t mt-6">
+              <div
+                className="flex items-center justify-between pt-6 mt-6"
+                style={{
+                  borderTop: "1px solid var(--border-light)",
+                }}
+              >
                 <Button
                   variant="outline"
                   onClick={handleBackStep}
-                  className="flex items-center gap-2"
+                  className="flex items-center gap-2 transition-all duration-200"
+                  style={{
+                    boxShadow: "var(--shadow-sm)",
+                  }}
                 >
                   <ArrowLeft className="h-4 w-4" />
                   Back to Team Assignment
@@ -3504,8 +3564,8 @@ export default function AllocateAssetsPage() {
                 </Button>
               </div>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       )}
 
       {/* User Profile Dialog */}

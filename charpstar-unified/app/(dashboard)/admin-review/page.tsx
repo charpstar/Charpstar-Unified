@@ -78,13 +78,84 @@ interface PricingOption {
   description?: string;
 }
 
-const PRICING_OPTIONS: PricingOption[] = [
-  // Premium Tier Options Only
+// All pricing options from all tiers (for display purposes)
+const ALL_PRICING_OPTIONS: PricingOption[] = [
+  // First List Pricing
+  {
+    id: "pbr_3d_model_first",
+    label: "PBR 3D Model Creation (First List)",
+    price: 18,
+    description: "Standard PBR 3D model creation for first list",
+  },
+  {
+    id: "hard_3d_model_first",
+    label: "Hard 3D Model (First List)",
+    price: 0,
+    description: "Hard surface 3D model for first list - custom pricing",
+  },
+  {
+    id: "additional_colors_first",
+    label: "Additional Colors (First List)",
+    price: 1,
+    description: "Additional colors for already made 3D models",
+  },
+  {
+    id: "additional_textures_first",
+    label: "Additional Textures/Materials (First List)",
+    price: 5,
+    description: "Additional textures/materials for already made 3D models",
+  },
+  {
+    id: "additional_sizes_first",
+    label: "Additional Sizes (First List)",
+    price: 4,
+    description: "Additional sizes for already made 3D models",
+  },
+
+  // After First Deadline Pricing
+  {
+    id: "pbr_3d_model_after_first",
+    label: "PBR 3D Model Creation (After First Deadline)",
+    price: 18,
+    description: "Standard PBR 3D model creation after first deadline",
+  },
+  {
+    id: "hard_3d_model_after_first",
+    label: "Hard 3D Model (After First Deadline)",
+    price: 0,
+    description: "Hard surface 3D model after first deadline - custom pricing",
+  },
+  {
+    id: "additional_colors_after_first",
+    label: "Additional Colors (After First Deadline)",
+    price: 1,
+    description: "Additional colors for already made 3D models",
+  },
+  {
+    id: "additional_textures_after_first",
+    label: "Additional Textures/Materials (After First Deadline)",
+    price: 5,
+    description: "Additional textures/materials for already made 3D models",
+  },
+  {
+    id: "additional_sizes_after_first",
+    label: "Additional Sizes (After First Deadline)",
+    price: 4,
+    description: "Additional sizes for already made 3D models",
+  },
+
+  // After Second Deadline Pricing (Premium Tier)
   {
     id: "pbr_3d_model_after_second",
     label: "PBR 3D Model Creation (Premium Tier)",
     price: 30,
     description: "Premium PBR 3D model creation after second deadline",
+  },
+  {
+    id: "hard_3d_model_after_second",
+    label: "Hard 3D Model (Premium Tier)",
+    price: 0,
+    description: "Hard surface 3D model premium tier - custom pricing",
   },
   {
     id: "additional_colors_after_second",
@@ -109,11 +180,51 @@ const PRICING_OPTIONS: PricingOption[] = [
   {
     id: "custom_pricing",
     label: "Custom Pricing",
-    price: 0, // Will be set by user
+    price: 0,
     description: "Set a custom price for this asset",
   },
 
   // QA Team Handling
+  {
+    id: "qa_team_handles_model",
+    label: "0€ - QA Team Will Handle Model",
+    price: 0,
+    description: "QA team will handle this model (too easy for modelers)",
+  },
+];
+
+// Premium Tier Options Only (for dropdown selection)
+const PRICING_OPTIONS: PricingOption[] = [
+  {
+    id: "pbr_3d_model_after_second",
+    label: "PBR 3D Model Creation (Premium Tier)",
+    price: 30,
+    description: "Premium PBR 3D model creation after second deadline",
+  },
+  {
+    id: "additional_colors_after_second",
+    label: "Additional Colors (Premium Tier)",
+    price: 1.5,
+    description: "Additional colors for already made 3D models",
+  },
+  {
+    id: "additional_textures_after_second",
+    label: "Additional Textures/Materials (Premium Tier)",
+    price: 7,
+    description: "Additional textures/materials for already made 3D models",
+  },
+  {
+    id: "additional_sizes_after_second",
+    label: "Additional Sizes (Premium Tier)",
+    price: 5,
+    description: "Additional sizes for already made 3D models",
+  },
+  {
+    id: "custom_pricing",
+    label: "Custom Pricing",
+    price: 0,
+    description: "Set a custom price for this asset",
+  },
   {
     id: "qa_team_handles_model",
     label: "0€ - QA Team Will Handle Model",
@@ -2817,7 +2928,9 @@ export default function AdminReviewPage() {
   };
 
   const getPricingOptionById = (id: string) => {
-    return PRICING_OPTIONS.find((option) => option.id === id);
+    // Search in ALL_PRICING_OPTIONS to find any pricing option (for display)
+    // This allows displaying pricing from first_list or after_first_deadline tiers
+    return ALL_PRICING_OPTIONS.find((option) => option.id === id);
   };
 
   // Handle adding correction to allocation list
