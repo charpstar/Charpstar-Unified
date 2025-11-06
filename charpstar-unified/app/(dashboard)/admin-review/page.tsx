@@ -2255,17 +2255,114 @@ export default function AdminReviewPage() {
       } else {
         // Clear manual order if assets have changed significantly
         lastManualOrderRef.current = [];
-        filteredAssets.sort(
-          (a, b) =>
-            (statusPriority[a.status] || 99) - (statusPriority[b.status] || 99)
-        );
+        // Group variations with their parents
+        // First, create a map of parent IDs to their variations
+        const parentMap = new Map<string, any[]>();
+        const standaloneAssets: any[] = [];
+
+        filteredAssets.forEach((asset) => {
+          if (asset.is_variation && asset.parent_asset_id) {
+            if (!parentMap.has(asset.parent_asset_id)) {
+              parentMap.set(asset.parent_asset_id, []);
+            }
+            parentMap.get(asset.parent_asset_id)!.push(asset);
+          } else {
+            standaloneAssets.push(asset);
+          }
+        });
+
+        // Sort standalone assets (parents and non-variations) by status, then upload_order
+        standaloneAssets.sort((a, b) => {
+          const aStatus = statusPriority[a.status] || 99;
+          const bStatus = statusPriority[b.status] || 99;
+          if (aStatus !== bStatus) {
+            return aStatus - bStatus;
+          }
+          return (a.upload_order || 0) - (b.upload_order || 0);
+        });
+
+        // Build final sorted array: parent followed by its variations
+        const sorted: any[] = [];
+        standaloneAssets.forEach((asset) => {
+          sorted.push(asset);
+          // Add variations for this parent if they exist
+          const variations = parentMap.get(asset.id);
+          if (variations) {
+            // Sort variations by variation_index
+            variations.sort(
+              (a, b) => (a.variation_index || 0) - (b.variation_index || 0)
+            );
+            sorted.push(...variations);
+          }
+        });
+
+        // Add any orphaned variations (parent not in filtered results)
+        parentMap.forEach((variations, parentId) => {
+          if (!standaloneAssets.some((a) => a.id === parentId)) {
+            // Parent not in filtered results, add variations at the end
+            variations.sort(
+              (a, b) => (a.variation_index || 0) - (b.variation_index || 0)
+            );
+            sorted.push(...variations);
+          }
+        });
+
+        filteredAssets = sorted;
       }
     } else {
-      // Default sorting by status priority
-      filteredAssets.sort(
-        (a, b) =>
-          (statusPriority[a.status] || 99) - (statusPriority[b.status] || 99)
-      );
+      // Default sorting: group variations with parents, then by status priority
+      // First, create a map of parent IDs to their variations
+      const parentMap = new Map<string, any[]>();
+      const standaloneAssets: any[] = [];
+
+      filteredAssets.forEach((asset) => {
+        if (asset.is_variation && asset.parent_asset_id) {
+          if (!parentMap.has(asset.parent_asset_id)) {
+            parentMap.set(asset.parent_asset_id, []);
+          }
+          parentMap.get(asset.parent_asset_id)!.push(asset);
+        } else {
+          standaloneAssets.push(asset);
+        }
+      });
+
+      // Sort standalone assets (parents and non-variations) by status, then upload_order
+      standaloneAssets.sort((a, b) => {
+        const aStatus = statusPriority[a.status] || 99;
+        const bStatus = statusPriority[b.status] || 99;
+        if (aStatus !== bStatus) {
+          return aStatus - bStatus;
+        }
+        return (a.upload_order || 0) - (b.upload_order || 0);
+      });
+
+      // Build final sorted array: parent followed by its variations
+      const sorted: any[] = [];
+      standaloneAssets.forEach((asset) => {
+        sorted.push(asset);
+        // Add variations for this parent if they exist
+        const variations = parentMap.get(asset.id);
+        if (variations) {
+          // Sort variations by variation_index
+          variations.sort(
+            (a, b) => (a.variation_index || 0) - (b.variation_index || 0)
+          );
+          sorted.push(...variations);
+        }
+      });
+
+      // Add any orphaned variations (parent not in filtered results)
+      parentMap.forEach((variations, parentId) => {
+        if (!standaloneAssets.some((a) => a.id === parentId)) {
+          // Parent not in filtered results, add variations at the end
+          variations.sort(
+            (a, b) => (a.variation_index || 0) - (b.variation_index || 0)
+          );
+          sorted.push(...variations);
+        }
+      });
+
+      filteredAssets = sorted;
     }
 
     setFiltered(filteredAssets);
@@ -2378,6 +2475,10 @@ export default function AdminReviewPage() {
               batch: asset.batch,
               status: asset.status,
               priority: asset.priority,
+              is_variation: asset.is_variation,
+              parent_asset_id: asset.parent_asset_id,
+              variation_index: asset.variation_index,
+              upload_order: asset.upload_order || 0,
               reference: asset.reference,
               created_at: asset.created_at,
               modeler_id: assignment.user_id, // Track which modeler this asset belongs to
@@ -2419,10 +2520,59 @@ export default function AdminReviewPage() {
           not_started: 6, // Not started yet
         };
 
-        filteredAssets.sort(
-          (a, b) =>
-            (statusPriority[a.status] || 99) - (statusPriority[b.status] || 99)
-        );
+        // Group variations with their parents
+        // First, create a map of parent IDs to their variations
+        const parentMap = new Map<string, any[]>();
+        const standaloneAssets: any[] = [];
+
+        filteredAssets.forEach((asset) => {
+          if (asset.is_variation && asset.parent_asset_id) {
+            if (!parentMap.has(asset.parent_asset_id)) {
+              parentMap.set(asset.parent_asset_id, []);
+            }
+            parentMap.get(asset.parent_asset_id)!.push(asset);
+          } else {
+            standaloneAssets.push(asset);
+          }
+        });
+
+        // Sort standalone assets (parents and non-variations) by status, then upload_order
+        standaloneAssets.sort((a, b) => {
+          const aStatus = statusPriority[a.status] || 99;
+          const bStatus = statusPriority[b.status] || 99;
+          if (aStatus !== bStatus) {
+            return aStatus - bStatus;
+          }
+          return (a.upload_order || 0) - (b.upload_order || 0);
+        });
+
+        // Build final sorted array: parent followed by its variations
+        const sorted: any[] = [];
+        standaloneAssets.forEach((asset) => {
+          sorted.push(asset);
+          // Add variations for this parent if they exist
+          const variations = parentMap.get(asset.id);
+          if (variations) {
+            // Sort variations by variation_index
+            variations.sort(
+              (a, b) => (a.variation_index || 0) - (b.variation_index || 0)
+            );
+            sorted.push(...variations);
+          }
+        });
+
+        // Add any orphaned variations (parent not in filtered results)
+        parentMap.forEach((variations, parentId) => {
+          if (!standaloneAssets.some((a) => a.id === parentId)) {
+            // Parent not in filtered results, add variations at the end
+            variations.sort(
+              (a, b) => (a.variation_index || 0) - (b.variation_index || 0)
+            );
+            sorted.push(...variations);
+          }
+        });
+
+        filteredAssets = sorted;
 
         setFiltered(filteredAssets);
         setLoading(false);
