@@ -1034,6 +1034,20 @@ export default function ProductionDashboard() {
       // Get modelers from profiles
       const modelerDetails = profiles.filter((p) => p.role === "modeler");
 
+      // Fetch auth display names for modelers
+      const authUsersMap = new Map<string, any>();
+      try {
+        const response = await fetch("/api/users?role=modeler");
+        if (response.ok) {
+          const { users: usersWithAuth } = await response.json();
+          usersWithAuth?.forEach((user: any) => {
+            authUsersMap.set(user.id, user);
+          });
+        }
+      } catch (error) {
+        console.error("Error fetching auth users:", error);
+      }
+
       // Filter modeler assignments
       const modelerAssignments = assetAssignments.filter(
         (a) => a.role === "modeler"
@@ -1044,10 +1058,23 @@ export default function ProductionDashboard() {
 
       // Initialize all modelers
       modelerDetails.forEach((modeler) => {
+        const authUser = authUsersMap.get(modeler.id);
+        // Get display name from auth metadata (name, or first_name + last_name)
+        const authDisplayName =
+          authUser?.name && authUser.name.trim() !== "" ? authUser.name : null;
+        // Fallback chain: auth display name -> profile title -> email (as last resort)
+        const displayName =
+          authDisplayName ||
+          (modeler.title && modeler.title.trim() !== ""
+            ? modeler.title
+            : null) ||
+          modeler.email ||
+          "Unknown User";
+
         modelerMap.set(modeler.id, {
           id: modeler.id,
           email: modeler.email,
-          name: modeler.title,
+          name: displayName,
           totalAssigned: 0,
           completedModels: 0,
           inProgressModels: 0,
@@ -4532,8 +4559,7 @@ export default function ProductionDashboard() {
                               <div className="flex items-center gap-3 mb-3">
                                 <div>
                                   <CardTitle className="text-xl font-bold text-foreground mb-1">
-                                    {modeler.name ||
-                                      modeler.email.split("@")[0]}
+                                    {modeler.name || modeler.email}
                                   </CardTitle>
                                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
                                     <Package className="h-3 w-3" />

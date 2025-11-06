@@ -407,6 +407,26 @@ export default function ReviewPage() {
     async function fetchAsset() {
       if (!assetId || !token) return;
 
+      // Check if PIN is validated (stored in sessionStorage)
+      const pinValidationKey = `pin_validated_${token}`;
+      const isPinValidated =
+        sessionStorage.getItem(pinValidationKey) === "true";
+
+      // Check if invitation requires PIN
+      try {
+        const invitationResponse = await fetch(`/api/shared-reviews/${token}`);
+        if (invitationResponse.ok) {
+          const invitationData = await invitationResponse.json();
+          if (invitationData.invitation?.requiresPin && !isPinValidated) {
+            // Redirect to main shared-review page to enter PIN
+            router.push(`/shared-review/${token}`);
+            return;
+          }
+        }
+      } catch (err) {
+        console.error("Error checking PIN requirement:", err);
+      }
+
       setLoading(true);
 
       try {

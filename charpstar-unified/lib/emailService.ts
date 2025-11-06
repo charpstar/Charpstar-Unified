@@ -105,6 +105,7 @@ export interface AssetShareInvitationData {
   shareLink: string;
   expiresAt: string;
   message?: string;
+  pinCode?: string;
 }
 
 class EmailService {

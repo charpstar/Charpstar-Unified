@@ -30,14 +30,14 @@ export function SharedLayout({ children }: { children: React.ReactNode }) {
   // Conditional class for the main content wrapper
   // Applies different styling based on whether sidebar is present
   const mainContentClass = [
-    "flex-1 flex flex-col w-full overflow-hidden p-4 bg-muted",
+    "flex-1 flex flex-col w-full overflow-y-auto overflow-x-hidden max-h-screen min-h-screen p-4 bg-muted  ",
     !hideSidebar && "bg-muted",
   ]
     .filter(Boolean)
     .join(" ");
 
   return (
-    <div className="flex min-h-screen w-full bg-background rounded-lg overflow-hidden">
+    <div className="flex h-full w-full bg-background overflow-y-auto overflow-x-hidden  max-h-screen">
       {/* Sidebar - only shown on pages that need navigation */}
       {!hideSidebar && <AppSidebar variant="inset" />}
 
@@ -48,7 +48,7 @@ export function SharedLayout({ children }: { children: React.ReactNode }) {
 
         {/* Main content container with scrolling and proper sizing */}
         <div
-          className="flex-1 overflow-y-auto overflow-x-hidden rounded-b-lg bg-background scrollbar-gutter-stable"
+          className="flex-1 overflow-y-auto overflow-x-hidden rounded-b-lg bg-background  "
           style={{ scrollBehavior: "smooth" }}
         >
           {children}

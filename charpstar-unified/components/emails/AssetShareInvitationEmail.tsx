@@ -8,6 +8,7 @@ interface AssetShareInvitationEmailProps {
   shareLink: string;
   expiresAt: string;
   message?: string;
+  pinCode?: string;
 }
 
 export default function AssetShareInvitationEmail({
@@ -18,6 +19,7 @@ export default function AssetShareInvitationEmail({
   shareLink,
   expiresAt,
   message,
+  pinCode,
 }: AssetShareInvitationEmailProps) {
   const formatExpirationDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -94,7 +96,8 @@ export default function AssetShareInvitationEmail({
           </p>
           <p style={{ margin: "0 0 15px 0" }}>
             <strong>{sharerName}</strong> ({sharerEmail}) has requested your
-            review of {assetCount} {assetCount === 1 ? "3D model" : "3D models"}.
+            review of {assetCount} {assetCount === 1 ? "3D model" : "3D models"}
+            .
           </p>
 
           {/* Asset Count Badge */}
@@ -169,6 +172,55 @@ export default function AssetShareInvitationEmail({
             Click the button below to review the models. You can approve them or
             request revisions as needed.
           </p>
+
+          {/* PIN Code Section */}
+          {pinCode && (
+            <div
+              style={{
+                backgroundColor: "#1a1a1a",
+                padding: "20px",
+                borderRadius: "6px",
+                margin: "20px 0",
+                border: "2px solid #4f46e5",
+                textAlign: "center",
+              }}
+            >
+              <div
+                style={{
+                  color: "#cccccc",
+                  fontSize: "13px",
+                  marginBottom: "12px",
+                  fontWeight: "bold",
+                }}
+              >
+                Access PIN Code:
+              </div>
+              <div
+                style={{
+                  display: "inline-block",
+                  backgroundColor: "#4f46e5",
+                  color: "#ffffff",
+                  padding: "12px 24px",
+                  borderRadius: "6px",
+                  fontSize: "24px",
+                  fontWeight: "bold",
+                  letterSpacing: "4px",
+                  fontFamily: "monospace",
+                }}
+              >
+                {pinCode}
+              </div>
+              <p
+                style={{
+                  margin: "12px 0 0 0",
+                  color: "#999999",
+                  fontSize: "12px",
+                }}
+              >
+                You will need this PIN code to access the review page.
+              </p>
+            </div>
+          )}
         </div>
 
         {/* CTA Button */}
@@ -290,4 +342,3 @@ export default function AssetShareInvitationEmail({
     </div>
   );
 }
-

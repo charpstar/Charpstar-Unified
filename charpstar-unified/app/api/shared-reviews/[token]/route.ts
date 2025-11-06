@@ -56,6 +56,9 @@ export async function GET(
       );
     }
 
+    // Check if PIN code is required (don't return error, just indicate it's needed)
+    const requiresPin = !!invitation.pin_code;
+
     // Update viewed_at on first access if not already set
     const isFirstView = !invitation.viewed_at;
     if (isFirstView) {
@@ -204,6 +207,7 @@ export async function GET(
         message: invitation.message || null,
         expiresAt: invitation.expires_at,
         status: invitation.status,
+        requiresPin: requiresPin,
         createdBy: {
           name: creatorName,
           email: creatorEmail,

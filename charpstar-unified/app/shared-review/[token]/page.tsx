@@ -44,6 +44,7 @@ interface Invitation {
   message?: string | null;
   expiresAt: string;
   status: string;
+  requiresPin?: boolean;
   createdBy: {
     name: string;
     email: string;
@@ -75,6 +76,10 @@ export default function SharedReviewPage() {
   const [comments, setComments] = useState<Map<string, string>>(new Map());
   const [error, setError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
+  const [pinCode, setPinCode] = useState("");
+  const [pinValidated, setPinValidated] = useState(false);
+  const [validatingPin, setValidatingPin] = useState(false);
+  const [pinError, setPinError] = useState<string | null>(null);
 
   // Fetch shared assets
   useEffect(() => {
@@ -110,6 +115,18 @@ export default function SharedReviewPage() {
         setInvitation(data.invitation);
         setAssets(data.assets || []);
 
+        // Check if PIN is already validated (stored in sessionStorage)
+        const pinValidationKey = `pin_validated_${token}`;
+        const isPinValidated =
+          sessionStorage.getItem(pinValidationKey) === "true";
+
+        // If PIN is required and not validated, don't show assets yet
+        if (data.invitation.requiresPin && !isPinValidated) {
+          setPinValidated(false);
+        } else {
+          setPinValidated(true);
+        }
+
         // Map existing responses
         if (data.responses && Array.isArray(data.responses)) {
           const responseMap = new Map<string, AssetResponse>();
@@ -129,6 +146,50 @@ export default function SharedReviewPage() {
 
     fetchSharedAssets();
   }, [token, params]);
+
+  const handlePinValidation = async () => {
+    if (!pinCode || pinCode.length !== 4) {
+      setPinError("Please enter a 4-digit PIN code");
+      return;
+    }
+
+    setValidatingPin(true);
+    setPinError(null);
+
+    try {
+      const response = await fetch(
+        `/api/shared-reviews/${token}/validate-pin`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ pinCode }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Invalid PIN code");
+      }
+
+      if (data.valid) {
+        // Store validation in sessionStorage
+        const pinValidationKey = `pin_validated_${token}`;
+        sessionStorage.setItem(pinValidationKey, "true");
+        setPinValidated(true);
+        setPinError(null);
+      } else {
+        throw new Error("Invalid PIN code");
+      }
+    } catch (err: any) {
+      console.error("Error validating PIN:", err);
+      setPinError(err.message || "Invalid PIN code. Please try again.");
+    } finally {
+      setValidatingPin(false);
+    }
+  };
 
   const handleSubmit = async () => {
     if (responses.size === 0) {
@@ -184,6 +245,76 @@ export default function SharedReviewPage() {
               <p className="text-sm text-muted-foreground">
                 Please wait while we load your review request...
               </p>
+            </div>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
+  // Show PIN validation form if PIN is required and not validated
+  if (invitation?.requiresPin && !pinValidated) {
+    return (
+      <div className=" bg-gradient-to-br from-background via-background to-muted/20 flex items-center justify-center min-h-screen p-4">
+        <Card className="max-w-md w-full p-8 border-border/50 shadow-lg">
+          <div className="text-center space-y-6">
+            <div className="flex justify-center">
+              <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
+                <AlertCircle className="h-8 w-8 text-primary" />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <h2 className="text-xl font-semibold text-foreground">
+                PIN Code Required
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                Please enter the 4-digit PIN code that was sent to you via email
+                to access this review.
+              </p>
+            </div>
+
+            <div className="space-y-4 pt-4">
+              <div>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  maxLength={4}
+                  value={pinCode}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/\D/g, "");
+                    setPinCode(value);
+                    setPinError(null);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      handlePinValidation();
+                    }
+                  }}
+                  className="w-full px-4 py-3 text-center text-2xl font-mono tracking-widest border-2 border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                  placeholder="0000"
+                  autoFocus
+                />
+                {pinError && (
+                  <p className="text-sm text-destructive mt-2">{pinError}</p>
+                )}
+              </div>
+
+              <Button
+                onClick={handlePinValidation}
+                disabled={validatingPin || pinCode.length !== 4}
+                size="lg"
+                className="w-full"
+              >
+                {validatingPin ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Validating...
+                  </>
+                ) : (
+                  "Verify PIN Code"
+                )}
+              </Button>
             </div>
           </div>
         </Card>

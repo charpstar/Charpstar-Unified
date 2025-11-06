@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useUser } from "@/contexts/useUser";
 import { supabase } from "@/lib/supabaseClient";
@@ -26,13 +26,15 @@ import {
   MessageSquare,
   CheckCircle,
   Loader2,
-  Download,
   Maximize2,
   AlertTriangle,
   StickyNote,
   Edit,
   Trash2,
   Star,
+  History,
+  RotateCcw,
+  Clock,
 } from "lucide-react";
 import Script from "next/script";
 import { toast } from "sonner";
@@ -53,6 +55,7 @@ interface Asset {
   batch: number;
   priority: number;
   revision_count: number;
+  updated_at?: string;
 }
 
 interface Annotation {
@@ -236,9 +239,8 @@ export default function ModelerReviewPage() {
   const [uploading, setUploading] = useState(false);
   const [showUploadDialog, setShowUploadDialog] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [glbHistory, setGlbHistory] = useState<any[]>([]);
-  const [latestGlbTime, setLatestGlbTime] = useState<number | null>(null);
-  const [latestExternalFeedbackTime, setLatestExternalFeedbackTime] = useState<
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [_latestExternalFeedbackTime, setLatestExternalFeedbackTime] = useState<
     number | null
   >(null);
 
@@ -248,15 +250,17 @@ export default function ModelerReviewPage() {
   const [uploadedGlbUrl, setUploadedGlbUrl] = useState<string | null>(null);
   const [showStaleGlbDialog, setShowStaleGlbDialog] = useState(false);
   const [isDialogDragOver, setIsDialogDragOver] = useState(false);
-  const [showHistoryDialog, setShowHistoryDialog] = useState(false);
-  const [restoringVersion, setRestoringVersion] = useState(false);
-  const skipNextAssetFetchRef = useRef(false);
   const currentGlbUrlRef = useRef<string | null>(null);
 
   // Update the ref whenever asset.glb_link changes
   useEffect(() => {
     if (asset?.glb_link) {
-      currentGlbUrlRef.current = asset.glb_link;
+      // Only update if it's a new URL (not just a cache-busting parameter change)
+      const baseUrl = asset.glb_link.split("?")[0];
+      const currentBaseUrl = currentGlbUrlRef.current?.split("?")[0];
+      if (baseUrl !== currentBaseUrl) {
+        currentGlbUrlRef.current = asset.glb_link;
+      }
     }
   }, [asset?.glb_link]);
 
@@ -274,6 +278,15 @@ export default function ModelerReviewPage() {
   const [dependencies, setDependencies] = useState<any[]>([]);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [checkingUpdates, setCheckingUpdates] = useState(false);
+  // Version history state
+  const [showVersionHistoryDialog, setShowVersionHistoryDialog] =
+    useState(false);
+  const [versionHistory, setVersionHistory] = useState<any[]>([]);
+  const [loadingVersions, setLoadingVersions] = useState(false);
+  const [restoringVersion, setRestoringVersion] = useState<string | null>(null);
+  const [deletingVersion, setDeletingVersion] = useState<string | null>(null);
+  const [deletingAllVersions, setDeletingAllVersions] = useState(false);
+  const [modelViewerKey, setModelViewerKey] = useState(0);
 
   const modelViewerRef = useRef<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -395,18 +408,21 @@ export default function ModelerReviewPage() {
       visible: true,
     }));
 
+  // Track when we last updated the GLB link to prevent stale fetches
+  const lastGlbUpdateRef = useRef<{ url: string; timestamp: number } | null>(
+    null
+  );
+
   // Fetch asset data
   useEffect(() => {
     async function fetchAsset() {
       if (!assetId) return;
 
-      // Skip fetch if we just restored a version
-      if (skipNextAssetFetchRef.current) {
-        return;
-      }
       setLoading(true);
 
       try {
+        console.log("📥 Fetching asset from database:", assetId);
+        // Use a fresh query to ensure we get the latest data
         const { data, error } = await supabase
           .from("onboarding_assets")
           .select("*")
@@ -414,9 +430,67 @@ export default function ModelerReviewPage() {
           .single();
 
         if (error) {
-          console.error("Error fetching asset:", error);
+          console.error("❌ Error fetching asset:", error);
           toast.error("Failed to load asset");
           return;
+        }
+
+        console.log("✅ Asset fetched from database:", {
+          assetId: data.id,
+          glb_link: data.glb_link,
+          updated_at: data.updated_at,
+          lastUpdate: lastGlbUpdateRef.current,
+        });
+
+        // Ensure updated_at is set if it's missing (for older records)
+        if (!data.updated_at) {
+          data.updated_at = new Date().toISOString();
+        }
+
+        // If we recently updated the GLB link, verify the fetched data matches
+        if (lastGlbUpdateRef.current) {
+          const timeSinceUpdate =
+            Date.now() - lastGlbUpdateRef.current.timestamp;
+          // If update was less than 10 seconds ago and GLB link doesn't match, log warning
+          if (
+            timeSinceUpdate < 10000 &&
+            data.glb_link !== lastGlbUpdateRef.current.url
+          ) {
+            console.error("⚠️ GLB link mismatch after recent update:", {
+              expected: lastGlbUpdateRef.current.url,
+              actual: data.glb_link,
+              timeSinceUpdate: `${timeSinceUpdate}ms`,
+            });
+            // Force update if we're within 5 seconds of the update
+            if (timeSinceUpdate < 5000) {
+              console.log("🔄 Forcing GLB link update due to mismatch...");
+              const { error: forceError } = await supabase
+                .from("onboarding_assets")
+                .update({
+                  glb_link: lastGlbUpdateRef.current.url,
+                  updated_at: new Date().toISOString(),
+                })
+                .eq("id", assetId);
+
+              if (!forceError) {
+                // Refetch after forced update
+                const { data: forcedData } = await supabase
+                  .from("onboarding_assets")
+                  .select("*")
+                  .eq("id", assetId)
+                  .single();
+                if (forcedData) {
+                  setAsset(forcedData);
+                  setLoading(false);
+                  return;
+                }
+              }
+            }
+          }
+          // Clear the ref after 10 seconds
+          if (timeSinceUpdate > 10000) {
+            lastGlbUpdateRef.current = null;
+          }
         }
 
         setAsset(data);
@@ -596,41 +670,6 @@ export default function ModelerReviewPage() {
     fetchNotes();
   }, [assetId, user]);
 
-  // Fetch GLB upload history from BunnyCDN backups
-  const fetchGlbHistory = async () => {
-    if (!assetId) return;
-
-    try {
-      const response = await fetch(`/api/assets/${assetId}/backups`);
-
-      if (!response.ok) {
-        console.error(
-          "Error fetching GLB history:",
-          response.status,
-          response.statusText
-        );
-        setGlbHistory([]);
-        return;
-      }
-
-      const data = await response.json();
-
-      if (data.success && data.versions) {
-        setGlbHistory(data.versions);
-
-        // Find the current version timestamp
-        const currentVersion = data.versions.find((v: any) => v.isCurrent);
-        const newest = currentVersion?.timestamp || null;
-        setLatestGlbTime(newest);
-      } else {
-        setGlbHistory([]);
-      }
-    } catch (error) {
-      console.error("Error fetching GLB history:", error);
-      setGlbHistory([]);
-    }
-  };
-
   // Fetch reference images for QA
   const fetchReferenceImages = async () => {
     if (!assetId) return [];
@@ -691,105 +730,6 @@ export default function ModelerReviewPage() {
     }
   };
 
-  // Clean up problematic GLB history entries
-  // This function removes entries with the old naming convention (Current_ prefix)
-  // and removes duplicate entries with the same URL, keeping only the most recent
-  const cleanupGlbHistory = async () => {
-    if (!assetId) return;
-
-    try {
-      // First, remove entries with the old naming convention (Current_ prefix)
-      const { error: cleanupError } = await supabase
-        .from("glb_upload_history")
-        .delete()
-        .eq("asset_id", assetId)
-        .like("file_name", "Current_%");
-
-      if (cleanupError) {
-        console.error("Error cleaning up GLB history:", cleanupError);
-      }
-
-      // Only remove exact duplicates (same URL AND uploaded within 1 second of each other)
-      const { data: currentHistory, error: fetchError } = await supabase
-        .from("glb_upload_history")
-        .select("*")
-        .eq("asset_id", assetId)
-        .order("uploaded_at", { ascending: false });
-
-      if (fetchError) {
-        console.error(
-          "Error fetching current history for cleanup:",
-          fetchError
-        );
-        return;
-      }
-
-      if (currentHistory && currentHistory.length > 1) {
-        // Group by glb_url and find true duplicates
-        const urlGroups = currentHistory.reduce(
-          (groups, item) => {
-            if (!groups[item.glb_url]) {
-              groups[item.glb_url] = [];
-            }
-            groups[item.glb_url].push(item);
-            return groups;
-          },
-          {} as Record<string, typeof currentHistory>
-        );
-
-        // For each group, only remove entries that are true duplicates (within 1 second)
-        for (const [, items] of Object.entries(urlGroups)) {
-          if ((items as any[]).length > 1) {
-            // Sort by uploaded_at descending
-            const sortedItems = (items as any[]).sort(
-              (a, b) =>
-                new Date(b.uploaded_at).getTime() -
-                new Date(a.uploaded_at).getTime()
-            );
-
-            const itemsToDelete = [];
-            for (let i = 1; i < sortedItems.length; i++) {
-              const timeDiff = Math.abs(
-                new Date(sortedItems[0].uploaded_at).getTime() -
-                  new Date(sortedItems[i].uploaded_at).getTime()
-              );
-              // Only consider it a duplicate if uploaded within 1 second
-              if (timeDiff < 1000) {
-                itemsToDelete.push(sortedItems[i]);
-              }
-            }
-
-            if (itemsToDelete.length > 0) {
-              const idsToDelete = itemsToDelete.map((item: any) => item.id);
-              const { error: deleteError } = await supabase
-                .from("glb_upload_history")
-                .delete()
-                .in("id", idsToDelete);
-
-              if (deleteError) {
-                console.error(
-                  "Error deleting duplicate GLB history entries:",
-                  deleteError
-                );
-              }
-            }
-          }
-        }
-      }
-
-      // Refresh the history after cleanup
-      await fetchGlbHistory();
-    } catch (error) {
-      console.error("Error during GLB history cleanup:", error);
-    }
-  };
-
-  useEffect(() => {
-    fetchGlbHistory();
-    // Don't run cleanup automatically - it interferes with new uploads
-    // User can manually clean up using the "Clean Up History" button
-  }, [assetId]);
-
   // Fetch attached components (dependencies)
   const fetchDependencies = async () => {
     if (!assetId) return;
@@ -806,6 +746,32 @@ export default function ModelerReviewPage() {
   useEffect(() => {
     fetchDependencies();
   }, [assetId]);
+
+  // Fetch version history function - memoized with useCallback
+  const fetchVersionHistory = useCallback(async () => {
+    if (!assetId) return;
+    setLoadingVersions(true);
+    try {
+      const response = await fetch(`/api/assets/${assetId}/backups`);
+      const data = await response.json();
+      if (response.ok) {
+        setVersionHistory(data.versions || []);
+      } else {
+        console.error("Error fetching version history:", data.error);
+        toast.error("Failed to load version history");
+      }
+    } catch (error) {
+      console.error("Error fetching version history:", error);
+      toast.error("Failed to load version history");
+    } finally {
+      setLoadingVersions(false);
+    }
+  }, [assetId]);
+
+  // Fetch version history on mount to show count in button
+  useEffect(() => {
+    fetchVersionHistory();
+  }, [fetchVersionHistory]);
 
   // Sync qaApproved state with asset status on load
   useEffect(() => {
@@ -984,141 +950,57 @@ export default function ModelerReviewPage() {
     }
   };
 
-  // Restore GLB version
-  const restoreGlbVersion = async (historyItem: any) => {
-    if (!asset) {
-      return;
-    }
-    setRestoringVersion(true);
-
-    try {
-      // Update asset with restored GLB
-      const { error: updateError } = await supabase
-        .from("onboarding_assets")
-        .update({
-          glb_link: historyItem.glbUrl,
-          status: "in_production",
-        })
-        .eq("id", asset.id);
-
-      if (updateError) {
-        console.error("❌ Database update error:", updateError);
-        throw updateError;
-      }
-
-      // Set flag to prevent refetch from overwriting our changes FIRST
-      skipNextAssetFetchRef.current = true;
-
-      // Update local asset state with the restored GLB
-
-      setAsset((prev) => {
-        return prev
-          ? {
-              ...prev,
-              glb_link: historyItem.glbUrl,
-              status: "in_production",
-            }
-          : null;
-      });
-
-      // Add a small delay to see if something happens after setAsset
-      await new Promise((resolve) => setTimeout(resolve, 100));
-
-      // Mark all current annotations as old
-      const { error: markOldError } = await supabase
-        .from("asset_annotations")
-        .update({ is_old_annotation: true })
-        .eq("asset_id", asset.id);
-
-      if (markOldError) {
-        console.error(
-          "Error marking current annotations as old:",
-          markOldError
-        );
-      }
-
-      // Find and restore annotations that were created before this GLB upload
-      const glbUploadTime = new Date(historyItem.lastModified);
-
-      // Get all annotations for this asset that were created before the GLB upload
-      const { data: oldAnnotations, error: fetchOldError } = await supabase
-        .from("asset_annotations")
-        .select("*")
-        .eq("asset_id", asset.id)
-        .lt("created_at", glbUploadTime.toISOString())
-        .order("created_at", { ascending: true });
-
-      if (fetchOldError) {
-        console.error("Error fetching old annotations:", fetchOldError);
-      } else if (oldAnnotations && oldAnnotations.length > 0) {
-        // Restore the old annotations by setting them as not old
-        const { error: restoreError } = await supabase
-          .from("asset_annotations")
-          .update({ is_old_annotation: false })
-          .in(
-            "id",
-            oldAnnotations.map((a) => a.id)
-          );
-
-        if (restoreError) {
-          console.error("Error restoring old annotations:", restoreError);
-        }
-      }
-
-      // Update local state
-      setAsset((prev) =>
-        prev
-          ? {
-              ...prev,
-              glb_link: historyItem.glb_url,
-              status: "in_production",
-            }
-          : null
-      );
-
-      // Refresh annotations to reflect the changes
-      try {
-        const response = await fetch(`/api/annotations?asset_id=${asset.id}`);
-        const data = await response.json();
-        if (response.ok) {
-          setAnnotations(data.annotations || []);
-        }
-      } catch (error) {
-        console.error("Error refreshing annotations:", error);
-      }
-
-      toast.success("GLB version and annotations restored successfully!");
-      setShowHistoryDialog(false);
-
-      // Force model viewer refresh
-      setTimeout(() => {
-        const mv = modelViewerRef.current as any;
-        if (mv) {
-          mv.src = historyItem.glbUrl;
-        }
-      }, 100);
-
-      // Add a longer delay to ensure the skip flag stays active
-      setTimeout(() => {
-        skipNextAssetFetchRef.current = false;
-      }, 2000);
-    } catch (error) {
-      console.error("❌ Error restoring GLB version:", error);
-      console.trace("❌ Restore error call stack:");
-      toast.error("Failed to restore GLB version");
-    } finally {
-      setRestoringVersion(false);
-    }
-  };
-
   // Handle GLB upload
   const handleUpload = async () => {
     if (!selectedFile || !asset) return;
 
+    // Prevent multiple simultaneous uploads
+    if (uploading) {
+      console.warn("⚠️ Upload already in progress, ignoring duplicate call");
+      return;
+    }
+
     setUploading(true);
 
     try {
-      // Don't save current GLB to history - we'll only save the new one after successful upload
+      // Backup current GLB before uploading new one (if it exists)
+      // Fetch fresh asset data to ensure we have the correct glb_link
+      // Remove any cache-busting parameters from the URL before backing up
+      if (asset.glb_link) {
+        try {
+          // Remove cache-busting parameters to get the clean URL
+          const cleanGlbUrl = asset.glb_link.split("?")[0];
+          console.log("📦 Creating backup of current GLB:", cleanGlbUrl);
+          const backupResponse = await fetch("/api/assets/backup-glb", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              assetId: asset.id,
+              glbUrl: cleanGlbUrl, // Use clean URL without cache-busting params
+            }),
+          });
+
+          if (backupResponse.ok) {
+            const backupData = await backupResponse.json();
+            if (backupData.skipped) {
+              console.log(
+                "ℹ️ Backup skipped (already exists):",
+                backupData.backupUrl
+              );
+            } else {
+              console.log("✅ Backup created:", backupData.backupUrl);
+            }
+          } else {
+            console.warn("⚠️ Backup creation failed, continuing with upload");
+            // Don't fail the upload if backup fails
+          }
+        } catch (backupError) {
+          console.error("Error creating backup:", backupError);
+          // Don't fail the upload if backup fails
+        }
+      }
 
       // Check if file is too large for regular upload
       const isLargeFile = selectedFile.size > 4.5 * 1024 * 1024; // 4.5MB
@@ -1177,16 +1059,222 @@ export default function ModelerReviewPage() {
       }
 
       // Update the asset with the new GLB link and change status to delivered_by_artist
-      const { error: updateError } = await supabase
+      // Remove any cache-busting parameters from the URL before saving to database
+      const cleanUrl = uploadResult.url.split("?")[0];
+
+      console.log("🔄 Updating asset GLB link:", {
+        assetId: asset.id,
+        oldGlbLink: asset.glb_link,
+        newGlbLink: cleanUrl,
+      });
+
+      // Update the asset in the database
+      // Use .select() to get the updated row back and verify immediately
+      const { data: updateResult, error: updateError } = await supabase
         .from("onboarding_assets")
         .update({
-          glb_link: uploadResult.url,
+          glb_link: cleanUrl,
           status: "in_production",
+          updated_at: new Date().toISOString(),
         })
-        .eq("id", asset.id);
+        .eq("id", asset.id)
+        .select()
+        .single();
 
       if (updateError) {
+        console.error("❌ Error updating asset GLB link:", updateError);
         throw updateError;
+      }
+
+      if (!updateResult || updateResult.glb_link !== cleanUrl) {
+        console.error("❌ Update result mismatch:", {
+          expected: cleanUrl,
+          actual: updateResult?.glb_link,
+        });
+        throw new Error("Database update returned incorrect value");
+      }
+
+      console.log("✅ Asset update completed, verifying...", {
+        returnedGlbLink: updateResult.glb_link,
+        expectedGlbLink: cleanUrl,
+      });
+
+      // Track this update to prevent stale fetches
+      lastGlbUpdateRef.current = {
+        url: cleanUrl,
+        timestamp: Date.now(),
+      };
+
+      // Wait a brief moment to ensure the update is committed to all replicas
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      // Refetch the asset from database to verify the update persisted
+      let refreshedAsset;
+      let refreshError;
+
+      // Try up to 5 times with increasing delays to account for replication lag
+      // Use longer delays to ensure the update propagates to all replicas
+      for (let attempt = 1; attempt <= 5; attempt++) {
+        const delay = attempt * 300; // 300ms, 600ms, 900ms, 1200ms, 1500ms
+        await new Promise((resolve) => setTimeout(resolve, delay));
+
+        // Use a fresh query each time to avoid caching
+        const result = await supabase
+          .from("onboarding_assets")
+          .select("*")
+          .eq("id", asset.id)
+          .single();
+
+        refreshError = result.error;
+        refreshedAsset = result.data;
+
+        if (
+          !refreshError &&
+          refreshedAsset &&
+          refreshedAsset.glb_link === cleanUrl
+        ) {
+          console.log(
+            `✅ GLB link verified in database (attempt ${attempt}):`,
+            refreshedAsset.glb_link
+          );
+          break;
+        } else if (attempt < 5) {
+          console.log(
+            `⏳ Verification attempt ${attempt} failed, retrying...`,
+            {
+              expected: cleanUrl,
+              actual: refreshedAsset?.glb_link,
+              attempt,
+            }
+          );
+        } else {
+          // Last attempt failed - log detailed error
+          console.error("❌ All verification attempts failed:", {
+            expected: cleanUrl,
+            actual: refreshedAsset?.glb_link,
+            assetId: asset.id,
+            error: refreshError,
+          });
+        }
+      }
+
+      if (refreshError) {
+        console.error("❌ Error refetching asset after update:", refreshError);
+        throw new Error(`Failed to verify update: ${refreshError.message}`);
+      }
+
+      if (!refreshedAsset) {
+        console.error("❌ No asset returned after refetch");
+        throw new Error("Failed to refetch asset after update");
+      }
+
+      // Verify the GLB link was saved correctly
+      if (refreshedAsset.glb_link !== cleanUrl) {
+        console.error("❌ GLB link mismatch after all retries:", {
+          expected: cleanUrl,
+          actual: refreshedAsset.glb_link,
+          assetId: asset.id,
+        });
+        // Try one more update to force it
+        const { error: retryError } = await supabase
+          .from("onboarding_assets")
+          .update({
+            glb_link: cleanUrl,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", asset.id);
+
+        if (retryError) {
+          console.error("❌ Retry update also failed:", retryError);
+          throw new Error(`GLB link update failed: ${retryError.message}`);
+        }
+
+        // Wait and refetch again after retry
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        const { data: retryRefreshedAsset } = await supabase
+          .from("onboarding_assets")
+          .select("*")
+          .eq("id", asset.id)
+          .single();
+
+        if (retryRefreshedAsset && retryRefreshedAsset.glb_link !== cleanUrl) {
+          throw new Error(
+            `GLB link still incorrect after retry. Expected: ${cleanUrl}, Got: ${retryRefreshedAsset.glb_link}`
+          );
+        }
+
+        setAsset(retryRefreshedAsset || refreshedAsset);
+      } else {
+        // Update local state with the fresh data from database
+        setAsset(refreshedAsset);
+
+        // Final verification: Force one more fetch after a longer delay to ensure persistence
+        console.log("🔄 Performing final persistence check...");
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+
+        const { data: finalCheck, error: finalCheckError } = await supabase
+          .from("onboarding_assets")
+          .select("*")
+          .eq("id", asset.id)
+          .single();
+
+        if (!finalCheckError && finalCheck) {
+          if (finalCheck.glb_link !== cleanUrl) {
+            console.error("❌ Final check failed - GLB link reverted:", {
+              expected: cleanUrl,
+              actual: finalCheck.glb_link,
+            });
+            // Force update one more time
+            await supabase
+              .from("onboarding_assets")
+              .update({
+                glb_link: cleanUrl,
+                updated_at: new Date().toISOString(),
+              })
+              .eq("id", asset.id);
+
+            // Refetch one more time
+            const { data: forcedRefresh } = await supabase
+              .from("onboarding_assets")
+              .select("*")
+              .eq("id", asset.id)
+              .single();
+
+            if (forcedRefresh) {
+              setAsset(forcedRefresh);
+            }
+          } else {
+            console.log(
+              "✅ Final persistence check passed:",
+              finalCheck.glb_link
+            );
+            setAsset(finalCheck);
+          }
+        }
+      }
+
+      // Record new GLB upload to history
+      try {
+        const { error: historyError } = await supabase
+          .from("glb_upload_history")
+          .insert({
+            asset_id: asset.id,
+            glb_url: cleanUrl,
+            file_name: selectedFile.name,
+            file_size: selectedFile.size,
+            uploaded_by: user?.id,
+            uploaded_at: new Date().toISOString(),
+          });
+
+        if (historyError) {
+          console.error("Error recording GLB upload to history:", historyError);
+          // Don't fail the upload if history recording fails
+        } else {
+          console.log("✅ GLB upload recorded to history");
+        }
+      } catch (historyErr) {
+        console.error("Error recording GLB upload to history:", historyErr);
+        // Don't fail the upload if history recording fails
       }
 
       // Mark all existing annotations as "old" when uploading new GLB
@@ -1210,35 +1298,10 @@ export default function ModelerReviewPage() {
         }
       }
 
-      // Record GLB upload history
-      const { error: newHistoryError } = await supabase
-        .from("glb_upload_history")
-        .insert({
-          asset_id: asset.id,
-          glb_url: uploadResult.url,
-          file_name: selectedFile.name,
-          file_size: selectedFile.size,
-          uploaded_by: user?.id,
-          uploaded_at: new Date().toISOString(),
-        });
-
-      if (newHistoryError) {
-        console.error("Error recording GLB history:", newHistoryError);
-      }
-
-      // Update local state
-      setAsset((prev) =>
-        prev
-          ? {
-              ...prev,
-              glb_link: uploadResult.url,
-              status: "delivered_by_artist",
-            }
-          : null
-      );
-
-      // Refresh GLB history to show the new version
-      await fetchGlbHistory();
+      // Note: Asset state is updated by the refetch above
+      // Update the ref with cache-busting URL for immediate viewer refresh
+      const cacheBustUrl = `${cleanUrl}?t=${Date.now()}`;
+      currentGlbUrlRef.current = cacheBustUrl;
 
       // Fetch reference images and trigger QA
       const refImages = await fetchReferenceImages();
@@ -1259,14 +1322,22 @@ export default function ModelerReviewPage() {
         }
       }
 
+      // Refresh version history to update count in button
+      await fetchVersionHistory();
+
       setShowUploadDialog(false);
       setSelectedFile(null);
 
-      // Force model viewer refresh with the new URL
+      // Force model viewer refresh with cache-busting URL
       setTimeout(() => {
         const mv = modelViewerRef.current as any;
         if (mv) {
-          mv.src = uploadResult.url;
+          // Use cache-busting URL to force reload even if URL path is the same
+          mv.src = cacheBustUrl;
+          // Also trigger a reload if the model viewer has a reload method
+          if (mv.reload) {
+            mv.reload();
+          }
         }
       }, 100);
     } catch (error) {
@@ -1325,16 +1396,7 @@ export default function ModelerReviewPage() {
         return;
       }
       // Block if GLB is older than latest external feedback
-      try {
-        if (
-          latestExternalFeedbackTime &&
-          latestGlbTime &&
-          latestGlbTime < latestExternalFeedbackTime
-        ) {
-          setShowStaleGlbDialog(true);
-          return;
-        }
-      } catch {}
+      // Note: This check is disabled since we removed version history tracking
       if (!asset.glb_link) {
         setShowDeliverBlockDialog(true);
         return;
@@ -1904,6 +1966,241 @@ export default function ModelerReviewPage() {
     }
   };
 
+  // Restore a version
+  const restoreVersion = async (backupUrl: string) => {
+    if (!assetId || !backupUrl) return;
+    setRestoringVersion(backupUrl);
+    try {
+      const response = await fetch("/api/assets/restore-glb", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          assetId,
+          backupUrl,
+        }),
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        toast.success("GLB file restored successfully!");
+        // Update the asset with the restored GLB link
+        const { error: updateError } = await supabase
+          .from("onboarding_assets")
+          .update({
+            glb_link: data.glbUrl,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", assetId);
+
+        if (updateError) {
+          console.error("Error updating asset after restore:", updateError);
+          toast.error("Failed to update asset");
+        } else {
+          // Wait a moment for the database update to propagate
+          await new Promise((resolve) => setTimeout(resolve, 500));
+
+          // Refetch asset to get updated GLB link with fresh data
+          const { data: refreshedAsset } = await supabase
+            .from("onboarding_assets")
+            .select("*")
+            .eq("id", assetId)
+            .single();
+
+          if (refreshedAsset) {
+            setAsset(refreshedAsset);
+            // Update the ref to force viewer refresh
+            const uniqueTimestamp = Date.now();
+            const cacheBustUrl = `${refreshedAsset.glb_link}?restore=${uniqueTimestamp}`;
+            currentGlbUrlRef.current = cacheBustUrl;
+          }
+
+          // Refresh version history
+          await fetchVersionHistory();
+
+          // Force model viewer refresh with aggressive cache-busting
+          // Wait a bit longer to ensure CDN has the new file and database is updated
+          setTimeout(() => {
+            const mv = modelViewerRef.current as any;
+            if (mv && data.glbUrl) {
+              // Use the restore timestamp from the API response, or generate a new one
+              const uniqueTimestamp = data.restoreTimestamp || Date.now();
+              const cacheBustUrl = `${data.glbUrl}?restore=${uniqueTimestamp}&t=${uniqueTimestamp}&v=${uniqueTimestamp}`;
+
+              console.log(
+                "🔄 Forcing model viewer refresh with cache-bust URL:",
+                cacheBustUrl
+              );
+
+              // Clear any existing cache by removing and re-adding the src
+              mv.src = "";
+
+              // Small delay to ensure src is cleared
+              setTimeout(() => {
+                // Update the ref with the cache-busting URL
+                currentGlbUrlRef.current = cacheBustUrl;
+
+                // Force a complete re-render by updating the key
+                setModelViewerKey((prev) => prev + 1);
+
+                // Set the new src
+                mv.src = cacheBustUrl;
+
+                // Force reload if available
+                if (mv.reload) {
+                  mv.reload();
+                }
+
+                // Also try to trigger a model load event
+                try {
+                  mv.dispatchEvent(new Event("load"));
+                } catch {
+                  // Ignore if event dispatch fails
+                }
+
+                // Verify the model loaded correctly after a delay
+                setTimeout(() => {
+                  if (mv.src !== cacheBustUrl) {
+                    console.warn(
+                      "⚠️ Model viewer src was changed, forcing update"
+                    );
+                    mv.src = cacheBustUrl;
+                  }
+                }, 500);
+              }, 200);
+            }
+          }, 1500);
+        }
+      } else {
+        console.error("Error restoring version:", data.error);
+        toast.error(data.error || "Failed to restore version");
+      }
+    } catch (error) {
+      console.error("Error restoring version:", error);
+      toast.error("Failed to restore version");
+    } finally {
+      setRestoringVersion(null);
+    }
+  };
+
+  // Delete a version
+  const deleteVersion = async (backupUrl: string) => {
+    if (!assetId || !backupUrl) return;
+
+    // Prevent deletion of current version
+    if (backupUrl === asset?.glb_link) {
+      toast.error("Cannot delete the current GLB file");
+      return;
+    }
+
+    // Confirm deletion
+    if (
+      !confirm(
+        "Are you sure you want to delete this version? This action cannot be undone."
+      )
+    ) {
+      return;
+    }
+
+    setDeletingVersion(backupUrl);
+    try {
+      const response = await fetch("/api/assets/delete-backup", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          assetId,
+          backupUrl,
+        }),
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        toast.success("Version deleted successfully!");
+        // Refresh version history
+        await fetchVersionHistory();
+      } else {
+        console.error("Error deleting version:", data.error);
+        toast.error(data.error || "Failed to delete version");
+      }
+    } catch (error) {
+      console.error("Error deleting version:", error);
+      toast.error("Failed to delete version");
+    } finally {
+      setDeletingVersion(null);
+    }
+  };
+
+  // Delete all backup versions
+  const deleteAllVersions = async () => {
+    if (!assetId) return;
+
+    // Filter out current version
+    const backupVersions = versionHistory.filter(
+      (v: any) => !v.isCurrent && v.glbUrl !== asset?.glb_link
+    );
+
+    if (backupVersions.length === 0) {
+      toast.info("No backup versions to delete");
+      return;
+    }
+
+    // Confirm deletion
+    if (
+      !confirm(
+        `Are you sure you want to delete all ${backupVersions.length} backup version(s)? This action cannot be undone.`
+      )
+    ) {
+      return;
+    }
+
+    setDeletingAllVersions(true);
+    try {
+      // Delete all versions in parallel
+      const deletePromises = backupVersions.map(async (version: any) => {
+        try {
+          const response = await fetch("/api/assets/delete-backup", {
+            method: "DELETE",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              assetId,
+              backupUrl: version.glbUrl,
+            }),
+          });
+          const data = await response.json();
+          return { success: response.ok, error: data.error };
+        } catch (error) {
+          return { success: false, error: (error as Error).message };
+        }
+      });
+
+      const results = await Promise.all(deletePromises);
+      const successful = results.filter((r) => r.success).length;
+      const failed = results.filter((r) => !r.success).length;
+
+      if (successful > 0) {
+        toast.success(
+          `Successfully deleted ${successful} version(s)${
+            failed > 0 ? ` (${failed} failed)` : ""
+          }`
+        );
+        // Refresh version history
+        await fetchVersionHistory();
+      } else {
+        toast.error("Failed to delete versions");
+      }
+    } catch (error) {
+      console.error("Error deleting all versions:", error);
+      toast.error("Failed to delete versions");
+    } finally {
+      setDeletingAllVersions(false);
+    }
+  };
+
   // Toggle comment priority (only QAs can do this)
   const toggleCommentPriority = async (
     commentId: string,
@@ -2178,16 +2475,45 @@ export default function ModelerReviewPage() {
             />
 
             {(() => {
-              const currentUrl = asset?.glb_link || currentGlbUrlRef.current;
+              // Always prioritize database value, fallback to ref only during upload/restore
+              const dbGlbLink = asset?.glb_link;
+              const refGlbLink = currentGlbUrlRef.current;
+              // Use ref if it exists and has cache-busting params (upload or restore)
+              const currentUrl =
+                dbGlbLink ||
+                (refGlbLink &&
+                (refGlbLink.includes("?t=") || refGlbLink.includes("restore="))
+                  ? refGlbLink
+                  : null);
 
               return currentUrl && currentUrl !== "undefined";
             })() ? (
               <div className="w-full h-full  overflow-hidden">
                 {/* @ts-expect-error -- model-viewer is a custom element */}
                 <model-viewer
-                  key={asset?.glb_link || currentGlbUrlRef.current} // Force re-render when GLB changes
+                  key={`${asset?.glb_link || ""}-${asset?.updated_at || ""}-${modelViewerKey}-${currentGlbUrlRef.current?.includes("restore=") ? currentGlbUrlRef.current.split("restore=")[1]?.split("&")[0] : currentGlbUrlRef.current?.includes("?t=") ? currentGlbUrlRef.current.split("?t=")[1] : ""}`} // Force re-render when GLB changes
                   ref={modelViewerRef}
-                  src={asset?.glb_link || currentGlbUrlRef.current}
+                  src={(() => {
+                    // Always use database value as primary source
+                    const dbUrl = asset?.glb_link;
+                    if (!dbUrl) {
+                      // Fallback to ref only if no database value exists
+                      return currentGlbUrlRef.current || "";
+                    }
+                    // If ref has a restore parameter, use it (for restored files)
+                    if (
+                      currentGlbUrlRef.current &&
+                      currentGlbUrlRef.current.includes("restore=")
+                    ) {
+                      return currentGlbUrlRef.current;
+                    }
+                    // Add cache-busting parameter based on updated_at timestamp to ensure fresh load
+                    const separator = dbUrl.includes("?") ? "&" : "?";
+                    const cacheBuster = asset?.updated_at
+                      ? `t=${new Date(asset.updated_at).getTime()}`
+                      : `t=${Date.now()}`;
+                    return `${dbUrl}${separator}${cacheBuster}`;
+                  })()}
                   alt={asset.product_name}
                   camera-controls={true}
                   interaction-prompt="none"
@@ -2300,18 +2626,24 @@ export default function ModelerReviewPage() {
               </div>
             )}
 
-            {/* GLB Upload Button */}
+            {/* GLB Upload Button and Version History */}
             <div className="absolute top-4 right-4 z-20 flex gap-2">
-              {glbHistory.length > 0 && (
-                <Button
-                  variant="outline"
-                  onClick={() => setShowHistoryDialog(true)}
-                  className="cursor-pointer"
-                >
-                  <Download className="h-4 w-4 mr-2" />
-                  History ({glbHistory.length})
-                </Button>
-              )}
+              <Button
+                onClick={() => {
+                  setShowVersionHistoryDialog(true);
+                  fetchVersionHistory();
+                }}
+                variant="outline"
+                className="cursor-pointer"
+              >
+                <History className="h-4 w-4 mr-2" />
+                Version History
+                {versionHistory.length > 0 && (
+                  <span className="ml-2 px-1.5 py-0.5 text-xs font-semibold bg-primary/10 text-primary rounded-full">
+                    {versionHistory.length}
+                  </span>
+                )}
+              </Button>
               <Button
                 onClick={() => setShowUploadDialog(true)}
                 className="cursor-pointer"
@@ -3494,224 +3826,6 @@ export default function ModelerReviewPage() {
           }}
         />
 
-        {/* GLB Version History Dialog */}
-        <Dialog open={showHistoryDialog} onOpenChange={setShowHistoryDialog}>
-          <DialogContent className="max-w-4xl w-full max-h-[50vh] flex flex-col">
-            <DialogHeader className="flex-shrink-0">
-              <DialogTitle className="flex items-center gap-2">
-                <Download className="h-5 w-5 text-primary" />
-                GLB Version History
-              </DialogTitle>
-              <DialogDescription>
-                View and restore previous versions of this asset&apos;s GLB
-                file.
-                {glbHistory.length > 0 && (
-                  <span className="block mt-1 text-sm font-medium text-foreground">
-                    {glbHistory.length} version
-                    {glbHistory.length !== 1 ? "s" : ""} available
-                  </span>
-                )}
-                {/* Note: Only the current asset's GLB link is considered "current" */}
-                <span className="block mt-1 text-xs text-muted-foreground">
-                  Current version is determined by the asset&apos;s active GLB
-                  link
-                </span>
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className="flex-1 overflow-y-auto pr-2 -mr-2">
-              {glbHistory.length > 0 ? (
-                <div className="space-y-3">
-                  {(() => {
-                    // Sort history: current version first, then others by upload date (newest first)
-                    // The current version is the one whose glb_url matches the asset's current glb_link
-                    const sortedHistory = [...glbHistory].sort((a, b) => {
-                      const aIsCurrent = asset?.glb_link === a.glb_url;
-                      const bIsCurrent = asset?.glb_link === b.glb_url;
-
-                      if (aIsCurrent && !bIsCurrent) return -1; // a is current, b is not
-                      if (!aIsCurrent && bIsCurrent) return 1; // b is current, a is not
-
-                      // Both are either current or not current, sort by upload date (newest first)
-                      return (
-                        new Date(b.uploaded_at).getTime() -
-                        new Date(a.uploaded_at).getTime()
-                      );
-                    });
-
-                    // Debug logging to help identify any issues
-
-                    return sortedHistory.map((historyItem, index) => {
-                      const isCurrentVersion = historyItem.isCurrent;
-                      // Version numbers: current version is always 1, others increment from there
-                      const versionNumber = isCurrentVersion ? 1 : index + 1;
-                      const uploadDate = new Date(historyItem.lastModified);
-                      const isToday =
-                        uploadDate.toDateString() === new Date().toDateString();
-                      const isYesterday =
-                        uploadDate.toDateString() ===
-                        new Date(Date.now() - 86400000).toDateString();
-
-                      let dateDisplay = "";
-                      if (isToday) {
-                        dateDisplay = `Today at ${uploadDate.toLocaleTimeString(
-                          [],
-                          {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          }
-                        )}`;
-                      } else if (isYesterday) {
-                        dateDisplay = `Yesterday at ${uploadDate.toLocaleTimeString(
-                          [],
-                          {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          }
-                        )}`;
-                      } else {
-                        dateDisplay = uploadDate.toLocaleDateString([], {
-                          year: "numeric",
-                          month: "short",
-                          day: "numeric",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        });
-                      }
-
-                      return (
-                        <div
-                          key={historyItem.id}
-                          className={`p-4 rounded-lg border transition-all duration-200 hover:shadow-sm ${
-                            isCurrentVersion
-                              ? "border-primary bg-primary/5 shadow-sm"
-                              : "border-border hover:border-primary/30 hover:bg-primary/2"
-                          }`}
-                        >
-                          <div className="flex items-start justify-between gap-4">
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-start gap-3 mb-3">
-                                <div
-                                  className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
-                                    isCurrentVersion
-                                      ? "bg-primary text-primary-foreground"
-                                      : "bg-muted text-muted-foreground"
-                                  }`}
-                                >
-                                  <Download className="h-4 w-4" />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-2 mb-1">
-                                    <h4 className="font-semibold text-foreground truncate">
-                                      {historyItem.file_name}
-                                    </h4>
-                                    {isCurrentVersion && (
-                                      <Badge
-                                        variant="default"
-                                        className="text-xs px-2 py-1"
-                                      >
-                                        Current Version
-                                      </Badge>
-                                    )}
-                                    {historyItem.is_backup && (
-                                      <Badge
-                                        variant="outline"
-                                        className="text-xs px-2 py-1 bg-orange-50 text-orange-700 border-orange-200"
-                                      >
-                                        Backup
-                                      </Badge>
-                                    )}
-                                  </div>
-                                  <p className="text-sm text-muted-foreground mb-2">
-                                    {dateDisplay}
-                                  </p>
-                                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                                    {historyItem.fileSize > 0 && (
-                                      <span className="flex items-center gap-1">
-                                        <span className="w-2 h-2 bg-muted-foreground rounded-full"></span>
-                                        {(
-                                          historyItem.fileSize /
-                                          1024 /
-                                          1024
-                                        ).toFixed(2)}{" "}
-                                        MB
-                                      </span>
-                                    )}
-                                    <span className="flex items-center gap-1">
-                                      <span className="w-2 h-2 bg-muted-foreground rounded-full"></span>
-                                      Version {versionNumber}
-                                    </span>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-
-                            <div className="flex items-center gap-2 flex-shrink-0">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() =>
-                                  window.open(historyItem.glbUrl, "_blank")
-                                }
-                                className="text-xs h-8 px-3"
-                                title="Download this version"
-                              >
-                                <Download className="h-3 w-3 mr-1" />
-                                Download
-                              </Button>
-                              {!isCurrentVersion && (
-                                <Button
-                                  variant="default"
-                                  size="sm"
-                                  onClick={() => restoreGlbVersion(historyItem)}
-                                  disabled={restoringVersion}
-                                  className="text-xs h-8 px-3"
-                                  title="Restore this version as current"
-                                >
-                                  {restoringVersion ? (
-                                    <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                                  ) : (
-                                    <Download className="h-3 w-3 mr-1" />
-                                  )}
-                                  Restore
-                                </Button>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    });
-                  })()}
-                </div>
-              ) : (
-                <div className="text-center py-8">
-                  <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Download className="h-8 w-8 text-muted-foreground" />
-                  </div>
-                  <h3 className="text-lg font-semibold text-foreground mb-2">
-                    No version history yet
-                  </h3>
-                  <p className="text-sm text-muted-foreground max-w-sm mx-auto">
-                    Upload your first GLB file to start building version
-                    history. Each upload will create a new version that you can
-                    restore later.
-                  </p>
-                </div>
-              )}
-            </div>
-            <div className="flex justify-end mt-4">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={cleanupGlbHistory}
-                className="text-xs"
-              >
-                Clean Up History
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
-
         {/* Block Delivery Dialog */}
         <Dialog
           open={showDeliverBlockDialog}
@@ -3798,6 +3912,170 @@ export default function ModelerReviewPage() {
               >
                 Upload New GLB
               </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Version History Dialog */}
+        <Dialog
+          open={showVersionHistoryDialog}
+          onOpenChange={setShowVersionHistoryDialog}
+        >
+          <DialogContent className="max-w-3xl max-h-[80vh] flex flex-col">
+            <DialogHeader className="flex-shrink-0">
+              <div className="flex items-center justify-between">
+                <div>
+                  <DialogTitle className="flex items-center gap-2">
+                    <History className="h-5 w-5 text-primary" />
+                    GLB Version History
+                  </DialogTitle>
+                  <DialogDescription>
+                    View and restore previous versions of the GLB file. The
+                    current version will be backed up before restoration.
+                  </DialogDescription>
+                </div>
+                {versionHistory.length > 0 &&
+                  versionHistory.some((v: any) => !v.isCurrent) && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={deleteAllVersions}
+                      disabled={
+                        deletingAllVersions ||
+                        restoringVersion !== null ||
+                        deletingVersion !== null
+                      }
+                      className="cursor-pointer text-red-600 hover:text-red-700 hover:bg-red-50"
+                    >
+                      {deletingAllVersions ? (
+                        <>
+                          <Loader2 className="h-3 w-3 animate-spin mr-2" />
+                          Deleting...
+                        </>
+                      ) : (
+                        <>
+                          <Trash2 className="h-3 w-3 mr-2" />
+                          Delete All
+                        </>
+                      )}
+                    </Button>
+                  )}
+              </div>
+            </DialogHeader>
+
+            <div className="flex-1 overflow-y-auto space-y-4 mt-4">
+              {loadingVersions ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  <span className="ml-2 text-sm text-muted-foreground">
+                    Loading version history...
+                  </span>
+                </div>
+              ) : versionHistory.length === 0 ? (
+                <div className="text-center py-8">
+                  <History className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold text-foreground mb-2">
+                    No version history
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    Upload a GLB file to start version history
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {versionHistory.map((version: any) => (
+                    <Card
+                      key={version.id || version.glbUrl}
+                      className={`p-4 transition-all duration-200 ${
+                        version.isCurrent
+                          ? "ring-2 ring-primary/20 bg-primary/5"
+                          : "hover:shadow-md"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-2">
+                            {version.isCurrent && (
+                              <Badge
+                                variant="default"
+                                className="bg-green-100 text-green-800 border-green-200"
+                              >
+                                Current
+                              </Badge>
+                            )}
+                            {version.isBackup && (
+                              <Badge variant="outline">Backup</Badge>
+                            )}
+                            <span className="text-sm font-medium text-foreground truncate">
+                              {version.fileName}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                            <div className="flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              {new Date(version.lastModified).toLocaleString()}
+                            </div>
+                            {version.fileSize > 0 && (
+                              <div>
+                                {(version.fileSize / 1024 / 1024).toFixed(2)} MB
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 ml-4">
+                          {!version.isCurrent && (
+                            <>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => restoreVersion(version.glbUrl)}
+                                disabled={
+                                  restoringVersion === version.glbUrl ||
+                                  deletingVersion === version.glbUrl
+                                }
+                                className="cursor-pointer"
+                              >
+                                {restoringVersion === version.glbUrl ? (
+                                  <>
+                                    <Loader2 className="h-3 w-3 animate-spin mr-2" />
+                                    Restoring...
+                                  </>
+                                ) : (
+                                  <>
+                                    <RotateCcw className="h-3 w-3 mr-2" />
+                                    Restore
+                                  </>
+                                )}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => deleteVersion(version.glbUrl)}
+                                disabled={
+                                  restoringVersion === version.glbUrl ||
+                                  deletingVersion === version.glbUrl
+                                }
+                                className="cursor-pointer text-red-600 hover:text-red-700 hover:bg-red-50"
+                              >
+                                {deletingVersion === version.glbUrl ? (
+                                  <>
+                                    <Loader2 className="h-3 w-3 animate-spin mr-2" />
+                                    Deleting...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Trash2 className="h-3 w-3 " />
+                                  </>
+                                )}
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              )}
             </div>
           </DialogContent>
         </Dialog>

@@ -137,6 +137,9 @@ export async function POST(request: NextRequest) {
     // Generate unique token
     const token = crypto.randomUUID();
 
+    // Generate 4-digit PIN code
+    const pinCode = Math.floor(1000 + Math.random() * 9000).toString();
+
     // Calculate expiration date
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + expiresInDays);
@@ -157,6 +160,7 @@ export async function POST(request: NextRequest) {
         status: "pending",
         expires_at: expiresAt.toISOString(),
         message: message || null,
+        pin_code: pinCode,
       })
       .select()
       .single();
@@ -206,6 +210,7 @@ export async function POST(request: NextRequest) {
             shareLink: shareLink,
             expiresAt: expiresAt.toISOString(),
             message: message || null,
+            pinCode: pinCode,
           }),
         });
 

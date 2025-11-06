@@ -132,7 +132,7 @@ function SidebarProvider({
             } as React.CSSProperties
           }
           className={cn(
-            "group/sidebar-wrapper has-data-[variant=inset]:bg-sidebar flex min-h-vh w-full bg-background overflow-hidden justify-center items-center",
+            "group/sidebar-wrapper has-data-[variant=inset]:bg-sidebar flex min-h-vh w-full bg-background overflow-auto justify-center items-center",
             className
           )}
           {...props}
