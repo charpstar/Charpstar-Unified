@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState, useRef } from "react";
+import React, { useEffect, useMemo, useState, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { useUser } from "@/contexts/useUser";
 import { supabase } from "@/lib/supabaseClient";
@@ -12,6 +12,10 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
 } from "@/components/ui/display";
 import {
   Select,
@@ -105,12 +109,78 @@ const PRICING_OPTIONS: PricingOption[] = [
 
 // Derive human-readable task type from pricing option id
 
+// Pricing suggestion based on product grouping and variations
+interface PricingSuggestion {
+  pricingOptionId: string | null;
+  price: number;
+  reason: string;
+}
+
+const getPricingSuggestion = (asset: {
+  product_group_id: string | null;
+  group_order: number | null;
+  variation_size: string | null;
+  variation_color: string | null;
+  variation_orientation: string | null;
+}): PricingSuggestion => {
+  // If not in a group, suggest PBR 3D Model Creation
+  if (!asset.product_group_id) {
+    return {
+      pricingOptionId: "pbr_3d_model_after_second",
+      price: 30,
+      reason: "Standalone product - PBR 3D Model Creation",
+    };
+  }
+
+  // First item in group should be PBR 3D Model Creation
+  if (asset.group_order === 1 || asset.group_order === null) {
+    return {
+      pricingOptionId: "pbr_3d_model_after_second",
+      price: 30,
+      reason: "First item in group - PBR 3D Model Creation",
+    };
+  }
+
+  // Subsequent items in group - check variation type (PRIORITY ORDER: Orientation → Color → Size → Other)
+  // Orientation variations are FREE (0 euros) and take highest priority
+  if (asset.variation_orientation) {
+    return {
+      pricingOptionId: null, // No additional pricing for left/right variations
+      price: 0,
+      reason: `Orientation variation (${asset.variation_orientation}) - Free (0 euros)`,
+    };
+  }
+
+  if (asset.variation_color) {
+    return {
+      pricingOptionId: "additional_colors_after_second",
+      price: 1.5,
+      reason: `Color variation (${asset.variation_color}) - Additional Colors`,
+    };
+  }
+
+  if (asset.variation_size) {
+    return {
+      pricingOptionId: "additional_sizes_after_second",
+      price: 5,
+      reason: `Size variation (${asset.variation_size}) - Additional Sizes`,
+    };
+  }
+
+  // Default for other variations in group
+  return {
+    pricingOptionId: "additional_textures_after_second",
+    price: 7,
+    reason: "Variation in group - Additional Textures/Materials",
+  };
+};
+
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useLoading } from "@/contexts/LoadingContext";
 import { getPriorityLabel } from "@/lib/constants";
 import { format } from "date-fns";
-import { Calendar as CalendarIcon, User, Package } from "lucide-react";
+import { Calendar as CalendarIcon, User, Package, Lightbulb, Sparkles } from "lucide-react";
 
 // Helper function to get priority CSS class
 const getPriorityClass = (priority: number): string => {
@@ -618,7 +688,7 @@ export default function AdminReviewPage() {
       let query = supabase
         .from("onboarding_assets")
         .select(
-          "id, product_name, article_id, delivery_date, status, batch, priority, revision_count, product_link, glb_link, reference, client, upload_order, pricing_option_id, price, pricing_comment, transferred"
+          "id, product_name, article_id, delivery_date, status, batch, priority, revision_count, product_link, glb_link, reference, client, upload_order, pricing_option_id, price, pricing_comment, transferred, product_group_id, group_order, variation_size, variation_color, variation_orientation, suggested_pricing_option_id, suggested_price"
         )
         .eq("transferred", false) // Exclude transferred assets
         .order("upload_order", { ascending: true });
@@ -669,8 +739,41 @@ export default function AdminReviewPage() {
         return;
       }
 
-      setAssets(data || []);
-      setFiltered(data || []);
+      // Sort assets: grouped products first (sorted by group_id and group_order), then ungrouped
+      const sortedAssets = (data || []).sort((a: any, b: any) => {
+        const aHasGroup = a.product_group_id != null && a.product_group_id !== '';
+        const bHasGroup = b.product_group_id != null && b.product_group_id !== '';
+        
+        // If both have groups, sort by group_id then group_order
+        if (aHasGroup && bHasGroup) {
+          const groupCompare = String(a.product_group_id || '').localeCompare(String(b.product_group_id || ''));
+          if (groupCompare !== 0) return groupCompare;
+          return (a.group_order || 0) - (b.group_order || 0);
+        }
+        // If only a has a group, it comes first
+        if (aHasGroup && !bHasGroup) return -1;
+        // If only b has a group, it comes first  
+        if (!aHasGroup && bHasGroup) return 1;
+        
+        // Both ungrouped - maintain upload_order
+        return (a.upload_order || 0) - (b.upload_order || 0);
+      });
+
+      // Debug: Log grouping data
+      const groupedCount = sortedAssets.filter((a: any) => a.product_group_id).length;
+      console.log(`[GROUPING DEBUG] Total assets: ${sortedAssets.length}, Grouped: ${groupedCount}`);
+      if (groupedCount > 0) {
+        const sampleGrouped = sortedAssets.find((a: any) => a.product_group_id);
+        console.log(`[GROUPING DEBUG] Sample grouped asset:`, {
+          id: sampleGrouped?.id,
+          name: sampleGrouped?.product_name,
+          groupId: sampleGrouped?.product_group_id,
+          groupOrder: sampleGrouped?.group_order
+        });
+      }
+
+      setAssets(sortedAssets || []);
+      setFiltered(sortedAssets || []);
     } catch (error) {
       console.error("Error in fetchAssets:", error);
     } finally {
@@ -1604,7 +1707,10 @@ export default function AdminReviewPage() {
                 glb_link,
                 product_link,
                 pricing_option_id,
-                price
+                price,
+                product_group_id,
+                group_order,
+                upload_order
               )
             )
           `
@@ -1619,7 +1725,41 @@ export default function AdminReviewPage() {
           return;
         }
 
-        setAllocationLists(data || []);
+        // Sort assets within each allocation list by grouping
+        const sortedLists = (data || []).map((list: any) => {
+          if (!list.asset_assignments) return list;
+          
+          const sortedAssignments = [...list.asset_assignments].sort((a: any, b: any) => {
+            const assetA = a.onboarding_assets;
+            const assetB = b.onboarding_assets;
+            
+            if (!assetA || !assetB) return 0;
+            
+            const aHasGroup = assetA.product_group_id != null && assetA.product_group_id !== '';
+            const bHasGroup = assetB.product_group_id != null && assetB.product_group_id !== '';
+            
+            // If both have groups, sort by group_id then group_order
+            if (aHasGroup && bHasGroup) {
+              const groupCompare = String(assetA.product_group_id || '').localeCompare(String(assetB.product_group_id || ''));
+              if (groupCompare !== 0) return groupCompare;
+              return (assetA.group_order || 0) - (assetB.group_order || 0);
+            }
+            // If only a has a group, it comes first
+            if (aHasGroup && !bHasGroup) return -1;
+            // If only b has a group, it comes first  
+            if (!aHasGroup && bHasGroup) return 1;
+            
+            // Both ungrouped - maintain upload_order
+            return (assetA.upload_order || 0) - (assetB.upload_order || 0);
+          });
+          
+          return {
+            ...list,
+            asset_assignments: sortedAssignments
+          };
+        });
+
+        setAllocationLists(sortedLists);
       } catch (error) {
         console.error("Error fetching allocation lists:", error);
         toast.error("Failed to fetch allocation lists");
@@ -1675,7 +1815,7 @@ export default function AdminReviewPage() {
       let query = supabase
         .from("onboarding_assets")
         .select(
-          "id, product_name, article_id, delivery_date, status, batch, priority, revision_count, client, reference, glb_link, product_link, upload_order, pricing_option_id, price, pricing_comment, transferred, measurements"
+          "id, product_name, article_id, delivery_date, status, batch, priority, revision_count, client, reference, glb_link, product_link, upload_order, pricing_option_id, price, pricing_comment, transferred, measurements, product_group_id, group_order, variation_size, variation_color, variation_orientation, suggested_pricing_option_id, suggested_price"
         )
         .eq("transferred", false) // Exclude transferred assets
         .order("upload_order", { ascending: true });
@@ -1723,7 +1863,27 @@ export default function AdminReviewPage() {
 
       const { data, error } = await query;
       if (!error && data) {
-        setAssets(data);
+        // Sort assets: grouped products first (sorted by group_id and group_order), then ungrouped
+        const sortedAssets = (data || []).sort((a: any, b: any) => {
+          const aHasGroup = a.product_group_id != null && a.product_group_id !== '';
+          const bHasGroup = b.product_group_id != null && b.product_group_id !== '';
+          
+          // If both have groups, sort by group_id then group_order
+          if (aHasGroup && bHasGroup) {
+            const groupCompare = String(a.product_group_id || '').localeCompare(String(b.product_group_id || ''));
+            if (groupCompare !== 0) return groupCompare;
+            return (a.group_order || 0) - (b.group_order || 0);
+          }
+          // If only a has a group, it comes first
+          if (aHasGroup && !bHasGroup) return -1;
+          // If only b has a group, it comes first  
+          if (!aHasGroup && bHasGroup) return 1;
+          
+          // Both ungrouped - maintain upload_order
+          return (a.upload_order || 0) - (b.upload_order || 0);
+        });
+
+        setAssets(sortedAssets);
 
         // Initialize asset prices from loaded data
         const initialPrices: Record<
@@ -1732,7 +1892,7 @@ export default function AdminReviewPage() {
         > = {};
         const initialCustomPrices: Record<string, number> = {};
         const initialPricingComments: Record<string, string> = {};
-        data.forEach((asset) => {
+        sortedAssets.forEach((asset: any) => {
           if (asset.pricing_option_id && asset.price !== undefined) {
             initialPrices[asset.id] = {
               pricingOptionId: asset.pricing_option_id,
@@ -1754,16 +1914,16 @@ export default function AdminReviewPage() {
         setCustomPrices(initialCustomPrices);
         setPricingComments(initialPricingComments);
 
-        // Extract unique clients
+        // Extract unique clients (use sortedAssets)
         const uniqueClients = [
-          ...new Set(data.map((asset) => asset.client).filter(Boolean)),
+          ...new Set(sortedAssets.map((asset: any) => asset.client).filter(Boolean)),
         ];
         setClients(uniqueClients);
 
         // Fetch assigned assets
-        await fetchAssignedAssets(data.map((asset) => asset.id));
+        await fetchAssignedAssets(sortedAssets.map((asset: any) => asset.id));
         // Fetch pending assets
-        await fetchPendingAssets(data.map((asset) => asset.id));
+        await fetchPendingAssets(sortedAssets.map((asset: any) => asset.id));
       }
       setLoading(false);
       stopLoading();
@@ -1910,7 +2070,7 @@ export default function AdminReviewPage() {
       });
     }
 
-    // Default sort: status progression like QA Review
+    // Sort by grouping FIRST, then status priority
     const statusPriority: Record<string, number> = {
       in_production: 1,
       delivered_by_artist: 2,
@@ -1918,6 +2078,7 @@ export default function AdminReviewPage() {
       approved: 4,
       approved_by_client: 5,
     };
+    
     // If we have a recent manual order, try to preserve it
     if (lastManualOrderRef.current.length > 0 && !isManuallyReordering) {
       const manualOrderIds = lastManualOrderRef.current;
@@ -1943,17 +2104,59 @@ export default function AdminReviewPage() {
       } else {
         // Clear manual order if assets have changed significantly
         lastManualOrderRef.current = [];
-        filteredAssets.sort(
-          (a, b) =>
-            (statusPriority[a.status] || 99) - (statusPriority[b.status] || 99)
-        );
+        
+        // Sort by grouping first, then status
+        filteredAssets.sort((a, b) => {
+          const aHasGroup = a.product_group_id != null && a.product_group_id !== '';
+          const bHasGroup = b.product_group_id != null && b.product_group_id !== '';
+          
+          // If both have groups, sort by group_id then group_order
+          if (aHasGroup && bHasGroup) {
+            const groupCompare = String(a.product_group_id || '').localeCompare(String(b.product_group_id || ''));
+            if (groupCompare !== 0) return groupCompare;
+            return (a.group_order || 0) - (b.group_order || 0);
+          }
+          // If only a has a group, it comes first
+          if (aHasGroup && !bHasGroup) return -1;
+          // If only b has a group, it comes first  
+          if (!aHasGroup && bHasGroup) return 1;
+          
+          // Both ungrouped - sort by status priority, then upload_order
+          const statusCompare = (statusPriority[a.status] || 99) - (statusPriority[b.status] || 99);
+          if (statusCompare !== 0) return statusCompare;
+          return (a.upload_order || 0) - (b.upload_order || 0);
+        });
       }
     } else {
-      // Default sorting by status priority
-      filteredAssets.sort(
-        (a, b) =>
-          (statusPriority[a.status] || 99) - (statusPriority[b.status] || 99)
-      );
+      // Sort by grouping first, then status priority
+      filteredAssets.sort((a, b) => {
+        const aHasGroup = a.product_group_id != null && a.product_group_id !== '';
+        const bHasGroup = b.product_group_id != null && b.product_group_id !== '';
+        
+        // If both have groups, sort by group_id then group_order
+        if (aHasGroup && bHasGroup) {
+          const groupCompare = String(a.product_group_id || '').localeCompare(String(b.product_group_id || ''));
+          if (groupCompare !== 0) return groupCompare;
+          return (a.group_order || 0) - (b.group_order || 0);
+        }
+        // If only a has a group, it comes first
+        if (aHasGroup && !bHasGroup) return -1;
+        // If only b has a group, it comes first  
+        if (!aHasGroup && bHasGroup) return 1;
+        
+        // Both ungrouped - sort by status priority, then upload_order
+        const statusCompare = (statusPriority[a.status] || 99) - (statusPriority[b.status] || 99);
+        if (statusCompare !== 0) return statusCompare;
+        return (a.upload_order || 0) - (b.upload_order || 0);
+      });
+    }
+
+    // Debug: Log grouping in filtered results
+    const groupedInFiltered = filteredAssets.filter((a: any) => a.product_group_id).length;
+    console.log(`[GROUPING DEBUG] Filtered assets: ${filteredAssets.length}, Grouped: ${groupedInFiltered}`);
+    if (groupedInFiltered > 0) {
+      const firstGrouped = filteredAssets.find((a: any) => a.product_group_id);
+      console.log(`[GROUPING DEBUG] First grouped in filtered:`, firstGrouped?.product_group_id, firstGrouped?.product_name?.substring(0, 30));
     }
 
     setFiltered(filteredAssets);
@@ -3170,33 +3373,6 @@ export default function AdminReviewPage() {
     }
   };
 
-  // Check for orphaned allocation lists
-
-  if (
-    user &&
-    user.metadata?.role !== "admin" &&
-    user.metadata?.role !== "production"
-  ) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-center">
-          <p className="text-muted-foreground">
-            Access denied. Admin or Production privileges required.
-          </p>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => router.push("/dashboard")}
-            className="gap-2"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Back to Dashboard
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
   // Reference management functions are handled by reusable dialogs below
 
   // Helper function to parse references
@@ -3236,6 +3412,33 @@ export default function AdminReviewPage() {
     );
     return { glbFiles, imageReferences };
   };
+
+  // Check for orphaned allocation lists
+
+  if (
+    user &&
+    user.metadata?.role !== "admin" &&
+    user.metadata?.role !== "production"
+  ) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <p className="text-muted-foreground">
+            Access denied. Admin or Production privileges required.
+          </p>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => router.push("/dashboard")}
+            className="gap-2"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to Dashboard
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto p-2 sm:p-6 space-y-2 sm:space-y-6">
@@ -3990,79 +4193,107 @@ export default function AdminReviewPage() {
                               </TableRow>
                             </TableHeader>
                             <TableBody>
-                              {list.asset_assignments.map((assignment: any) => (
-                                <TableRow
-                                  key={assignment.asset_id}
-                                  className={getStatusRowClass(
-                                    assignment.onboarding_assets.status
-                                  )}
-                                >
-                                  <TableCell className="text-left">
-                                    <Checkbox
-                                      checked={selectedAssetsForReallocation.has(
-                                        assignment.onboarding_assets.id
-                                      )}
-                                      onCheckedChange={() =>
-                                        toggleAssetSelection(
-                                          assignment.onboarding_assets.id
-                                        )
-                                      }
-                                      onClick={(e) => e.stopPropagation()}
-                                    />
-                                  </TableCell>
-                                  <TableCell className="text-left">
-                                    <div
-                                      className="font-medium cursor-help text-sm sm:text-base"
-                                      title={
-                                        assignment.onboarding_assets
-                                          .product_name
-                                      }
+                              {list.asset_assignments.map((assignment: any, index: number) => {
+                                const asset = assignment.onboarding_assets;
+                                const isInGroup = asset.product_group_id !== null && asset.product_group_id !== undefined && asset.product_group_id !== '';
+                                const prevAssignment = index > 0 ? list.asset_assignments[index - 1] : null;
+                                const prevAsset = prevAssignment?.onboarding_assets;
+                                const isFirstInGroup = isInGroup && (
+                                  index === 0 || 
+                                  !prevAsset || 
+                                  prevAsset.product_group_id !== asset.product_group_id
+                                );
+                                const prevIsInGroup = prevAsset && prevAsset.product_group_id !== null && prevAsset.product_group_id !== undefined && prevAsset.product_group_id !== '';
+                                // Only show violet border if both current and previous are in groups AND they're the same group
+                                const isSameGroupAsPrev = isInGroup && prevIsInGroup && prevAsset && prevAsset.product_group_id === asset.product_group_id;
+
+                                return (
+                                  <React.Fragment key={assignment.asset_id}>
+                                    {isFirstInGroup && (
+                                      <TableRow className="bg-purple-50 dark:bg-purple-950/20">
+                                        <TableCell colSpan={9} className="px-3 py-2 border-b border-purple-200 dark:border-purple-800">
+                                          <div className="flex items-center gap-2">
+                                            <Badge variant="outline" className="bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300 border-purple-300 dark:border-purple-700">
+                                              Group
+                                            </Badge>
+                                            <span className="text-xs font-medium text-purple-700 dark:text-purple-300">
+                                              {(() => {
+                                                const groupSize = list.asset_assignments.filter((a: any) => 
+                                                  a.onboarding_assets?.product_group_id === asset.product_group_id
+                                                ).length;
+                                                return `${groupSize} product${groupSize > 1 ? 's' : ''} in this group`;
+                                              })()}
+                                            </span>
+                                          </div>
+                                        </TableCell>
+                                      </TableRow>
+                                    )}
+                                    <TableRow
+                                      className={`${getStatusRowClass(asset.status)} ${
+                                        isInGroup ? 'bg-purple-50/30 dark:bg-purple-950/10' : ''
+                                      } ${isSameGroupAsPrev ? 'border-l-4 border-l-purple-400 dark:border-l-purple-700' : ''}`}
                                     >
-                                      {assignment.onboarding_assets.product_name
-                                        .length > 20
-                                        ? assignment.onboarding_assets.product_name.substring(
-                                            0,
-                                            20
-                                          ) + "..."
-                                        : assignment.onboarding_assets
-                                            .product_name}
-                                    </div>
-                                  </TableCell>
+                                      <TableCell className="text-left">
+                                        <Checkbox
+                                          checked={selectedAssetsForReallocation.has(
+                                            asset.id
+                                          )}
+                                          onCheckedChange={() =>
+                                            toggleAssetSelection(
+                                              asset.id
+                                            )
+                                          }
+                                          onClick={(e) => e.stopPropagation()}
+                                        />
+                                      </TableCell>
+                                      <TableCell className="text-left">
+                                        <div className="flex items-center gap-2">
+                                          {isInGroup && (
+                                            <div className="w-1.5 h-1.5 rounded-full bg-purple-500 dark:bg-purple-400 shrink-0" />
+                                          )}
+                                          <div
+                                            className="font-medium cursor-help text-sm sm:text-base"
+                                            title={asset.product_name}
+                                          >
+                                            {asset.product_name.length > 20
+                                              ? asset.product_name.substring(0, 20) + "..."
+                                              : asset.product_name}
+                                          </div>
+                                        </div>
+                                      </TableCell>
                                   <TableCell className="text-left">
                                     <span className="font-mono text-xs sm:text-sm">
-                                      {assignment.onboarding_assets.article_id}
+                                      {asset.article_id}
                                     </span>
                                   </TableCell>
                                   <TableCell className="text-left">
                                     <Select
                                       value={(
-                                        assignment.onboarding_assets.priority ||
+                                        asset.priority ||
                                         2
                                       ).toString()}
                                       onValueChange={(value) =>
                                         handlePriorityUpdate(
-                                          assignment.onboarding_assets.id,
+                                          asset.id,
                                           parseInt(value)
                                         )
                                       }
                                       disabled={updatingPriorities.has(
-                                        assignment.onboarding_assets.id
+                                        asset.id
                                       )}
                                     >
                                       <SelectTrigger className="border-0 bg-transparent shadow-none p-0  hover:bg-transparent [&>svg]:hidden justify-center w-full h-fit">
                                         <span
                                           className={`px-1.5 sm:px-2 py-0.5 sm:py-1 rounded text-xs font-semibold ${getPriorityClass(
-                                            assignment.onboarding_assets
-                                              .priority || 2
+                                            asset.priority || 2
                                           )}`}
                                         >
                                           {getPriorityLabel(
-                                            assignment.onboarding_assets
-                                              .priority || 2
+                                            asset.priority || 2
                                           )}
                                         </span>
                                         {updatingPriorities.has(
-                                          assignment.onboarding_assets.id
+                                          asset.id
                                         ) ? (
                                           <div className="ml-1 sm:ml-2 animate-spin rounded-full h-2.5 w-2.5 sm:h-3 sm:w-3 border-b-2 border-blue-600" />
                                         ) : null}
@@ -4080,7 +4311,7 @@ export default function AdminReviewPage() {
                                     <div className="flex items-center gap-1">
                                       <span className="font-medium text-sm sm:text-base">
                                         €
-                                        {assignment.onboarding_assets.price?.toFixed(
+                                        {asset.price?.toFixed(
                                           2
                                         ) || "0.00"}
                                       </span>
@@ -4094,8 +4325,7 @@ export default function AdminReviewPage() {
                                             <StickyNote
                                               className={`h-3 w-3 ${
                                                 pricingComments[
-                                                  assignment.onboarding_assets
-                                                    .id
+                                                  asset.id
                                                 ]
                                                   ? "text-blue-600 hover:text-blue-700"
                                                   : "text-muted-foreground hover:text-foreground"
@@ -4112,30 +4342,25 @@ export default function AdminReviewPage() {
                                               placeholder="Add pricing note..."
                                               value={
                                                 pricingComments[
-                                                  assignment.onboarding_assets
-                                                    .id
+                                                  asset.id
                                                 ] || ""
                                               }
                                               onChange={(e) => {
                                                 setPricingComments((prev) => ({
                                                   ...prev,
-                                                  [assignment.onboarding_assets
-                                                    .id]: e.target.value,
+                                                  [asset.id]: e.target.value,
                                                 }));
                                               }}
                                               onBlur={() => {
                                                 if (
                                                   pricingComments[
-                                                    assignment.onboarding_assets
-                                                      .id
+                                                    asset.id
                                                   ] !== undefined
                                                 ) {
                                                   handlePricingCommentUpdate(
-                                                    assignment.onboarding_assets
-                                                      .id,
+                                                    asset.id,
                                                     pricingComments[
-                                                      assignment
-                                                        .onboarding_assets.id
+                                                      asset.id
                                                     ]
                                                   );
                                                 }
@@ -4151,21 +4376,17 @@ export default function AdminReviewPage() {
                                   <TableCell className="text-left">
                                     <Badge
                                       variant="outline"
-                                      className={`text-xs ${getStatusLabelClass(assignment.onboarding_assets.status)}`}
+                                      className={`text-xs ${getStatusLabelClass(asset.status)}`}
                                     >
-                                      {assignment.onboarding_assets.status ===
+                                      {asset.status ===
                                       "delivered_by_artist"
                                         ? "Delivered by Artist"
-                                        : assignment.onboarding_assets
-                                              .status === "in_production"
+                                        : asset.status === "in_production"
                                           ? "In Progress"
-                                          : assignment.onboarding_assets
-                                                .status === "revisions" ||
-                                              assignment.onboarding_assets
-                                                .status === "client_revision"
+                                          : asset.status === "revisions" ||
+                                              asset.status === "client_revision"
                                             ? "Sent for Revision"
-                                            : assignment.onboarding_assets
-                                                .status}
+                                            : asset.status}
                                     </Badge>
                                   </TableCell>
                                   <TableCell className="text-left">
@@ -4177,7 +4398,7 @@ export default function AdminReviewPage() {
                                         onClick={(e) => {
                                           e.stopPropagation();
                                           setSelectedAssetForView(
-                                            assignment.onboarding_assets
+                                            asset
                                           );
                                           setShowViewDialog(true);
                                         }}
@@ -4189,13 +4410,11 @@ export default function AdminReviewPage() {
                                         <span className="sm:hidden"> </span>
                                         {(() => {
                                           const allRefs = parseReferences(
-                                            assignment.onboarding_assets
-                                              .reference
+                                            asset.reference
                                           );
                                           return (
                                             allRefs.length +
-                                            (assignment.onboarding_assets
-                                              .glb_link
+                                            (asset.glb_link
                                               ? 1
                                               : 0)
                                           );
@@ -4205,13 +4424,9 @@ export default function AdminReviewPage() {
                                   </TableCell>
 
                                   <TableCell className="text-left">
-                                    {assignment.onboarding_assets
-                                      .product_link ? (
+                                    {asset.product_link ? (
                                       <a
-                                        href={
-                                          assignment.onboarding_assets
-                                            .product_link
-                                        }
+                                        href={asset.product_link}
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         className="text-blue-600 underline break-all text-xs sm:text-sm"
@@ -4262,7 +4477,7 @@ export default function AdminReviewPage() {
                                             params.set("email", modelerEmail);
                                           }
                                           router.push(
-                                            `/client-review/${assignment.onboarding_assets.id}?${params.toString()}`
+                                            `/client-review/${asset.id}?${params.toString()}`
                                           );
                                         }}
                                       >
@@ -4276,12 +4491,10 @@ export default function AdminReviewPage() {
                                             className="cursor-pointer text-error hover:text-error hover:bg-error/10 h-8 w-8 sm:h-10 sm:w-10"
                                             onClick={(e) => e.stopPropagation()}
                                             disabled={
-                                              deletingAsset ===
-                                              assignment.onboarding_assets.id
+                                              deletingAsset === asset.id
                                             }
                                           >
-                                            {deletingAsset ===
-                                            assignment.onboarding_assets.id ? (
+                                            {deletingAsset === asset.id ? (
                                               <div className="animate-spin rounded-full h-3 w-3 sm:h-4 sm:w-4 border-b-2 border-error" />
                                             ) : (
                                               <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
@@ -4318,19 +4531,11 @@ export default function AdminReviewPage() {
                                               variant="destructive"
                                               className="w-full sm:w-auto text-sm sm:text-base"
                                               onClick={() =>
-                                                deleteAsset(
-                                                  assignment.onboarding_assets
-                                                    .id
-                                                )
+                                                deleteAsset(asset.id)
                                               }
-                                              disabled={
-                                                deletingAsset ===
-                                                assignment.onboarding_assets.id
-                                              }
+                                              disabled={deletingAsset === asset.id}
                                             >
-                                              {deletingAsset ===
-                                              assignment.onboarding_assets
-                                                .id ? (
+                                              {deletingAsset === asset.id ? (
                                                 <div className="animate-spin rounded-full h-3 w-3 sm:h-4 sm:w-4 border-b-2 border-white mr-1 sm:mr-2" />
                                               ) : null}
                                               Delete Asset
@@ -4341,7 +4546,9 @@ export default function AdminReviewPage() {
                                     </div>
                                   </TableCell>
                                 </TableRow>
-                              ))}
+                                  </React.Fragment>
+                                );
+                              })}
                             </TableBody>
                           </Table>
                         </div>
@@ -4548,7 +4755,7 @@ export default function AdminReviewPage() {
                         )}
                       </TableCell>
                       <TableCell className="text-center">
-                        <div className="flex items-center justify-center gap-2">
+                        <div className="flex items-center justify-center gap-1 sm:gap-2">
                           <Select
                             value={assetPrices[asset.id]?.pricingOptionId || ""}
                             onValueChange={(value) => {
@@ -4587,6 +4794,76 @@ export default function AdminReviewPage() {
                               ))}
                             </SelectContent>
                           </Select>
+                          {(() => {
+                            // Use AI-suggested pricing from database if available, otherwise calculate
+                            const dbSuggestion = asset.suggested_price !== null && asset.suggested_price !== undefined
+                              ? {
+                                  pricingOptionId: asset.suggested_pricing_option_id || null,
+                                  price: asset.suggested_price,
+                                  reason: asset.suggested_price === 0 && asset.variation_orientation
+                                    ? `Orientation variation (${asset.variation_orientation}) - Free (0 euros)`
+                                    : "AI-suggested pricing based on product grouping"
+                                }
+                              : getPricingSuggestion({
+                                  product_group_id: asset.product_group_id,
+                                  group_order: asset.group_order,
+                                  variation_size: asset.variation_size,
+                                  variation_color: asset.variation_color,
+                                  variation_orientation: asset.variation_orientation,
+                                });
+                            
+                            const hasPricing = assetPrices[asset.id]?.pricingOptionId !== undefined;
+                            const currentMatchesSuggestion = 
+                              assetPrices[asset.id]?.pricingOptionId === dbSuggestion.pricingOptionId &&
+                              assetPrices[asset.id]?.price === dbSuggestion.price;
+                            
+                            if (currentMatchesSuggestion) {
+                              return null; // Don't show suggestion if already applied
+                            }
+                            
+                            return (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-8 w-8 p-0 text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:text-amber-400 dark:hover:text-amber-300 dark:hover:bg-amber-950/20"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handlePriceUpdate(
+                                          asset.id,
+                                          dbSuggestion.pricingOptionId,
+                                          dbSuggestion.price
+                                        );
+                                        toast.success(
+                                          `Pricing applied: ${dbSuggestion.reason} (€${dbSuggestion.price})`
+                                        );
+                                      }}
+                                    >
+                                      <Sparkles className="h-4 w-4" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top" className="max-w-xs">
+                                    <div className="text-sm">
+                                      <div className="font-semibold mb-1">AI Suggested Pricing</div>
+                                      <div className="text-xs text-muted-foreground mb-2">
+                                        {dbSuggestion.reason}
+                                      </div>
+                                      <div className="font-medium">
+                                        €{dbSuggestion.price} - {dbSuggestion.pricingOptionId 
+                                          ? PRICING_OPTIONS.find(o => o.id === dbSuggestion.pricingOptionId)?.label 
+                                          : "Free (No additional charge)"}
+                                      </div>
+                                      <div className="text-xs text-muted-foreground mt-1">
+                                        Click to apply
+                                      </div>
+                                    </div>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            );
+                          })()}
 
                           {assetPrices[asset.id]?.pricingOptionId ===
                             "custom_pricing" &&
@@ -4865,126 +5142,175 @@ export default function AdminReviewPage() {
                     </TableRow>
                   ) : (
                     (dragPreview.length > 0 ? dragPreview : paged).map(
-                      (asset, index) => (
-                        <TableRow
-                          key={asset.id}
-                          data-asset-id={asset.id}
-                          className={`${getStatusRowClass(asset.status)} transition-all duration-200 ease-in-out ${
-                            draggedAssets.has(asset.id)
-                              ? "opacity-50 scale-98"
-                              : ""
-                          } ${
-                            selected.has(asset.id) && selected.size > 1
-                              ? "ring-2 ring-blue-200 bg-blue-50/50 dark:bg-blue-900/10"
-                              : ""
-                          } ${
-                            dragPreview.length > 0 &&
-                            index === dragInsertPosition
-                              ? isDraggingGroup
-                                ? "border-t-4 border-green-500 bg-green-50/30"
-                                : "border-t-4 border-blue-500 bg-blue-50/30"
-                              : ""
-                          } ${
-                            dragPreview.length > 0 &&
-                            draggedAssets.has(asset.id)
-                              ? isDraggingGroup
-                                ? "bg-green-100/50 border-green-300"
-                                : "bg-blue-100/50 border-blue-300"
-                              : ""
-                          }`}
-                          onDragOver={handleDragOver}
-                          onDragLeave={handleDragLeave}
-                          onDrop={(e) => handleDrop(e, asset.id)}
-                          style={{
-                            transition: "all 0.2s ease-in-out",
-                            transform: draggedAssets.has(asset.id)
-                              ? "rotate(1deg) scale(0.98)"
-                              : undefined,
-                            boxShadow: draggedAssets.has(asset.id)
-                              ? "0 8px 16px rgba(59, 130, 246, 0.3)"
-                              : undefined,
-                          }}
-                        >
-                          <TableCell className="text-left">
-                            <div className="flex items-center gap-2">
-                              <div
-                                className="flex flex-col gap-0.5 cursor-move group"
-                                draggable={true}
-                                onDragStart={(e) =>
-                                  handleDragStart(e, asset.id)
-                                }
-                                onDragEnd={handleDragEnd}
-                              >
-                                <GripVertical className="h-3 w-3 text-muted-foreground group-hover:text-blue-500 transition-colors" />
-                              </div>
-                              <div className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 flex-1">
-                                <div
-                                  onClick={(event) => {
-                                    event.stopPropagation();
-                                    toggleSelect(asset.id, event);
-                                  }}
-                                  className="cursor-pointer"
-                                >
-                                  <Checkbox
-                                    checked={selected.has(asset.id)}
-                                    onCheckedChange={() => {}}
-                                    className="h-4 w-4 pointer-events-none"
-                                  />
+                      (asset, index) => {
+                        const isInGroup = asset.product_group_id != null && asset.product_group_id !== undefined && asset.product_group_id !== '';
+                        const prevAsset = index > 0 ? (dragPreview.length > 0 ? dragPreview : paged)[index - 1] : null;
+                        const isFirstInGroup = isInGroup && (
+                          index === 0 || 
+                          !prevAsset || 
+                          prevAsset.product_group_id !== asset.product_group_id
+                        );
+                        const prevIsInGroup = prevAsset && prevAsset.product_group_id !== null && prevAsset.product_group_id !== undefined && prevAsset.product_group_id !== '';
+                        // Only show violet border if both current and previous are in groups AND they're the same group
+                        const isSameGroupAsPrev = isInGroup && prevIsInGroup && prevAsset && prevAsset.product_group_id === asset.product_group_id;
+                        
+                        // Debug ALL assets to see what's happening
+                        if (index < 5) {
+                          console.log(`[GROUPING DEBUG] Asset ${index}:`, {
+                            id: asset.id,
+                            name: asset.product_name?.substring(0, 30),
+                            hasGroupId: !!asset.product_group_id,
+                            groupId: asset.product_group_id,
+                            groupOrder: asset.group_order,
+                            isInGroup,
+                            isFirstInGroup,
+                            isSameGroupAsPrev
+                          });
+                        }
+
+                        return (
+                          <React.Fragment key={asset.id}>
+                            {isFirstInGroup && (
+                              <TableRow className="bg-purple-50 dark:bg-purple-950/20">
+                                <TableCell colSpan={10} className="px-3 py-2 border-b border-purple-200 dark:border-purple-800">
+                                  <div className="flex items-center gap-2">
+                                    <Badge variant="outline" className="bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300 border-purple-300 dark:border-purple-700">
+                                      Group
+                                    </Badge>
+                                    <span className="text-xs font-medium text-purple-700 dark:text-purple-300">
+                                      Group: {asset.product_group_id} | Order: {asset.group_order || 0}
+                                    </span>
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            )}
+                            <TableRow
+                              data-asset-id={asset.id}
+                              className={`${getStatusRowClass(asset.status)} transition-all duration-200 ease-in-out ${
+                                draggedAssets.has(asset.id)
+                                  ? "opacity-50 scale-98"
+                                  : ""
+                              } ${
+                                selected.has(asset.id) && selected.size > 1
+                                  ? "ring-2 ring-blue-200 bg-blue-50/50 dark:bg-blue-900/10"
+                                  : ""
+                              } ${
+                                dragPreview.length > 0 &&
+                                index === dragInsertPosition
+                                  ? isDraggingGroup
+                                    ? "border-t-4 border-green-500 bg-green-50/30"
+                                    : "border-t-4 border-blue-500 bg-blue-50/30"
+                                  : ""
+                              } ${
+                                dragPreview.length > 0 &&
+                                draggedAssets.has(asset.id)
+                                  ? isDraggingGroup
+                                    ? "bg-green-100/50 border-green-300"
+                                    : "bg-blue-100/50 border-blue-300"
+                                  : ""
+                              } ${
+                                isInGroup ? 'bg-purple-50/30 dark:bg-purple-950/10' : ''
+                              } ${
+                                isSameGroupAsPrev ? 'border-l-4 border-l-purple-400 dark:border-l-purple-700' : ''
+                              }`}
+                              onDragOver={handleDragOver}
+                              onDragLeave={handleDragLeave}
+                              onDrop={(e) => handleDrop(e, asset.id)}
+                              style={{
+                                transition: "all 0.2s ease-in-out",
+                                transform: draggedAssets.has(asset.id)
+                                  ? "rotate(1deg) scale(0.98)"
+                                  : undefined,
+                                boxShadow: draggedAssets.has(asset.id)
+                                  ? "0 8px 16px rgba(59, 130, 246, 0.3)"
+                                  : undefined,
+                              }}
+                            >
+                              <TableCell className="text-left">
+                                <div className="flex items-center gap-2">
+                                  <div
+                                    className="flex flex-col gap-0.5 cursor-move group"
+                                    draggable={true}
+                                    onDragStart={(e) =>
+                                      handleDragStart(e, asset.id)
+                                    }
+                                    onDragEnd={handleDragEnd}
+                                  >
+                                    <GripVertical className="h-3 w-3 text-muted-foreground group-hover:text-blue-500 transition-colors" />
+                                  </div>
+                                  <div className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 flex-1">
+                                    <div
+                                      onClick={(event) => {
+                                        event.stopPropagation();
+                                        toggleSelect(asset.id, event);
+                                      }}
+                                      className="cursor-pointer"
+                                    >
+                                      <Checkbox
+                                        checked={selected.has(asset.id)}
+                                        onCheckedChange={() => {}}
+                                        className="h-4 w-4 pointer-events-none"
+                                      />
+                                    </div>
+                                    {assignedAssets.has(asset.id) && (
+                                      <div className="flex items-center gap-1">
+                                        <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-green-500 rounded-full" />
+                                        <span className="text-xs text-muted-foreground hidden sm:inline">
+                                          {assignedAssets.get(asset.id)?.name ||
+                                            assignedAssets
+                                              .get(asset.id)
+                                              ?.email?.split("@")[0]}
+                                        </span>
+                                      </div>
+                                    )}
+                                    {pendingAssets.has(asset.id) && (
+                                      <div className="flex items-center gap-1">
+                                        <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-yellow-500 rounded-full" />
+                                        <span className="text-xs text-muted-foreground hidden sm:inline">
+                                          {pendingAssets.get(asset.id)?.name ||
+                                            pendingAssets
+                                              .get(asset.id)
+                                              ?.email?.split("@")[0]}
+                                          {" (pending)"}
+                                        </span>
+                                      </div>
+                                    )}
+                                  </div>
                                 </div>
-                                {assignedAssets.has(asset.id) && (
-                                  <div className="flex items-center gap-1">
-                                    <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-green-500 rounded-full" />
-                                    <span className="text-xs text-muted-foreground hidden sm:inline">
-                                      {assignedAssets.get(asset.id)?.name ||
-                                        assignedAssets
-                                          .get(asset.id)
-                                          ?.email?.split("@")[0]}
+                              </TableCell>
+                              <TableCell className="text-left">
+                                <div className="flex flex-col gap-1">
+                                  <div className="flex items-center gap-2">
+                                    {isInGroup && (
+                                      <div className="w-1.5 h-1.5 rounded-full bg-purple-500 dark:bg-purple-400 shrink-0" />
+                                    )}
+                                    <span
+                                      className="font-medium truncate cursor-help text-sm sm:text-base"
+                                      title={asset.product_name}
+                                    >
+                                      {asset.product_name.length > 35
+                                        ? asset.product_name.substring(0, 35) + "..."
+                                        : asset.product_name}
                                     </span>
                                   </div>
-                                )}
-                                {pendingAssets.has(asset.id) && (
-                                  <div className="flex items-center gap-1">
-                                    <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-yellow-500 rounded-full" />
-                                    <span className="text-xs text-muted-foreground hidden sm:inline">
-                                      {pendingAssets.get(asset.id)?.name ||
-                                        pendingAssets
-                                          .get(asset.id)
-                                          ?.email?.split("@")[0]}
-                                      {" (pending)"}
+                                  <div className="flex items-center gap-1 sm:gap-2">
+                                    <span className="text-xs text-muted-foreground">
+                                      {annotationCounts[asset.id] || 0} annotations
                                     </span>
+                                    <span className="text-xs text-slate-500 hidden sm:inline">
+                                      •
+                                    </span>
+                                    <span className="text-xs text-muted-foreground">
+                                      {commentCounts[asset.id] || 0} comments
+                                    </span>
+                                    <span className="text-xs text-slate-500 hidden sm:inline">
+                                      •
+                                    </span>
+                                    <Badge variant="outline" className="text-xs">
+                                      B{asset.batch || 1}
+                                    </Badge>
                                   </div>
-                                )}
-                              </div>
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-left">
-                            <div className="flex flex-col gap-1">
-                              <span
-                                className="font-medium truncate cursor-help text-sm sm:text-base"
-                                title={asset.product_name}
-                              >
-                                {asset.product_name.length > 35
-                                  ? asset.product_name.substring(0, 35) + "..."
-                                  : asset.product_name}
-                              </span>
-                              <div className="flex items-center gap-1 sm:gap-2">
-                                <span className="text-xs text-muted-foreground">
-                                  {annotationCounts[asset.id] || 0} annotations
-                                </span>
-                                <span className="text-xs text-slate-500 hidden sm:inline">
-                                  •
-                                </span>
-                                <span className="text-xs text-muted-foreground">
-                                  {commentCounts[asset.id] || 0} comments
-                                </span>
-                                <span className="text-xs text-slate-500 hidden sm:inline">
-                                  •
-                                </span>
-                                <Badge variant="outline" className="text-xs">
-                                  B{asset.batch || 1}
-                                </Badge>
-                              </div>
-                            </div>
+                                </div>
                           </TableCell>
                           <TableCell className="text-left text-xs sm:text-sm font-mono">
                             {asset.article_id}
@@ -5136,6 +5462,73 @@ export default function AdminReviewPage() {
                                   ))}
                                 </SelectContent>
                               </Select>
+                              {(() => {
+                                // Use AI-suggested pricing from database if available, otherwise calculate
+                                const dbSuggestion = asset.suggested_pricing_option_id && asset.suggested_price !== null && asset.suggested_price !== undefined
+                                  ? {
+                                      pricingOptionId: asset.suggested_pricing_option_id,
+                                      price: asset.suggested_price,
+                                      reason: "AI-suggested pricing based on product grouping"
+                                    }
+                                  : getPricingSuggestion({
+                                      product_group_id: asset.product_group_id,
+                                      group_order: asset.group_order,
+                                      variation_size: asset.variation_size,
+                                      variation_color: asset.variation_color,
+                                      variation_orientation: asset.variation_orientation,
+                                    });
+                                
+                                const hasPricing = assetPrices[asset.id]?.pricingOptionId;
+                                const currentMatchesSuggestion = 
+                                  hasPricing && 
+                                  assetPrices[asset.id]?.pricingOptionId === dbSuggestion.pricingOptionId &&
+                                  assetPrices[asset.id]?.price === dbSuggestion.price;
+                                
+                                if (currentMatchesSuggestion) {
+                                  return null; // Don't show suggestion if already applied
+                                }
+                                
+                                return (
+                                  <TooltipProvider>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="h-8 w-8 p-0 text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:text-amber-400 dark:hover:text-amber-300 dark:hover:bg-amber-950/20"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handlePriceUpdate(
+                                              asset.id,
+                                              dbSuggestion.pricingOptionId,
+                                              dbSuggestion.price
+                                            );
+                                            toast.success(
+                                              `Pricing applied: ${dbSuggestion.reason} (€${dbSuggestion.price})`
+                                            );
+                                          }}
+                                        >
+                                          <Sparkles className="h-4 w-4" />
+                                        </Button>
+                                      </TooltipTrigger>
+                                      <TooltipContent side="top" className="max-w-xs">
+                                        <div className="text-sm">
+                                          <div className="font-semibold mb-1">AI Suggested Pricing</div>
+                                          <div className="text-xs text-muted-foreground mb-2">
+                                            {dbSuggestion.reason}
+                                          </div>
+                                          <div className="font-medium">
+                                            €{dbSuggestion.price} - {PRICING_OPTIONS.find(o => o.id === dbSuggestion.pricingOptionId)?.label}
+                                          </div>
+                                          <div className="text-xs text-muted-foreground mt-1">
+                                            Click to apply
+                                          </div>
+                                        </div>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
+                                );
+                              })()}
 
                               {assetPrices[asset.id]?.pricingOptionId ===
                                 "custom_pricing" &&
@@ -5330,8 +5723,9 @@ export default function AdminReviewPage() {
                             </div>
                           </TableCell>
                         </TableRow>
-                      )
-                    )
+                          </React.Fragment>
+                        );
+                      })
                   )}
                 </TableBody>
               </Table>

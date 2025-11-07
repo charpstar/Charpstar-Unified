@@ -60,6 +60,8 @@ interface UnallocatedAsset {
   status: string;
   pricing_option_id?: string;
   price?: number;
+  product_group_id?: string;
+  group_order?: number;
 }
 
 interface User {
@@ -565,12 +567,30 @@ export default function AllocateAssetsPage() {
         const { data: preSelectedAssets, error: preSelectedError } =
           await supabase
             .from("onboarding_assets")
-            .select("*, pricing_option_id, price, pricing_comment")
+            .select("*, pricing_option_id, price, pricing_comment, product_group_id, group_order, upload_order")
             .in("id", selectedAssetsParam);
 
         if (preSelectedError) throw preSelectedError;
 
-        setAssets(preSelectedAssets || []);
+        // Sort pre-selected assets by grouping
+        const sortedPreSelected = (preSelectedAssets || []).sort((a, b) => {
+          const aHasGroup = a.product_group_id != null && a.product_group_id !== '';
+          const bHasGroup = b.product_group_id != null && b.product_group_id !== '';
+          
+          if (aHasGroup && bHasGroup) {
+            const groupCompare = String(a.product_group_id || '').localeCompare(String(b.product_group_id || ''));
+            if (groupCompare !== 0) return groupCompare;
+            const orderCompare = (a.group_order || 0) - (b.group_order || 0);
+            if (orderCompare !== 0) return orderCompare;
+          }
+          
+          if (aHasGroup && !bHasGroup) return -1;
+          if (!aHasGroup && bHasGroup) return 1;
+          
+          return (a.upload_order || 0) - (b.upload_order || 0);
+        });
+
+        setAssets(sortedPreSelected);
 
         // Initialize pricing comments
         const initialPricingComments: Record<string, string> = {};
@@ -595,15 +615,80 @@ export default function AllocateAssetsPage() {
 
       const assignedAssetIds = assignedAssets?.map((a) => a.asset_id) || [];
 
-      // Fetch unallocated assets with pricing data
+      // Fetch unallocated assets with pricing data (include grouping columns)
       const { data, error } = await supabase
         .from("onboarding_assets")
-        .select("*, pricing_option_id, price, pricing_comment")
+        .select("*, pricing_option_id, price, pricing_comment, product_group_id, group_order, upload_order")
         .not("id", "in", `(${assignedAssetIds.join(",")})`);
 
       if (error) throw error;
 
-      setAssets(data || []);
+      // Sort assets: grouped products first (sorted by group_id and group_order), then ungrouped
+      const sortedAssets = (data || []).sort((a, b) => {
+        const aHasGroup = a.product_group_id != null && a.product_group_id !== '';
+        const bHasGroup = b.product_group_id != null && b.product_group_id !== '';
+        
+        // If both have groups, sort by group_id then group_order
+        if (aHasGroup && bHasGroup) {
+          const groupCompare = String(a.product_group_id || '').localeCompare(String(b.product_group_id || ''));
+          if (groupCompare !== 0) return groupCompare;
+          const orderCompare = (a.group_order || 0) - (b.group_order || 0);
+          if (orderCompare !== 0) return orderCompare;
+        }
+        
+        // If only a has a group, it comes first
+        if (aHasGroup && !bHasGroup) return -1;
+        // If only b has a group, it comes first  
+        if (!aHasGroup && bHasGroup) return 1;
+        
+        // Both ungrouped or same group - maintain upload_order
+        return (a.upload_order || 0) - (b.upload_order || 0);
+      });
+
+      // Debug: Check grouping data
+      const groupedCount = sortedAssets.filter(a => a.product_group_id != null && a.product_group_id !== '').length;
+      const ungroupedCount = sortedAssets.length - groupedCount;
+      
+      console.log('📊 Asset sorting summary:', {
+        total: sortedAssets.length,
+        grouped: groupedCount,
+        ungrouped: ungroupedCount,
+        firstFive: sortedAssets.slice(0, 5).map(a => ({
+          name: a.product_name?.substring(0, 30),
+          group_id: a.product_group_id || 'none',
+          group_order: a.group_order || 'none',
+          upload_order: a.upload_order || 'none'
+        }))
+      });
+
+      // Group assets by product_group_id for debugging
+      const groupedAssets = new Map<string, typeof sortedAssets>();
+      sortedAssets.forEach(asset => {
+        if (asset.product_group_id) {
+          if (!groupedAssets.has(asset.product_group_id)) {
+            groupedAssets.set(asset.product_group_id, []);
+          }
+          groupedAssets.get(asset.product_group_id)!.push(asset);
+        }
+      });
+      
+      if (groupedAssets.size > 0) {
+        console.log(`✅ Found ${groupedAssets.size} groups:`, 
+          Array.from(groupedAssets.entries()).map(([groupId, assets]) => ({
+            groupId,
+            count: assets.length,
+            products: assets.map(a => a.product_name?.substring(0, 25))
+          }))
+        );
+      } else {
+        console.warn('⚠️ No grouped products found. Possible reasons:');
+        console.warn('  1. Grouping hasn\'t completed yet (check server logs)');
+        console.warn('  2. Database migration not run (product_group_id column missing)');
+        console.warn('  3. Products don\'t match grouping criteria');
+        console.warn('  4. Grouping failed silently');
+      }
+
+      setAssets(sortedAssets);
 
       // Initialize pricing comments for unallocated assets
       const initialPricingComments: Record<string, string> = {};
@@ -852,7 +937,34 @@ export default function AllocateAssetsPage() {
         // If no existing pricing, return null to filter out later
         return null;
       })
-      .filter((item): item is AllocationData => item !== null);
+      .filter((item): item is AllocationData => item !== null)
+      // Sort by grouping: grouped products first, then by group_id and group_order
+      .sort((a, b) => {
+        const assetA = assets.find(asset => asset.id === a.assetId);
+        const assetB = assets.find(asset => asset.id === b.assetId);
+        
+        if (!assetA || !assetB) return 0;
+        
+        const aHasGroup = assetA.product_group_id != null && assetA.product_group_id !== '';
+        const bHasGroup = assetB.product_group_id != null && assetB.product_group_id !== '';
+        
+        // If both have groups, sort by group_id then group_order
+        if (aHasGroup && bHasGroup) {
+          const groupCompare = String(assetA.product_group_id || '').localeCompare(String(assetB.product_group_id || ''));
+          if (groupCompare !== 0) return groupCompare;
+          return (assetA.group_order || 0) - (assetB.group_order || 0);
+        }
+        
+        // If only a has a group, it comes first
+        if (aHasGroup && !bHasGroup) return -1;
+        // If only b has a group, it comes first  
+        if (!aHasGroup && bHasGroup) return 1;
+        
+        // Both ungrouped - maintain original order (by asset order in sorted assets list)
+        const indexA = assets.findIndex(asset => asset.id === a.assetId);
+        const indexB = assets.findIndex(asset => asset.id === b.assetId);
+        return indexA - indexB;
+      });
 
     setAllocationData(data);
 
@@ -1960,16 +2072,55 @@ export default function AllocateAssetsPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {allocationData.map((data) => {
+                      {allocationData.map((data, index) => {
                         const asset = getAssetById(data.assetId);
                         if (!asset) return null;
 
+                        // Check if this is the first item in a group
+                        const isFirstInGroup = index === 0 || 
+                          (asset.product_group_id && 
+                           allocationData[index - 1] && 
+                           getAssetById(allocationData[index - 1].assetId)?.product_group_id !== asset.product_group_id);
+                        
+                        // Check if previous item is in the same group
+                        const prevAsset = index > 0 ? getAssetById(allocationData[index - 1].assetId) : null;
+                        const isInGroup = asset.product_group_id !== null && asset.product_group_id !== undefined;
+                        const prevIsInGroup = prevAsset && prevAsset.product_group_id !== null && prevAsset.product_group_id !== undefined;
+                        // Only show violet border if both current and previous are in groups AND they're the same group
+                        const isSameGroupAsPrev = isInGroup && prevIsInGroup && prevAsset && prevAsset.product_group_id === asset.product_group_id;
+
                         return (
-                          <tr
-                            key={data.assetId}
-                            className="border-t hover:bg-muted/50 transition-colors"
+                          <React.Fragment key={data.assetId}>
+                            {isFirstInGroup && isInGroup && (
+                              <tr className="bg-purple-50 dark:bg-purple-950/20">
+                                <td colSpan={7} className="px-3 py-2 border-b border-purple-200 dark:border-purple-800">
+                                  <div className="flex items-center gap-2">
+                                    <Badge variant="outline" className="bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300 border-purple-300 dark:border-purple-700">
+                                      Group
+                                    </Badge>
+                                    <span className="text-xs font-medium text-purple-700 dark:text-purple-300">
+                                      {(() => {
+                                        const groupSize = allocationData.filter(d => {
+                                          const a = getAssetById(d.assetId);
+                                          return a?.product_group_id === asset.product_group_id;
+                                        }).length;
+                                        return `${groupSize} product${groupSize > 1 ? 's' : ''} in this group`;
+                                      })()}
+                                    </span>
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
+                            <tr
+                              className={`border-t hover:bg-muted/50 transition-colors ${
+                                isInGroup ? 'bg-purple-50/30 dark:bg-purple-950/10' : ''
+                              } ${isSameGroupAsPrev ? 'border-l-4 border-l-purple-400 dark:border-l-purple-700' : ''}`}
                           >
                             <td className="px-3 py-2">
+                                <div className="flex items-center gap-2">
+                                  {isInGroup && (
+                                    <div className="w-1.5 h-1.5 rounded-full bg-purple-500 dark:bg-purple-400 shrink-0" />
+                                  )}
                               <div
                                 className="truncate max-w-[200px] cursor-help"
                                 title={asset.product_name}
@@ -1977,6 +2128,7 @@ export default function AllocateAssetsPage() {
                                 {asset.product_name.length > 35
                                   ? asset.product_name.substring(0, 35) + "..."
                                   : asset.product_name}
+                                  </div>
                               </div>
                             </td>
                             <td className="px-3 py-2 text-muted-foreground font-mono">
@@ -2000,6 +2152,7 @@ export default function AllocateAssetsPage() {
                               </Badge>
                             </td>
                           </tr>
+                          </React.Fragment>
                         );
                       })}
                     </tbody>

@@ -32,6 +32,7 @@ import {
   DialogTitle,
 } from "@/components/ui/containers/dialog";
 import { ViewReferencesDialog } from "@/components/ui/containers/ViewReferencesDialog";
+import { SpreadsheetProductEntry } from "@/components/product-entry/SpreadsheetProductEntry";
 import {
   Plus,
   ArrowLeft,
@@ -344,20 +345,25 @@ export default function AddProductsPage() {
 
     setLoading(true);
 
+    // Use first company if user has multiple
+    const clientName = Array.isArray(user.metadata.client)
+      ? user.metadata.client[0]
+      : user.metadata.client;
+
     // Show loading toast
     const loadingToast = toast.loading("Adding products...", {
-      description: `Adding ${validProducts.length} product${validProducts.length === 1 ? "" : "s"} to batch ${currentBatch}`,
+      description: `Processing ${validProducts.length} product${validProducts.length === 1 ? "" : "s"} and grouping automatically`,
     });
 
     try {
-      // Use first company if user has multiple
-      const clientName = Array.isArray(user.metadata.client)
-        ? user.metadata.client[0]
-        : user.metadata.client;
-
-      const productsToInsert = validProducts.map((product) => {
+      // Convert products to CSV format
+      // CSV header
+      const csvHeader = ['Article ID', 'Product Name', 'Product Link', 'CAD/File Link', 'Category', 'Subcategory', 'Active'];
+      
+      // Convert each product to CSV row
+      const csvRows = validProducts.map((product) => {
         // Format measurements if they exist
-        let measurementsString = null;
+        let measurementsString = '';
         if (
           product.measurements?.height &&
           product.measurements?.width &&
@@ -366,51 +372,102 @@ export default function AddProductsPage() {
           measurementsString = `${product.measurements.height},${product.measurements.width},${product.measurements.depth}`;
         }
 
-        return {
-          client: clientName,
-          batch: currentBatch,
-          article_id: product.article_id.trim(),
-          product_name: product.product_name.trim(),
-          product_link: product.product_link.trim(),
-          glb_link: product.cad_file_link.trim() || null,
-          category: product.category.trim() || null,
-          subcategory: product.subcategory.trim() || null,
-          reference: null, // Will be updated if references exist
-          measurements: measurementsString,
-          priority: 2, // Default medium priority
-          status: "not_started",
-          delivery_date: null,
+        // Escape CSV values
+        const escapeCsvValue = (value: string | null | undefined) => {
+          if (!value) return '';
+          const str = String(value).trim();
+          if (str.includes(',') || str.includes('\n') || str.includes('"')) {
+            return `"${str.replace(/"/g, '""')}"`;
+          }
+          return str;
         };
+
+        return [
+          escapeCsvValue(product.article_id),
+          escapeCsvValue(product.product_name),
+          escapeCsvValue(product.product_link),
+          escapeCsvValue(product.cad_file_link),
+          escapeCsvValue(product.category),
+          escapeCsvValue(product.subcategory),
+          'TRUE' // Active
+        ];
       });
 
-      const { data: insertedProducts, error } = await supabase
-        .from("onboarding_assets")
-        .insert(productsToInsert)
-        .select("id, article_id");
+      // Combine header and rows
+      const csvText = [csvHeader, ...csvRows]
+        .map(row => row.join(','))
+        .join('\n');
 
-      if (error) {
-        console.error("Error inserting products:", error);
+      console.log('[FRONTEND] Calling /api/csv/import from handleSubmit (spreadsheet)');
+      console.log('[FRONTEND] CSV length:', csvText.length, 'Client:', clientName, 'Products:', validProducts.length);
+      
+      // Call the import API
+      const response = await fetch('/api/csv/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          csvText: csvText,
+          clientName: clientName,
+          batch: currentBatch,
+          dryRun: false
+        })
+      });
+
+      console.log('[FRONTEND] Response status:', response.status);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[FRONTEND] Error response:', errorText);
         toast.error("Failed to add products. Please try again.", {
           id: loadingToast,
         });
+        setLoading(false);
         return;
+      }
+
+      const data = await response.json();
+      console.log('[FRONTEND] Import result:', data);
+      
+      const successCount = data.import?.importedCount || 0;
+      const groupingInfo = data.grouping;
+
+      // Fetch inserted products from database for reference updates
+      let insertedProducts: any[] = [];
+      if (successCount > 0 && validProducts.some((p) => p.references && p.references.length > 0)) {
+        const articleIds = validProducts.map(p => p.article_id.trim());
+        const { data: fetchedProducts } = await supabase
+          .from("onboarding_assets")
+          .select("id, article_id")
+          .eq("client", clientName)
+          .in("article_id", articleIds);
+        
+        insertedProducts = fetchedProducts || [];
       }
 
       // Upload references if any products have them
       if (
         insertedProducts &&
-        validProducts.some((p) => p.references.length > 0)
+        insertedProducts.length > 0 &&
+        validProducts.some((p) => p.references && p.references.length > 0)
       ) {
         toast.loading("Uploading references...", {
           id: loadingToast,
           description: "Uploading reference files and URLs",
         });
 
+        // Map inserted products by article_id for reference updates
+        const productMap = new Map();
+        insertedProducts.forEach((p: any) => {
+          if (p.article_id) {
+            productMap.set(p.article_id, p);
+          }
+        });
+
         for (let i = 0; i < validProducts.length; i++) {
           const product = validProducts[i];
-          const insertedProduct = insertedProducts[i];
+          const insertedProduct = productMap.get(product.article_id.trim());
 
-          if (product.references.length > 0 && insertedProduct) {
+          if (product.references && product.references.length > 0 && insertedProduct) {
             const referenceUrls: string[] = [];
 
             // Upload files and add URLs
@@ -461,9 +518,9 @@ export default function AddProductsPage() {
       // Send notification to admin users about new product submission
       try {
         await notificationService.sendProductSubmissionNotification({
-          client: clientName, // Use the same clientName from above
+          client: clientName,
           batch: currentBatch,
-          productCount: validProducts.length,
+          productCount: successCount,
           productNames: validProducts.map((p) => p.product_name),
           submittedAt: new Date().toISOString(),
         });
@@ -480,11 +537,18 @@ export default function AddProductsPage() {
         console.warn("Background image collection failed:", error);
       });
 
+      let description = `Your products have been added to batch ${currentBatch} and are ready for review.`;
+      if (groupingInfo?.status === 'processing') {
+        description += ' Products are being grouped automatically in the background.';
+      } else if (groupingInfo?.totalGroups) {
+        description += ` Products grouped into ${groupingInfo.totalGroups} groups for easier allocation.`;
+      }
+
       toast.success(
-        ` Successfully added ${validProducts.length} product${validProducts.length === 1 ? "" : "s"} to batch ${currentBatch}!`,
+        `🎉 Successfully added ${successCount} product${successCount === 1 ? "" : "s"} to batch ${currentBatch}!`,
         {
           id: loadingToast,
-          description: `Your products are now ready for review.`,
+          description: description,
           duration: 5000,
         }
       );
@@ -506,7 +570,7 @@ export default function AddProductsPage() {
       // Increment batch number for next use
       setCurrentBatch((prev) => prev + 1);
     } catch (error) {
-      console.error("Error adding products:", error);
+      console.error('[FRONTEND] Error adding products:', error);
       toast.error("An unexpected error occurred");
     } finally {
       setLoading(false);
@@ -728,150 +792,127 @@ export default function AddProductsPage() {
     const client = Array.isArray(user.metadata.client)
       ? user.metadata.client[0]
       : user.metadata.client;
+    
     // Use edited data if available, otherwise use original preview
     const dataToUpload = editedCsvData || csvPreview;
-    const rows = dataToUpload.slice(1); // skip header
+    
+    // Convert spreadsheet data to CSV text format
+    const csvText = dataToUpload.map(row => 
+      row.map(cell => {
+        // Escape quotes and wrap in quotes if contains comma, newline, or quote
+        const cellStr = String(cell || '');
+        if (cellStr.includes(',') || cellStr.includes('\n') || cellStr.includes('"')) {
+          return `"${cellStr.replace(/"/g, '""')}"`;
+        }
+        return cellStr;
+      }).join(',')
+    ).join('\n');
 
     // Show initial loading toast
-    const loadingToast = toast.loading("Preparing products for upload...", {
-      description: "Validating and processing your CSV data",
+    const loadingToast = toast.loading("Importing products...", {
+      description: "Processing CSV and grouping products automatically",
     });
 
-    // Prepare all valid products for batch insert
-    const productsToInsert = [];
-    let failCount = 0;
-
-    for (let i = 0; i < rows.length; i++) {
-      const row = rows[i];
-      // Skip empty rows (check first 4 required fields)
-      if (
-        !row[0]?.trim() &&
-        !row[1]?.trim() &&
-        !row[2]?.trim() &&
-        !row[3]?.trim()
-      ) {
-        continue;
-      }
-
-      const [
-        article_id,
-        product_name,
-        product_link,
-        cad_file_link,
-        category,
-        subcategory,
-      ] = row;
-
-      // Validate required fields
-      if (
-        !article_id?.trim() ||
-        !product_name?.trim() ||
-        !product_link?.trim()
-      ) {
-        failCount++;
-        continue;
-      }
-
-      // Add to batch insert array
-      productsToInsert.push({
-        client,
-        batch: currentBatch,
-        article_id: article_id.trim(),
-        product_name: product_name.trim(),
-        product_link: product_link.trim(),
-        glb_link: cad_file_link?.trim() || null, // Use the actual CAD/File Link from CSV
-        category: category?.trim() || null,
-        subcategory: subcategory?.trim() || null,
-        reference: null, // No reference column in new format
-        priority: 2, // Default priority since not in template
-        status: "not_started",
-        delivery_date: null,
-        upload_order: i + 1, // Preserve the order from CSV
+    try {
+      console.log('[FRONTEND] Calling /api/csv/import from add-products page');
+      console.log('[FRONTEND] CSV length:', csvText.length, 'Client:', client);
+      
+      const response = await fetch('/api/csv/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          csvText: csvText,
+          clientName: client,
+          batch: currentBatch,
+          dryRun: false
+        })
       });
-    }
 
-    // Update loading toast
-    toast.loading("Uploading products to database...", {
-      id: loadingToast,
-      description: `Uploading ${productsToInsert.length} products`,
-    });
+      console.log('[FRONTEND] Response status:', response.status);
 
-    // Batch insert all products at once
-    let successCount = 0;
-    if (productsToInsert.length > 0) {
-      const { error } = await supabase
-        .from("onboarding_assets")
-        .insert(productsToInsert);
-
-      if (error) {
-        console.error("Error batch inserting products:", error);
-        toast.error("Failed to upload products. Please try again.", {
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[FRONTEND] Error response:', errorText);
+        toast.error("Failed to import products. Please try again.", {
           id: loadingToast,
         });
         setLoading(false);
         return;
       }
-      successCount = productsToInsert.length;
-    }
 
-    setLoading(false);
-    setCsvFile(null);
-    setCsvPreview(null);
-    setCsvErrors([]);
-    setCsvWarnings([]);
-    setEditingRow(null);
-    setEditedCsvData(null);
-    setShowPreviewDialog(false); // Close the preview dialog after upload
-    resetFileInput();
+      const data = await response.json();
+      console.log('[FRONTEND] Import result:', data);
+      
+      const successCount = data.import?.importedCount || 0;
+      const groupingInfo = data.grouping;
 
-    if (successCount > 0) {
-      // Send notification to admin users about new product submission via CSV
-      try {
-        const dataToUpload = editedCsvData || csvPreview;
-        const rows = dataToUpload.slice(1); // skip header
-        const productNames = rows
-          .filter((row) => row[1]?.trim()) // filter rows with product names
-          .map((row) => row[1].trim())
-          .slice(0, successCount); // only include successful uploads
+      // Clear state
+      setLoading(false);
+      setCsvFile(null);
+      setCsvPreview(null);
+      setCsvErrors([]);
+      setCsvWarnings([]);
+      setEditingRow(null);
+      setEditedCsvData(null);
+      setShowPreviewDialog(false);
+      resetFileInput();
 
-        // Use first company if user has multiple
-        const clientName = Array.isArray(user.metadata.client)
-          ? user.metadata.client[0]
-          : user.metadata.client;
+      if (successCount > 0) {
+        // Send notification to admin users about new product submission via CSV
+        try {
+          const rows = dataToUpload.slice(1); // skip header
+          const productNames = rows
+            .filter((row) => row[1]?.trim()) // filter rows with product names
+            .map((row) => row[1].trim())
+            .slice(0, successCount);
 
-        await notificationService.sendProductSubmissionNotification({
-          client: clientName,
-          batch: currentBatch,
-          productCount: successCount,
-          productNames: productNames,
-          submittedAt: new Date().toISOString(),
-        });
-      } catch (notificationError) {
-        console.error(
-          "Failed to send CSV product submission notification:",
-          notificationError
-        );
-        // Don't fail the product submission if notification fails
-      }
-
-      // Automatically collect images in the background (fire and forget)
-      collectImages().catch((error) => {
-        console.warn("Background image collection failed:", error);
-      });
-
-      toast.success(
-        `🎉 Successfully uploaded ${successCount} product${successCount === 1 ? "" : "s"}!`,
-        {
-          id: loadingToast,
-          description: `Your products have been added to batch ${currentBatch} and are ready for review.`,
-          duration: 5000,
+          await notificationService.sendProductSubmissionNotification({
+            client: client,
+            batch: currentBatch,
+            productCount: successCount,
+            productNames: productNames,
+            submittedAt: new Date().toISOString(),
+          });
+        } catch (notificationError) {
+          console.error(
+            "Failed to send CSV product submission notification:",
+            notificationError
+          );
         }
-      );
-      // Increment batch number for next use
-      setCurrentBatch((prev) => prev + 1);
-    }
-    if (failCount > 0) {
-      toast.error(`${failCount} rows failed to upload.`);
+
+        // Automatically collect images in the background (fire and forget)
+        collectImages().catch((error) => {
+          console.warn("Background image collection failed:", error);
+        });
+
+        let description = `Your products have been added to batch ${currentBatch} and are ready for review.`;
+        if (groupingInfo?.status === 'processing') {
+          description += ' Products are being grouped automatically in the background.';
+        } else if (groupingInfo?.totalGroups) {
+          description += ` Products grouped into ${groupingInfo.totalGroups} groups for easier allocation.`;
+        }
+
+        toast.success(
+          `🎉 Successfully imported ${successCount} product${successCount === 1 ? "" : "s"}!`,
+          {
+            id: loadingToast,
+            description: description,
+            duration: 5000,
+          }
+        );
+        // Increment batch number for next use
+        setCurrentBatch((prev) => prev + 1);
+      } else {
+        toast.error("No products were imported. Please check your data.", {
+          id: loadingToast,
+        });
+      }
+    } catch (error) {
+      console.error('[FRONTEND] Error importing CSV:', error);
+      toast.error("Failed to import products. Please try again.", {
+        id: loadingToast,
+      });
+      setLoading(false);
     }
   };
 
@@ -1011,234 +1052,37 @@ export default function AddProductsPage() {
       <div className="flex-1 flex gap-6">
         {/* Main Form */}
         <div className="flex-1 overflow-y-auto max-h-[calc(100vh-15rem)]">
-          <Card className="h-fit shadow-none border-none">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Package className="h-5 w-5" />
-                Product Details
-              </CardTitle>
-              <p className="text-xs text-muted-foreground mt-2">
-                Fill in the required fields (marked with *). Optional fields can
-                be left empty.
-              </p>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-[60px]">#</TableHead>
-                      <TableHead className="min-w-[120px]">
-                        Article ID *
-                      </TableHead>
-                      <TableHead className="min-w-[150px]">
-                        Product Name *
-                      </TableHead>
-                      <TableHead className="min-w-[200px]">
-                        Product Link *
-                      </TableHead>
-                      <TableHead className="min-w-[200px]">
-                        CAD/File Link
-                      </TableHead>
-                      <TableHead className="min-w-[120px]">Category</TableHead>
-                      <TableHead className="min-w-[120px]">
-                        Subcategory
-                      </TableHead>
-                      <TableHead className="min-w-[100px]">
-                        References
-                      </TableHead>
-                      <TableHead className="w-[60px]">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {products.map((product, index) => (
-                      <TableRow key={index}>
-                        <TableCell className="font-medium">
-                          {index + 1}
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            value={product.article_id}
-                            onChange={(e) =>
-                              updateProduct(index, "article_id", e.target.value)
-                            }
-                            placeholder="ART001"
-                            className="h-9 text-sm"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            value={product.product_name}
-                            onChange={(e) =>
-                              updateProduct(
-                                index,
-                                "product_name",
-                                e.target.value
-                              )
-                            }
-                            placeholder="Product Name"
-                            className="h-9 text-sm"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            value={product.product_link}
-                            onChange={(e) =>
-                              updateProduct(
-                                index,
-                                "product_link",
-                                e.target.value
-                              )
-                            }
-                            placeholder="https://..."
-                            className="h-9 text-sm"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            value={product.cad_file_link}
-                            onChange={(e) =>
-                              updateProduct(
-                                index,
-                                "cad_file_link",
-                                e.target.value
-                              )
-                            }
-                            placeholder="https://..."
-                            className="h-9 text-sm"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            value={product.category}
-                            onChange={(e) =>
-                              updateProduct(index, "category", e.target.value)
-                            }
-                            placeholder="Furniture"
-                            className="h-9 text-sm"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            value={product.subcategory}
-                            onChange={(e) =>
-                              updateProduct(
-                                index,
-                                "subcategory",
-                                e.target.value
-                              )
-                            }
-                            placeholder="Chairs"
-                            className="h-9 text-sm"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex gap-1">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                setEditingReferencesIndex(index);
-                                setShowReferencesDialog(true);
-                              }}
-                              className="h-9 text-xs cursor-pointer"
-                            >
-                              <FileText className="h-3 w-3 mr-1" />
-                              {product.references.length > 0
-                                ? product.references.length
-                                : "Add"}
-                            </Button>
-                            {product.references.length > 0 && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
-                                  setViewingReferencesIndex(index);
-                                  setShowViewReferencesDialog(true);
-                                }}
-                                className="h-9 text-xs cursor-pointer"
-                                title="View References"
-                              >
-                                <Eye className="h-3 w-3" />
-                              </Button>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          {products.length > 1 && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => removeProduct(index)}
-                              className="h-9 w-9 text-error hover:text-error/80 hover:bg-error/10 cursor-pointer"
-                            >
-                              <X className="h-4 w-4" />
-                            </Button>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-              <div className="flex flex-col sm:flex-row gap-3 items-center pt-4 border-t">
-                <Button
-                  onClick={addProduct}
-                  variant="outline"
-                  className="w-full sm:w-auto cursor-pointer"
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Another Product
-                </Button>
-
-                <div className="flex flex-col sm:flex-row gap-2 items-center">
-                  <Input
-                    value={addMultipleProducts}
-                    onChange={(e) => setAddMultipleProducts(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        addMultipleLinesFunction();
-                      }
-                    }}
-                    className="h-7 text-xs w-15"
-                    type="number"
-                    min="1"
-                    max="100"
-                  />
-                  <Button
-                    onClick={addMultipleLinesFunction}
-                    variant="outline"
-                    size="xxs"
-                    className="cursor-pointer"
-                    disabled={!addMultipleProducts.trim()}
-                  >
-                    Add {addMultipleProducts.trim() || "0"} Row
-                    {addMultipleProducts.trim() !== "1" ? "s" : ""}
-                  </Button>
-                </div>
-              </div>
-
-              <div className="flex gap-4 pt-4">
-                <Button
-                  onClick={() => setShowConfirmDialog(true)}
-                  disabled={loading || getValidProducts().length === 0}
-                  className="flex-1 cursor-pointer"
-                >
-                  {loading ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Adding Products...
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircle className="h-4 w-4 mr-2" />
-                      Add Products to Batch {currentBatch}
-                    </>
-                  )}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+          <SpreadsheetProductEntry
+            products={products}
+            onProductsChange={setProducts}
+            clientName={
+              user?.metadata?.client
+                ? Array.isArray(user.metadata.client)
+                  ? user.metadata.client[0]
+                  : user.metadata.client
+                : ""
+            }
+          />
+          
+          <div className="mt-6 flex gap-4">
+            <Button
+              onClick={() => setShowConfirmDialog(true)}
+              disabled={loading || getValidProducts().length === 0}
+              className="flex-1 cursor-pointer"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Adding Products...
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                  Add Products to Batch {currentBatch}
+                </>
+              )}
+            </Button>
+          </div>
         </div>
 
         {/* Sidebar */}

@@ -90,6 +90,7 @@
     "react-dom": "^19.0.0",
     "react-hook-form": "^7.56.3",
     "react-phone-number-input": "^3.4.12",
+    "react-spreadsheet": "^0.10.1",
     "react-tailwindcss-datepicker": "^2.0.0",
     "recharts": "^2.15.3",
     "resend": "^6.0.2",

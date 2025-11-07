@@ -1,6 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   transpilePackages: ["@radix-ui/react-select", "@radix-ui/react-popover"],
+  // Enable instrumentation hook to load console filter early
+  experimental: {
+    instrumentationHook: true,
+  },
   webpack: (config) => {
     config.resolve.fallback = {
       ...config.resolve.fallback,

@@ -1,3 +1,6 @@
+// Suppress Supabase cookie warnings globally
+import '@/lib/consoleFilter';
+
 import type { Metadata } from "next";
 import { Montserrat } from "next/font/google";
 import "./globals.css";
