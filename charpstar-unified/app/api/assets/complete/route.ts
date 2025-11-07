@@ -7,6 +7,22 @@ import { cookies } from "next/headers";
 import { cleanupSingleAllocationList } from "@/lib/allocationListCleanup";
 import { logActivityServer } from "@/lib/serverActivityLogger";
 
+const normalizeActive = (value: unknown, fallback = true): boolean => {
+  if (value === null || value === undefined) return fallback;
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") return value !== 0;
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (["false", "0", "no", "off", "inactive"].includes(normalized)) {
+      return false;
+    }
+    if (["true", "1", "yes", "on", "active"].includes(normalized)) {
+      return true;
+    }
+  }
+  return fallback;
+};
+
 // import { notificationService } from "@/lib/notificationService"; // TEMPORARILY DISABLED
 
 export async function POST(request: NextRequest) {
@@ -121,6 +137,8 @@ export async function POST(request: NextRequest) {
     // Allow duplicates - removed duplicate check to allow multiple entries
 
     // Prepare data for assets table - match the schema from transfer-approved route
+    const normalizedActive = normalizeActive(onboardingAsset.active);
+
     const assetData = {
       article_id: onboardingAsset.article_id,
       product_name: onboardingAsset.product_name,
@@ -144,6 +162,7 @@ export async function POST(request: NextRequest) {
       parent_asset_id: onboardingAsset.parent_asset_id || null,
       is_variation: onboardingAsset.is_variation || false,
       variation_index: onboardingAsset.variation_index || null,
+      active: normalizedActive,
     };
 
     // Insert the asset into the assets table
@@ -483,6 +502,18 @@ export async function POST(request: NextRequest) {
       //   productName: onboardingAsset.product_name,
       //   client: onboardingAsset.client,
       // });
+    }
+
+    const { error: activeUpdateError } = await supabaseAdmin
+      .from("assets")
+      .update({ active: normalizedActive })
+      .eq("id", newAsset.id);
+
+    if (activeUpdateError) {
+      console.error(
+        "Error enforcing active flag on completed asset:",
+        activeUpdateError
+      );
     }
 
     return NextResponse.json({

@@ -5,6 +5,22 @@ import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 import { cookies } from "next/headers";
 import { logActivityServer } from "@/lib/serverActivityLogger";
 
+const normalizeActive = (value: unknown, fallback = true): boolean => {
+  if (value === null || value === undefined) return fallback;
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") return value !== 0;
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (["false", "0", "no", "off", "inactive"].includes(normalized)) {
+      return false;
+    }
+    if (["true", "1", "yes", "on", "active"].includes(normalized)) {
+      return true;
+    }
+  }
+  return fallback;
+};
+
 export async function POST(request: NextRequest) {
   try {
     const supabaseAuth = createRouteHandlerClient({ cookies });
@@ -77,6 +93,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Prepare data for assets table
+    const normalizedActive = normalizeActive(onboardingAsset.active);
+
     const assetData = {
       article_id: onboardingAsset.article_id,
       product_name: onboardingAsset.product_name,
@@ -96,6 +114,7 @@ export async function POST(request: NextRequest) {
       materials: null, // Will be populated later if needed
       colors: null, // Will be populated later if needed
       glb_status: "completed", // Since it's approved by client
+      active: normalizedActive,
     };
 
     // Insert into assets table
@@ -121,6 +140,17 @@ export async function POST(request: NextRequest) {
         updated_at: new Date().toISOString(),
       })
       .eq("id", assetId);
+
+    if (!updateError) {
+      const { error: activeUpdateError } = await supabase
+        .from("assets")
+        .update({ active: normalizedActive })
+        .eq("id", newAsset.id);
+
+      if (activeUpdateError) {
+        console.error("Error enforcing asset active flag:", activeUpdateError);
+      }
+    }
 
     if (updateError) {
       console.error("Error updating onboarding asset:", updateError);

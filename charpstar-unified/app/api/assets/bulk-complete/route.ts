@@ -6,6 +6,22 @@ import { cookies } from "next/headers";
 import { cleanupSingleAllocationList } from "@/lib/allocationListCleanup";
 import { logActivityServer } from "@/lib/serverActivityLogger";
 
+const normalizeActive = (value: unknown, fallback = true): boolean => {
+  if (value === null || value === undefined) return fallback;
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") return value !== 0;
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (["false", "0", "no", "off", "inactive"].includes(normalized)) {
+      return false;
+    }
+    if (["true", "1", "yes", "on", "active"].includes(normalized)) {
+      return true;
+    }
+  }
+  return fallback;
+};
+
 export async function POST(request: NextRequest) {
   try {
     const supabaseAuth = createRouteHandlerClient({ cookies });
@@ -161,15 +177,17 @@ export async function POST(request: NextRequest) {
             materials: null,
             colors: null,
             glb_status: "completed",
+            active: normalizeActive(asset.active),
           }));
 
           // Insert assets in chunks to avoid payload size limits
           const insertChunks = chunkArray(assetsToInsert, CHUNK_SIZE);
           for (const insertChunk of insertChunks) {
-            const { error: insertError } = await supabaseAuth
-              .from("assets")
-              .insert(insertChunk)
-              .select();
+            const { data: insertedAssets, error: insertError } =
+              await supabaseAuth
+                .from("assets")
+                .insert(insertChunk)
+                .select("id, article_id, client");
 
             if (insertError) {
               console.error("Error inserting assets chunk:", insertError);
@@ -177,6 +195,25 @@ export async function POST(request: NextRequest) {
                 { error: "Failed to transfer assets to assets table" },
                 { status: 500 }
               );
+            }
+
+            if (insertedAssets && insertedAssets.length > 0) {
+              const activeUpdatePromises = insertedAssets.map((inserted) => {
+                const source = onboardingAssets.find(
+                  (asset) =>
+                    asset.article_id === inserted.article_id &&
+                    asset.client === inserted.client
+                );
+
+                const normalized = normalizeActive(source?.active);
+
+                return supabaseAuth
+                  .from("assets")
+                  .update({ active: normalized })
+                  .eq("id", inserted.id);
+              });
+
+              await Promise.all(activeUpdatePromises);
             }
           }
 
