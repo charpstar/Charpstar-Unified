@@ -48,12 +48,12 @@ export async function GET(
 
 export async function PUT(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   try {
-    const cookieStore = await cookies();
+    const cookieStore = cookies();
     const supabase = createRouteHandlerClient({
-      cookies: () => Promise.resolve(cookieStore),
+      cookies: () => cookieStore,
     });
 
     // Check authentication
@@ -80,17 +80,50 @@ export async function PUT(
       );
     }
 
-    const resolvedParams = await params;
-    const assetData = await req.json();
+    const assetData = (await req.json()) as Record<string, unknown>;
+
+    // Prevent updating immutable fields and normalise payload
+    const updatePayload: Record<string, unknown> = {
+      ...assetData,
+      updated_at: new Date().toISOString(),
+    };
+
+    delete updatePayload.id;
+    delete updatePayload.created_at;
+    delete updatePayload.updated_at;
+
+    const { materials, colors, tags } = assetData;
+
+    if (materials !== undefined) {
+      updatePayload.materials = Array.isArray(materials)
+        ? JSON.stringify(materials)
+        : (materials ?? null);
+    }
+
+    if (colors !== undefined) {
+      updatePayload.colors = Array.isArray(colors)
+        ? JSON.stringify(colors)
+        : (colors ?? null);
+    }
+
+    if (tags !== undefined) {
+      updatePayload.tags = Array.isArray(tags)
+        ? JSON.stringify(tags)
+        : (tags ?? null);
+    }
+
+    // Remove keys with undefined to avoid overwriting with null
+    Object.keys(updatePayload).forEach((key) => {
+      if (updatePayload[key] === undefined) {
+        delete updatePayload[key];
+      }
+    });
 
     // Update the asset
     const { data, error } = await supabase
       .from("assets")
-      .update({
-        ...assetData,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", resolvedParams.id)
+      .update(updatePayload)
+      .eq("id", params.id)
       .select()
       .single();
 
