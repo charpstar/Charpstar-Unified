@@ -405,7 +405,7 @@ class NotificationService {
       recipient_email: clientEmail,
       type: "client_review_ready",
       title: `Asset Approved - ${assetName}`,
-      message: `"${assetName}" has been completed by ${modelerName} and approved by our QA team. It's now ready for your review!`,
+      message: `"${assetName}" has been completed and approved by our QA team. It's now ready for your review!`,
       metadata: {
         assetId,
         assetName,
@@ -419,6 +419,13 @@ class NotificationService {
 
     // Create notification in database
     await this.createNotification(notification);
+
+    if (typeof window !== "undefined") {
+      console.log(
+        "[NotificationService] Skipping client review email dispatch in browser runtime"
+      );
+      return;
+    }
 
     // Send email notification
     try {

@@ -25,6 +25,11 @@ export async function GET(
     // Parse JSON fields to arrays (same as in the main assets route)
     const parsedAsset = {
       ...data,
+      article_ids: Array.isArray(data.article_ids)
+        ? data.article_ids
+        : data.article_ids
+          ? JSON.parse((data.article_ids as unknown as string) || "[]")
+          : [],
       materials: Array.isArray(data.materials)
         ? data.materials
         : JSON.parse(data.materials || "[]"),
@@ -92,7 +97,7 @@ export async function PUT(
     delete updatePayload.created_at;
     delete updatePayload.updated_at;
 
-    const { materials, colors, tags } = assetData;
+    const { materials, colors, tags, article_ids } = assetData;
 
     if (materials !== undefined) {
       updatePayload.materials = Array.isArray(materials)
@@ -110,6 +115,17 @@ export async function PUT(
       updatePayload.tags = Array.isArray(tags)
         ? JSON.stringify(tags)
         : (tags ?? null);
+    }
+
+    if (article_ids !== undefined) {
+      updatePayload.article_ids = Array.isArray(article_ids)
+        ? article_ids
+        : typeof article_ids === "string" && article_ids.trim() !== ""
+          ? article_ids
+              .split(/[\s,]+/)
+              .map((id) => id.trim())
+              .filter(Boolean)
+          : [];
     }
 
     // Remove keys with undefined to avoid overwriting with null
@@ -138,6 +154,11 @@ export async function PUT(
     // Parse JSON fields to arrays for response
     const parsedAsset = {
       ...data,
+      article_ids: Array.isArray(data.article_ids)
+        ? data.article_ids
+        : data.article_ids
+          ? JSON.parse((data.article_ids as unknown as string) || "[]")
+          : [],
       materials: Array.isArray(data.materials)
         ? data.materials
         : JSON.parse(data.materials || "[]"),

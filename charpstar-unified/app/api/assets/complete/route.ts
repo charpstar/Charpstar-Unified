@@ -23,6 +23,40 @@ const normalizeActive = (value: unknown, fallback = true): boolean => {
   return fallback;
 };
 
+const normalizeArticleIds = (
+  articleId: unknown,
+  articleIds: unknown
+): string[] => {
+  const values = new Set<string>();
+
+  const pushValue = (value: unknown) => {
+    if (!value || typeof value !== "string") return;
+    const trimmed = value.trim();
+    if (trimmed) values.add(trimmed);
+  };
+
+  if (Array.isArray(articleIds)) {
+    articleIds.forEach(pushValue);
+  } else if (typeof articleIds === "string" && articleIds.trim() !== "") {
+    try {
+      const parsed = JSON.parse(articleIds);
+      if (Array.isArray(parsed)) {
+        parsed.forEach(pushValue);
+      } else {
+        pushValue(articleIds);
+      }
+    } catch {
+      articleIds.split(/[\s,;]+/).forEach(pushValue);
+    }
+  }
+
+  if (typeof articleId === "string") {
+    pushValue(articleId);
+  }
+
+  return Array.from(values);
+};
+
 // import { notificationService } from "@/lib/notificationService"; // TEMPORARILY DISABLED
 
 export async function POST(request: NextRequest) {
@@ -138,6 +172,10 @@ export async function POST(request: NextRequest) {
 
     // Prepare data for assets table - match the schema from transfer-approved route
     const normalizedActive = normalizeActive(onboardingAsset.active);
+    const normalizedArticleIds = normalizeArticleIds(
+      onboardingAsset.article_id,
+      onboardingAsset.article_ids
+    );
 
     const assetData = {
       article_id: onboardingAsset.article_id,
@@ -163,6 +201,7 @@ export async function POST(request: NextRequest) {
       is_variation: onboardingAsset.is_variation || false,
       variation_index: onboardingAsset.variation_index || null,
       active: normalizedActive,
+      article_ids: normalizedArticleIds,
     };
 
     // Insert the asset into the assets table
@@ -332,42 +371,64 @@ export async function POST(request: NextRequest) {
           if (glbResponse.ok) {
             const glbBuffer = await glbResponse.arrayBuffer();
 
-            // Create Android folder path
+            // Create Android folder paths for each article ID (primary + additional)
             const sanitizedClientName = onboardingAsset.client.replace(
               /[^a-zA-Z0-9._-]/g,
               "_"
             );
-            const fileName = `${onboardingAsset.article_id}.glb`;
-            const androidPath = `${sanitizedClientName}/Android/${fileName}`;
-            const androidStorageUrl = `https://se.storage.bunnycdn.com/${storageZone}/${androidPath}`;
+            const targetArticleIds =
+              normalizedArticleIds.length > 0
+                ? normalizedArticleIds
+                : [onboardingAsset.article_id];
 
-            // Upload to Android folder
-            const androidUploadResponse = await fetch(androidStorageUrl, {
-              method: "PUT",
-              headers: {
-                AccessKey: storageKey,
-                "Content-Type": "application/octet-stream",
-              },
-              body: glbBuffer,
-            });
+            let primaryGlbLink: string | null = null;
 
-            if (androidUploadResponse.ok) {
-              // Update the GLB link in the assets table to point to Android folder
-              const newGlbLink = `${cdnBaseUrl}/${androidPath}`;
+            for (const [index, articleId] of targetArticleIds.entries()) {
+              if (!articleId) continue;
 
+              const fileName = `${articleId}.glb`;
+              const androidPath = `${sanitizedClientName}/Android/${fileName}`;
+              const androidStorageUrl = `https://se.storage.bunnycdn.com/${storageZone}/${androidPath}`;
+
+              try {
+                const androidUploadResponse = await fetch(androidStorageUrl, {
+                  method: "PUT",
+                  headers: {
+                    AccessKey: storageKey,
+                    "Content-Type": "application/octet-stream",
+                  },
+                  body: glbBuffer,
+                });
+
+                if (androidUploadResponse.ok) {
+                  const uploadedGlbLink = `${cdnBaseUrl}/${androidPath}`;
+
+                  if (index === 0) {
+                    primaryGlbLink = uploadedGlbLink;
+                  }
+
+                  console.log(
+                    `✅ GLB file copied to Android folder for ${articleId}: ${uploadedGlbLink}`
+                  );
+                } else {
+                  console.error(
+                    `❌ Failed to upload GLB for ${articleId} to Android folder:`,
+                    androidUploadResponse.status
+                  );
+                }
+              } catch (uploadError) {
+                console.error(
+                  `❌ Error uploading GLB for ${articleId} to Android folder:`,
+                  uploadError
+                );
+              }
+            }
+
+            if (primaryGlbLink) {
               await supabaseAdmin
                 .from("assets")
-                .update({ glb_link: newGlbLink })
+                .update({ glb_link: primaryGlbLink })
                 .eq("id", assetId);
-
-              console.log(
-                `✅ GLB file copied to Android folder: ${newGlbLink}`
-              );
-            } else {
-              console.error(
-                "❌ Failed to upload GLB to Android folder:",
-                androidUploadResponse.status
-              );
             }
           } else {
             console.error(
@@ -506,7 +567,10 @@ export async function POST(request: NextRequest) {
 
     const { error: activeUpdateError } = await supabaseAdmin
       .from("assets")
-      .update({ active: normalizedActive })
+      .update({
+        active: normalizedActive,
+        article_ids: normalizedArticleIds,
+      })
       .eq("id", newAsset.id);
 
     if (activeUpdateError) {

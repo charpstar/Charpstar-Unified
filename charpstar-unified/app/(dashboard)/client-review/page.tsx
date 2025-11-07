@@ -41,7 +41,6 @@ import {
   Plus,
   Trash2,
   Layers,
-  //eslint-disable-next-line @typescript-eslint/no-unused-vars
   Share,
 } from "lucide-react";
 
@@ -49,6 +48,43 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { useLoading } from "@/contexts/LoadingContext";
 import { getPriorityLabel } from "@/lib/constants";
+
+const normalizeArticleIds = (
+  articleId: unknown,
+  articleIds: unknown
+): string[] => {
+  const unique = new Set<string>();
+
+  const pushValue = (value: unknown) => {
+    if (!value || typeof value !== "string") return;
+    const trimmed = value.trim();
+    if (trimmed) unique.add(trimmed);
+  };
+
+  pushValue(articleId);
+
+  if (Array.isArray(articleIds)) {
+    articleIds.forEach(pushValue);
+  } else if (typeof articleIds === "string" && articleIds.trim() !== "") {
+    try {
+      const parsed = JSON.parse(articleIds);
+      if (Array.isArray(parsed)) {
+        parsed.forEach(pushValue);
+      } else {
+        pushValue(articleIds);
+      }
+    } catch {
+      articleIds.split(/[\s,;|]+/).forEach(pushValue);
+    }
+  }
+
+  return Array.from(unique);
+};
+
+const getAdditionalArticleIds = (asset: any): string[] => {
+  if (!Array.isArray(asset.article_ids)) return [];
+  return asset.article_ids.filter((id: string) => id !== asset.article_id);
+};
 
 // Helper function to get status label CSS class
 const getStatusLabelClass = (status: string): string => {
@@ -501,7 +537,7 @@ export default function ReviewDashboardPage() {
       const { data, error } = await supabase
         .from("onboarding_assets")
         .select(
-          "id, product_name, article_id, delivery_date, status, batch, priority, revision_count, product_link, glb_link, reference, client, upload_order, transferred, measurements, is_variation, parent_asset_id, variation_index"
+          "id, product_name, article_id, article_ids, delivery_date, status, batch, priority, revision_count, product_link, glb_link, reference, client, upload_order, transferred, measurements, is_variation, parent_asset_id, variation_index"
         )
         .in("client", user.metadata.client)
         .eq("transferred", false) // Hide transferred assets
@@ -514,11 +550,23 @@ export default function ReviewDashboardPage() {
       }
 
       if (data) {
-        setAssets(data);
+        const normalizedData = data.map((asset) => {
+          const articleIds = normalizeArticleIds(
+            asset.article_id,
+            asset.article_ids
+          );
+          return {
+            ...asset,
+            article_ids: articleIds,
+            article_id: articleIds[0] || asset.article_id,
+          };
+        });
+
+        setAssets(normalizedData);
 
         // Populate clients array for filter dropdown
         const uniqueClients = Array.from(
-          new Set(data.map((asset) => asset.client).filter(Boolean))
+          new Set(normalizedData.map((asset) => asset.client).filter(Boolean))
         ).sort();
         setClients(uniqueClients);
       } else {
@@ -656,7 +704,9 @@ export default function ReviewDashboardPage() {
       data = data.filter(
         (a) =>
           a.product_name?.toLowerCase().includes(s) ||
-          a.article_id?.toLowerCase().includes(s)
+          a.article_id?.toLowerCase().includes(s) ||
+          (Array.isArray(a.article_ids) &&
+            a.article_ids.some((id: string) => id.toLowerCase().includes(s)))
       );
     }
     if (sort === "az")
@@ -1031,7 +1081,7 @@ export default function ReviewDashboardPage() {
                       Set Priority
                     </Button>
                   </div>
-                  {/*
+
                   <div className="flex items-center gap-2">
                     <Button
                       size="sm"
@@ -1042,7 +1092,6 @@ export default function ReviewDashboardPage() {
                       Share for Review
                     </Button>
                   </div>
-                  */}
                 </>
               )}
 
@@ -1222,6 +1271,13 @@ export default function ReviewDashboardPage() {
                           variationCount,
                           variationIndex,
                         } = item;
+                        const additionalArticleIds =
+                          getAdditionalArticleIds(asset);
+                        const articleIdsTooltip = Array.isArray(
+                          asset.article_ids
+                        )
+                          ? asset.article_ids.join(", ")
+                          : asset.article_id;
                         const rowStyling = getRowStyling(asset.status);
                         const isExpanded =
                           isParent && expandedParents.has(asset.id);
@@ -1312,27 +1368,43 @@ export default function ReviewDashboardPage() {
                                 <div className="flex items-center gap-1 text-xs"></div>
                               </div>
                             </TableCell>
-                            <TableCell className="dark:text-foreground text-left w-20 max-w-20">
-                              <div className="flex items-center gap-1.5">
+                            <TableCell className="dark:text-foreground text-left w-28 max-w-32">
+                              <div className="flex items-start gap-1.5">
                                 {isVariation ? (
-                                  <div className="w-8 flex items-center justify-center flex-shrink-0">
+                                  <div className="w-8 flex items-center justify-center flex-shrink-0 pt-0.5">
                                     <div className="h-px w-4 bg-slate-300 dark:bg-slate-600" />
                                   </div>
                                 ) : isParent ? (
                                   <div className="w-8 flex items-center justify-center flex-shrink-0" />
                                 ) : null}
-                                <span
-                                  className={`text-xs font-mono truncate block ${
-                                    isVariation
-                                      ? "text-slate-600 dark:text-slate-400"
-                                      : isParent
-                                        ? "text-amber-700 dark:text-amber-500 font-semibold"
-                                        : ""
-                                  }`}
-                                  title={asset.article_id}
-                                >
-                                  {asset.article_id}
-                                </span>
+                                <div className="flex flex-col gap-1 min-w-0">
+                                  <span
+                                    className={`text-xs font-mono truncate block ${
+                                      isVariation
+                                        ? "text-slate-600 dark:text-slate-400"
+                                        : isParent
+                                          ? "text-amber-700 dark:text-amber-500 font-semibold"
+                                          : ""
+                                    }`}
+                                    title={articleIdsTooltip || undefined}
+                                  >
+                                    {asset.article_id}
+                                  </span>
+                                  {additionalArticleIds.length > 0 && (
+                                    <div className="flex flex-wrap gap-1">
+                                      {additionalArticleIds.map((id) => (
+                                        <Badge
+                                          key={`${asset.id}-${id}`}
+                                          variant="outline"
+                                          className="px-1.5 py-0 text-[10px] font-mono text-muted-foreground dark:text-muted-foreground/80 border-border/60 dark:border-border/60"
+                                          title={id}
+                                        >
+                                          {id}
+                                        </Badge>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
                               </div>
                             </TableCell>
                             <TableCell className="text-center w-24">

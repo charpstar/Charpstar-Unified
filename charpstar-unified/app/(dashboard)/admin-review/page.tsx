@@ -396,6 +396,69 @@ const getStatusLabelText = (status: string): string => {
   }
 };
 
+const normalizeArticleIds = (
+  articleId: unknown,
+  articleIds: unknown
+): string[] => {
+  const unique = new Set<string>();
+
+  const pushValue = (value: unknown) => {
+    if (value === null || value === undefined) return;
+
+    if (typeof value === "string") {
+      const trimmed = value.trim();
+      if (trimmed) unique.add(trimmed);
+      return;
+    }
+
+    if (typeof value === "number" || typeof value === "boolean") {
+      const normalized = String(value).trim();
+      if (normalized) unique.add(normalized);
+      return;
+    }
+
+    if (Array.isArray(value)) {
+      value.forEach(pushValue);
+    }
+  };
+
+  pushValue(articleId);
+
+  if (Array.isArray(articleIds)) {
+    articleIds.forEach(pushValue);
+  } else if (typeof articleIds === "string" && articleIds.trim() !== "") {
+    try {
+      const parsed = JSON.parse(articleIds);
+      if (Array.isArray(parsed)) {
+        parsed.forEach(pushValue);
+      } else {
+        pushValue(articleIds);
+      }
+    } catch {
+      articleIds.split(/[\s,;|]+/).forEach(pushValue);
+    }
+  } else if (articleIds !== null && articleIds !== undefined) {
+    pushValue(articleIds);
+  }
+
+  return Array.from(unique);
+};
+
+const getAdditionalArticleIds = (asset: {
+  article_id?: string | null;
+  article_ids?: string[] | null;
+}): string[] => {
+  if (!Array.isArray(asset?.article_ids)) return [];
+  return asset.article_ids.filter(
+    (id) => id && id !== (asset.article_id ?? undefined)
+  );
+};
+
+const getArticleIdsTooltip = (articleIds: string[]): string | null => {
+  if (!articleIds || articleIds.length <= 1) return null;
+  return articleIds.join(", ");
+};
+
 const PAGE_SIZE = 200;
 
 const getStatusIcon = (status: string) => {
@@ -915,7 +978,7 @@ export default function AdminReviewPage() {
       let query = supabase
         .from("onboarding_assets")
         .select(
-          "id, product_name, article_id, delivery_date, status, batch, priority, revision_count, product_link, glb_link, reference, client, upload_order, pricing_option_id, price, pricing_comment, transferred, is_variation, parent_asset_id, variation_index, qa_team_handles_model"
+          "id, product_name, article_id, article_ids, delivery_date, status, batch, priority, revision_count, product_link, glb_link, reference, client, upload_order, pricing_option_id, price, pricing_comment, transferred, is_variation, parent_asset_id, variation_index, qa_team_handles_model"
         )
         .eq("transferred", false) // Exclude transferred assets
         .order("upload_order", { ascending: true });
@@ -966,8 +1029,21 @@ export default function AdminReviewPage() {
         return;
       }
 
-      setAssets(data || []);
-      setFiltered(data || []);
+      const normalizedData = (data || []).map((asset) => {
+        const articleIds = normalizeArticleIds(
+          asset.article_id,
+          (asset as any).article_ids
+        );
+
+        return {
+          ...asset,
+          article_ids: articleIds,
+          article_id: articleIds[0] || asset.article_id,
+        };
+      });
+
+      setAssets(normalizedData);
+      setFiltered(normalizedData);
     } catch (error) {
       console.error("Error in fetchAssets:", error);
     } finally {
@@ -1891,7 +1967,8 @@ export default function AdminReviewPage() {
               onboarding_assets(
                 id,
                 product_name,
-                article_id,
+              article_id,
+              article_ids,
                 status,
                 priority,
                 category,
@@ -1920,7 +1997,31 @@ export default function AdminReviewPage() {
           return;
         }
 
-        setAllocationLists(data || []);
+        const normalizedLists = (data || []).map((list) => ({
+          ...list,
+          asset_assignments: (list.asset_assignments || []).map(
+            (assignment: any) => {
+              const onboardingAsset = assignment.onboarding_assets;
+              if (!onboardingAsset) return assignment;
+
+              const articleIds = normalizeArticleIds(
+                onboardingAsset.article_id,
+                onboardingAsset.article_ids
+              );
+
+              return {
+                ...assignment,
+                onboarding_assets: {
+                  ...onboardingAsset,
+                  article_ids: articleIds,
+                  article_id: articleIds[0] || onboardingAsset.article_id,
+                },
+              };
+            }
+          ),
+        }));
+
+        setAllocationLists(normalizedLists);
       } catch (error) {
         console.error("Error fetching allocation lists:", error);
         toast.error("Failed to fetch allocation lists");
@@ -1987,7 +2088,7 @@ export default function AdminReviewPage() {
       let query = supabase
         .from("onboarding_assets")
         .select(
-          "id, product_name, article_id, delivery_date, status, batch, priority, revision_count, client, reference, glb_link, product_link, upload_order, pricing_option_id, price, pricing_comment, transferred, measurements, is_variation, parent_asset_id, variation_index"
+          "id, product_name, article_id, article_ids, delivery_date, status, batch, priority, revision_count, client, reference, glb_link, product_link, upload_order, pricing_option_id, price, pricing_comment, transferred, measurements, is_variation, parent_asset_id, variation_index"
         )
         .eq("transferred", false) // Exclude transferred assets
         .order("upload_order", { ascending: true });
@@ -2035,7 +2136,21 @@ export default function AdminReviewPage() {
 
       const { data, error } = await query;
       if (!error && data) {
-        setAssets(data);
+        const normalizedData = data.map((asset) => {
+          const articleIds = normalizeArticleIds(
+            asset.article_id,
+            (asset as any).article_ids
+          );
+
+          return {
+            ...asset,
+            article_ids: articleIds,
+            article_id: articleIds[0] || asset.article_id,
+          };
+        });
+
+        setAssets(normalizedData);
+        setFiltered(normalizedData);
 
         // Initialize asset prices from loaded data
         const initialPrices: Record<
@@ -2044,7 +2159,7 @@ export default function AdminReviewPage() {
         > = {};
         const initialCustomPrices: Record<string, number> = {};
         const initialPricingComments: Record<string, string> = {};
-        data.forEach((asset) => {
+        normalizedData.forEach((asset) => {
           if (asset.pricing_option_id && asset.price !== undefined) {
             initialPrices[asset.id] = {
               pricingOptionId: asset.pricing_option_id,
@@ -2068,14 +2183,16 @@ export default function AdminReviewPage() {
 
         // Extract unique clients
         const uniqueClients = [
-          ...new Set(data.map((asset) => asset.client).filter(Boolean)),
+          ...new Set(
+            normalizedData.map((asset) => asset.client).filter(Boolean)
+          ),
         ];
         setClients(uniqueClients);
 
         // Fetch assigned assets
-        await fetchAssignedAssets(data.map((asset) => asset.id));
+        await fetchAssignedAssets(normalizedData.map((asset) => asset.id));
         // Fetch pending assets
-        await fetchPendingAssets(data.map((asset) => asset.id));
+        await fetchPendingAssets(normalizedData.map((asset) => asset.id));
       }
       setLoading(false);
       stopLoading();
@@ -4451,6 +4568,21 @@ export default function AdminReviewPage() {
                                     a.onboarding_assets.parent_asset_id ===
                                     asset.id
                                 );
+                                const articleIds = Array.isArray(
+                                  asset.article_ids
+                                )
+                                  ? asset.article_ids
+                                  : normalizeArticleIds(
+                                      asset.article_id,
+                                      asset.article_ids
+                                    );
+                                const additionalArticleIds =
+                                  getAdditionalArticleIds({
+                                    ...asset,
+                                    article_ids: articleIds,
+                                  });
+                                const articleIdsTooltip =
+                                  getArticleIdsTooltip(articleIds);
                                 return (
                                   <TableRow
                                     key={assignment.asset_id}
@@ -4521,25 +4653,46 @@ export default function AdminReviewPage() {
                                           )}
                                       </div>
                                     </TableCell>
-                                    <TableCell className="text-left">
-                                      <div className="flex items-center gap-1.5">
+                                    <TableCell className="max-w-[140px] text-left text-xs sm:text-sm font-mono">
+                                      <div className="flex items-start gap-1.5 min-w-0">
                                         {isVariation && (
                                           <ChevronRight className="h-3 w-3 text-slate-500 dark:text-slate-400 flex-shrink-0" />
                                         )}
                                         {isParent && !isVariation && (
                                           <Package className="h-3 w-3 text-amber-600 dark:text-amber-500 flex-shrink-0" />
                                         )}
-                                        <span
-                                          className={`font-mono text-xs sm:text-sm truncate ${
-                                            isVariation
-                                              ? "text-slate-600 dark:text-slate-400"
-                                              : isParent
-                                                ? "text-amber-700 dark:text-amber-500"
-                                                : ""
-                                          }`}
-                                        >
-                                          {asset.article_id}
-                                        </span>
+                                        <div className="flex flex-col gap-1 min-w-0">
+                                          <span
+                                            className={`truncate ${
+                                              isVariation
+                                                ? "text-slate-600 dark:text-slate-400"
+                                                : isParent
+                                                  ? "text-amber-700 dark:text-amber-500"
+                                                  : ""
+                                            }`}
+                                            title={
+                                              articleIdsTooltip || undefined
+                                            }
+                                          >
+                                            {asset.article_id}
+                                          </span>
+                                          {additionalArticleIds.length > 0 && (
+                                            <div className="flex flex-wrap gap-1">
+                                              {additionalArticleIds.map(
+                                                (id) => (
+                                                  <Badge
+                                                    key={`${asset.id}-${id}`}
+                                                    variant="outline"
+                                                    className="px-1.5 py-0 text-[10px] uppercase tracking-wide text-muted-foreground dark:text-muted-foreground/80 border-border/60 dark:border-border/60"
+                                                    title={id}
+                                                  >
+                                                    {id}
+                                                  </Badge>
+                                                )
+                                              )}
+                                            </div>
+                                          )}
+                                        </div>
                                       </div>
                                     </TableCell>
                                     <TableCell className="text-left">
@@ -4971,6 +5124,17 @@ export default function AdminReviewPage() {
                     const isParent = paged.some(
                       (a) => a.parent_asset_id === asset.id
                     );
+                    const articleIds = Array.isArray(asset.article_ids)
+                      ? asset.article_ids
+                      : normalizeArticleIds(
+                          asset.article_id,
+                          asset.article_ids
+                        );
+                    const additionalArticleIds = getAdditionalArticleIds({
+                      ...asset,
+                      article_ids: articleIds,
+                    });
+                    const articleIdsTooltip = getArticleIdsTooltip(articleIds);
                     return (
                       <TableRow
                         key={asset.id}
@@ -5051,25 +5215,42 @@ export default function AdminReviewPage() {
                             </div>
                           </div>
                         </TableCell>
-                        <TableCell className="text-left text-xs sm:text-sm font-mono">
-                          <div className="flex items-center gap-1.5">
+                        <TableCell className="max-w-[140px] text-left text-xs sm:text-sm font-mono">
+                          <div className="flex items-start gap-1.5 min-w-0">
                             {isVariation && (
                               <ChevronRight className="h-3 w-3 text-slate-500 dark:text-slate-400 flex-shrink-0" />
                             )}
                             {isParent && !isVariation && (
                               <Package className="h-3 w-3 text-amber-600 dark:text-amber-500 flex-shrink-0" />
                             )}
-                            <span
-                              className={`truncate ${
-                                isVariation
-                                  ? "text-slate-600 dark:text-slate-400"
-                                  : isParent
-                                    ? "text-amber-700 dark:text-amber-500"
-                                    : ""
-                              }`}
-                            >
-                              {asset.article_id}
-                            </span>
+                            <div className="flex flex-col gap-1 min-w-0">
+                              <span
+                                className={`truncate ${
+                                  isVariation
+                                    ? "text-slate-600 dark:text-slate-400"
+                                    : isParent
+                                      ? "text-amber-700 dark:text-amber-500"
+                                      : ""
+                                }`}
+                                title={articleIdsTooltip || undefined}
+                              >
+                                {asset.article_id}
+                              </span>
+                              {additionalArticleIds.length > 0 && (
+                                <div className="flex flex-wrap gap-1">
+                                  {additionalArticleIds.map((id) => (
+                                    <Badge
+                                      key={`${asset.id}-${id}`}
+                                      variant="outline"
+                                      className="px-1.5 py-0 text-[10px] uppercase tracking-wide text-muted-foreground dark:text-muted-foreground/80 border-border/60 dark:border-border/60"
+                                      title={id}
+                                    >
+                                      {id}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </TableCell>
                         <TableCell className="text-center">
@@ -5595,6 +5776,18 @@ export default function AdminReviewPage() {
                         const isParent = paged.some(
                           (a) => a.parent_asset_id === asset.id
                         );
+                        const articleIds = Array.isArray(asset.article_ids)
+                          ? asset.article_ids
+                          : normalizeArticleIds(
+                              asset.article_id,
+                              asset.article_ids
+                            );
+                        const additionalArticleIds = getAdditionalArticleIds({
+                          ...asset,
+                          article_ids: articleIds,
+                        });
+                        const articleIdsTooltip =
+                          getArticleIdsTooltip(articleIds);
                         return (
                           <TableRow
                             key={asset.id}
@@ -5754,24 +5947,41 @@ export default function AdminReviewPage() {
                               </div>
                             </TableCell>
                             <TableCell className="max-w-[120px] text-left text-xs sm:text-sm font-mono">
-                              <div className="flex items-center gap-1.5 min-w-0">
+                              <div className="flex items-start gap-1.5 min-w-0">
                                 {isVariation && (
                                   <ChevronRight className="h-3 w-3 text-slate-500 dark:text-slate-400 flex-shrink-0" />
                                 )}
                                 {isParent && !isVariation && (
                                   <Package className="h-3 w-3 text-amber-600 dark:text-amber-500 flex-shrink-0" />
                                 )}
-                                <span
-                                  className={`truncate min-w-0 ${
-                                    isVariation
-                                      ? "text-slate-600 dark:text-slate-400"
-                                      : isParent
-                                        ? "text-amber-700 dark:text-amber-500"
-                                        : ""
-                                  }`}
-                                >
-                                  {asset.article_id}
-                                </span>
+                                <div className="flex flex-col gap-1 min-w-0">
+                                  <span
+                                    className={`truncate min-w-0 ${
+                                      isVariation
+                                        ? "text-slate-600 dark:text-slate-400"
+                                        : isParent
+                                          ? "text-amber-700 dark:text-amber-500"
+                                          : ""
+                                    }`}
+                                    title={articleIdsTooltip || undefined}
+                                  >
+                                    {asset.article_id}
+                                  </span>
+                                  {additionalArticleIds.length > 0 && (
+                                    <div className="flex flex-wrap gap-1">
+                                      {additionalArticleIds.map((id) => (
+                                        <Badge
+                                          key={`${asset.id}-${id}`}
+                                          variant="outline"
+                                          className="px-1.5 py-0 text-[10px] uppercase tracking-wide text-muted-foreground dark:text-muted-foreground/80 border-border/60 dark:border-border/60"
+                                          title={id}
+                                        >
+                                          {id}
+                                        </Badge>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
                               </div>
                             </TableCell>
                             <TableCell className="text-center">

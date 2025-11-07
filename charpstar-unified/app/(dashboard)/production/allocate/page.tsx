@@ -51,6 +51,7 @@ interface UnallocatedAsset {
   id: string;
   product_name: string;
   article_id: string;
+  article_ids?: string[] | null;
   product_link?: string;
   glb_link?: string;
   category: string;
@@ -235,6 +236,69 @@ const getTaskTypeFromPricingOptionId = (pricingOptionId: string): string => {
   if (pricingOptionId.startsWith("additional_sizes_"))
     return "Additional Sizes";
   return "Unknown";
+};
+
+const normalizeArticleIds = (
+  articleId: unknown,
+  articleIds: unknown
+): string[] => {
+  const unique = new Set<string>();
+
+  const pushValue = (value: unknown) => {
+    if (value === null || value === undefined) return;
+
+    if (typeof value === "string") {
+      const trimmed = value.trim();
+      if (trimmed) unique.add(trimmed);
+      return;
+    }
+
+    if (typeof value === "number" || typeof value === "boolean") {
+      const normalized = String(value).trim();
+      if (normalized) unique.add(normalized);
+      return;
+    }
+
+    if (Array.isArray(value)) {
+      value.forEach(pushValue);
+    }
+  };
+
+  pushValue(articleId);
+
+  if (Array.isArray(articleIds)) {
+    articleIds.forEach(pushValue);
+  } else if (typeof articleIds === "string" && articleIds.trim() !== "") {
+    try {
+      const parsed = JSON.parse(articleIds);
+      if (Array.isArray(parsed)) {
+        parsed.forEach(pushValue);
+      } else {
+        pushValue(articleIds);
+      }
+    } catch {
+      articleIds.split(/[\s,;|]+/).forEach(pushValue);
+    }
+  } else if (articleIds !== null && articleIds !== undefined) {
+    pushValue(articleIds);
+  }
+
+  return Array.from(unique);
+};
+
+const getAdditionalArticleIds = (asset: {
+  article_id?: string | null;
+  article_ids?: string[] | null;
+}): string[] => {
+  if (!Array.isArray(asset?.article_ids)) return [];
+  return asset.article_ids.filter(
+    (id) => id && id !== (asset.article_id ?? undefined)
+  );
+};
+
+const getArticleIdsTooltip = (articleIds: string[]): string | null => {
+  if (!articleIds || articleIds.length <= 1) return null;
+  return articleIds.join(", ");
 };
 
 export default function AllocateAssetsPage() {
@@ -660,24 +724,44 @@ export default function AllocateAssetsPage() {
           await supabase
             .from("onboarding_assets")
             .select(
-              "*, pricing_option_id, price, pricing_comment, qa_team_handles_model"
+              "*, pricing_option_id, price, pricing_comment, qa_team_handles_model, article_ids"
             )
             .in("id", selectedAssetsParam)
             .order("upload_order", { ascending: true });
 
         if (preSelectedError) throw preSelectedError;
 
-        setAssets(preSelectedAssets || []);
+        const normalizedPreSelectedAssets = (preSelectedAssets || []).map(
+          (asset) => {
+            const articleIds = normalizeArticleIds(
+              (asset as any).article_id,
+              (asset as any).article_ids
+            );
+
+            return {
+              ...asset,
+              article_ids: articleIds,
+              article_id: articleIds[0] || (asset as any).article_id,
+            };
+          }
+        );
+
+        setAssets(normalizedPreSelectedAssets);
 
         // Store the order from the fetched assets (admin-review order)
-        if (preSelectedAssets && preSelectedAssets.length > 0) {
-          const orderedIds = preSelectedAssets.map((asset) => asset.id);
+        if (
+          normalizedPreSelectedAssets &&
+          normalizedPreSelectedAssets.length > 0
+        ) {
+          const orderedIds = normalizedPreSelectedAssets.map(
+            (asset) => asset.id
+          );
           setSelectedAssetsOrder(orderedIds);
         }
 
         // Initialize pricing comments
         const initialPricingComments: Record<string, string> = {};
-        preSelectedAssets?.forEach((asset) => {
+        normalizedPreSelectedAssets.forEach((asset) => {
           if (asset.pricing_comment) {
             initialPricingComments[asset.id] = asset.pricing_comment;
           }
@@ -702,17 +786,30 @@ export default function AllocateAssetsPage() {
       const { data, error } = await supabase
         .from("onboarding_assets")
         .select(
-          "*, pricing_option_id, price, pricing_comment, qa_team_handles_model"
+          "*, pricing_option_id, price, pricing_comment, qa_team_handles_model, article_ids"
         )
         .not("id", "in", `(${assignedAssetIds.join(",")})`);
 
       if (error) throw error;
 
-      setAssets(data || []);
+      const normalizedAssets = (data || []).map((asset) => {
+        const articleIds = normalizeArticleIds(
+          (asset as any).article_id,
+          (asset as any).article_ids
+        );
+
+        return {
+          ...asset,
+          article_ids: articleIds,
+          article_id: articleIds[0] || (asset as any).article_id,
+        };
+      });
+
+      setAssets(normalizedAssets);
 
       // Initialize pricing comments for unallocated assets
       const initialPricingComments: Record<string, string> = {};
-      data?.forEach((asset) => {
+      normalizedAssets.forEach((asset) => {
         if (asset.pricing_comment) {
           initialPricingComments[asset.id] = asset.pricing_comment;
         }
@@ -2652,6 +2749,17 @@ export default function AllocateAssetsPage() {
                         const asset = getAssetById(data.assetId);
                         if (!asset) return null;
 
+                        const articleIds = normalizeArticleIds(
+                          asset.article_id,
+                          asset.article_ids
+                        );
+                        const additionalArticleIds = getAdditionalArticleIds({
+                          article_id: asset.article_id,
+                          article_ids: articleIds,
+                        });
+                        const articleIdsTooltip =
+                          getArticleIdsTooltip(articleIds);
+
                         return (
                           <tr
                             key={data.assetId}
@@ -2677,8 +2785,29 @@ export default function AllocateAssetsPage() {
                                   : asset.product_name}
                               </div>
                             </td>
-                            <td className="px-3 py-2 text-muted-foreground font-mono">
-                              {asset.article_id}
+                            <td className="px-3 py-2 text-muted-foreground font-mono align-top">
+                              <div className="flex flex-col gap-1">
+                                <span
+                                  className="truncate"
+                                  title={articleIdsTooltip || undefined}
+                                >
+                                  {asset.article_id}
+                                </span>
+                                {additionalArticleIds.length > 0 && (
+                                  <div className="flex flex-wrap gap-1">
+                                    {additionalArticleIds.map((id) => (
+                                      <Badge
+                                        key={`${asset.id}-${id}`}
+                                        variant="outline"
+                                        className="px-1.5 py-0 text-[10px] uppercase tracking-wide text-muted-foreground border-border/60"
+                                        title={id}
+                                      >
+                                        {id}
+                                      </Badge>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
                             </td>
                             <td className="px-3 py-2 text-center">
                               <Badge variant="outline" className="text-xs">
@@ -3115,6 +3244,17 @@ export default function AllocateAssetsPage() {
                           data.assetId
                         );
 
+                        const articleIds = normalizeArticleIds(
+                          asset.article_id,
+                          asset.article_ids
+                        );
+                        const additionalArticleIds = getAdditionalArticleIds({
+                          article_id: asset.article_id,
+                          article_ids: articleIds,
+                        });
+                        const articleIdsTooltip =
+                          getArticleIdsTooltip(articleIds);
+
                         return (
                           <tr
                             key={data.assetId}
@@ -3181,8 +3321,26 @@ export default function AllocateAssetsPage() {
                                   : asset.product_name}
                               </div>
                             </td>
-                            <td className="p-2 text-muted-foreground font-mono text-center items-center justify-center ">
-                              {asset.article_id}
+                            <td className="p-2 text-muted-foreground font-mono text-center">
+                              <div className="flex flex-col items-center gap-1">
+                                <span title={articleIdsTooltip || undefined}>
+                                  {asset.article_id}
+                                </span>
+                                {additionalArticleIds.length > 0 && (
+                                  <div className="flex flex-wrap justify-center gap-1">
+                                    {additionalArticleIds.map((id) => (
+                                      <Badge
+                                        key={`${asset.id}-${id}`}
+                                        variant="outline"
+                                        className="px-1.5 py-0 text-[10px] uppercase tracking-wide text-muted-foreground border-border/60"
+                                        title={id}
+                                      >
+                                        {id}
+                                      </Badge>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
                             </td>
                             <td className="p-2 text-center">
                               <Badge variant="outline" className="text-xs">

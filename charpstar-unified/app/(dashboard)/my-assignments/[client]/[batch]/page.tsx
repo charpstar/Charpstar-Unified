@@ -12,6 +12,69 @@ const getPriorityClass = (priority: number): string => {
   if (priority === 2) return "priority-medium";
   return "priority-low";
 };
+
+const normalizeArticleIds = (
+  articleId: unknown,
+  articleIds: unknown
+): string[] => {
+  const unique = new Set<string>();
+
+  const pushValue = (value: unknown) => {
+    if (value === null || value === undefined) return;
+
+    if (typeof value === "string") {
+      const trimmed = value.trim();
+      if (trimmed) unique.add(trimmed);
+      return;
+    }
+
+    if (typeof value === "number" || typeof value === "boolean") {
+      const normalized = String(value).trim();
+      if (normalized) unique.add(normalized);
+      return;
+    }
+
+    if (Array.isArray(value)) {
+      value.forEach(pushValue);
+    }
+  };
+
+  pushValue(articleId);
+
+  if (Array.isArray(articleIds)) {
+    articleIds.forEach(pushValue);
+  } else if (typeof articleIds === "string" && articleIds.trim() !== "") {
+    try {
+      const parsed = JSON.parse(articleIds);
+      if (Array.isArray(parsed)) {
+        parsed.forEach(pushValue);
+      } else {
+        pushValue(articleIds);
+      }
+    } catch {
+      articleIds.split(/[\s,;|]+/).forEach(pushValue);
+    }
+  } else if (articleIds !== null && articleIds !== undefined) {
+    pushValue(articleIds);
+  }
+
+  return Array.from(unique);
+};
+
+const getAdditionalArticleIds = (asset: {
+  article_id?: string | null;
+  article_ids?: string[] | null;
+}): string[] => {
+  if (!Array.isArray(asset?.article_ids)) return [];
+  return asset.article_ids.filter(
+    (id) => id && id !== (asset.article_id ?? undefined)
+  );
+};
+
+const getArticleIdsTooltip = (articleIds: string[]): string | null => {
+  if (!articleIds || articleIds.length <= 1) return null;
+  return articleIds.join(", ");
+};
 import { supabase } from "@/lib/supabaseClient";
 import { Card, CardContent, CardHeader } from "@/components/ui/containers";
 import { Button } from "@/components/ui/display";
@@ -81,6 +144,7 @@ interface BatchAsset {
   id: string;
   product_name: string;
   article_id: string;
+  article_ids?: string[] | null;
   status: string;
   priority: number;
   category: string;
@@ -490,6 +554,7 @@ export default function BatchDetailPage() {
               id,
               product_name,
               article_id,
+              article_ids,
               status,
               priority,
               category,
@@ -531,10 +596,23 @@ export default function BatchDetailPage() {
               bonus: list.bonus,
               deadline: list.deadline,
               allocation_list_id: list.id,
-              qa_team_handles_model: assignment.onboarding_assets.qa_team_handles_model,
+              qa_team_handles_model:
+                assignment.onboarding_assets.qa_team_handles_model,
               pricing_option_id: assignment.onboarding_assets.pricing_option_id,
             }))
-            .filter(Boolean) as BatchAsset[];
+            .filter(Boolean)
+            .map((asset: any) => {
+              const articleIds = normalizeArticleIds(
+                asset.article_id,
+                asset.article_ids
+              );
+
+              return {
+                ...asset,
+                article_ids: articleIds,
+                article_id: articleIds[0] || asset.article_id,
+              };
+            }) as BatchAsset[];
 
           return {
             id: list.id,
@@ -795,12 +873,34 @@ export default function BatchDetailPage() {
 
     // Apply search filter
     if (searchTerm) {
-      filtered = filtered.filter(
-        (asset) =>
-          asset.product_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          asset.article_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          asset.category.toLowerCase().includes(searchTerm.toLowerCase())
-      );
+      const lowerSearch = searchTerm.toLowerCase();
+      filtered = filtered.filter((asset) => {
+        const matchesProduct = asset.product_name
+          .toLowerCase()
+          .includes(lowerSearch);
+        const matchesPrimary = asset.article_id
+          .toLowerCase()
+          .includes(lowerSearch);
+        const matchesAdditional = Array.isArray(asset.article_ids)
+          ? asset.article_ids.some((id) =>
+              id?.toLowerCase().includes(lowerSearch)
+            )
+          : false;
+        const matchesCategory = asset.category
+          .toLowerCase()
+          .includes(lowerSearch);
+        const matchesSubcategory = asset.subcategory
+          ? asset.subcategory.toLowerCase().includes(lowerSearch)
+          : false;
+
+        return (
+          matchesProduct ||
+          matchesPrimary ||
+          matchesAdditional ||
+          matchesCategory ||
+          matchesSubcategory
+        );
+      });
     }
 
     // Apply status filter
@@ -2177,14 +2277,41 @@ export default function BatchDetailPage() {
                                         </div>
                                       </TableCell>
                                       <TableCell className="py-2 text-left">
-                                        <span className="text-xs text-muted-foreground font-mono">
-                                          {
-                                            highlightMatch(
-                                              asset.article_id,
-                                              searchTerm
-                                            ) as any
-                                          }
-                                        </span>
+                                        <div className="flex flex-col gap-1">
+                                          <span
+                                            className="text-xs text-muted-foreground font-mono"
+                                            title={
+                                              getArticleIdsTooltip(
+                                                asset.article_ids || []
+                                              ) || undefined
+                                            }
+                                          >
+                                            {
+                                              highlightMatch(
+                                                asset.article_id,
+                                                searchTerm
+                                              ) as any
+                                            }
+                                          </span>
+                                          {Array.isArray(asset.article_ids) &&
+                                            getAdditionalArticleIds(asset)
+                                              .length > 0 && (
+                                              <div className="flex flex-wrap gap-1">
+                                                {getAdditionalArticleIds(
+                                                  asset
+                                                ).map((id) => (
+                                                  <Badge
+                                                    key={`${asset.id}-${id}`}
+                                                    variant="outline"
+                                                    className="px-1.5 py-0 text-[10px] uppercase tracking-wide text-muted-foreground border-border/60"
+                                                    title={id}
+                                                  >
+                                                    {id}
+                                                  </Badge>
+                                                ))}
+                                              </div>
+                                            )}
+                                        </div>
                                       </TableCell>
                                       <TableCell className="py-2 text-left">
                                         <Badge
@@ -2299,7 +2426,9 @@ export default function BatchDetailPage() {
                                                   "glb"
                                                 )
                                               }
-                                              disabled={uploadingGLB === asset.id}
+                                              disabled={
+                                                uploadingGLB === asset.id
+                                              }
                                               className={`text-xs h-6 px-2 w-full ${
                                                 asset.glb_link
                                                   ? "hover:text-blue-700 hover:underline"
@@ -2446,18 +2575,47 @@ export default function BatchDetailPage() {
                                             searchTerm
                                           )}
                                         </h4>
-                                        <p className="text-xs text-muted-foreground font-mono">
-                                          {
-                                            highlightMatch(
-                                              asset.article_id,
-                                              searchTerm
-                                            ) as any
-                                          }
-                                        </p>
+                                        <div className="flex flex-col gap-1">
+                                          <span
+                                            className="text-xs text-muted-foreground font-mono"
+                                            title={
+                                              getArticleIdsTooltip(
+                                                asset.article_ids || []
+                                              ) || undefined
+                                            }
+                                          >
+                                            {
+                                              highlightMatch(
+                                                asset.article_id,
+                                                searchTerm
+                                              ) as any
+                                            }
+                                          </span>
+                                          {Array.isArray(asset.article_ids) &&
+                                            getAdditionalArticleIds(asset)
+                                              .length > 0 && (
+                                              <div className="flex flex-wrap gap-1">
+                                                {getAdditionalArticleIds(
+                                                  asset
+                                                ).map((id) => (
+                                                  <Badge
+                                                    key={`${asset.id}-${id}`}
+                                                    variant="outline"
+                                                    className="px-1.5 py-0 text-[10px] uppercase tracking-wide text-muted-foreground border-border/60"
+                                                    title={id}
+                                                  >
+                                                    {id}
+                                                  </Badge>
+                                                ))}
+                                              </div>
+                                            )}
+                                        </div>
                                       </div>
-                                      {!(asset.qa_team_handles_model ||
+                                      {!(
+                                        asset.qa_team_handles_model ||
                                         asset.pricing_option_id ===
-                                          "qa_team_handles_model") && (
+                                          "qa_team_handles_model"
+                                      ) && (
                                         <Button
                                           variant="ghost"
                                           size="sm"
@@ -2559,9 +2717,11 @@ export default function BatchDetailPage() {
                                     </div>
 
                                     {/* Actions */}
-                                    {!(asset.qa_team_handles_model ||
+                                    {!(
+                                      asset.qa_team_handles_model ||
                                       asset.pricing_option_id ===
-                                        "qa_team_handles_model") && (
+                                        "qa_team_handles_model"
+                                    ) && (
                                       <div className="flex flex-wrap gap-2">
                                         {/* GLB Actions */}
                                         <div className="flex gap-1">

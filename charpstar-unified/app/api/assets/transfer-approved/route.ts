@@ -21,6 +21,40 @@ const normalizeActive = (value: unknown, fallback = true): boolean => {
   return fallback;
 };
 
+const normalizeArticleIds = (
+  articleId: unknown,
+  articleIds: unknown
+): string[] => {
+  const values = new Set<string>();
+
+  const pushValue = (value: unknown) => {
+    if (!value || typeof value !== "string") return;
+    const trimmed = value.trim();
+    if (trimmed) values.add(trimmed);
+  };
+
+  if (Array.isArray(articleIds)) {
+    articleIds.forEach(pushValue);
+  } else if (typeof articleIds === "string" && articleIds.trim() !== "") {
+    try {
+      const parsed = JSON.parse(articleIds);
+      if (Array.isArray(parsed)) {
+        parsed.forEach(pushValue);
+      } else {
+        pushValue(articleIds);
+      }
+    } catch {
+      articleIds.split(/[\s,;]+/).forEach(pushValue);
+    }
+  }
+
+  if (typeof articleId === "string") {
+    pushValue(articleId);
+  }
+
+  return Array.from(values);
+};
+
 export async function POST(request: NextRequest) {
   try {
     const supabaseAuth = createRouteHandlerClient({ cookies });
@@ -94,6 +128,10 @@ export async function POST(request: NextRequest) {
 
     // Prepare data for assets table
     const normalizedActive = normalizeActive(onboardingAsset.active);
+    const normalizedArticleIds = normalizeArticleIds(
+      onboardingAsset.article_id,
+      onboardingAsset.article_ids
+    );
 
     const assetData = {
       article_id: onboardingAsset.article_id,
@@ -115,6 +153,7 @@ export async function POST(request: NextRequest) {
       colors: null, // Will be populated later if needed
       glb_status: "completed", // Since it's approved by client
       active: normalizedActive,
+      article_ids: normalizedArticleIds,
     };
 
     // Insert into assets table

@@ -22,6 +22,40 @@ const normalizeActive = (value: unknown, fallback = true): boolean => {
   return fallback;
 };
 
+const normalizeArticleIds = (
+  articleId: unknown,
+  articleIds: unknown
+): string[] => {
+  const values = new Set<string>();
+
+  const pushValue = (value: unknown) => {
+    if (!value || typeof value !== "string") return;
+    const trimmed = value.trim();
+    if (trimmed) values.add(trimmed);
+  };
+
+  if (Array.isArray(articleIds)) {
+    articleIds.forEach(pushValue);
+  } else if (typeof articleIds === "string" && articleIds.trim() !== "") {
+    try {
+      const parsed = JSON.parse(articleIds);
+      if (Array.isArray(parsed)) {
+        parsed.forEach(pushValue);
+      } else {
+        pushValue(articleIds);
+      }
+    } catch {
+      articleIds.split(/[\s,;]+/).forEach(pushValue);
+    }
+  }
+
+  if (typeof articleId === "string") {
+    pushValue(articleId);
+  }
+
+  return Array.from(values);
+};
+
 export async function POST(request: NextRequest) {
   try {
     const supabaseAuth = createRouteHandlerClient({ cookies });
@@ -158,27 +192,35 @@ export async function POST(request: NextRequest) {
 
         if (onboardingAssets.length > 0) {
           // Prepare data for assets table
-          const assetsToInsert = onboardingAssets.map((asset) => ({
-            article_id: asset.article_id,
-            product_name: asset.product_name,
-            product_link: asset.product_link,
-            glb_link: asset.glb_link,
-            category: asset.category,
-            subcategory: asset.subcategory,
-            client: asset.client,
-            tags: asset.tags,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-            preview_image: asset.preview_images
-              ? Array.isArray(asset.preview_images)
-                ? asset.preview_images[0]
-                : asset.preview_images
-              : null,
-            materials: null,
-            colors: null,
-            glb_status: "completed",
-            active: normalizeActive(asset.active),
-          }));
+          const assetsToInsert = onboardingAssets.map((asset) => {
+            const normalizedArticles = normalizeArticleIds(
+              asset.article_id,
+              asset.article_ids
+            );
+
+            return {
+              article_id: asset.article_id,
+              product_name: asset.product_name,
+              product_link: asset.product_link,
+              glb_link: asset.glb_link,
+              category: asset.category,
+              subcategory: asset.subcategory,
+              client: asset.client,
+              tags: asset.tags,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+              preview_image: asset.preview_images
+                ? Array.isArray(asset.preview_images)
+                  ? asset.preview_images[0]
+                  : asset.preview_images
+                : null,
+              materials: null,
+              colors: null,
+              glb_status: "completed",
+              active: normalizeActive(asset.active),
+              article_ids: normalizedArticles,
+            };
+          });
 
           // Insert assets in chunks to avoid payload size limits
           const insertChunks = chunkArray(assetsToInsert, CHUNK_SIZE);
@@ -205,11 +247,18 @@ export async function POST(request: NextRequest) {
                     asset.client === inserted.client
                 );
 
-                const normalized = normalizeActive(source?.active);
+                const normalizedActiveValue = normalizeActive(source?.active);
+                const normalizedArticles = normalizeArticleIds(
+                  source?.article_id,
+                  source?.article_ids
+                );
 
                 return supabaseAuth
                   .from("assets")
-                  .update({ active: normalized })
+                  .update({
+                    active: normalizedActiveValue,
+                    article_ids: normalizedArticles,
+                  })
                   .eq("id", inserted.id);
               });
 

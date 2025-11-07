@@ -13,7 +13,12 @@ import {
   CardTitle,
 } from "@/components/ui/containers";
 import { Button, Label } from "@/components/ui/display";
-import { Input } from "@/components/ui/inputs";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/display/tooltip";
+import { Input, Textarea } from "@/components/ui/inputs";
 import { Badge, Alert, AlertDescription } from "@/components/ui/feedback";
 import { Checkbox } from "@/components/ui/inputs/checkbox";
 import {
@@ -31,6 +36,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "@/components/ui/containers/dialog";
 import { ViewReferencesDialog } from "@/components/ui/containers/ViewReferencesDialog";
 import {
@@ -51,6 +57,7 @@ import {
   ChevronDown,
   ChevronRight,
   Copy,
+  Layers,
 } from "lucide-react";
 
 import * as saveAs from "file-saver";
@@ -68,14 +75,61 @@ interface ProductForm {
   variations?: ProductForm[]; // Array of variation products
   parent_article_id?: string; // For variations only
   variation_index?: number; // Index for variations
+  additional_article_ids?: string[];
 }
 
 const STORAGE_KEY = "add-products-cache";
+
+const normalizeArticleIdArray = (
+  primary: string,
+  additional: string[] = []
+): string[] => {
+  const values = new Set<string>();
+  const pushValue = (value: string | undefined | null) => {
+    if (!value) return;
+    const trimmed = value.trim();
+    if (trimmed) values.add(trimmed);
+  };
+
+  pushValue(primary);
+  additional.forEach((value) => pushValue(value));
+
+  return Array.from(values);
+};
+
+const normalizeProductForm = (product: ProductForm): ProductForm => ({
+  ...product,
+  additional_article_ids: Array.isArray(product.additional_article_ids)
+    ? product.additional_article_ids
+    : [],
+  variations: product.variations
+    ? product.variations.map((variation) =>
+        normalizeProductForm({ ...variation })
+      )
+    : undefined,
+});
+
+const buildArticleIdPayload = (product: ProductForm) => {
+  const articleIds = normalizeArticleIdArray(
+    product.article_id,
+    product.additional_article_ids || []
+  );
+
+  const primary = articleIds[0] || product.article_id.trim();
+
+  return {
+    primary,
+    articleIds,
+  };
+};
 
 // Helper to serialize products for localStorage (removes File objects)
 const serializeProducts = (products: ProductForm[]): ProductForm[] => {
   return products.map((product) => ({
     ...product,
+    additional_article_ids: Array.isArray(product.additional_article_ids)
+      ? [...product.additional_article_ids]
+      : [],
     references: product.references.map((ref) => ({
       type: ref.type,
       value: ref.value,
@@ -85,6 +139,11 @@ const serializeProducts = (products: ProductForm[]): ProductForm[] => {
     variations: product.variations
       ? product.variations.map((variation) => ({
           ...variation,
+          additional_article_ids: Array.isArray(
+            variation.additional_article_ids
+          )
+            ? [...variation.additional_article_ids]
+            : [],
           references: variation.references.map((ref) => ({
             type: ref.type,
             value: ref.value,
@@ -156,6 +215,7 @@ export default function AddProductsPage() {
           subcategory: "",
           references: [],
           measurements: undefined,
+          additional_article_ids: [],
         },
       ];
     }
@@ -175,7 +235,9 @@ export default function AddProductsPage() {
         );
 
         if (hasData) {
-          return cached.products;
+          return cached.products.map((product: ProductForm) =>
+            normalizeProductForm(product)
+          );
         }
       }
     }
@@ -190,6 +252,7 @@ export default function AddProductsPage() {
         subcategory: "",
         references: [],
         measurements: undefined,
+        additional_article_ids: [],
       },
     ];
   };
@@ -245,6 +308,12 @@ export default function AddProductsPage() {
   const [editedCsvData, setEditedCsvData] = useState<string[][] | null>(null);
   //eslint-disable-next-line
   const [collectingImages, setCollectingImages] = useState(false);
+  const [additionalArticleIdInputs, setAdditionalArticleIdInputs] = useState<
+    Record<string, string>
+  >({});
+  const [articleIdDialogIndex, setArticleIdDialogIndex] = useState<
+    number | null
+  >(null);
   const [editingReferencesIndex, setEditingReferencesIndex] = useState<
     number | null
   >(null);
@@ -556,6 +625,7 @@ export default function AddProductsPage() {
         subcategory: "",
         references: [],
         measurements: undefined,
+        additional_article_ids: [],
       },
     ]);
   };
@@ -573,6 +643,7 @@ export default function AddProductsPage() {
     const copiedProduct: ProductForm = {
       ...productToCopy,
       article_id: "", // Clear article ID so user has to change it
+      additional_article_ids: [],
       // Deep copy references (without File objects - they'll need to re-upload)
       references: productToCopy.references.map((ref) => ({
         type: ref.type,
@@ -584,6 +655,7 @@ export default function AddProductsPage() {
         ? productToCopy.variations.map((variation) => ({
             ...variation,
             article_id: "", // Clear article ID for variations too
+            additional_article_ids: [],
             references: variation.references.map((ref) => ({
               type: ref.type,
               value: ref.value,
@@ -615,14 +687,149 @@ export default function AddProductsPage() {
     });
   };
 
+  const getAdditionalInputKey = (
+    type: "product" | "variation",
+    productIndex: number,
+    variationIndex?: number
+  ) =>
+    type === "product"
+      ? `product-${productIndex}`
+      : `variation-${productIndex}-${variationIndex ?? 0}`;
+
+  const parseAdditionalArticleInput = (rawValue: string) =>
+    rawValue
+      .split(/[\s,;\n]+/)
+      .map((id) => id.trim())
+      .filter(Boolean);
+
   const updateProduct = (
     index: number,
     field: keyof ProductForm,
     value: string | number | boolean
   ) => {
-    const updatedProducts = [...products];
-    updatedProducts[index] = { ...updatedProducts[index], [field]: value };
-    setProducts(updatedProducts);
+    setProducts((prev) => {
+      const updatedProducts = [...prev];
+      const current = { ...updatedProducts[index], [field]: value };
+
+      if (field === "article_id" && typeof value === "string") {
+        const normalized = normalizeArticleIdArray(
+          value,
+          current.additional_article_ids || []
+        );
+        current.additional_article_ids = normalized.filter(
+          (id) => id !== value.trim()
+        );
+      }
+
+      updatedProducts[index] = current;
+      return updatedProducts;
+    });
+  };
+
+  const addAdditionalArticleIdsToProduct = (
+    productIndex: number,
+    rawValue: string
+  ) => {
+    const entries = parseAdditionalArticleInput(rawValue);
+    if (entries.length === 0) return;
+
+    setProducts((prev) => {
+      const next = [...prev];
+      const product = { ...next[productIndex] };
+      const additional = Array.isArray(product.additional_article_ids)
+        ? [...product.additional_article_ids]
+        : [];
+
+      const normalized = normalizeArticleIdArray(product.article_id, [
+        ...additional,
+        ...entries,
+      ]);
+
+      product.additional_article_ids = normalized.filter(
+        (id) => id !== product.article_id.trim()
+      );
+
+      next[productIndex] = product;
+      return next;
+    });
+  };
+  //eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const removeAdditionalArticleIdFromProduct = (
+    productIndex: number,
+    articleId: string
+  ) => {
+    setProducts((prev) => {
+      const next = [...prev];
+      const product = { ...next[productIndex] };
+      const additional = Array.isArray(product.additional_article_ids)
+        ? product.additional_article_ids.filter((id) => id !== articleId)
+        : [];
+
+      product.additional_article_ids = additional;
+      next[productIndex] = product;
+      return next;
+    });
+  };
+
+  const handleAdditionalArticleIdInputChange = (key: string, value: string) => {
+    setAdditionalArticleIdInputs((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const commitAdditionalArticleIdsForProduct = (productIndex: number) => {
+    const key = getAdditionalInputKey("product", productIndex);
+    const rawValue = additionalArticleIdInputs[key]?.trim();
+    if (!rawValue) return false;
+
+    addAdditionalArticleIdsToProduct(productIndex, rawValue);
+    setAdditionalArticleIdInputs((prev) => ({ ...prev, [key]: "" }));
+    return true;
+  };
+
+  const clearAdditionalArticleIdsForProduct = (productIndex: number) => {
+    setProducts((prev) => {
+      const next = [...prev];
+      const product = { ...next[productIndex] };
+      product.additional_article_ids = [];
+      next[productIndex] = product;
+      return next;
+    });
+
+    const key = getAdditionalInputKey("product", productIndex);
+    setAdditionalArticleIdInputs((prev) => ({ ...prev, [key]: "" }));
+  };
+
+  const handleOpenArticleIdDialog = (productIndex: number) => {
+    const key = getAdditionalInputKey("product", productIndex);
+    setAdditionalArticleIdInputs((prev) => ({
+      ...prev,
+      [key]: prev[key] ?? "",
+    }));
+    setArticleIdDialogIndex(productIndex);
+  };
+
+  const handleCloseArticleIdDialog = () => {
+    setArticleIdDialogIndex(null);
+  };
+
+  const dialogProductValue =
+    articleIdDialogIndex !== null ? products[articleIdDialogIndex] : null;
+  const dialogAdditionalKey =
+    articleIdDialogIndex !== null
+      ? getAdditionalInputKey("product", articleIdDialogIndex)
+      : null;
+  const dialogPendingValue = dialogAdditionalKey
+    ? (additionalArticleIdInputs[dialogAdditionalKey] ?? "")
+    : "";
+  const dialogAdditionalCount =
+    dialogProductValue?.additional_article_ids?.length ?? 0;
+
+  const handleApplyArticleIds = () => {
+    if (articleIdDialogIndex === null) return;
+    const didCommit =
+      commitAdditionalArticleIdsForProduct(articleIdDialogIndex);
+    if (didCommit) {
+      handleCloseArticleIdDialog();
+    }
   };
 
   // Helper to add variations to a parent product
@@ -644,6 +851,7 @@ export default function AddProductsPage() {
       measurements: undefined,
       parent_article_id: parent.article_id || "",
       variation_index: startIndex + i,
+      additional_article_ids: [],
     }));
 
     const updatedProducts = [...products];
@@ -682,15 +890,35 @@ export default function AddProductsPage() {
     field: keyof ProductForm,
     value: string | number
   ) => {
-    const updatedProducts = [...products];
-    const parent = updatedProducts[parentIndex];
-    if (!parent?.variations) return;
+    setProducts((prev) => {
+      const updatedProducts = [...prev];
+      const parent = updatedProducts[parentIndex];
+      if (!parent?.variations) return prev;
 
-    parent.variations[variationIndex] = {
-      ...parent.variations[variationIndex],
-      [field]: value,
-    };
-    setProducts(updatedProducts);
+      const variations = [...parent.variations];
+      const currentVariation = {
+        ...variations[variationIndex],
+        [field]: value,
+      };
+
+      if (field === "article_id" && typeof value === "string") {
+        const normalized = normalizeArticleIdArray(
+          value,
+          currentVariation.additional_article_ids || []
+        );
+        currentVariation.additional_article_ids = normalized.filter(
+          (id) => id !== value.trim()
+        );
+      }
+
+      variations[variationIndex] = currentVariation;
+      updatedProducts[parentIndex] = {
+        ...parent,
+        variations,
+      };
+
+      return updatedProducts;
+    });
   };
 
   // Toggle expanded state for variations
@@ -760,24 +988,29 @@ export default function AddProductsPage() {
 
       // Process regular (non-parent) products first
       if (regularProducts.length > 0) {
-        const regularProductsToInsert = regularProducts.map((product) => ({
-          client: clientName,
-          batch: currentBatch,
-          article_id: product.article_id.trim(),
-          product_name: product.product_name.trim(),
-          product_link: product.product_link.trim(),
-          glb_link: product.cad_file_link.trim() || null,
-          category: product.category.trim() || null,
-          subcategory: product.subcategory.trim() || null,
-          reference: null,
-          measurements: formatMeasurements(product),
-          priority: 2,
-          status: "not_started",
-          delivery_date: null,
-          is_variation: false,
-          parent_asset_id: null,
-          variation_index: null,
-        }));
+        const regularProductsToInsert = regularProducts.map((product) => {
+          const { primary, articleIds } = buildArticleIdPayload(product);
+
+          return {
+            client: clientName,
+            batch: currentBatch,
+            article_id: primary,
+            article_ids: articleIds,
+            product_name: product.product_name.trim(),
+            product_link: product.product_link.trim(),
+            glb_link: product.cad_file_link.trim() || null,
+            category: product.category.trim() || null,
+            subcategory: product.subcategory.trim() || null,
+            reference: null,
+            measurements: formatMeasurements(product),
+            priority: 2,
+            status: "not_started",
+            delivery_date: null,
+            is_variation: false,
+            parent_asset_id: null,
+            variation_index: null,
+          };
+        });
 
         const { data: regularInserted, error: regularError } = await supabase
           .from("onboarding_assets")
@@ -803,10 +1036,14 @@ export default function AddProductsPage() {
         const parentMeasurementsString = formatMeasurements(parentProduct);
 
         // Insert parent first
+        const { primary: parentPrimary, articleIds: parentArticleIds } =
+          buildArticleIdPayload(parentProduct);
+
         const parentToInsert = {
           client: clientName,
           batch: currentBatch,
-          article_id: parentProduct.article_id.trim(),
+          article_id: parentPrimary,
+          article_ids: parentArticleIds,
           product_name: parentProduct.product_name.trim(),
           product_link: parentProduct.product_link.trim(),
           glb_link: parentProduct.cad_file_link.trim() || null,
@@ -851,24 +1088,32 @@ export default function AddProductsPage() {
         );
 
         if (validVariations.length > 0) {
-          const variationsToInsert = validVariations.map((variation) => ({
-            client: clientName,
-            batch: currentBatch,
-            article_id: variation.article_id.trim(),
-            product_name: variation.product_name.trim(),
-            product_link: variation.product_link.trim(),
-            glb_link: variation.cad_file_link.trim() || null,
-            category: variation.category.trim() || null,
-            subcategory: variation.subcategory.trim() || null,
-            reference: null,
-            measurements: formatMeasurements(variation),
-            priority: 2,
-            status: "not_started",
-            delivery_date: null,
-            is_variation: true,
-            parent_asset_id: parentAsset.id,
-            variation_index: variation.variation_index || null,
-          }));
+          const variationsToInsert = validVariations.map((variation) => {
+            const {
+              primary: variationPrimary,
+              articleIds: variationArticleIds,
+            } = buildArticleIdPayload(variation);
+
+            return {
+              client: clientName,
+              batch: currentBatch,
+              article_id: variationPrimary,
+              article_ids: variationArticleIds,
+              product_name: variation.product_name.trim(),
+              product_link: variation.product_link.trim(),
+              glb_link: variation.cad_file_link.trim() || null,
+              category: variation.category.trim() || null,
+              subcategory: variation.subcategory.trim() || null,
+              reference: null,
+              measurements: formatMeasurements(variation),
+              priority: 2,
+              status: "not_started",
+              delivery_date: null,
+              is_variation: true,
+              parent_asset_id: parentAsset.id,
+              variation_index: variation.variation_index || null,
+            };
+          });
 
           const { data: variationsData, error: variationsError } =
             await supabase
@@ -1411,11 +1656,22 @@ export default function AddProductsPage() {
         continue;
       }
 
+      const articleTokens = (article_id || "")
+        .split(/[|,;\s]+/)
+        .map((id) => id.trim())
+        .filter(Boolean);
+      const primaryArticleId = articleTokens[0] || article_id.trim();
+      const articleIdArray = normalizeArticleIdArray(
+        primaryArticleId,
+        articleTokens.slice(1)
+      );
+
       // Add to batch insert array
       productsToInsert.push({
         client,
         batch: currentBatch,
-        article_id: article_id.trim(),
+        article_id: primaryArticleId,
+        article_ids: articleIdArray,
         product_name: product_name.trim(),
         product_link: product_link.trim(),
         glb_link: cad_file_link?.trim() || null, // Use the actual CAD/File Link from CSV
@@ -1677,11 +1933,11 @@ export default function AddProductsPage() {
                     <TableRow>
                       <TableHead className="w-[40px] text-xs">#</TableHead>
                       {isVariationContracted && (
-                        <TableHead className="w-[160px] text-xs">
-                          Parent & Variations
+                        <TableHead className="w-[50px] text-xs">
+                          Parent
                         </TableHead>
                       )}
-                      <TableHead className="w-[100px] text-xs">
+                      <TableHead className="w-[110px] text-xs">
                         Article ID *
                       </TableHead>
                       <TableHead className="w-[130px] text-xs">
@@ -1709,6 +1965,20 @@ export default function AddProductsPage() {
                       const hasVariations =
                         product.variations && product.variations.length > 0;
                       const isExpanded = expandedVariations.has(index);
+                      //eslint-disable-next-line @typescript-eslint/no-unused-vars
+                      const productAdditionalKey = getAdditionalInputKey(
+                        "product",
+                        index
+                      );
+                      const additionalCount = Array.isArray(
+                        product.additional_article_ids
+                      )
+                        ? product.additional_article_ids.length
+                        : 0;
+                      const allArticleIds = normalizeArticleIdArray(
+                        product.article_id,
+                        product.additional_article_ids || []
+                      );
 
                       return (
                         <>
@@ -1805,19 +2075,72 @@ export default function AddProductsPage() {
                                 </div>
                               </TableCell>
                             )}
-                            <TableCell className="p-2">
-                              <Input
-                                value={product.article_id}
-                                onChange={(e) =>
-                                  updateProduct(
-                                    index,
-                                    "article_id",
-                                    e.target.value
-                                  )
-                                }
-                                placeholder="ART001"
-                                className="h-7 text-xs px-2"
-                              />
+                            <TableCell className="p-2 align-top">
+                              <div className="space-y-1.5">
+                                <div className="flex items-center gap-2">
+                                  <Input
+                                    value={product.article_id}
+                                    onChange={(e) =>
+                                      updateProduct(
+                                        index,
+                                        "article_id",
+                                        e.target.value
+                                      )
+                                    }
+                                    placeholder="ART001"
+                                    className="h-8 text-xs px-2 font-medium"
+                                  />
+                                  {additionalCount > 0 && (
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Button
+                                          type="button"
+                                          variant="ghost"
+                                          size="icon"
+                                          className="h-8 w-8 text-primary"
+                                        >
+                                          <Layers className="h-4 w-4" />
+                                        </Button>
+                                      </TooltipTrigger>
+                                      <TooltipContent className="max-w-xs text-xs bg-popover/95 text-foreground border border-border shadow-md backdrop-blur">
+                                        <div className="space-y-1">
+                                          <p className="font-medium">
+                                            Linked article IDs
+                                          </p>
+                                          <div className="space-y-0.5">
+                                            {allArticleIds.map((id) => (
+                                              <div
+                                                key={id}
+                                                className="text-muted-foreground"
+                                              >
+                                                {id}
+                                              </div>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  )}
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="icon"
+                                        className="h-8 min-w-8"
+                                        onClick={() =>
+                                          handleOpenArticleIdDialog(index)
+                                        }
+                                      >
+                                        <Plus className="h-4 w-4" />
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent className="text-xs">
+                                      Add more IDs
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </div>
+                              </div>
                             </TableCell>
                             <TableCell className="p-2">
                               <Input
@@ -3443,6 +3766,114 @@ export default function AddProductsPage() {
               })()}
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Manage Additional Article IDs Dialog */}
+      <Dialog
+        open={articleIdDialogIndex !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            handleCloseArticleIdDialog();
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-[420px]">
+          <DialogHeader>
+            <DialogTitle className="text-base">Add article IDs</DialogTitle>
+            {dialogProductValue?.article_id && (
+              <p className="text-sm text-muted-foreground">
+                Primary ID: {dialogProductValue.article_id}
+              </p>
+            )}
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-foreground">
+                Additional IDs
+              </Label>
+              <Textarea
+                value={dialogPendingValue}
+                onChange={(e) => {
+                  if (!dialogAdditionalKey) return;
+                  handleAdditionalArticleIdInputChange(
+                    dialogAdditionalKey,
+                    e.target.value
+                  );
+                }}
+                rows={4}
+                placeholder="ART002, ART003"
+                className="text-sm"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                    e.preventDefault();
+                    handleApplyArticleIds();
+                  }
+                }}
+              />
+              <p className="text-xs text-muted-foreground">
+                Separate IDs with commas, spaces, or new lines. Press Ctrl/Cmd +
+                Enter to apply.
+              </p>
+            </div>
+
+            {dialogProductValue?.additional_article_ids &&
+              dialogProductValue.additional_article_ids.length > 0 && (
+                <div className="space-y-1.5">
+                  <span className="text-xs font-medium text-muted-foreground">
+                    Currently linked
+                  </span>
+                  <div className="flex flex-wrap gap-1">
+                    {dialogProductValue.additional_article_ids.map((id) => (
+                      <Badge
+                        key={`${dialogProductValue.article_id}-${id}`}
+                        variant="secondary"
+                        className="text-[11px] font-medium"
+                      >
+                        {id}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+          </div>
+          <DialogFooter className="flex flex-col sm:flex-row sm:justify-between gap-2">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              {dialogAdditionalCount > 0
+                ? `${1 + dialogAdditionalCount} total IDs`
+                : "Only primary ID linked"}
+            </div>
+            <div className="flex items-center gap-2 sm:ml-auto">
+              {dialogAdditionalCount > 0 && articleIdDialogIndex !== null && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() =>
+                    clearAdditionalArticleIdsForProduct(articleIdDialogIndex)
+                  }
+                >
+                  Clear extras
+                </Button>
+              )}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleCloseArticleIdDialog}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleApplyArticleIds}
+                disabled={!dialogPendingValue.trim()}
+              >
+                Apply IDs
+              </Button>
+            </div>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
