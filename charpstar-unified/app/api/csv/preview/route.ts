@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { parseCSV, sampleRows } from '@/lib/csvParser';
+import { parseCSV } from '@/lib/csvParser';
 import { CSVProcessor } from '@/lib/csvProcessor';
 
 export async function POST(request: NextRequest) {

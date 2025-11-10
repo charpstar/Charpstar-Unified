@@ -13,14 +13,8 @@ import {
   CardTitle,
 } from "@/components/ui/containers";
 import { Button, Label } from "@/components/ui/display";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/display/tooltip";
 import { Input, Textarea } from "@/components/ui/inputs";
 import { Badge, Alert, AlertDescription } from "@/components/ui/feedback";
-import { Checkbox } from "@/components/ui/inputs/checkbox";
 import {
   Table,
   TableBody,
@@ -39,7 +33,6 @@ import {
   DialogFooter,
 } from "@/components/ui/containers/dialog";
 import { ViewReferencesDialog } from "@/components/ui/containers/ViewReferencesDialog";
-import { SpreadsheetProductEntry } from "@/components/product-entry/SpreadsheetProductEntry";
 import {
   Plus,
   ArrowLeft,
@@ -55,10 +48,7 @@ import {
   FileText,
   Link as LinkIcon,
   Trash2,
-  ChevronDown,
-  ChevronRight,
   Copy,
-  Layers,
 } from "lucide-react";
 
 import * as saveAs from "file-saver";
@@ -110,7 +100,7 @@ const normalizeProductForm = (product: ProductForm): ProductForm => ({
     : undefined,
 });
 
-const buildArticleIdPayload = (product: ProductForm) => {
+const _buildArticleIdPayload = (product: ProductForm) => {
   const articleIds = normalizeArticleIdArray(
     product.article_id,
     product.additional_article_ids || []
@@ -336,7 +326,7 @@ export default function AddProductsPage() {
     { type: "url" | "file"; value: string; file?: File }[]
   >([]);
   const [addMultipleProducts, setAddMultipleProducts] = useState("");
-  const [isVariationContracted, setIsVariationContracted] = useState(false);
+  const [_isVariationContracted, setIsVariationContracted] = useState(false);
   // Initialize expandedVariations from localStorage if available
   const getInitialExpandedVariations = (): Set<number> => {
     if (typeof window === "undefined") {
@@ -614,7 +604,7 @@ export default function AddProductsPage() {
     fetchCurrentBatch();
   }, [user?.metadata?.client]);
 
-  const addProduct = () => {
+  const _addProduct = () => {
     setProducts([
       ...products,
       {
@@ -631,13 +621,13 @@ export default function AddProductsPage() {
     ]);
   };
 
-  const removeProduct = (index: number) => {
+  const _removeProduct = (index: number) => {
     if (products.length > 1) {
       setProducts(products.filter((_, i) => i !== index));
     }
   };
 
-  const copyProduct = (index: number) => {
+  const _copyProduct = (index: number) => {
     const productToCopy = products[index];
 
     // Deep copy the product
@@ -703,7 +693,7 @@ export default function AddProductsPage() {
       .map((id) => id.trim())
       .filter(Boolean);
 
-  const updateProduct = (
+  const _updateProduct = (
     index: number,
     field: keyof ProductForm,
     value: string | number | boolean
@@ -799,7 +789,7 @@ export default function AddProductsPage() {
     setAdditionalArticleIdInputs((prev) => ({ ...prev, [key]: "" }));
   };
 
-  const handleOpenArticleIdDialog = (productIndex: number) => {
+  const _handleOpenArticleIdDialog = (productIndex: number) => {
     const key = getAdditionalInputKey("product", productIndex);
     setAdditionalArticleIdInputs((prev) => ({
       ...prev,
@@ -869,7 +859,7 @@ export default function AddProductsPage() {
   };
 
   // Helper to remove a variation from a parent
-  const removeVariation = (parentIndex: number, variationIndex: number) => {
+  const _removeVariation = (parentIndex: number, variationIndex: number) => {
     const updatedProducts = [...products];
     const parent = updatedProducts[parentIndex];
     if (!parent?.variations) return;
@@ -885,7 +875,7 @@ export default function AddProductsPage() {
   };
 
   // Helper to update a variation
-  const updateVariation = (
+  const _updateVariation = (
     parentIndex: number,
     variationIndex: number,
     field: keyof ProductForm,
@@ -923,7 +913,7 @@ export default function AddProductsPage() {
   };
 
   // Toggle expanded state for variations
-  const toggleVariations = (index: number) => {
+  const _toggleVariations = (index: number) => {
     const newExpanded = new Set(expandedVariations);
     if (newExpanded.has(index)) {
       newExpanded.delete(index);
@@ -970,7 +960,7 @@ export default function AddProductsPage() {
       const csvHeader = ['Article ID', 'Product Name', 'Product Link', 'CAD/File Link', 'Category', 'Subcategory', 'Active'];
       
       // Helper function to format measurements
-      const formatMeasurements = (product: ProductForm) => {
+      const _formatMeasurements = (product: ProductForm) => {
         if (
           product.measurements?.height &&
           product.measurements?.width &&
@@ -1723,23 +1713,228 @@ export default function AddProductsPage() {
       <div className="flex-1 flex gap-6">
         {/* Main Form */}
         <div className="flex-1 overflow-y-auto max-h-[calc(100vh-15rem)]">
-          <SpreadsheetProductEntry
-            products={products}
-            onProductsChange={setProducts}
-            clientName={
-              user?.metadata?.client
-                ? Array.isArray(user.metadata.client)
-                  ? user.metadata.client[0]
-                  : user.metadata.client
-                : ""
-            }
-          />
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Package className="h-5 w-5" />
+                Product Details
+              </CardTitle>
+              <p className="text-sm text-muted-foreground mt-2">
+                Fill in the required fields (marked with *). Optional fields can be left empty.
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-12">#</TableHead>
+                      <TableHead className="min-w-[200px]">Article ID *</TableHead>
+                      <TableHead className="min-w-[200px]">Product Name *</TableHead>
+                      <TableHead className="min-w-[200px]">Product Link *</TableHead>
+                      <TableHead className="min-w-[150px]">CAD/File Link</TableHead>
+                      <TableHead className="min-w-[120px]">Category</TableHead>
+                      <TableHead className="min-w-[120px]">Subcategory</TableHead>
+                      <TableHead className="min-w-[150px]">References</TableHead>
+                      <TableHead className="w-12"></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {products.map((product, index) => (
+                      <TableRow key={index}>
+                        <TableCell className="font-medium">{index + 1}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1.5">
+                            <Input
+                              value={product.article_id}
+                              onChange={(e) => {
+                                const updated = [...products];
+                                updated[index].article_id = e.target.value;
+                                setProducts(updated);
+                              }}
+                              placeholder="Article ID"
+                              className="h-8 flex-1"
+                            />
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0 shrink-0"
+                              onClick={() => {
+                                const key = getAdditionalInputKey("product", index);
+                                setAdditionalArticleIdInputs((prev) => ({
+                                  ...prev,
+                                  [key]: prev[key] ?? "",
+                                }));
+                                setArticleIdDialogIndex(index);
+                              }}
+                            >
+                              <Plus className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            value={product.product_name}
+                            onChange={(e) => {
+                              const updated = [...products];
+                              updated[index].product_name = e.target.value;
+                              setProducts(updated);
+                            }}
+                            placeholder="Name"
+                            className="h-8"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            value={product.product_link}
+                            onChange={(e) => {
+                              const updated = [...products];
+                              updated[index].product_link = e.target.value;
+                              setProducts(updated);
+                            }}
+                            placeholder="Link"
+                            className="h-8"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            value={product.cad_file_link}
+                            onChange={(e) => {
+                              const updated = [...products];
+                              updated[index].cad_file_link = e.target.value;
+                              setProducts(updated);
+                            }}
+                            placeholder="CAD Link"
+                            className="h-8"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            value={product.category}
+                            onChange={(e) => {
+                              const updated = [...products];
+                              updated[index].category = e.target.value;
+                              setProducts(updated);
+                            }}
+                            placeholder="Category"
+                            className="h-8"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            value={product.subcategory}
+                            onChange={(e) => {
+                              const updated = [...products];
+                              updated[index].subcategory = e.target.value;
+                              setProducts(updated);
+                            }}
+                            placeholder="Subcat"
+                            className="h-8"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1.5">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8 text-xs"
+                              onClick={() => {
+                                setEditingReferencesIndex(index);
+                                setShowReferencesDialog(true);
+                              }}
+                            >
+                              <FileText className="h-3.5 w-3.5 mr-1" />
+                              Add
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0"
+                              onClick={() => {
+                                const refs = product.references || [];
+                                if (refs.length > 0) {
+                                  const text = refs.map(r => r.value).join(', ');
+                                  navigator.clipboard.writeText(text);
+                                  toast.success('References copied to clipboard');
+                                }
+                              }}
+                            >
+                              <Copy className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {products.length > 1 && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                              onClick={() => {
+                                setProducts(products.filter((_, i) => i !== index));
+                              }}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+              
+              <div className="flex gap-3 items-center">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setProducts([
+                      ...products,
+                      {
+                        article_id: "",
+                        product_name: "",
+                        product_link: "",
+                        cad_file_link: "",
+                        category: "",
+                        subcategory: "",
+                        references: [],
+                        measurements: undefined,
+                        additional_article_ids: [],
+                      },
+                    ]);
+                  }}
+                  className="flex items-center gap-2"
+                >
+                  <Plus className="h-4 w-4" />
+                  Add Another Product
+                </Button>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="number"
+                    min="1"
+                    max="100"
+                    placeholder="0"
+                    value={addMultipleProducts}
+                    onChange={(e) => setAddMultipleProducts(e.target.value)}
+                    className="w-20 h-9"
+                  />
+                  <Button
+                    variant="outline"
+                    onClick={addMultipleLinesFunction}
+                    className="flex items-center gap-2"
+                  >
+                    Add {addMultipleProducts || "0"} Rows
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
           
-          <div className="mt-6 flex gap-4">
+          <div className="mt-6">
             <Button
               onClick={() => setShowConfirmDialog(true)}
               disabled={loading || getValidProducts().length === 0}
-              className="flex-1 cursor-pointer"
+              className="w-full cursor-pointer h-11"
+              size="lg"
             >
               {loading ? (
                 <>

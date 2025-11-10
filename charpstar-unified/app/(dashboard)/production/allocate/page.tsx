@@ -567,7 +567,7 @@ export default function AllocateAssetsPage() {
             if (item.pricingOptionId.includes("hard_3d_model")) {
               newPrice = item.price > 0 ? item.price : 0;
             } else {
-              newPrice = mapping.afterSecondDeadlinePrice;
+            newPrice = mapping.afterSecondDeadlinePrice;
             }
           } else if (newPricingTier === "after_first_deadline") {
             newPricingOptionId = mapping.after_first_deadline;
@@ -575,7 +575,7 @@ export default function AllocateAssetsPage() {
             if (item.pricingOptionId.includes("hard_3d_model")) {
               newPrice = item.price > 0 ? item.price : 0;
             } else {
-              newPrice = mapping.afterFirstDeadlinePrice;
+            newPrice = mapping.afterFirstDeadlinePrice;
             }
           } else if (newPricingTier === "first_list") {
             newPricingOptionId = mapping.first_list;
@@ -583,8 +583,8 @@ export default function AllocateAssetsPage() {
             if (item.pricingOptionId.includes("hard_3d_model")) {
               newPrice = item.price > 0 ? item.price : 0;
             } else {
-              newPrice = mapping.firstListPrice;
-            }
+            newPrice = mapping.firstListPrice;
+          }
           }
         } else {
           // No mapping found - preserve existing price and pricing option
@@ -725,14 +725,27 @@ export default function AllocateAssetsPage() {
         const { data: preSelectedAssets, error: preSelectedError } =
           await supabase
             .from("onboarding_assets")
-<<<<<<< HEAD
-            .select("*, pricing_option_id, price, pricing_comment, product_group_id, group_order, upload_order")
+            .select("*, pricing_option_id, price, pricing_comment, product_group_id, group_order, upload_order, qa_team_handles_model, article_ids")
             .in("id", selectedAssetsParam);
 
         if (preSelectedError) throw preSelectedError;
 
-        // Sort pre-selected assets by grouping
-        const sortedPreSelected = (preSelectedAssets || []).sort((a, b) => {
+        // First normalize article_ids
+        const normalizedPreSelected = (preSelectedAssets || []).map((asset) => {
+          const articleIds = normalizeArticleIds(
+            (asset as any).article_id,
+            (asset as any).article_ids
+          );
+
+          return {
+            ...asset,
+            article_ids: articleIds,
+            article_id: articleIds[0] || (asset as any).article_id,
+          };
+        });
+
+        // Then sort pre-selected assets by grouping
+        const sortedPreSelected = normalizedPreSelected.sort((a, b) => {
           const aHasGroup = a.product_group_id != null && a.product_group_id !== '';
           const bHasGroup = b.product_group_id != null && b.product_group_id !== '';
           
@@ -750,47 +763,16 @@ export default function AllocateAssetsPage() {
         });
 
         setAssets(sortedPreSelected);
-=======
-            .select(
-              "*, pricing_option_id, price, pricing_comment, qa_team_handles_model, article_ids"
-            )
-            .in("id", selectedAssetsParam)
-            .order("upload_order", { ascending: true });
-
-        if (preSelectedError) throw preSelectedError;
-
-        const normalizedPreSelectedAssets = (preSelectedAssets || []).map(
-          (asset) => {
-            const articleIds = normalizeArticleIds(
-              (asset as any).article_id,
-              (asset as any).article_ids
-            );
-
-            return {
-              ...asset,
-              article_ids: articleIds,
-              article_id: articleIds[0] || (asset as any).article_id,
-            };
-          }
-        );
-
-        setAssets(normalizedPreSelectedAssets);
 
         // Store the order from the fetched assets (admin-review order)
-        if (
-          normalizedPreSelectedAssets &&
-          normalizedPreSelectedAssets.length > 0
-        ) {
-          const orderedIds = normalizedPreSelectedAssets.map(
-            (asset) => asset.id
-          );
+        if (sortedPreSelected && sortedPreSelected.length > 0) {
+          const orderedIds = sortedPreSelected.map((asset) => asset.id);
           setSelectedAssetsOrder(orderedIds);
         }
->>>>>>> origin/main
 
         // Initialize pricing comments
         const initialPricingComments: Record<string, string> = {};
-        normalizedPreSelectedAssets.forEach((asset) => {
+        sortedPreSelected.forEach((asset) => {
           if (asset.pricing_comment) {
             initialPricingComments[asset.id] = asset.pricing_comment;
           }
@@ -811,23 +793,30 @@ export default function AllocateAssetsPage() {
 
       const assignedAssetIds = assignedAssets?.map((a) => a.asset_id) || [];
 
-      // Fetch unallocated assets with pricing data (include grouping columns)
+      // Fetch unallocated assets with pricing data (include grouping columns and main branch fields)
       const { data, error } = await supabase
         .from("onboarding_assets")
-<<<<<<< HEAD
-        .select("*, pricing_option_id, price, pricing_comment, product_group_id, group_order, upload_order")
-=======
-        .select(
-          "*, pricing_option_id, price, pricing_comment, qa_team_handles_model, article_ids"
-        )
->>>>>>> origin/main
+        .select("*, pricing_option_id, price, pricing_comment, product_group_id, group_order, upload_order, qa_team_handles_model, article_ids")
         .not("id", "in", `(${assignedAssetIds.join(",")})`);
 
       if (error) throw error;
 
-<<<<<<< HEAD
-      // Sort assets: grouped products first (sorted by group_id and group_order), then ungrouped
-      const sortedAssets = (data || []).sort((a, b) => {
+      // First normalize article_ids
+      const normalizedAssets = (data || []).map((asset) => {
+        const articleIds = normalizeArticleIds(
+          (asset as any).article_id,
+          (asset as any).article_ids
+        );
+
+        return {
+          ...asset,
+          article_ids: articleIds,
+          article_id: articleIds[0] || (asset as any).article_id,
+        };
+      });
+
+      // Then sort assets: grouped products first (sorted by group_id and group_order), then ungrouped
+      const sortedAssets = normalizedAssets.sort((a, b) => {
         const aHasGroup = a.product_group_id != null && a.product_group_id !== '';
         const bHasGroup = b.product_group_id != null && b.product_group_id !== '';
         
@@ -848,70 +837,11 @@ export default function AllocateAssetsPage() {
         return (a.upload_order || 0) - (b.upload_order || 0);
       });
 
-      // Debug: Check grouping data
-      const groupedCount = sortedAssets.filter(a => a.product_group_id != null && a.product_group_id !== '').length;
-      const ungroupedCount = sortedAssets.length - groupedCount;
-      
-      console.log('📊 Asset sorting summary:', {
-        total: sortedAssets.length,
-        grouped: groupedCount,
-        ungrouped: ungroupedCount,
-        firstFive: sortedAssets.slice(0, 5).map(a => ({
-          name: a.product_name?.substring(0, 30),
-          group_id: a.product_group_id || 'none',
-          group_order: a.group_order || 'none',
-          upload_order: a.upload_order || 'none'
-        }))
-      });
-
-      // Group assets by product_group_id for debugging
-      const groupedAssets = new Map<string, typeof sortedAssets>();
-      sortedAssets.forEach(asset => {
-        if (asset.product_group_id) {
-          if (!groupedAssets.has(asset.product_group_id)) {
-            groupedAssets.set(asset.product_group_id, []);
-          }
-          groupedAssets.get(asset.product_group_id)!.push(asset);
-        }
-      });
-      
-      if (groupedAssets.size > 0) {
-        console.log(`✅ Found ${groupedAssets.size} groups:`, 
-          Array.from(groupedAssets.entries()).map(([groupId, assets]) => ({
-            groupId,
-            count: assets.length,
-            products: assets.map(a => a.product_name?.substring(0, 25))
-          }))
-        );
-      } else {
-        console.warn('⚠️ No grouped products found. Possible reasons:');
-        console.warn('  1. Grouping hasn\'t completed yet (check server logs)');
-        console.warn('  2. Database migration not run (product_group_id column missing)');
-        console.warn('  3. Products don\'t match grouping criteria');
-        console.warn('  4. Grouping failed silently');
-      }
-
       setAssets(sortedAssets);
-=======
-      const normalizedAssets = (data || []).map((asset) => {
-        const articleIds = normalizeArticleIds(
-          (asset as any).article_id,
-          (asset as any).article_ids
-        );
-
-        return {
-          ...asset,
-          article_ids: articleIds,
-          article_id: articleIds[0] || (asset as any).article_id,
-        };
-      });
-
-      setAssets(normalizedAssets);
->>>>>>> origin/main
 
       // Initialize pricing comments for unallocated assets
       const initialPricingComments: Record<string, string> = {};
-      normalizedAssets.forEach((asset) => {
+      sortedAssets.forEach((asset) => {
         if (asset.pricing_comment) {
           initialPricingComments[asset.id] = asset.pricing_comment;
         }
@@ -1188,13 +1118,52 @@ export default function AllocateAssetsPage() {
         : Array.from(selectedAssets);
 
     const data: AllocationData[] = orderedAssetIds.map((assetId) => {
-      const asset = assets.find((a) => a.id === assetId);
+        const asset = assets.find((a) => a.id === assetId);
 
-<<<<<<< HEAD
-        // If no existing pricing, return null to filter out later
-        return null;
-      })
-      .filter((item): item is AllocationData => item !== null)
+      // Check if this asset has edited prices in localStorage
+      const editedPrice = editedPrices[assetId];
+
+      // Prioritize edited prices from localStorage, then existing pricing from admin-review
+      if (editedPrice) {
+        return {
+          assetId,
+          modelerId:
+            modelerIdToUse || (modelers.length > 0 ? modelers[0].id : ""),
+          price: editedPrice.price,
+          pricingOptionId: editedPrice.pricingOptionId,
+        };
+      }
+
+        // Prioritize existing pricing from admin-review
+        const existingPricingOptionId = asset?.pricing_option_id;
+        const existingPrice = asset?.price;
+      const isQAHandled = asset?.qa_team_handles_model;
+
+      // Use existing pricing from admin-review if available (including QA-handled with price 0)
+      if (
+        existingPricingOptionId &&
+        existingPrice !== undefined &&
+        (existingPrice > 0 || isQAHandled)
+      ) {
+          return {
+            assetId,
+            modelerId:
+            modelerIdToUse || (modelers.length > 0 ? modelers[0].id : ""),
+          price: existingPrice ?? 0,
+            pricingOptionId: existingPricingOptionId,
+          };
+        }
+
+      // Include all assets, even without pricing - they can be priced in step 2
+      // Default to empty pricing option and 0 price if no existing pricing
+      return {
+        assetId,
+        modelerId:
+          modelerIdToUse || (modelers.length > 0 ? modelers[0].id : ""),
+        price: existingPrice ?? 0,
+        pricingOptionId: existingPricingOptionId || "",
+      };
+    })
       // Sort by grouping: grouped products first, then by group_id and group_order
       .sort((a, b) => {
         const assetA = assets.find(asset => asset.id === a.assetId);
@@ -1222,52 +1191,6 @@ export default function AllocateAssetsPage() {
         const indexB = assets.findIndex(asset => asset.id === b.assetId);
         return indexA - indexB;
       });
-=======
-      // Check if this asset has edited prices in localStorage
-      const editedPrice = editedPrices[assetId];
-
-      // Prioritize edited prices from localStorage, then existing pricing from admin-review
-      if (editedPrice) {
-        return {
-          assetId,
-          modelerId:
-            modelerIdToUse || (modelers.length > 0 ? modelers[0].id : ""),
-          price: editedPrice.price,
-          pricingOptionId: editedPrice.pricingOptionId,
-        };
-      }
-
-      // Prioritize existing pricing from admin-review
-      const existingPricingOptionId = asset?.pricing_option_id;
-      const existingPrice = asset?.price;
-      const isQAHandled = asset?.qa_team_handles_model;
-
-      // Use existing pricing from admin-review if available (including QA-handled with price 0)
-      if (
-        existingPricingOptionId &&
-        existingPrice !== undefined &&
-        (existingPrice > 0 || isQAHandled)
-      ) {
-        return {
-          assetId,
-          modelerId:
-            modelerIdToUse || (modelers.length > 0 ? modelers[0].id : ""),
-          price: existingPrice ?? 0,
-          pricingOptionId: existingPricingOptionId,
-        };
-      }
-
-      // Include all assets, even without pricing - they can be priced in step 2
-      // Default to empty pricing option and 0 price if no existing pricing
-      return {
-        assetId,
-        modelerId:
-          modelerIdToUse || (modelers.length > 0 ? modelers[0].id : ""),
-        price: existingPrice ?? 0,
-        pricingOptionId: existingPricingOptionId || "",
-      };
-    });
->>>>>>> origin/main
 
     setAllocationData(data);
 
@@ -1526,8 +1449,8 @@ export default function AllocateAssetsPage() {
         router.replace(`${window.location.pathname}?${params.toString()}`, {
           scroll: false,
         });
-        setStep(1);
-      }
+      setStep(1);
+    }
     }
   }, [searchParams, router]);
 
@@ -1701,8 +1624,8 @@ export default function AllocateAssetsPage() {
           return updated;
         });
       } else if (allocationData.length === 0) {
-        // Only check pricing tier for the new modeler if we don't have allocation data
-        // (allocation data-based pricing takes priority)
+      // Only check pricing tier for the new modeler if we don't have allocation data
+      // (allocation data-based pricing takes priority)
         checkModelerPricingTier(value);
       }
       // Clear previous file history when modeler changes
@@ -2447,10 +2370,10 @@ export default function AllocateAssetsPage() {
                     className="max-w-xs"
                   >
                     <Combobox
-                      value={globalTeamAssignment.modelerId}
+                    value={globalTeamAssignment.modelerId}
                       onChange={(value) =>
-                        updateGlobalTeamAssignment("modelerId", value)
-                      }
+                      updateGlobalTeamAssignment("modelerId", value)
+                    }
                       placeholder="Choose modeler"
                       options={users
                         .filter((u) => u.role === "modeler")
@@ -2613,21 +2536,21 @@ export default function AllocateAssetsPage() {
                                     flex: 1,
                                   }}
                                 >
-                                  <Select
-                                    value={selectedQA}
-                                    onValueChange={setSelectedQA}
-                                  >
-                                    <SelectTrigger className="h-8 text-xs">
-                                      <SelectValue placeholder="Select QA" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      {availableQAs.map((qa) => (
-                                        <SelectItem key={qa.id} value={qa.id}>
-                                          {qa.title || qa.email}
-                                        </SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
+                                <Select
+                                  value={selectedQA}
+                                  onValueChange={setSelectedQA}
+                                >
+                                  <SelectTrigger className="h-8 text-xs">
+                                    <SelectValue placeholder="Select QA" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {availableQAs.map((qa) => (
+                                      <SelectItem key={qa.id} value={qa.id}>
+                                        {qa.title || qa.email}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
                                 </div>
                                 <Button
                                   variant="outline"
@@ -2885,7 +2808,6 @@ export default function AllocateAssetsPage() {
                         const asset = getAssetById(data.assetId);
                         if (!asset) return null;
 
-<<<<<<< HEAD
                         // Check if this is the first item in a group
                         const isFirstInGroup = index === 0 || 
                           (asset.product_group_id && 
@@ -2922,36 +2844,10 @@ export default function AllocateAssetsPage() {
                               </tr>
                             )}
                             <tr
+                              key={data.assetId}
                               className={`border-t hover:bg-muted/50 transition-colors ${
                                 isInGroup ? 'bg-purple-50/30 dark:bg-purple-950/10' : ''
                               } ${isSameGroupAsPrev ? 'border-l-4 border-l-purple-400 dark:border-l-purple-700' : ''}`}
-=======
-                        const articleIds = normalizeArticleIds(
-                          asset.article_id,
-                          asset.article_ids
-                        );
-                        const additionalArticleIds = getAdditionalArticleIds({
-                          article_id: asset.article_id,
-                          article_ids: articleIds,
-                        });
-                        const articleIdsTooltip =
-                          getArticleIdsTooltip(articleIds);
-
-                        return (
-                          <tr
-                            key={data.assetId}
-                            className="transition-all duration-200"
-                            style={{
-                              borderTop: "1px solid var(--border-light)",
-                            }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.background =
-                                "var(--surface-raised)";
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.background = "transparent";
-                            }}
->>>>>>> origin/main
                           >
                             <td className="px-3 py-2">
                                 <div className="flex items-center gap-2">
@@ -2968,29 +2864,43 @@ export default function AllocateAssetsPage() {
                                   </div>
                               </div>
                             </td>
-                            <td className="px-3 py-2 text-muted-foreground font-mono align-top">
-                              <div className="flex flex-col gap-1">
-                                <span
-                                  className="truncate"
-                                  title={articleIdsTooltip || undefined}
-                                >
-                                  {asset.article_id}
-                                </span>
-                                {additionalArticleIds.length > 0 && (
-                                  <div className="flex flex-wrap gap-1">
-                                    {additionalArticleIds.map((id) => (
-                                      <Badge
-                                        key={`${asset.id}-${id}`}
-                                        variant="outline"
-                                        className="px-1.5 py-0 text-[10px] uppercase tracking-wide text-muted-foreground border-border/60"
-                                        title={id}
+                              <td className="px-3 py-2 text-muted-foreground font-mono align-top">
+                                {(() => {
+                                  const articleIds = normalizeArticleIds(
+                                    asset.article_id,
+                                    asset.article_ids
+                                  );
+                                  const additionalArticleIds = getAdditionalArticleIds({
+                                    article_id: asset.article_id,
+                                    article_ids: articleIds,
+                                  });
+                                  const articleIdsTooltip = getArticleIdsTooltip(articleIds);
+                                  
+                                  return (
+                                    <div className="flex flex-col gap-1">
+                                      <span
+                                        className="truncate"
+                                        title={articleIdsTooltip || undefined}
                                       >
-                                        {id}
-                                      </Badge>
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
+                              {asset.article_id}
+                                      </span>
+                                      {additionalArticleIds.length > 0 && (
+                                        <div className="flex flex-wrap gap-1">
+                                          {additionalArticleIds.map((id) => (
+                                            <Badge
+                                              key={`${asset.id}-${id}`}
+                                              variant="outline"
+                                              className="px-1.5 py-0 text-[10px] uppercase tracking-wide text-muted-foreground border-border/60"
+                                              title={id}
+                                            >
+                                              {id}
+                                            </Badge>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })()}
                             </td>
                             <td className="px-3 py-2 text-center">
                               <Badge variant="outline" className="text-xs">
@@ -3062,16 +2972,16 @@ export default function AllocateAssetsPage() {
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <span className="inline-block">
-                      <Button
-                        onClick={handleNextStep}
-                        disabled={
-                          !globalTeamAssignment.modelerId ||
-                          (
-                            modelerQAAssignments.get(
-                              globalTeamAssignment.modelerId
-                            ) || []
-                          ).length === 0
-                        }
+                <Button
+                  onClick={handleNextStep}
+                  disabled={
+                    !globalTeamAssignment.modelerId ||
+                    (
+                      modelerQAAssignments.get(
+                        globalTeamAssignment.modelerId
+                      ) || []
+                    ).length === 0
+                  }
                         className="flex items-center gap-2 transition-all duration-200"
                         style={{
                           boxShadow:
@@ -3084,10 +2994,10 @@ export default function AllocateAssetsPage() {
                               ? "none"
                               : "var(--shadow-md)",
                         }}
-                      >
-                        <ArrowRight className="h-4 w-4" />
-                        Continue to Pricing
-                      </Button>
+                >
+                  <ArrowRight className="h-4 w-4" />
+                  Continue to Pricing
+                </Button>
                     </span>
                   </TooltipTrigger>
                   {(!globalTeamAssignment.modelerId ||
@@ -3152,38 +3062,38 @@ export default function AllocateAssetsPage() {
                         className="h-4 w-4"
                         style={{ color: "var(--primary)" }}
                       />
-                    </div>
+                </div>
                     Pricing Tier
                   </label>
                 </div>
                 <div style={{ boxShadow: "var(--shadow-sm)" }}>
-                  <Select
-                    value={pricingTier}
-                    onValueChange={(
-                      value:
-                        | "first_list"
-                        | "after_first_deadline"
-                        | "after_second_deadline"
-                    ) => {
-                      setPricingTier(value);
-                      updatePricingForTierChange(value);
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select pricing tier" />
-                    </SelectTrigger>
+                <Select
+                  value={pricingTier}
+                  onValueChange={(
+                    value:
+                      | "first_list"
+                      | "after_first_deadline"
+                      | "after_second_deadline"
+                  ) => {
+                    setPricingTier(value);
+                    updatePricingForTierChange(value);
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select pricing tier" />
+                  </SelectTrigger>
                     <SelectContent className="max-h-[200px]" position="popper">
-                      <SelectItem value="first_list">
-                        First List Pricing
-                      </SelectItem>
-                      <SelectItem value="after_first_deadline">
-                        After First Deadline
-                      </SelectItem>
-                      <SelectItem value="after_second_deadline">
-                        Premium Tier (After Second Deadline)
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
+                    <SelectItem value="first_list">
+                      First List Pricing
+                    </SelectItem>
+                    <SelectItem value="after_first_deadline">
+                      After First Deadline
+                    </SelectItem>
+                    <SelectItem value="after_second_deadline">
+                      Premium Tier (After Second Deadline)
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
                 </div>
                 {(() => {
                   const detectedTier =
@@ -3222,33 +3132,33 @@ export default function AllocateAssetsPage() {
                     Deadline
                   </label>
                   <div style={{ boxShadow: "var(--shadow-sm)" }}>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          className="w-full justify-start text-left font-normal"
-                        >
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {format(new Date(groupSettings.deadline), "PPP")}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={new Date(groupSettings.deadline)}
-                          onSelect={(date) => {
-                            setGroupSettings((prev) => ({
-                              ...prev,
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="w-full justify-start text-left font-normal"
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {format(new Date(groupSettings.deadline), "PPP")}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={new Date(groupSettings.deadline)}
+                        onSelect={(date) => {
+                          setGroupSettings((prev) => ({
+                            ...prev,
                               deadline: format(
                                 date || new Date(),
                                 "yyyy-MM-dd"
                               ),
-                            }));
-                          }}
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
+                          }));
+                        }}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
                   </div>
                 </div>
 
@@ -3273,20 +3183,20 @@ export default function AllocateAssetsPage() {
                     Bonus (%)
                   </label>
                   <div style={{ boxShadow: "var(--shadow-sm)" }}>
-                    <Input
-                      type="number"
-                      placeholder="0"
+                  <Input
+                    type="number"
+                    placeholder="0"
                       value={
                         groupSettings.bonus === 0 ? "" : groupSettings.bonus
                       }
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        setGroupSettings((prev) => ({
-                          ...prev,
-                          bonus: value === "" ? 0 : parseInt(value) || 0,
-                        }));
-                      }}
-                    />
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setGroupSettings((prev) => ({
+                        ...prev,
+                        bonus: value === "" ? 0 : parseInt(value) || 0,
+                      }));
+                    }}
+                  />
                   </div>
                 </div>
               </div>
@@ -3508,7 +3418,7 @@ export default function AllocateAssetsPage() {
                             <td className="p-2 text-muted-foreground font-mono text-center">
                               <div className="flex flex-col items-center gap-1">
                                 <span title={articleIdsTooltip || undefined}>
-                                  {asset.article_id}
+                              {asset.article_id}
                                 </span>
                                 {additionalArticleIds.length > 0 && (
                                   <div className="flex flex-wrap justify-center gap-1">
@@ -3557,13 +3467,13 @@ export default function AllocateAssetsPage() {
                             </td>
                             <td className="p-2 text-center">
                               <div className="flex flex-col gap-1">
-                                <Select
+                                      <Select
                                   value={data.pricingOptionId || ""}
-                                  onValueChange={(value) => {
+                                        onValueChange={(value) => {
                                     const option = getPricingOptionById(value);
                                     if (option) {
                                       handlePriceUpdate(
-                                        data.assetId,
+                                            data.assetId,
                                         value,
                                         option.price
                                       );
@@ -3572,14 +3482,14 @@ export default function AllocateAssetsPage() {
                                 >
                                   <SelectTrigger className="w-32 h-8 text-xs">
                                     <SelectValue placeholder="Set price" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {getCurrentPricingOptions().map(
-                                      (option) => (
-                                        <SelectItem
-                                          key={option.id}
-                                          value={option.id}
-                                        >
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          {getCurrentPricingOptions().map(
+                                            (option) => (
+                                              <SelectItem
+                                                key={option.id}
+                                                value={option.id}
+                                              >
                                           <div className="flex items-center justify-between w-full">
                                             <div className="flex items-center gap-2 text-left">
                                               <Euro className="h-3 w-3" />
@@ -3605,11 +3515,11 @@ export default function AllocateAssetsPage() {
                                               </Badge>
                                             )}
                                           </div>
-                                        </SelectItem>
-                                      )
-                                    )}
-                                  </SelectContent>
-                                </Select>
+                                              </SelectItem>
+                                            )
+                                          )}
+                                        </SelectContent>
+                                      </Select>
                               </div>
                             </td>
                             <td className="p-2 text-center">
@@ -3617,15 +3527,15 @@ export default function AllocateAssetsPage() {
                                 {data.pricingOptionId === "custom_pricing" &&
                                 !data.price ? (
                                   <div className="flex items-center gap-1">
-                                    <Input
-                                      type="number"
+                                          <Input
+                                            type="number"
                                       value={customPrices[data.assetId] || ""}
-                                      onChange={(e) =>
+                                            onChange={(e) =>
                                         handleCustomPriceChange(
-                                          data.assetId,
-                                          parseFloat(e.target.value) || 0
-                                        )
-                                      }
+                                                data.assetId,
+                                                parseFloat(e.target.value) || 0
+                                              )
+                                            }
                                       onKeyDown={(e) => {
                                         if (
                                           e.key === "Enter" &&
@@ -3637,11 +3547,11 @@ export default function AllocateAssetsPage() {
                                       disabled={settingPrices.has(data.assetId)}
                                       className="w-16 h-8 text-xs px-2 border rounded disabled:opacity-50 disabled:cursor-not-allowed"
                                       placeholder="€0"
-                                      min="0"
+                                          min="0"
                                       step="0.01"
-                                    />
-                                    <Button
-                                      size="sm"
+                                        />
+                                            <Button
+                                              size="sm"
                                       variant="outline"
                                       className="h-8 px-2 text-xs"
                                       onClick={() =>
@@ -3654,9 +3564,9 @@ export default function AllocateAssetsPage() {
                                       ) : (
                                         "Set"
                                       )}
-                                    </Button>
-                                  </div>
-                                ) : (
+                                            </Button>
+                                      </div>
+                                    ) : (
                                   <div className="flex items-center gap-1">
                                     {data.pricingOptionId ===
                                     "qa_team_handles_model" ? (
@@ -3672,11 +3582,11 @@ export default function AllocateAssetsPage() {
                                         €{data.price || 0}
                                       </span>
                                     )}
-                                    <Popover>
-                                      <PopoverTrigger asChild>
-                                        <Button
-                                          variant="ghost"
-                                          size="sm"
+                                          <Popover>
+                                            <PopoverTrigger asChild>
+                                              <Button
+                                                variant="ghost"
+                                                size="sm"
                                           className="h-4 w-4 p-0 hover:bg-muted"
                                         >
                                           <StickyNote
@@ -3686,44 +3596,44 @@ export default function AllocateAssetsPage() {
                                                 : "text-muted-foreground hover:text-foreground"
                                             }`}
                                           />
-                                        </Button>
-                                      </PopoverTrigger>
-                                      <PopoverContent className="w-80 p-3">
-                                        <div className="space-y-3">
-                                          <h4 className="font-medium text-sm">
-                                            Pricing Note
-                                          </h4>
-                                          <Textarea
-                                            placeholder="Add pricing note..."
-                                            value={
+                                              </Button>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-80 p-3">
+                                              <div className="space-y-3">
+                                                <h4 className="font-medium text-sm">
+                                                  Pricing Note
+                                                </h4>
+                                                <Textarea
+                                                  placeholder="Add pricing note..."
+                                                  value={
                                               pricingComments[data.assetId] ||
                                               ""
-                                            }
-                                            onChange={(e) => {
+                                                  }
+                                                  onChange={(e) => {
                                               setPricingComments((prev) => ({
-                                                ...prev,
+                                                        ...prev,
                                                 [data.assetId]: e.target.value,
                                               }));
-                                            }}
-                                            onBlur={() => {
-                                              if (
-                                                pricingComments[
-                                                  data.assetId
-                                                ] !== undefined
-                                              ) {
-                                                handlePricingCommentUpdate(
-                                                  data.assetId,
+                                                  }}
+                                                  onBlur={() => {
+                                                    if (
+                                                      pricingComments[
+                                                        data.assetId
+                                                      ] !== undefined
+                                                    ) {
+                                                      handlePricingCommentUpdate(
+                                                        data.assetId,
                                                   pricingComments[data.assetId]
-                                                );
-                                              }
-                                            }}
-                                            className="min-h-[60px] max-h-[120px] resize-none text-xs"
-                                            rows={3}
-                                          />
+                                                      );
+                                                    }
+                                                  }}
+                                                  className="min-h-[60px] max-h-[120px] resize-none text-xs"
+                                                  rows={3}
+                                                />
+                                              </div>
+                                            </PopoverContent>
+                                          </Popover>
                                         </div>
-                                      </PopoverContent>
-                                    </Popover>
-                                  </div>
                                 )}
                               </div>
                             </td>

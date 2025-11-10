@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabaseClient';
 export async function GET() {
   try {
     // Test database connection
-    const { data, error } = await supabase
+    const { data: _data, error } = await supabase
       .from('product_embeddings')
       .select('count')
       .limit(1);
@@ -18,7 +18,7 @@ export async function GET() {
       message: 'Database connection successful' 
     });
     
-  } catch (error) {
+  } catch (_error) {
     return NextResponse.json({ error: 'Test failed' }, { status: 500 });
   }
 }

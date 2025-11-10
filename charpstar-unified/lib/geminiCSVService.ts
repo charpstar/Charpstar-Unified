@@ -1,6 +1,6 @@
 import { GoogleGenAI } from '@google/genai';
 
-const TARGET_COLUMNS = [
+const _TARGET_COLUMNS = [
   'Article ID',
   'Product Name',
   'Product Link',

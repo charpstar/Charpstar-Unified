@@ -35,3 +35,4 @@ COMMENT ON COLUMN onboarding_assets.suggested_price IS 'AI-suggested price in eu
 
 
 
+

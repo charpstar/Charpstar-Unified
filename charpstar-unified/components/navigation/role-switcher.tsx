@@ -51,7 +51,7 @@ export function RoleSwitcher({ className }: RoleSwitcherProps) {
         let response: Response;
         try {
           response = await fetch(`/api/users/${user.id}/allowed-roles`);
-        } catch (fetchError) {
+        } catch (_fetchError) {
           // Network error - try fallback
           response = null as any;
         }
@@ -87,7 +87,7 @@ export function RoleSwitcher({ className }: RoleSwitcherProps) {
         const data = await response.json();
         setCurrentRole(data.current_role);
         setAllowedRoles(data.allowed_roles || [data.current_role]);
-      } catch (error) {
+      } catch (_error) {
         // Silently handle all errors - component will just not show role switcher
         // Don't log or show toasts for role fetching errors (not critical functionality)
       } finally {

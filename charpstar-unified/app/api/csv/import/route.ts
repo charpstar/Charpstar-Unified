@@ -273,7 +273,7 @@ export async function POST(request: NextRequest) {
             }
             
             // If has variations, extract base by removing them
-            let base = trimmed
+            const base = trimmed
               .replace(/\b(white|black|red|blue|green|yellow|brown|gray|grey|graphite|beige|ivory|cream|navy|pink|orange|purple)\b/gi, '')
               .replace(/\b(\d+cm|\d+\s*cm|\d+)\b/gi, '')
               .replace(/\b(left|right|l|r|corner left|corner right)\b/gi, '')
@@ -500,7 +500,7 @@ export async function POST(request: NextRequest) {
                     // Subsequent products - determine pricing based on variation type
                     if (variationOrientation) {
                       // Left/Right orientation variations are free (0 euros)
-                      suggestedPricingOptionId = null; // No additional pricing option for orientation
+                      suggestedPricingOptionId = undefined; // No additional pricing option for orientation
                       suggestedPrice = 0;
                     } else if (variationColor) {
                       suggestedPricingOptionId = 'additional_colors_after_second';
@@ -565,7 +565,7 @@ export async function POST(request: NextRequest) {
                 const variationOrientation = variationAttributes.find(v => v.type === 'orientation')?.value;
                 
                 // Calculate pricing if AI didn't provide it (ungrouped products are always base price)
-                let suggestedPricingOptionId = ungroupedProduct.suggestedPricingOptionId || 'pbr_3d_model_after_second';
+                const suggestedPricingOptionId = ungroupedProduct.suggestedPricingOptionId || 'pbr_3d_model_after_second';
                 let suggestedPrice = ungroupedProduct.suggestedPrice;
                 
                 if (suggestedPrice === undefined || suggestedPrice === null) {

@@ -55,9 +55,14 @@ export class ProductGroupingService {
     reorganizedData: Matrix<CellBase>;
     rowMetadata: Map<number, SpreadsheetRowMetadata>;
   } {
-    const headerRow = spreadsheetData[0];
+    const headerRowRaw = spreadsheetData[0];
+    if (!headerRowRaw) {
+      throw new Error('Spreadsheet data must contain at least a header row');
+    }
+    // Ensure all cells are CellBase (filter out undefined)
+    const headerRow: CellBase[] = headerRowRaw.filter((cell): cell is CellBase => cell !== undefined);
     const dataRows = spreadsheetData.slice(1);
-    const reorganizedData: Matrix<CellBase> = [headerRow];
+    const reorganizedData: Matrix<CellBase> = [headerRowRaw];
     const rowMetadata = new Map<number, SpreadsheetRowMetadata>();
     
     let currentRowIndex = 1; // Start after header

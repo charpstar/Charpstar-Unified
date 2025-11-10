@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
       embeddingId: data?.id || null
     });
     
-  } catch (error) {
+  } catch (_error) {
     return NextResponse.json({ error: 'Failed to generate embedding' }, { status: 500 });
   }
 }

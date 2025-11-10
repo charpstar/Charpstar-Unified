@@ -19,7 +19,7 @@ export async function GET() {
       total: data?.length || 0
     });
     
-  } catch (error) {
+  } catch (_error) {
     return NextResponse.json({ error: 'Failed to fetch embeddings' }, { status: 500 });
   }
 }

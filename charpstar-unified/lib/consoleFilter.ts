@@ -78,7 +78,7 @@ if (typeof window === 'undefined') {
     originalUnhandledRejection.forEach((listener: any) => {
       try {
         listener(reason, promise);
-      } catch (e) {
+      } catch (_e) {
         // Ignore errors in listeners
       }
     });

@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
       images: productImages 
     });
     
-  } catch (error) {
+  } catch (_error) {
     return NextResponse.json({ error: 'Failed to scrape images' }, { status: 500 });
   }
 }

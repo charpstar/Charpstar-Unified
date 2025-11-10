@@ -30,7 +30,7 @@ export async function POST() {
       message: 'Test asset created successfully' 
     });
     
-  } catch (error) {
+  } catch (_error) {
     return NextResponse.json({ error: 'Failed to create test asset' }, { status: 500 });
   }
 }

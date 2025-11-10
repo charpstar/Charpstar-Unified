@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabaseClient';
 
 export async function POST(request: NextRequest) {
   try {
-    const { assetId, imageUrl, k = 5 } = await request.json();
+    const { assetId, imageUrl: _imageUrl, k = 5 } = await request.json();
     
     // Get the embedding for the query asset
     const { data: embeddingData, error: embeddingError } = await supabase

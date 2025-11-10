@@ -83,7 +83,7 @@ export async function performGrouping(products: ProductInput[]): Promise<Groupin
   const gemini = new GoogleGenAI({ apiKey });
 
   // Prepare product list for AI
-  const productList = products.map((p, idx) => 
+  const productList = products.map((p, _idx) => 
     `Row ${p.rowIndex}: "${p.articleId}" | "${p.productName}"${p.category ? ` | Category: ${p.category}` : ''}${p.subcategory ? ` | Subcategory: ${p.subcategory}` : ''}`
   ).join('\n');
 
@@ -522,7 +522,7 @@ function extractVariations(productName: string): VariationAttribute[] {
   return variations;
 }
 
-function levenshteinDistance(str1: string, str2: string): number {
+function _levenshteinDistance(str1: string, str2: string): number {
   const matrix: number[][] = [];
   for (let i = 0; i <= str2.length; i++) matrix[i] = [i];
   for (let j = 0; j <= str1.length; j++) matrix[0][j] = j;

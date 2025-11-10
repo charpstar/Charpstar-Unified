@@ -373,10 +373,10 @@ export class CSVProcessor {
 
           rows.push(processed);
         }
-      } catch (error) {
+      } catch (_error) {
         errors.push({
           row: rowIndex,
-          errors: [error instanceof Error ? error.message : 'Unknown error']
+          errors: [_error instanceof Error ? _error.message : 'Unknown error']
         });
       }
     }
@@ -515,7 +515,7 @@ export class CSVProcessor {
   private extractValue(
     rawValue: string,
     targetColumn: string,
-    confidence: number
+    _confidence: number
   ): { value: string; matched: boolean } | null {
     if (!rawValue) return null;
 
@@ -538,7 +538,7 @@ export class CSVProcessor {
               if (regex.test(value)) {
                 return { value, matched: true };
               }
-            } catch (e) {
+            } catch (_e) {
               // Invalid regex, continue to fallbacks
             }
           }
@@ -556,7 +556,7 @@ export class CSVProcessor {
               if (regex.test(value)) {
                 return { value, matched: true };
               }
-            } catch (e) {
+            } catch (_e) {
               // Invalid regex, continue to fallbacks
             }
           }
@@ -574,7 +574,7 @@ export class CSVProcessor {
               if (urlRegex.test(value)) {
                 return { value, matched: true };
               }
-            } catch (e) {
+            } catch (_e) {
               // Invalid regex, continue to fallbacks
             }
           }
@@ -602,7 +602,7 @@ export class CSVProcessor {
                 const normalized = /true|yes|active/i.test(value) ? 'TRUE' : 'FALSE';
                 return { value: normalized, matched: true };
               }
-            } catch (e) {
+            } catch (_e) {
               // Invalid regex, continue to fallbacks
             }
           }
@@ -618,7 +618,7 @@ export class CSVProcessor {
           // For any other field, return the value
           return { value, matched: false };
       }
-    } catch (error) {
+    } catch (_error) {
       // Pattern regex failed, return value anyway
       return { value, matched: false };
     }

@@ -5,7 +5,7 @@ import Spreadsheet, { CellBase, Matrix } from 'react-spreadsheet';
 import { Button } from '@/components/ui/display/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/containers/card';
 import { useToast } from '@/components/ui/utilities';
-import { Loader2, Sparkles, Copy, CheckCircle2, AlertTriangle, Package, Plus, Trash2 } from 'lucide-react';
+import { Loader2, Sparkles, Copy, CheckCircle2, Package, Plus } from 'lucide-react';
 
 // Professional spreadsheet styling
 const spreadsheetStyles = `
@@ -182,7 +182,7 @@ const TARGET_COLUMNS = [
 ];
 
 export function SpreadsheetProductEntry({
-  products,
+  products: _products,
   onProductsChange,
   clientName
 }: SpreadsheetProductEntryProps) {
@@ -208,7 +208,7 @@ export function SpreadsheetProductEntry({
   });
   const [mapping, setMapping] = useState<any>(null);
   const [isMapping, setIsMapping] = useState(false);
-  const [mappedData, setMappedData] = useState<Matrix<CellBase> | null>(null);
+  const [_mappedData, setMappedData] = useState<Matrix<CellBase> | null>(null);
   const [hasAutoMapped, setHasAutoMapped] = useState(false);
   const { toast } = useToast();
 
@@ -229,7 +229,7 @@ export function SpreadsheetProductEntry({
   }, []);
 
   // Convert CSV text to spreadsheet data
-  const csvToSpreadsheet = useCallback((csvText: string): Matrix<CellBase> => {
+  const _csvToSpreadsheet = useCallback((csvText: string): Matrix<CellBase> => {
     const lines = csvText.split('\n').filter(line => line.trim());
     return lines.map(line => {
       const cells: string[] = [];
@@ -432,7 +432,7 @@ export function SpreadsheetProductEntry({
   // Add a new column
   const addColumn = useCallback(() => {
     setSpreadsheetData(prev => {
-      const columnLetter = String.fromCharCode(65 + (prev[0]?.length || 0));
+      const _columnLetter = String.fromCharCode(65 + (prev[0]?.length || 0));
       return prev.map(row => [...row, { value: '' }]);
     });
     toast({
@@ -442,7 +442,7 @@ export function SpreadsheetProductEntry({
   }, [toast]);
 
   // Remove the last row (if it's empty and not the header)
-  const removeLastRow = useCallback(() => {
+  const _removeLastRow = useCallback(() => {
     setSpreadsheetData(prev => {
       if (prev.length <= 2) {
         toast({
@@ -457,7 +457,7 @@ export function SpreadsheetProductEntry({
   }, [toast]);
 
   // Remove the last column (if there's more than 1)
-  const removeLastColumn = useCallback(() => {
+  const _removeLastColumn = useCallback(() => {
     setSpreadsheetData(prev => {
       if (prev[0]?.length <= 1) {
         toast({
@@ -670,7 +670,7 @@ export function SpreadsheetProductEntry({
               <strong className="text-foreground">Quick Start:</strong> Copy your entire spreadsheet from Excel or Google Sheets (including headers), 
               then paste directly into the grid above. The AI will automatically detect and map your columns.
               <br />
-              <strong className="text-foreground">Manual Entry:</strong> Use the "Add Row" and "Add Column" buttons above to manually expand the spreadsheet, 
+              <strong className="text-foreground">Manual Entry:</strong> Use the &quot;Add Row&quot; and &quot;Add Column&quot; buttons above to manually expand the spreadsheet, 
               or simply click in any cell and start typing.
               <br />
               <strong className="text-foreground">Note:</strong> Products will be automatically grouped and sorted after submission to help the production team with allocation.

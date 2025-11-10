@@ -1,10 +1,9 @@
 "use client";
 
 import { useState } from 'react';
-import { Button } from '@/components/ui/inputs/button';
-import { Input } from '@/components/ui/inputs/input';
-import { Label } from '@/components/ui/inputs/label';
-import { Card } from '@/components/ui/layout';
+import { Button, Label } from '@/components/ui/display';
+import { Input } from '@/components/ui/inputs';
+import { Card } from '@/components/ui/containers';
 import { useToast } from '@/components/ui/utilities';
 import { Loader2, Upload, FileSpreadsheet, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react';
 

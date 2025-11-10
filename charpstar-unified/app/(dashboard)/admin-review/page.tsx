@@ -180,7 +180,7 @@ import { toast } from "sonner";
 import { useLoading } from "@/contexts/LoadingContext";
 import { getPriorityLabel } from "@/lib/constants";
 import { format } from "date-fns";
-import { Calendar as CalendarIcon, User, Package, Lightbulb, Sparkles } from "lucide-react";
+import { Calendar as CalendarIcon, User, Package, Sparkles } from "lucide-react";
 
 // Helper function to get priority CSS class
 const getPriorityClass = (priority: number): string => {
@@ -4812,7 +4812,7 @@ export default function AdminReviewPage() {
                                   variation_orientation: asset.variation_orientation,
                                 });
                             
-                            const hasPricing = assetPrices[asset.id]?.pricingOptionId !== undefined;
+                            const _hasPricing = assetPrices[asset.id]?.pricingOptionId !== undefined;
                             const currentMatchesSuggestion = 
                               assetPrices[asset.id]?.pricingOptionId === dbSuggestion.pricingOptionId &&
                               assetPrices[asset.id]?.price === dbSuggestion.price;

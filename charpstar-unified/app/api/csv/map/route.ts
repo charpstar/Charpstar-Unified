@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { parseCSV, sampleRows } from '@/lib/csvParser';
+import { parseCSV } from '@/lib/csvParser';
 import { geminiCSVService } from '@/lib/geminiCSVService';
 
 export async function POST(request: NextRequest) {
