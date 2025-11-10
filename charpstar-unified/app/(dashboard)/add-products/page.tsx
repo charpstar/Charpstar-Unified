@@ -61,6 +61,7 @@ import {
 } from "lucide-react";
 
 import * as saveAs from "file-saver";
+import { cn } from "@/lib/utils";
 
 interface ProductForm {
   article_id: string;
@@ -79,6 +80,15 @@ interface ProductForm {
 }
 
 const STORAGE_KEY = "add-products-cache";
+
+const ILLEGAL_FILE_CHAR_REGEX = /[<>:"/\\|?*]/g;
+
+const findIllegalFileCharacters = (value: string): string[] => {
+  if (!value) return [];
+  const matches = value.match(ILLEGAL_FILE_CHAR_REGEX);
+  if (!matches) return [];
+  return Array.from(new Set(matches));
+};
 
 const normalizeArticleIdArray = (
   primary: string,
@@ -2078,18 +2088,58 @@ export default function AddProductsPage() {
                             <TableCell className="p-2 align-top">
                               <div className="space-y-1.5">
                                 <div className="flex items-center gap-2">
-                                  <Input
-                                    value={product.article_id}
-                                    onChange={(e) =>
-                                      updateProduct(
-                                        index,
-                                        "article_id",
-                                        e.target.value
-                                      )
-                                    }
-                                    placeholder="ART001"
-                                    className="h-8 text-xs px-2 font-medium"
-                                  />
+                                  {(() => {
+                                    const illegalCharacters =
+                                      findIllegalFileCharacters(
+                                        product.article_id
+                                      );
+                                    const showArticleWarning =
+                                      illegalCharacters.length > 0 &&
+                                      product.article_id.trim().length > 0;
+
+                                    return (
+                                      <Tooltip open={showArticleWarning}>
+                                        <TooltipTrigger asChild>
+                                          <Input
+                                            value={product.article_id}
+                                            onChange={(e) =>
+                                              updateProduct(
+                                                index,
+                                                "article_id",
+                                                e.target.value
+                                              )
+                                            }
+                                            placeholder="ART001"
+                                            className={cn(
+                                              "h-8 text-xs px-2 font-medium",
+                                              showArticleWarning &&
+                                                "border-amber-400 focus-visible:ring-amber-500 focus-visible:ring-offset-0"
+                                            )}
+                                            aria-invalid={showArticleWarning}
+                                          />
+                                        </TooltipTrigger>
+                                        <TooltipContent
+                                          variant="warning"
+                                          side="top"
+                                          align="start"
+                                          sideOffset={6}
+                                        >
+                                          <div className="flex flex-col gap-1">
+                                            <span>
+                                              Article ID contains characters
+                                              that cannot be used in file names.
+                                            </span>
+                                            <span className="font-semibold">
+                                              Replace{" "}
+                                              {illegalCharacters.join(" ")} with
+                                              &quot;-&quot; and your files will
+                                              still connect to this article ID.
+                                            </span>
+                                          </div>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    );
+                                  })()}
                                   {additionalCount > 0 && (
                                     <Tooltip>
                                       <TooltipTrigger asChild>
@@ -2277,19 +2327,62 @@ export default function AddProductsPage() {
                                   <TableCell className="p-2" />
                                 )}
                                 <TableCell className="p-2">
-                                  <Input
-                                    value={variation.article_id}
-                                    onChange={(e) =>
-                                      updateVariation(
-                                        index,
-                                        vIndex,
-                                        "article_id",
-                                        e.target.value
-                                      )
-                                    }
-                                    placeholder="ART001-V1"
-                                    className="h-7 text-xs bg-background px-2"
-                                  />
+                                  {(() => {
+                                    const variationIllegalCharacters =
+                                      findIllegalFileCharacters(
+                                        variation.article_id
+                                      );
+                                    const showVariationWarning =
+                                      variationIllegalCharacters.length > 0 &&
+                                      variation.article_id.trim().length > 0;
+
+                                    return (
+                                      <Tooltip open={showVariationWarning}>
+                                        <TooltipTrigger asChild>
+                                          <Input
+                                            value={variation.article_id}
+                                            onChange={(e) =>
+                                              updateVariation(
+                                                index,
+                                                vIndex,
+                                                "article_id",
+                                                e.target.value
+                                              )
+                                            }
+                                            placeholder="ART001-V1"
+                                            className={cn(
+                                              "h-7 text-xs bg-background px-2",
+                                              showVariationWarning &&
+                                                "border-amber-400 focus-visible:ring-amber-500 focus-visible:ring-offset-0"
+                                            )}
+                                            aria-invalid={showVariationWarning}
+                                          />
+                                        </TooltipTrigger>
+                                        <TooltipContent
+                                          variant="warning"
+                                          side="top"
+                                          align="start"
+                                          sideOffset={6}
+                                        >
+                                          <div className="flex flex-col gap-1">
+                                            <span>
+                                              Article ID contains characters
+                                              that cannot be used in file names.
+                                            </span>
+                                            <span className="font-semibold">
+                                              Replace{" "}
+                                              {variationIllegalCharacters.join(
+                                                " "
+                                              )}{" "}
+                                              with &quot;-&quot; and your files
+                                              will still connect to this article
+                                              ID.
+                                            </span>
+                                          </div>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    );
+                                  })()}
                                 </TableCell>
                                 <TableCell className="p-2">
                                   <Input

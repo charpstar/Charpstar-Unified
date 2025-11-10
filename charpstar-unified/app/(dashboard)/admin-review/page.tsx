@@ -859,6 +859,10 @@ export default function AdminReviewPage() {
   const [pendingAssets, setPendingAssets] = useState<
     Map<string, { email: string; name?: string }>
   >(new Map());
+  const authUserCacheRef = useRef<
+    Map<string, { name?: string | null; email?: string | null }>
+  >(new Map());
+  const authUsersPromiseRef = useRef<Promise<void> | null>(null);
 
   // Allocation lists state for modeler view
   const [allocationLists, setAllocationLists] = useState<any[]>([]);
@@ -2722,6 +2726,66 @@ export default function AdminReviewPage() {
   }, [filtered, filteredLists, page, showAllocationLists, showQAAssets]);
 
   // Fetch pending assets
+  const ensureAuthUsersLoaded = async () => {
+    if (authUserCacheRef.current.size > 0) return;
+
+    if (authUsersPromiseRef.current) {
+      await authUsersPromiseRef.current;
+      return;
+    }
+
+    authUsersPromiseRef.current = (async () => {
+      try {
+        const response = await fetch("/api/users?role=modeler");
+        if (!response.ok) {
+          throw new Error("Failed to fetch modeler auth users");
+        }
+        const { users } = await response.json();
+        users?.forEach((user: any) => {
+          if (!user?.id) return;
+          authUserCacheRef.current.set(user.id, {
+            name: user.name,
+            email: user.email,
+          });
+        });
+      } catch (error) {
+        console.error("Error fetching modeler display names:", error);
+      } finally {
+        authUsersPromiseRef.current = null;
+      }
+    })();
+
+    await authUsersPromiseRef.current;
+  };
+
+  const getDisplayNameForUser = (
+    userId: string | undefined,
+    profile?: { title?: string | null; email?: string | null }
+  ) => {
+    const authEntry = userId ? authUserCacheRef.current.get(userId) : undefined;
+    const authName =
+      authEntry?.name && authEntry.name.trim() !== ""
+        ? authEntry.name.trim()
+        : null;
+    const profileTitle =
+      profile?.title && profile.title.trim() !== ""
+        ? profile.title.trim()
+        : null;
+
+    if (authName) return authName;
+    if (profileTitle) return profileTitle;
+
+    const emailCandidate =
+      profile?.email || (authEntry?.email ? authEntry.email : null);
+
+    if (emailCandidate && emailCandidate.trim() !== "") {
+      const localPart = emailCandidate.split("@")[0];
+      return localPart || emailCandidate;
+    }
+
+    return "Unknown User";
+  };
+
   const fetchPendingAssets = async (assetIds: string[]) => {
     try {
       const query = supabase
@@ -2749,6 +2813,11 @@ export default function AdminReviewPage() {
         ...new Set(data?.map((assignment) => assignment.user_id) || []),
       ];
 
+      if (userIds.length === 0) {
+        setPendingAssets(new Map());
+        return;
+      }
+
       // Fetch user profiles separately
       const { data: profilesData, error: profilesError } = await supabase
         .from("profiles")
@@ -2759,6 +2828,8 @@ export default function AdminReviewPage() {
         console.error("Error fetching profiles:", profilesError);
         return;
       }
+
+      await ensureAuthUsersLoaded();
 
       // Create a map of user_id to profile
       const profilesMap = new Map();
@@ -2773,9 +2844,13 @@ export default function AdminReviewPage() {
       data?.forEach((assignment) => {
         const profile = profilesMap.get(assignment.user_id);
         if (profile) {
+          const displayName = getDisplayNameForUser(
+            assignment.user_id,
+            profile
+          );
           pendingAssetsMap.set(assignment.asset_id, {
             email: profile.email,
-            name: profile.title,
+            name: displayName,
           });
         }
       });
@@ -2834,11 +2909,16 @@ export default function AdminReviewPage() {
 
         if (!profileError && profileData && acceptedAssignments) {
           // Only mark accepted assets as assigned to this modeler
+          await ensureAuthUsersLoaded();
           acceptedAssignments.forEach((assignment) => {
+            const displayName = getDisplayNameForUser(
+              modelerFilters[0],
+              profileData
+            );
             assignedAssetsMap.set(assignment.asset_id, {
               id: modelerFilters[0] || "",
               email: profileData.email,
-              name: profileData.title,
+              name: displayName,
             });
           });
         }
@@ -2859,6 +2939,11 @@ export default function AdminReviewPage() {
         ...new Set(data?.map((assignment) => assignment.user_id) || []),
       ];
 
+      if (userIds.length === 0) {
+        setAssignedAssets(new Map());
+        return;
+      }
+
       // Fetch user profiles separately
       const { data: profilesData, error: profilesError } = await supabase
         .from("profiles")
@@ -2869,6 +2954,8 @@ export default function AdminReviewPage() {
         console.error("Error fetching profiles:", profilesError);
         return;
       }
+
+      await ensureAuthUsersLoaded();
 
       // Create a map of user_id to profile
       const profilesMap = new Map();
@@ -2883,10 +2970,14 @@ export default function AdminReviewPage() {
       data?.forEach((assignment) => {
         const profile = profilesMap.get(assignment.user_id);
         if (profile) {
+          const displayName = getDisplayNameForUser(
+            assignment.user_id,
+            profile
+          );
           assignedAssetsMap.set(assignment.asset_id, {
             id: assignment.user_id,
             email: profile.email,
-            name: profile.title,
+            name: displayName,
           });
         }
       });

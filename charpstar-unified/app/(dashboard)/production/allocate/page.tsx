@@ -1,6 +1,12 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+  useMemo,
+} from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { Button } from "@/components/ui/display";
@@ -375,6 +381,22 @@ export default function AllocateAssetsPage() {
   // Custom pricing state (same as admin-review)
   const [customPrices, setCustomPrices] = useState<Record<string, number>>({});
   const [settingPrices, setSettingPrices] = useState<Set<string>>(new Set());
+
+  const totalBasePrice = useMemo(() => {
+    return allocationData.reduce((sum, data) => {
+      const price = Number(data.price);
+      return sum + (Number.isFinite(price) ? price : 0);
+    }, 0);
+  }, [allocationData]);
+
+  const totalBonusAmount = useMemo(() => {
+    const bonusPercentage = Number(groupSettings.bonus) || 0;
+    return totalBasePrice * (bonusPercentage / 100);
+  }, [totalBasePrice, groupSettings.bonus]);
+
+  const totalPriceWithBonus = useMemo(() => {
+    return totalBasePrice + totalBonusAmount;
+  }, [totalBasePrice, totalBonusAmount]);
 
   // Add new assets to allocation data with correct pricing
 
@@ -1046,22 +1068,7 @@ export default function AllocateAssetsPage() {
 
   // Initialize allocation data for selected assets
   const initializeAllocationData = (overrideModelerId?: string) => {
-    const modelers = users.filter((u) => u.role === "modeler");
     const modelerIdToUse = overrideModelerId || globalTeamAssignment.modelerId;
-
-    // Set global team assignment defaults
-    if (modelers.length > 0 && !modelerIdToUse) {
-      const defaultModelerId = modelers[0].id;
-      setGlobalTeamAssignment((prev) => ({
-        ...prev,
-        modelerId: defaultModelerId,
-      }));
-      // Only check pricing tier for the default modeler if we don't have selected assets
-      // (asset-based pricing will override this)
-      if (selectedAssets.size === 0) {
-        checkModelerPricingTier(defaultModelerId);
-      }
-    }
 
     // Load edited prices from localStorage if they exist
     let editedPrices: Record<
@@ -1095,8 +1102,7 @@ export default function AllocateAssetsPage() {
       if (editedPrice) {
         return {
           assetId,
-          modelerId:
-            modelerIdToUse || (modelers.length > 0 ? modelers[0].id : ""),
+          modelerId: modelerIdToUse || "",
           price: editedPrice.price,
           pricingOptionId: editedPrice.pricingOptionId,
         };
@@ -1115,8 +1121,7 @@ export default function AllocateAssetsPage() {
       ) {
         return {
           assetId,
-          modelerId:
-            modelerIdToUse || (modelers.length > 0 ? modelers[0].id : ""),
+          modelerId: modelerIdToUse || "",
           price: existingPrice ?? 0,
           pricingOptionId: existingPricingOptionId,
         };
@@ -1126,8 +1131,7 @@ export default function AllocateAssetsPage() {
       // Default to empty pricing option and 0 price if no existing pricing
       return {
         assetId,
-        modelerId:
-          modelerIdToUse || (modelers.length > 0 ? modelers[0].id : ""),
+        modelerId: modelerIdToUse || "",
         price: existingPrice ?? 0,
         pricingOptionId: existingPricingOptionId || "",
       };
@@ -2316,12 +2320,15 @@ export default function AllocateAssetsPage() {
                         updateGlobalTeamAssignment("modelerId", value)
                       }
                       placeholder="Choose modeler"
-                      options={users
-                        .filter((u) => u.role === "modeler")
-                        .map((user) => ({
-                          value: user.id,
-                          label: user.displayName || "Unknown User",
-                        }))}
+                      options={[
+                        { value: "", label: "Choose modeler" },
+                        ...users
+                          .filter((u) => u.role === "modeler")
+                          .map((user) => ({
+                            value: user.id,
+                            label: user.displayName || "Unknown User",
+                          })),
+                      ]}
                     />
                   </div>
                 </div>
@@ -3574,19 +3581,20 @@ export default function AllocateAssetsPage() {
                   {allocationData.length > 0 && (
                     <>
                       <p style={{ color: "var(--foreground)" }}>
-                        Total Price: €
-                        {allocationData.reduce(
-                          (sum, data) => sum + data.price,
-                          0
-                        )}
+                        Base Total Price: €{totalBasePrice.toFixed(2)}
+                      </p>
+                      <p style={{ color: "var(--foreground)" }}>
+                        Bonus Amount ({groupSettings.bonus}%): €
+                        {totalBonusAmount.toFixed(2)}
+                      </p>
+                      <p style={{ color: "var(--foreground)" }}>
+                        Total with Bonus: €{totalPriceWithBonus.toFixed(2)}
                       </p>
                       <p style={{ color: "var(--foreground)" }}>
                         Average Price: €
-                        {(
-                          allocationData.reduce(
-                            (sum, data) => sum + data.price,
-                            0
-                          ) / allocationData.length
+                        {(allocationData.length > 0
+                          ? totalBasePrice / allocationData.length
+                          : 0
                         ).toFixed(2)}
                       </p>
                     </>
