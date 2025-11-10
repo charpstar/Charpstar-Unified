@@ -2789,19 +2789,21 @@ export function ClientAssetCountWidget() {
 
         if (contractsError) throw contractsError;
 
-        // Query onboarding_assets table - count all except where transferred = true
+        // Query onboarding_assets table - count all except where transferred = true and exclude variations
         const { data: onboardingData, error: onboardingError } = await supabase
           .from("onboarding_assets")
-          .select("client, transferred")
-          .in("client", clientCompanies);
+          .select("client, transferred, is_variation")
+          .in("client", clientCompanies)
+          .or("is_variation.is.null,is_variation.eq.false");
 
         if (onboardingError) throw onboardingError;
 
-        // Query assets table - count all except where active = false
+        // Query assets table - count all except where active = false and exclude variations
         const { data: assetsData, error: assetsError } = await supabase
           .from("assets")
-          .select("client, active")
-          .in("client", clientCompanies);
+          .select("client, active, is_variation")
+          .in("client", clientCompanies)
+          .or("is_variation.is.null,is_variation.eq.false");
 
         if (assetsError) throw assetsError;
 
@@ -2843,20 +2845,22 @@ export function ClientAssetCountWidget() {
             companyAssetsData
           );
 
-          // Filter onboarding_assets: exclude where transferred = true
+          // Filter onboarding_assets: exclude where transferred = true and exclude variations
           const onboardingCount =
             onboardingData?.filter(
               (item) =>
                 item.client === companyName &&
-                (item.transferred === false || item.transferred === null)
+                (item.transferred === false || item.transferred === null) &&
+                (item.is_variation === false || item.is_variation === null)
             ).length || 0;
 
-          // Filter assets: exclude where active = false
+          // Filter assets: exclude where active = false and exclude variations
           const assetsCount =
             assetsData?.filter(
               (item) =>
                 item.client === companyName &&
-                (item.active === true || item.active === null)
+                (item.active === true || item.active === null) &&
+                (item.is_variation === false || item.is_variation === null)
             ).length || 0;
 
           const contract = contracts?.find((c) => c.name === companyName);
@@ -3218,7 +3222,7 @@ export function CostSummaryWidget() {
         const assetIds = assignments?.map((a) => a.asset_id) || [];
         const { data: assets, error: assetsError } = await supabase
           .from("onboarding_assets")
-          .select("id, status, created_at")
+          .select("id, status, created_at, qa_team_handles_model")
           .in("id", assetIds);
 
         if (assetsError) throw assetsError;
@@ -3233,6 +3237,9 @@ export function CostSummaryWidget() {
         assignments?.forEach((assignment) => {
           const asset = assets?.find((a) => a.id === assignment.asset_id);
           if (!asset) return;
+
+          // Skip QA-handled models (they don't count toward modeler costs)
+          if (asset.qa_team_handles_model) return;
 
           const basePrice = assignment.price || 0;
           const bonusPercentage =
@@ -3468,6 +3475,210 @@ export function CostSummaryWidget() {
             </div>
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+export function UnallocatedModelersWidget() {
+  const router = useRouter();
+  const [unallocatedModelers, setUnallocatedModelers] = useState<
+    Array<{ id: string; email: string; title?: string; created_at: string }>
+  >([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const fetchUnallocatedModelers = async () => {
+      try {
+        setLoading(true);
+
+        // Get all modelers
+        const { data: allModelers, error: modelersError } = await supabase
+          .from("profiles")
+          .select("id, email, title, created_at")
+          .eq("role", "modeler")
+          .order("created_at", { ascending: false });
+
+        if (modelersError) {
+          console.error("Error fetching modelers:", modelersError);
+          setUnallocatedModelers([]);
+          setLoading(false);
+          return;
+        }
+
+        if (!allModelers || allModelers.length === 0) {
+          setUnallocatedModelers([]);
+          setLoading(false);
+          return;
+        }
+
+        // Get all active allocation lists (status != "approved" or status is null)
+        // Query allocation lists for modelers
+        const { data: allLists, error: listsError } = await supabase
+          .from("allocation_lists")
+          .select("user_id, status")
+          .eq("role", "modeler")
+          .not("user_id", "is", null);
+
+        if (listsError) {
+          console.error("Error fetching allocation lists:", listsError);
+          // Don't fail completely - just assume all lists are approved if query fails
+          // This way we show all modelers (better to show more than less)
+          setUnallocatedModelers(allModelers);
+          setLoading(false);
+          return;
+        }
+
+        // Filter to only active lists (status is null or status != "approved")
+        const activeLists = (allLists || []).filter(
+          (list) => !list.status || list.status !== "approved"
+        );
+
+        // Get set of modeler IDs who have active allocation lists
+        const allocatedModelerIds = new Set(
+          (activeLists || []).map((list) => list.user_id).filter(Boolean)
+        );
+
+        // Find modelers who don't have any active allocation lists
+        const unallocated = allModelers.filter(
+          (modeler) => modeler.id && !allocatedModelerIds.has(modeler.id)
+        );
+
+        setUnallocatedModelers(unallocated);
+      } catch (error) {
+        console.error("Error fetching unallocated modelers:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUnallocatedModelers();
+  }, []);
+
+  // Calculate derived values - must be before any conditional returns to satisfy Rules of Hooks
+  const count = unallocatedModelers.length;
+  const animatedCount = useCountUp(count);
+
+  if (loading) {
+    return (
+      <div className="h-full p-6">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="relative">
+            <div className="p-3 bg-primary rounded-2xl shadow-[0_4px_16px_hsl(var(--primary),0.1)] dark:shadow-[0_4px_16px_hsl(var(--primary),0.2)]">
+              <Users className="h-6 w-6 text-primary-foreground" />
+            </div>
+            <div className="absolute inset-0 bg-primary/30 rounded-2xl blur-sm -z-10" />
+          </div>
+          <div>
+            <h3 className="text-xl font-bold text-foreground">
+              Unallocated Modelers
+            </h3>
+            <p className="text-sm text-muted-foreground">
+              Modelers without active allocation lists
+            </p>
+          </div>
+        </div>
+        <div className="space-y-2.5">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="h-16 bg-muted animate-pulse rounded-xl" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (count === 0) {
+    return (
+      <div className="h-full p-6">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="relative">
+            <div className="p-3 bg-primary rounded-2xl shadow-[0_4px_16px_hsl(var(--primary),0.1)] dark:shadow-[0_4px_16px_hsl(var(--primary),0.2)]">
+              <Users className="h-6 w-6 text-primary-foreground" />
+            </div>
+            <div className="absolute inset-0 bg-primary/30 rounded-2xl blur-sm -z-10" />
+          </div>
+          <div>
+            <h3 className="text-xl font-bold text-foreground">
+              Unallocated Modelers
+            </h3>
+            <p className="text-sm text-muted-foreground">
+              Modelers without active allocation lists
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center justify-center p-8 rounded-xl bg-muted/50 border border-border">
+          <div className="text-center">
+            <CheckCircle className="h-12 w-12 text-muted-foreground/50 mx-auto mb-3" />
+            <p className="text-sm font-medium text-muted-foreground">
+              All modelers have active allocation lists
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="h-full p-6">
+      <div className="flex items-center gap-3 mb-6">
+        <div className="relative">
+          <div className="p-3 bg-primary rounded-2xl shadow-[0_4px_16px_hsl(var(--primary),0.1)] dark:shadow-[0_4px_16px_hsl(var(--primary),0.2)]">
+            <Users className="h-6 w-6 text-primary-foreground" />
+          </div>
+          <div className="absolute inset-0 bg-primary/30 rounded-2xl blur-sm -z-10" />
+        </div>
+        <div>
+          <h3 className="text-xl font-bold text-foreground">
+            Unallocated Modelers
+          </h3>
+          <p className="text-sm text-muted-foreground">
+            Modelers without active allocation lists
+          </p>
+        </div>
+        <div className="ml-auto">
+          <span className="text-2xl font-bold text-foreground tabular-nums">
+            {animatedCount}
+          </span>
+        </div>
+      </div>
+      <div className="max-h-[400px] overflow-y-auto pr-2 -mr-2 space-y-1 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
+        {unallocatedModelers.map((modeler) => (
+          <button
+            key={modeler.id}
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              if (modeler.id && router) {
+                router.push(`/production/allocate?modeler=${modeler.id}`);
+              }
+            }}
+            className="w-full group relative flex items-center gap-2.5 p-2 rounded-md cursor-pointer transition-all duration-200
+              hover:bg-muted/50 active:bg-muted
+              border border-transparent hover:border-border/50
+              text-left"
+          >
+            <Avatar className="h-7 w-7 flex-shrink-0">
+              <AvatarImage src={undefined} />
+              <AvatarFallback className="bg-muted text-foreground text-[10px]">
+                {modeler.email
+                  ? modeler.email.split("@")[0]?.slice(0, 2).toUpperCase() ||
+                    "??"
+                  : "??"}
+              </AvatarFallback>
+            </Avatar>
+            <div className="min-w-0 flex-1">
+              <span className="text-xs font-medium text-foreground block truncate">
+                {modeler.email || "Unknown"}
+              </span>
+              {modeler.title && (
+                <p className="text-[10px] text-muted-foreground mt-0.5 truncate">
+                  {modeler.title}
+                </p>
+              )}
+            </div>
+            <ArrowRight className="h-3 w-3 text-muted-foreground group-hover:text-foreground flex-shrink-0 opacity-0 group-hover:opacity-100 transition-all" />
+          </button>
+        ))}
       </div>
     </div>
   );

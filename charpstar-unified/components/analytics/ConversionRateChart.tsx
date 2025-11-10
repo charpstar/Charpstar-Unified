@@ -5,7 +5,6 @@ import {
   Area,
   XAxis,
   YAxis,
-  CartesianGrid,
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
@@ -36,7 +35,6 @@ export function ConversionRateChart({ data }: ConversionRateChartProps) {
               />
             </linearGradient>
           </defs>
-          <CartesianGrid strokeDasharray="3 3" vertical={false} />
           <XAxis
             dataKey="date"
             tickLine={false}

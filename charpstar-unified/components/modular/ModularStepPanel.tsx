@@ -112,7 +112,6 @@ export default function ModularStepPanel({
       const {
         cdnUrl,
         embedCode: generatedEmbedCode,
-        apiScriptUrl: scriptUrl,
         apiDocumentation: apiDocs,
       } = await response.json();
       setConfiguratorUrl(cdnUrl);

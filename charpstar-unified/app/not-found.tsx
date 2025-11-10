@@ -9,7 +9,7 @@ function NotFoundContent() {
   const router = useRouter();
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen p-4 text-center">
+    <div className="flex flex-col items-center justify-center h-full p-4 text-center">
       <div className="max-w-md space-y-6">
         <div className="space-y-2">
           <h1 className="text-6xl font-bold text-primary">404</h1>

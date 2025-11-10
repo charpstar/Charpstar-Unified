@@ -88,10 +88,15 @@ export async function GET(request: Request) {
       .map((user) => {
         const profile = profilesMap.get(user.id);
         if (!profile) return null;
+        // Get name from auth metadata (prioritize name, then first_name + last_name)
+        const name =
+          user.user_metadata?.name ||
+          `${user.user_metadata?.first_name || ""} ${user.user_metadata?.last_name || ""}`.trim() ||
+          "";
         return {
           id: user.id,
           email: user.email,
-          name: user.user_metadata?.name || "",
+          name: name,
           role: profile?.role || "user",
           created_at: user.created_at,
           country: profile?.country || null,

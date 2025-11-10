@@ -28,6 +28,7 @@ import {
   AdminQueuesWidget,
   QAStatisticsWidget,
   CostSummaryWidget,
+  UnallocatedModelersWidget,
 } from "@/components/dashboard/dashboard-widgets";
 import {
   ModelerStatsWidget,
@@ -94,6 +95,12 @@ export function FixedDashboard({ profileContent }: FixedDashboardProps) {
         <div className="rounded-2xl bg-card">
           <ErrorBoundary>
             <CostSummaryWidget />
+          </ErrorBoundary>
+        </div>
+
+        <div className="rounded-2xl bg-card col-span-2">
+          <ErrorBoundary>
+            <UnallocatedModelersWidget />
           </ErrorBoundary>
         </div>
       </div>

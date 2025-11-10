@@ -7,6 +7,56 @@ import { cookies } from "next/headers";
 import { cleanupSingleAllocationList } from "@/lib/allocationListCleanup";
 import { logActivityServer } from "@/lib/serverActivityLogger";
 
+const normalizeActive = (value: unknown, fallback = true): boolean => {
+  if (value === null || value === undefined) return fallback;
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") return value !== 0;
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (["false", "0", "no", "off", "inactive"].includes(normalized)) {
+      return false;
+    }
+    if (["true", "1", "yes", "on", "active"].includes(normalized)) {
+      return true;
+    }
+  }
+  return fallback;
+};
+
+const normalizeArticleIds = (
+  articleId: unknown,
+  articleIds: unknown
+): string[] => {
+  const values = new Set<string>();
+
+  const pushValue = (value: unknown) => {
+    if (!value || typeof value !== "string") return;
+    const trimmed = value.trim();
+    if (trimmed) values.add(trimmed);
+  };
+
+  if (Array.isArray(articleIds)) {
+    articleIds.forEach(pushValue);
+  } else if (typeof articleIds === "string" && articleIds.trim() !== "") {
+    try {
+      const parsed = JSON.parse(articleIds);
+      if (Array.isArray(parsed)) {
+        parsed.forEach(pushValue);
+      } else {
+        pushValue(articleIds);
+      }
+    } catch {
+      articleIds.split(/[\s,;]+/).forEach(pushValue);
+    }
+  }
+
+  if (typeof articleId === "string") {
+    pushValue(articleId);
+  }
+
+  return Array.from(values);
+};
+
 // import { notificationService } from "@/lib/notificationService"; // TEMPORARILY DISABLED
 
 export async function POST(request: NextRequest) {
@@ -121,6 +171,12 @@ export async function POST(request: NextRequest) {
     // Allow duplicates - removed duplicate check to allow multiple entries
 
     // Prepare data for assets table - match the schema from transfer-approved route
+    const normalizedActive = normalizeActive(onboardingAsset.active);
+    const normalizedArticleIds = normalizeArticleIds(
+      onboardingAsset.article_id,
+      onboardingAsset.article_ids
+    );
+
     const assetData = {
       article_id: onboardingAsset.article_id,
       product_name: onboardingAsset.product_name,
@@ -140,6 +196,12 @@ export async function POST(request: NextRequest) {
       materials: null, // Will be populated later if needed
       colors: null, // Will be populated later if needed
       glb_status: "completed", // Since it's approved by client
+      // Preserve variation relationships when transferring
+      parent_asset_id: onboardingAsset.parent_asset_id || null,
+      is_variation: onboardingAsset.is_variation || false,
+      variation_index: onboardingAsset.variation_index || null,
+      active: normalizedActive,
+      article_ids: normalizedArticleIds,
     };
 
     // Insert the asset into the assets table
@@ -309,42 +371,64 @@ export async function POST(request: NextRequest) {
           if (glbResponse.ok) {
             const glbBuffer = await glbResponse.arrayBuffer();
 
-            // Create Android folder path
+            // Create Android folder paths for each article ID (primary + additional)
             const sanitizedClientName = onboardingAsset.client.replace(
               /[^a-zA-Z0-9._-]/g,
               "_"
             );
-            const fileName = `${onboardingAsset.article_id}.glb`;
-            const androidPath = `${sanitizedClientName}/Android/${fileName}`;
-            const androidStorageUrl = `https://se.storage.bunnycdn.com/${storageZone}/${androidPath}`;
+            const targetArticleIds =
+              normalizedArticleIds.length > 0
+                ? normalizedArticleIds
+                : [onboardingAsset.article_id];
 
-            // Upload to Android folder
-            const androidUploadResponse = await fetch(androidStorageUrl, {
-              method: "PUT",
-              headers: {
-                AccessKey: storageKey,
-                "Content-Type": "application/octet-stream",
-              },
-              body: glbBuffer,
-            });
+            let primaryGlbLink: string | null = null;
 
-            if (androidUploadResponse.ok) {
-              // Update the GLB link in the assets table to point to Android folder
-              const newGlbLink = `${cdnBaseUrl}/${androidPath}`;
+            for (const [index, articleId] of targetArticleIds.entries()) {
+              if (!articleId) continue;
 
+              const fileName = `${articleId}.glb`;
+              const androidPath = `${sanitizedClientName}/Android/${fileName}`;
+              const androidStorageUrl = `https://se.storage.bunnycdn.com/${storageZone}/${androidPath}`;
+
+              try {
+                const androidUploadResponse = await fetch(androidStorageUrl, {
+                  method: "PUT",
+                  headers: {
+                    AccessKey: storageKey,
+                    "Content-Type": "application/octet-stream",
+                  },
+                  body: glbBuffer,
+                });
+
+                if (androidUploadResponse.ok) {
+                  const uploadedGlbLink = `${cdnBaseUrl}/${androidPath}`;
+
+                  if (index === 0) {
+                    primaryGlbLink = uploadedGlbLink;
+                  }
+
+                  console.log(
+                    `✅ GLB file copied to Android folder for ${articleId}: ${uploadedGlbLink}`
+                  );
+                } else {
+                  console.error(
+                    `❌ Failed to upload GLB for ${articleId} to Android folder:`,
+                    androidUploadResponse.status
+                  );
+                }
+              } catch (uploadError) {
+                console.error(
+                  `❌ Error uploading GLB for ${articleId} to Android folder:`,
+                  uploadError
+                );
+              }
+            }
+
+            if (primaryGlbLink) {
               await supabaseAdmin
                 .from("assets")
-                .update({ glb_link: newGlbLink })
+                .update({ glb_link: primaryGlbLink })
                 .eq("id", assetId);
-
-              console.log(
-                `✅ GLB file copied to Android folder: ${newGlbLink}`
-              );
-            } else {
-              console.error(
-                "❌ Failed to upload GLB to Android folder:",
-                androidUploadResponse.status
-              );
             }
           } else {
             console.error(
@@ -382,35 +466,55 @@ export async function POST(request: NextRequest) {
             .from("asset_assignments")
             .select(
               `
-            onboarding_assets(id, status, transferred)
+            onboarding_assets(id, status, transferred, qa_team_handles_model, pricing_option_id)
           `
             )
             .eq("allocation_list_id", allocationListId);
 
         if (!listAssetsError && allAssetsInList && allAssetsInList.length > 0) {
+          // Filter out QA-handled models - they don't count toward completion
+          const pricedAssets = allAssetsInList.filter((assignment: any) => {
+            if (!assignment.onboarding_assets) return false;
+            const asset = assignment.onboarding_assets;
+            // Exclude QA-handled models
+            return (
+              !asset.qa_team_handles_model &&
+              asset.pricing_option_id !== "qa_team_handles_model"
+            );
+          });
+
           console.log(
-            `Found ${allAssetsInList.length} assets in list ${allocationListId}:`,
+            `Found ${allAssetsInList.length} assets in list ${allocationListId} (${pricedAssets.length} priced, ${allAssetsInList.length - pricedAssets.length} QA-handled):`,
             allAssetsInList.map((a: any) => ({
               asset_id: a.onboarding_assets?.id,
               status: a.onboarding_assets?.status,
               transferred: a.onboarding_assets?.transferred,
+              qa_handled:
+                a.onboarding_assets?.qa_team_handles_model ||
+                a.onboarding_assets?.pricing_option_id ===
+                  "qa_team_handles_model",
             }))
           );
 
-          // Check if all assets in the list are approved
+          // Check if all priced assets are approved
           // An asset is considered approved if it has approved status OR if it's been transferred to the assets table
-          const allApproved = allAssetsInList.every((assignment: any) => {
-            if (!assignment.onboarding_assets) return false;
-            // If asset has been transferred, it's approved
-            if (assignment.onboarding_assets.transferred === true) return true;
-            // Otherwise, check if status is approved
-            return (
-              assignment.onboarding_assets.status === "approved_by_client" ||
-              assignment.onboarding_assets.status === "approved"
-            );
-          });
+          // If list has no priced assets (only QA-handled), it should never be marked as approved
+          const allApproved =
+            pricedAssets.length > 0 &&
+            pricedAssets.every((assignment: any) => {
+              const asset = assignment.onboarding_assets;
+              // If asset has been transferred, it's approved
+              if (asset.transferred === true) return true;
+              // Otherwise, check if status is approved
+              return (
+                asset.status === "approved_by_client" ||
+                asset.status === "approved"
+              );
+            });
 
-          console.log(`All assets approved: ${allApproved}`);
+          console.log(
+            `All priced assets approved: ${allApproved} (${pricedAssets.length} priced assets checked)`
+          );
 
           if (allApproved) {
             // Update the allocation list to mark it as approved
@@ -459,6 +563,21 @@ export async function POST(request: NextRequest) {
       //   productName: onboardingAsset.product_name,
       //   client: onboardingAsset.client,
       // });
+    }
+
+    const { error: activeUpdateError } = await supabaseAdmin
+      .from("assets")
+      .update({
+        active: normalizedActive,
+        article_ids: normalizedArticleIds,
+      })
+      .eq("id", newAsset.id);
+
+    if (activeUpdateError) {
+      console.error(
+        "Error enforcing active flag on completed asset:",
+        activeUpdateError
+      );
     }
 
     return NextResponse.json({

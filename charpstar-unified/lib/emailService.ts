@@ -6,6 +6,7 @@ import BatchCompletionEmail from "@/components/emails/BatchCompletionEmail";
 import StaleModelReminderEmail from "@/components/emails/StaleModelReminderEmail";
 import QaApprovalEmail from "@/components/emails/QaApprovalEmail";
 import TeamInvitationEmail from "@/components/emails/TeamInvitationEmail";
+import AssetShareInvitationEmail from "@/components/emails/AssetShareInvitationEmail";
 
 export interface EmailConfig {
   from: string;
@@ -93,6 +94,18 @@ export interface TeamInvitationData {
   signupLink: string;
   inviterName?: string;
   expiresAt: string;
+}
+
+export interface AssetShareInvitationData {
+  recipientEmail: string;
+  recipientName?: string;
+  sharerName: string;
+  sharerEmail: string;
+  assetCount: number;
+  shareLink: string;
+  expiresAt: string;
+  message?: string;
+  pinCode?: string;
 }
 
 class EmailService {
@@ -383,6 +396,44 @@ class EmailService {
           config.subject ||
           `You're invited to join ${data.clientName} on CharpstAR`,
         html: await render(TeamInvitationEmail(data)),
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      return { success: true, messageId: result?.id };
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  /**
+   * Send asset share invitation email
+   */
+  async sendAssetShareInvitation(
+    data: AssetShareInvitationData,
+    config: EmailConfig
+  ) {
+    if (this.isDevelopmentMode || !this.resend) {
+      console.log(
+        "📧 [DEV MODE] Asset share invitation email would be sent to:",
+        data.recipientEmail
+      );
+      console.log("   Sharer:", data.sharerName);
+      console.log("   Asset Count:", data.assetCount);
+      console.log("   Share Link:", data.shareLink);
+      return { success: true, messageId: "dev-mode-simulated", devMode: true };
+    }
+
+    try {
+      const { data: result, error } = await this.resend.emails.send({
+        from: this.fromEmail,
+        to: [config.to],
+        subject:
+          config.subject ||
+          `${data.sharerName} has requested your review of ${data.assetCount} ${data.assetCount === 1 ? "model" : "models"}`,
+        html: await render(AssetShareInvitationEmail(data)),
       });
 
       if (error) {

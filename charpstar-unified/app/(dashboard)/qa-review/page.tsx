@@ -157,12 +157,76 @@ const getStatusIcon = (status: string) => {
   }
 };
 
+const normalizeArticleIds = (
+  articleId: unknown,
+  articleIds: unknown
+): string[] => {
+  const unique = new Set<string>();
+
+  const pushValue = (value: unknown) => {
+    if (value === null || value === undefined) return;
+
+    if (typeof value === "string") {
+      const trimmed = value.trim();
+      if (trimmed) unique.add(trimmed);
+      return;
+    }
+
+    if (typeof value === "number" || typeof value === "boolean") {
+      const normalized = String(value).trim();
+      if (normalized) unique.add(normalized);
+      return;
+    }
+
+    if (Array.isArray(value)) {
+      value.forEach(pushValue);
+    }
+  };
+
+  pushValue(articleId);
+
+  if (Array.isArray(articleIds)) {
+    articleIds.forEach(pushValue);
+  } else if (typeof articleIds === "string" && articleIds.trim() !== "") {
+    try {
+      const parsed = JSON.parse(articleIds);
+      if (Array.isArray(parsed)) {
+        parsed.forEach(pushValue);
+      } else {
+        pushValue(articleIds);
+      }
+    } catch {
+      articleIds.split(/[\s,;|]+/).forEach(pushValue);
+    }
+  } else if (articleIds !== null && articleIds !== undefined) {
+    pushValue(articleIds);
+  }
+
+  return Array.from(unique);
+};
+
+const getAdditionalArticleIds = (asset: {
+  article_id?: string | null;
+  article_ids?: string[] | null;
+}): string[] => {
+  if (!Array.isArray(asset?.article_ids)) return [];
+  return asset.article_ids.filter(
+    (id) => id && id !== (asset.article_id ?? undefined)
+  );
+};
+
+const getArticleIdsTooltip = (articleIds: string[]): string | null => {
+  if (!articleIds || articleIds.length <= 1) return null;
+  return articleIds.join(", ");
+};
+
 const PAGE_SIZE = 100;
 
 interface AssignedAsset {
   id: string;
   product_name: string;
   article_id: string;
+  article_ids?: string[];
   client: string;
   batch: number;
   priority: number;
@@ -426,6 +490,7 @@ export default function QAReviewPage() {
           id,
           product_name,
           article_id,
+          article_ids,
           client,
           batch,
           priority,
@@ -476,6 +541,7 @@ export default function QAReviewPage() {
           id,
           product_name,
           article_id,
+          article_ids,
           client,
           batch,
           priority,
@@ -575,11 +641,16 @@ export default function QAReviewPage() {
       const asset = assignment.onboarding_assets;
       const modeler = modelerMap.get(assignment.user_id);
       const modelUpdatedAt = glbUploadMap.get(asset.id);
+      const articleIds = normalizeArticleIds(
+        asset.article_id,
+        asset.article_ids
+      );
 
       return {
         id: asset.id,
         product_name: asset.product_name,
-        article_id: asset.article_id,
+        article_id: articleIds[0] || asset.article_id,
+        article_ids: articleIds,
         client: asset.client,
         batch: asset.batch,
         priority: asset.priority,
@@ -697,11 +768,16 @@ export default function QAReviewPage() {
       const asset = assignment.onboarding_assets;
       const modeler = assetToModelerMap.get(assignment.asset_id);
       const modelUpdatedAt = glbUploadMap.get(asset.id);
+      const articleIds = normalizeArticleIds(
+        asset.article_id,
+        asset.article_ids
+      );
 
       return {
         id: asset.id,
         product_name: asset.product_name,
-        article_id: asset.article_id,
+        article_id: articleIds[0] || asset.article_id,
+        article_ids: articleIds,
         client: asset.client,
         batch: asset.batch,
         priority: asset.priority,
@@ -736,12 +812,25 @@ export default function QAReviewPage() {
 
     // Apply search filter
     if (search) {
-      filtered = filtered.filter(
-        (asset) =>
-          asset.product_name.toLowerCase().includes(search.toLowerCase()) ||
-          asset.article_id.toLowerCase().includes(search.toLowerCase()) ||
-          asset.client.toLowerCase().includes(search.toLowerCase())
-      );
+      const lowerSearch = search.toLowerCase();
+      filtered = filtered.filter((asset) => {
+        const matchesProduct = asset.product_name
+          .toLowerCase()
+          .includes(lowerSearch);
+        const matchesPrimary = asset.article_id
+          .toLowerCase()
+          .includes(lowerSearch);
+        const matchesAdditional = Array.isArray(asset.article_ids)
+          ? asset.article_ids.some((id) =>
+              id?.toLowerCase().includes(lowerSearch)
+            )
+          : false;
+        const matchesClient = asset.client.toLowerCase().includes(lowerSearch);
+
+        return (
+          matchesProduct || matchesPrimary || matchesAdditional || matchesClient
+        );
+      });
     }
 
     // Apply multi client filter
@@ -1569,9 +1658,32 @@ export default function QAReviewPage() {
                         </div>
                       </TableCell>
                       <TableCell className="text-left">
-                        <span className="text-xs text-muted-foreground">
-                          {asset.article_id}
-                        </span>
+                        <div className="flex flex-col gap-1">
+                          <span
+                            className="text-xs text-muted-foreground"
+                            title={
+                              getArticleIdsTooltip(asset.article_ids || []) ||
+                              undefined
+                            }
+                          >
+                            {asset.article_id}
+                          </span>
+                          {Array.isArray(asset.article_ids) &&
+                            getAdditionalArticleIds(asset).length > 0 && (
+                              <div className="flex flex-wrap gap-1">
+                                {getAdditionalArticleIds(asset).map((id) => (
+                                  <Badge
+                                    key={`${asset.id}-${id}`}
+                                    variant="outline"
+                                    className="px-1.5 py-0 text-[10px] uppercase tracking-wide text-muted-foreground border-border/60"
+                                    title={id}
+                                  >
+                                    {id}
+                                  </Badge>
+                                ))}
+                              </div>
+                            )}
+                        </div>
                       </TableCell>
                       <TableCell className="text-left text-xs">
                         {asset.client}
@@ -1897,11 +2009,36 @@ export default function QAReviewPage() {
                     </div>
 
                     {/* Article ID and Client */}
-                    <div className="flex items-center justify-between">
-                      <div className="text-xs text-muted-foreground font-mono">
-                        {asset.article_id}
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div
+                          className="text-xs text-muted-foreground font-mono"
+                          title={
+                            getArticleIdsTooltip(asset.article_ids || []) ||
+                            undefined
+                          }
+                        >
+                          {asset.article_id}
+                        </div>
+                        {Array.isArray(asset.article_ids) &&
+                          getAdditionalArticleIds(asset).length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {getAdditionalArticleIds(asset).map((id) => (
+                                <Badge
+                                  key={`${asset.id}-${id}`}
+                                  variant="outline"
+                                  className="px-1.5 py-0 text-[10px] uppercase tracking-wide text-muted-foreground border-border/60"
+                                  title={id}
+                                >
+                                  {id}
+                                </Badge>
+                              ))}
+                            </div>
+                          )}
                       </div>
-                      <div className="text-xs font-medium">{asset.client}</div>
+                      <div className="text-xs font-medium flex-shrink-0">
+                        {asset.client}
+                      </div>
                     </div>
 
                     {/* Price and Priority */}

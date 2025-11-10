@@ -27,7 +27,10 @@ export interface NotificationData {
     | "subcategory_updated"
     | "invoice_deadline_reminder"
     | "client_list_progress"
-    | "client_asset_update";
+    | "client_asset_update"
+    | "internal_reminder"
+    | "reminder_due"
+    | "reminder_assigned";
   title: string;
   message: string;
   metadata?: Record<string, any>;
@@ -402,7 +405,7 @@ class NotificationService {
       recipient_email: clientEmail,
       type: "client_review_ready",
       title: `Asset Approved - ${assetName}`,
-      message: `"${assetName}" has been completed by ${modelerName} and approved by our QA team. It's now ready for your review!`,
+      message: `"${assetName}" has been completed and approved by our QA team. It's now ready for your review!`,
       metadata: {
         assetId,
         assetName,
@@ -416,6 +419,13 @@ class NotificationService {
 
     // Create notification in database
     await this.createNotification(notification);
+
+    if (typeof window !== "undefined") {
+      console.log(
+        "[NotificationService] Skipping client review email dispatch in browser runtime"
+      );
+      return;
+    }
 
     // Send email notification
     try {
@@ -1824,6 +1834,68 @@ class NotificationService {
       console.error("Failed to send client asset update notification:", error);
       throw error;
     }
+  }
+
+  /**
+   * Send notification when an internal reminder is created or becomes due
+   */
+  async sendReminderNotification(reminder: {
+    id: string;
+    title: string;
+    description?: string;
+    assigned_to?: string;
+    priority?: string;
+    due_date?: string;
+    reminder_datetime?: string;
+  }): Promise<void> {
+    if (!reminder.assigned_to) return;
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("id, email")
+      .eq("id", reminder.assigned_to)
+      .single();
+
+    if (!profile) return;
+
+    await this.createNotification({
+      recipient_id: profile.id,
+      recipient_email: profile.email,
+      type: "internal_reminder",
+      title: `Reminder: ${reminder.title}`,
+      message: reminder.description || reminder.title,
+      metadata: {
+        reminder_id: reminder.id,
+        priority: reminder.priority,
+        due_date: reminder.due_date,
+        reminder_datetime: reminder.reminder_datetime,
+      },
+      read: false,
+    });
+  }
+
+  /**
+   * Send notification when a reminder is assigned to a user
+   */
+  async sendReminderAssignedNotification(
+    reminderId: string,
+    reminderTitle: string,
+    assignedToId: string,
+    assignedToEmail: string,
+    createdByEmail: string
+  ): Promise<void> {
+    await this.createNotification({
+      recipient_id: assignedToId,
+      recipient_email: assignedToEmail,
+      type: "reminder_assigned",
+      title: `New Reminder Assigned: ${reminderTitle}`,
+      message: `${createdByEmail} has assigned you a reminder: "${reminderTitle}"`,
+      metadata: {
+        reminder_id: reminderId,
+        created_by_email: createdByEmail,
+      },
+      read: false,
+    });
   }
 }
 

@@ -55,6 +55,7 @@ export async function POST(request: NextRequest) {
     const storageZone = process.env.BUNNY_STORAGE_ZONE_NAME || "maincdn";
     const storageKey = process.env.BUNNY_STORAGE_KEY;
     const cdnUrl = process.env.BUNNY_STORAGE_PUBLIC_URL;
+    const bunnyApiKey = process.env.BUNNY_API_KEY;
 
     if (!storageKey || !storageZone || !cdnUrl) {
       return NextResponse.json(
@@ -123,51 +124,9 @@ export async function POST(request: NextRequest) {
       : `${sanitizedClientName}/QC/${baseFileName}`;
     const originalUrl = `https://se.storage.bunnycdn.com/${finalStorageZone}/${originalPath}`;
 
-    const backupUrl = null;
-    const backupFileName = null;
-
-    // Create backup asynchronously in the background to avoid blocking the main upload
-    // This prevents slow downloads of large existing files from delaying the response
-    const createBackupAsync = async () => {
-      try {
-        const existingFileResponse = await fetch(originalUrl, {
-          method: "GET",
-          headers: {
-            AccessKey: customAccessKey,
-          },
-        });
-
-        if (existingFileResponse.ok) {
-          const existingFileBuffer = await existingFileResponse.arrayBuffer();
-
-          const timestamp = Date.now();
-          const fileExtension = baseFileName.split(".").pop();
-          const fileNameWithoutExt = baseFileName.replace(/\.[^/.]+$/, "");
-          const backupFileNameLocal = `${fileNameWithoutExt}_backup_${timestamp}.${fileExtension}`;
-          const backupPath = useCustomStructure
-            ? `QC/backups/${backupFileNameLocal}`
-            : `${sanitizedClientName}/QC/backups/${backupFileNameLocal}`;
-          const backupStorageUrl = `https://se.storage.bunnycdn.com/${finalStorageZone}/${backupPath}`;
-
-          await fetch(backupStorageUrl, {
-            method: "PUT",
-            headers: {
-              AccessKey: customAccessKey,
-              "Content-Type": "application/octet-stream",
-            },
-            body: existingFileBuffer,
-          });
-        }
-      } catch (error) {
-        console.error("Background backup creation failed:", error);
-        // Don't throw - backup is non-critical
-      }
-    };
-
-    // Start backup creation but don't wait for it
-    createBackupAsync().catch((err) =>
-      console.error("Async backup error:", err)
-    );
+    // Note: Backup is now handled by the frontend before calling this endpoint
+    // This prevents duplicate backups from being created
+    // The frontend calls /api/assets/backup-glb which properly records the backup in the database
 
     // Upload new file to original location
     const uploadPath = originalPath;
@@ -221,6 +180,38 @@ export async function POST(request: NextRequest) {
     const cleanCdnUrl = cdnUrl;
     const publicUrl = `${cleanCdnUrl}/${uploadPath}`;
 
+    // Purge cache for the uploaded GLB file URL
+    if (bunnyApiKey) {
+      try {
+        console.log("🗑️ Purging cache for uploaded GLB:", publicUrl);
+        const purgeResponse = await fetch(
+          "https://api.bunny.net/purge?async=false",
+          {
+            method: "POST",
+            headers: {
+              AccessKey: bunnyApiKey,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ urls: [publicUrl] }),
+          }
+        );
+
+        if (purgeResponse.ok) {
+          console.log("✅ Cache purged successfully for:", publicUrl);
+        } else {
+          const errorText = await purgeResponse.text();
+          console.warn(
+            `⚠️ Cache purge warning: ${purgeResponse.status} - ${errorText}`
+          );
+        }
+      } catch (purgeError) {
+        console.error("❌ Error purging cache:", purgeError);
+        // Continue even if purge fails - the file is still uploaded
+      }
+    } else {
+      console.warn("⚠️ BUNNY_API_KEY not set, skipping cache purge");
+    }
+
     // const totalDuration = Date.now() - startTime; // Not currently used
 
     return NextResponse.json({
@@ -230,8 +221,6 @@ export async function POST(request: NextRequest) {
       originalFileName: file.name,
       fileSize: buffer.length,
       uploadPath,
-      backupUrl,
-      backupFileName,
     });
   } catch (err) {
     console.error("[UPLOAD] Server error:", err);

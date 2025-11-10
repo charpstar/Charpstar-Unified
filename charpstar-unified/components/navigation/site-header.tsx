@@ -18,7 +18,8 @@ import { Bug, ExternalLink } from "lucide-react";
 const TITLES = {
   "/dashboard": "Dashboard",
   "/analytics": "Analytics",
-  "/asset-library": "Asset Library",
+  "/asset-library": "My 3D Models",
+  "/admin/analytics": "Analytics",
   "/users": "Users",
   "/admin": "Admin",
   "/cvr": "CVR",
@@ -46,6 +47,11 @@ const TITLES = {
   "/production/cost-tracking": "Cost Tracking",
   "/admin/clients": "Client Information",
   "/admin/bug-reports": "Bug Reports",
+  "/scene-render": "Scene Render",
+  "/texture-library": "Texture Library",
+  "/faq": "FAQ",
+  "/modular-3d-creator": "Modular 3D Creator",
+  "/reminders": "Reminders",
   "/my-assignments/[client]/[batch]": "My Assignments",
   "/bug-report": "Report Bug",
 };

@@ -63,6 +63,7 @@ interface Asset {
   id: string;
   product_name: string;
   article_id: string;
+  article_ids?: string[];
   delivery_date: string;
   status: string;
   product_link: string;
@@ -188,6 +189,69 @@ const getStatusDisplay = (
         };
     }
   }
+};
+
+const normalizeArticleIds = (
+  articleId: unknown,
+  articleIds: unknown
+): string[] => {
+  const unique = new Set<string>();
+
+  const pushValue = (value: unknown) => {
+    if (value === null || value === undefined) return;
+
+    if (typeof value === "string") {
+      const trimmed = value.trim();
+      if (trimmed) unique.add(trimmed);
+      return;
+    }
+
+    if (typeof value === "number" || typeof value === "boolean") {
+      const normalized = String(value).trim();
+      if (normalized) unique.add(normalized);
+      return;
+    }
+
+    if (Array.isArray(value)) {
+      value.forEach(pushValue);
+    }
+  };
+
+  pushValue(articleId);
+
+  if (Array.isArray(articleIds)) {
+    articleIds.forEach(pushValue);
+  } else if (typeof articleIds === "string" && articleIds.trim() !== "") {
+    try {
+      const parsed = JSON.parse(articleIds);
+      if (Array.isArray(parsed)) {
+        parsed.forEach(pushValue);
+      } else {
+        pushValue(articleIds);
+      }
+    } catch {
+      articleIds.split(/[\s,;|]+/).forEach(pushValue);
+    }
+  } else if (articleIds !== null && articleIds !== undefined) {
+    pushValue(articleIds);
+  }
+
+  return Array.from(unique);
+};
+
+const getAdditionalArticleIds = (asset: {
+  article_id?: string | null;
+  article_ids?: string[] | null;
+}): string[] => {
+  if (!Array.isArray(asset?.article_ids)) return [];
+  return asset.article_ids.filter(
+    (id) => id && id !== (asset.article_id ?? undefined)
+  );
+};
+
+const getArticleIdsTooltip = (articleIds: string[]): string | null => {
+  if (!articleIds || articleIds.length <= 1) return null;
+  return articleIds.join(", ");
 };
 
 // Helper function to get viewer parameters based on client viewer type
@@ -511,7 +575,16 @@ export default function ReviewPage() {
         return;
       }
 
-      setAsset(data);
+      const articleIds = normalizeArticleIds(
+        (data as any).article_id,
+        (data as any).article_ids
+      );
+
+      setAsset({
+        ...(data as any),
+        article_ids: articleIds,
+        article_id: articleIds[0] || (data as any).article_id,
+      });
 
       // Fetch client's viewer type
       try {
@@ -2073,71 +2146,180 @@ export default function ReviewPage() {
           // Find client user who has access to this asset's client name
           const { data: clientProfiles, error: clientError } = await supabase
             .from("profiles")
-            .select("id, email")
-            .eq("role", "client")
+            .select("id, email, role, client, metadata")
             .contains("client", [(asset as any)?.client]);
 
-          const clientProfile = clientProfiles?.[0] || null;
+          const profileHasClientRole = (profile: {
+            role?: string | null;
+            metadata?: any;
+          }): boolean => {
+            if (profile?.role === "client") return true;
 
-          if (!clientError && clientProfile && asset) {
+            if (!profile?.metadata) return false;
+
+            let parsed: Record<string, any> | null = null;
+
+            try {
+              parsed =
+                typeof profile.metadata === "string"
+                  ? JSON.parse(profile.metadata)
+                  : profile.metadata;
+            } catch {
+              parsed = null;
+            }
+
+            const allowedRoles = parsed?.allowed_roles || parsed?.roles;
+
+            if (Array.isArray(allowedRoles)) {
+              return allowedRoles.includes("client");
+            }
+
+            return false;
+          };
+
+          const filterProfilesByClient = (
+            profiles: Array<{
+              id: string;
+              email: string | null;
+              client: string[] | string | null;
+              role?: string | null;
+              metadata?: any;
+            }> = []
+          ) => {
+            const targetClient = ((asset as any)?.client || "")
+              .toString()
+              .trim()
+              .toLowerCase();
+
+            return profiles.filter((profile) => {
+              if (!profileHasClientRole(profile)) return false;
+
+              const profileClient = profile.client;
+
+              if (Array.isArray(profileClient)) {
+                return profileClient
+                  .map((value) => value?.toString().trim().toLowerCase())
+                  .includes(targetClient);
+              }
+
+              if (typeof profileClient === "string") {
+                return profileClient.trim().toLowerCase() === targetClient;
+              }
+
+              return false;
+            });
+          };
+
+          let resolvedClientProfiles = filterProfilesByClient(
+            clientProfiles || []
+          );
+
+          if (
+            (!clientProfiles || clientProfiles.length === 0) &&
+            !clientError
+          ) {
+            console.log(
+              "[QA Approval] Client profile lookup returned 0 rows. Attempting fallback fetch.",
+              {
+                client: (asset as any)?.client,
+              }
+            );
+
+            const { data: fallbackProfiles, error: fallbackError } =
+              await supabase
+                .from("profiles")
+                .select("id, email, role, client, metadata");
+
+            if (fallbackError) {
+              console.error(
+                "❌ Fallback client profile fetch failed:",
+                fallbackError
+              );
+            } else if (fallbackProfiles) {
+              resolvedClientProfiles = filterProfilesByClient(fallbackProfiles);
+            }
+          }
+
+          if (clientError) {
+            console.error(
+              "❌ Failed to fetch client profiles for QA approval:",
+              clientError
+            );
+          }
+
+          console.log("[QA Approval] Client profile lookup", {
+            client: (asset as any)?.client,
+            totalProfiles: resolvedClientProfiles.length,
+          });
+
+          if (resolvedClientProfiles.length > 0 && asset) {
             try {
               // Determine approver role and name
               const approverRole =
                 user?.metadata?.role === "admin" ? "Admin Team" : "QA Team";
+              //eslint-disable-next-line @typescript-eslint/no-unused-vars
               const approverName =
                 user?.user_metadata?.name || user?.email || approverRole;
 
-              // Create review link
-              const reviewLink = `${window.location.origin}/client-review/${assetId}`;
+              const modelerName =
+                modelerProfile?.title?.trim() ||
+                (modelerProfile?.email
+                  ? modelerProfile.email.split("@")[0]
+                  : "Our QA Team");
 
-              // Send email notification to client via API route
-              const emailResponse = await fetch("/api/email/send-qa-approval", {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                  clientName: (asset as any).client,
-                  modelName: asset.product_name,
-                  approverName: approverName,
-                  approverRole: approverRole,
-                  reviewLink: reviewLink,
-                  batch: (asset as any).batch,
-                  deadline: asset.delivery_date,
-                  to: clientProfile.email,
-                  subject: `Model Approved for Review - ${asset.product_name}`,
-                }),
-              });
+              for (const clientProfile of resolvedClientProfiles) {
+                if (!clientProfile.email) {
+                  console.warn(
+                    "[QA Approval] Client profile missing email, skipping",
+                    clientProfile.id
+                  );
+                  continue;
+                }
 
-              const emailResult = await emailResponse.json();
+                console.log(
+                  "[QA Approval] Sending client review notification",
+                  {
+                    clientProfileId: clientProfile.id,
+                    clientEmail: clientProfile.email,
+                    assetId,
+                    assetName: asset.product_name,
+                  }
+                );
 
-              if (emailResult.success) {
-                if (emailResult.devMode) {
+                try {
+                  await notificationService.sendClientReviewReadyNotification(
+                    assetId,
+                    clientProfile.id,
+                    clientProfile.email,
+                    asset.product_name,
+                    (asset as any).client,
+                    modelerName
+                  );
                   console.log(
-                    "📧 Email simulated (development mode):",
+                    "[QA Approval] Client notification created",
                     clientProfile.email
                   );
-                } else {
-                  console.log(
-                    "✅ QA approval email sent to client:",
-                    clientProfile.email,
-                    "Message ID:",
-                    emailResult.messageId
+                } catch (notificationError) {
+                  console.error(
+                    "❌ Failed to create client review notification:",
+                    notificationError
                   );
                 }
-              } else {
-                console.error(
-                  "❌ Failed to send QA approval email:",
-                  emailResult.error
-                );
               }
-            } catch (emailError) {
+            } catch (notificationLoopError) {
               console.error(
-                "❌ Failed to send QA approval email to client:",
-                emailError
+                "❌ Failed during QA approval client notification loop:",
+                notificationLoopError
               );
-              // Don't throw - email failures shouldn't block the approval process
             }
+          } else {
+            console.warn(
+              "[QA Approval] No client profiles found for notification",
+              {
+                client: (asset as any)?.client,
+                assetId,
+              }
+            );
           }
         } catch (error) {
           console.error("❌ Failed to send approval notifications:", error);
@@ -3481,9 +3663,29 @@ export default function ReviewPage() {
                             .label
                         }
                       </Badge>
-                      <span className="text-xs sm:text-sm text-muted-foreground font-medium">
-                        {asset?.article_id}
-                      </span>
+                      {asset?.article_id && (
+                        <div className="flex items-center flex-wrap gap-1">
+                          <span
+                            className="text-xs sm:text-sm text-muted-foreground font-medium"
+                            title={
+                              getArticleIdsTooltip(asset.article_ids || []) ||
+                              undefined
+                            }
+                          >
+                            {asset.article_id}
+                          </span>
+                          {getAdditionalArticleIds(asset).map((id) => (
+                            <Badge
+                              key={`${asset.id}-${id}`}
+                              variant="outline"
+                              className="px-1.5 py-0 text-[10px] uppercase tracking-wide text-muted-foreground border-border/60"
+                              title={id}
+                            >
+                              {id}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
                       {asset?.pricing_comment && (
                         <Popover>
                           <PopoverTrigger asChild>

@@ -5,6 +5,56 @@ import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 import { cookies } from "next/headers";
 import { logActivityServer } from "@/lib/serverActivityLogger";
 
+const normalizeActive = (value: unknown, fallback = true): boolean => {
+  if (value === null || value === undefined) return fallback;
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") return value !== 0;
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (["false", "0", "no", "off", "inactive"].includes(normalized)) {
+      return false;
+    }
+    if (["true", "1", "yes", "on", "active"].includes(normalized)) {
+      return true;
+    }
+  }
+  return fallback;
+};
+
+const normalizeArticleIds = (
+  articleId: unknown,
+  articleIds: unknown
+): string[] => {
+  const values = new Set<string>();
+
+  const pushValue = (value: unknown) => {
+    if (!value || typeof value !== "string") return;
+    const trimmed = value.trim();
+    if (trimmed) values.add(trimmed);
+  };
+
+  if (Array.isArray(articleIds)) {
+    articleIds.forEach(pushValue);
+  } else if (typeof articleIds === "string" && articleIds.trim() !== "") {
+    try {
+      const parsed = JSON.parse(articleIds);
+      if (Array.isArray(parsed)) {
+        parsed.forEach(pushValue);
+      } else {
+        pushValue(articleIds);
+      }
+    } catch {
+      articleIds.split(/[\s,;]+/).forEach(pushValue);
+    }
+  }
+
+  if (typeof articleId === "string") {
+    pushValue(articleId);
+  }
+
+  return Array.from(values);
+};
+
 export async function POST(request: NextRequest) {
   try {
     const supabaseAuth = createRouteHandlerClient({ cookies });
@@ -77,6 +127,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Prepare data for assets table
+    const normalizedActive = normalizeActive(onboardingAsset.active);
+    const normalizedArticleIds = normalizeArticleIds(
+      onboardingAsset.article_id,
+      onboardingAsset.article_ids
+    );
+
     const assetData = {
       article_id: onboardingAsset.article_id,
       product_name: onboardingAsset.product_name,
@@ -96,6 +152,8 @@ export async function POST(request: NextRequest) {
       materials: null, // Will be populated later if needed
       colors: null, // Will be populated later if needed
       glb_status: "completed", // Since it's approved by client
+      active: normalizedActive,
+      article_ids: normalizedArticleIds,
     };
 
     // Insert into assets table
@@ -121,6 +179,17 @@ export async function POST(request: NextRequest) {
         updated_at: new Date().toISOString(),
       })
       .eq("id", assetId);
+
+    if (!updateError) {
+      const { error: activeUpdateError } = await supabase
+        .from("assets")
+        .update({ active: normalizedActive })
+        .eq("id", newAsset.id);
+
+      if (activeUpdateError) {
+        console.error("Error enforcing asset active flag:", activeUpdateError);
+      }
+    }
 
     if (updateError) {
       console.error("Error updating onboarding asset:", updateError);

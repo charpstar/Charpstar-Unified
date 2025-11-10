@@ -240,7 +240,7 @@ export default function ProductionDashboard() {
   const [qaUsers, setQAUsers] = useState<QAProgress[]>([]);
   const [filteredQAUsers, setFilteredQAUsers] = useState<QAProgress[]>([]);
   const [loading, setLoading] = useState(true);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+
   const [loadingStates, setLoadingStates] = useState({
     clients: false,
     batches: false,
@@ -570,6 +570,9 @@ export default function ProductionDashboard() {
   useEffect(() => {
     const initializeData = async () => {
       try {
+        // Set loading to true when switching views or when data needs to be fetched
+        setLoading(true);
+
         let data;
 
         // Check if we have cached data for this view mode
@@ -599,6 +602,8 @@ export default function ProductionDashboard() {
       } catch (error) {
         console.error("Error initializing data:", error);
       } finally {
+        // Only set loading to false after data processing is complete
+        // For batches view, we'll check batches.length in render to show skeleton
         setLoading(false);
       }
     };
@@ -1029,6 +1034,20 @@ export default function ProductionDashboard() {
       // Get modelers from profiles
       const modelerDetails = profiles.filter((p) => p.role === "modeler");
 
+      // Fetch auth display names for modelers
+      const authUsersMap = new Map<string, any>();
+      try {
+        const response = await fetch("/api/users?role=modeler");
+        if (response.ok) {
+          const { users: usersWithAuth } = await response.json();
+          usersWithAuth?.forEach((user: any) => {
+            authUsersMap.set(user.id, user);
+          });
+        }
+      } catch (error) {
+        console.error("Error fetching auth users:", error);
+      }
+
       // Filter modeler assignments
       const modelerAssignments = assetAssignments.filter(
         (a) => a.role === "modeler"
@@ -1039,10 +1058,23 @@ export default function ProductionDashboard() {
 
       // Initialize all modelers
       modelerDetails.forEach((modeler) => {
+        const authUser = authUsersMap.get(modeler.id);
+        // Get display name from auth metadata (name, or first_name + last_name)
+        const authDisplayName =
+          authUser?.name && authUser.name.trim() !== "" ? authUser.name : null;
+        // Fallback chain: auth display name -> profile title -> email (as last resort)
+        const displayName =
+          authDisplayName ||
+          (modeler.title && modeler.title.trim() !== ""
+            ? modeler.title
+            : null) ||
+          modeler.email ||
+          "Unknown User";
+
         modelerMap.set(modeler.id, {
           id: modeler.id,
           email: modeler.email,
-          name: modeler.title,
+          name: displayName,
           totalAssigned: 0,
           completedModels: 0,
           inProgressModels: 0,
@@ -3055,7 +3087,11 @@ export default function ProductionDashboard() {
 
       {/* Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-        {loading
+        {loading ||
+        loadingStates.fetchingData ||
+        (viewMode === "batches" &&
+          batches.length === 0 &&
+          loadingStates.batches)
           ? // Loading skeleton for current view
             Array.from({ length: itemsPerPage }).map((_, i) => {
               if (viewMode === "clients") {
@@ -4523,8 +4559,7 @@ export default function ProductionDashboard() {
                               <div className="flex items-center gap-3 mb-3">
                                 <div>
                                   <CardTitle className="text-xl font-bold text-foreground mb-1">
-                                    {modeler.name ||
-                                      modeler.email.split("@")[0]}
+                                    {modeler.name || modeler.email}
                                   </CardTitle>
                                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
                                     <Package className="h-3 w-3" />
@@ -4968,15 +5003,19 @@ export default function ProductionDashboard() {
       )}
 
       {/* Empty State - Batches */}
-      {viewMode === "batches" && batches.length === 0 && !loading && (
-        <div className="text-center py-12">
-          <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-          <h3 className="text-lg font-semibold mb-2">No Batch Projects</h3>
-          <p className="text-muted-foreground mb-4">
-            No onboarding assets found. Start by uploading client data.
-          </p>
-        </div>
-      )}
+      {viewMode === "batches" &&
+        batches.length === 0 &&
+        !loading &&
+        !loadingStates.fetchingData &&
+        !loadingStates.batches && (
+          <div className="text-center py-12">
+            <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+            <h3 className="text-lg font-semibold mb-2">No Batch Projects</h3>
+            <p className="text-muted-foreground mb-4">
+              No onboarding assets found. Start by uploading client data.
+            </p>
+          </div>
+        )}
 
       {/* No Search Results - Clients */}
       {viewMode === "clients" &&

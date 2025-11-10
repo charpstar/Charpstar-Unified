@@ -49,17 +49,44 @@ export async function GET(
       );
     }
 
-    // Construct backup folder path
+    // Check if client has custom BunnyCDN folder structure
+    let useCustomStructure = false;
+    let customStorageZone = storageZone;
+    let customAccessKey = storageKey;
+
+    const { data: clientData } = await supabase
+      .from("clients")
+      .select(
+        "bunny_custom_structure, bunny_custom_url, bunny_custom_access_key"
+      )
+      .eq("name", asset.client)
+      .single();
+
+    if (clientData?.bunny_custom_structure && clientData?.bunny_custom_url) {
+      useCustomStructure = true;
+      customStorageZone = clientData.bunny_custom_url.replace(/^\/+|\/+$/g, "");
+      if (clientData?.bunny_custom_access_key) {
+        customAccessKey = clientData.bunny_custom_access_key;
+      }
+    }
+
+    const finalStorageZone = useCustomStructure
+      ? customStorageZone
+      : storageZone;
+
+    // Construct backup folder path based on structure
     const sanitizedClientName = asset.client.replace(/[^a-zA-Z0-9._-]/g, "_");
-    const backupFolderPath = `${sanitizedClientName}/QC/backups/`;
+    const backupFolderPath = useCustomStructure
+      ? `QC/backups/`
+      : `${sanitizedClientName}/QC/backups/`;
 
     // List files in backup folder using BunnyCDN API
-    const listUrl = `https://se.storage.bunnycdn.com/${storageZone}/${backupFolderPath}`;
+    const listUrl = `https://se.storage.bunnycdn.com/${finalStorageZone}/${backupFolderPath}`;
 
     const listResponse = await fetch(listUrl, {
       method: "GET",
       headers: {
-        AccessKey: storageKey,
+        AccessKey: customAccessKey,
       },
     });
 
@@ -103,24 +130,47 @@ export async function GET(
         const timestampMatch = fileName.match(/_backup_(\d+)\.glb$/);
         const timestamp = timestampMatch ? parseInt(timestampMatch[1]) : 0;
 
+        // Construct the correct CDN URL based on structure
+        // For custom structure, CDN URL doesn't include storage zone
+        // For default structure, CDN URL includes the client folder
+        const backupCdnUrl = useCustomStructure
+          ? `${cdnUrl}/${backupFolderPath}${fileName}`
+          : `${cdnUrl}/${backupFolderPath}${fileName}`;
+
         return {
           id: fileName, // Use filename as ID since we don't have database IDs
           fileName,
           fileSize,
           lastModified,
           timestamp,
-          glbUrl: `${cdnUrl}/${backupFolderPath}${fileName}`,
+          glbUrl: backupCdnUrl,
           isBackup: true,
           isCurrent: false, // Backups are never current
         };
       })
       .sort((a: any, b: any) => b.timestamp - a.timestamp); // Sort by timestamp, newest first
 
-    // Add current file as the first entry
+    // Only use BunnyCDN file system - no database lookups
+    // This ensures we always show what's actually in storage
+
+    // Create current file entry (the main GLB file, not a backup)
+    let currentFileSize = 0;
+    if (asset.glb_link) {
+      try {
+        const fileResponse = await fetch(asset.glb_link, { method: "HEAD" });
+        const contentLength = fileResponse.headers.get("content-length");
+        if (contentLength) {
+          currentFileSize = parseInt(contentLength, 10);
+        }
+      } catch {
+        // Ignore errors - file size is optional
+      }
+    }
+
     const currentFile = {
       id: "current",
       fileName: `${articleId}.glb`,
-      fileSize: 0, // We don't have current file size easily available
+      fileSize: currentFileSize,
       lastModified: new Date().toISOString(),
       timestamp: Date.now(),
       glbUrl: asset.glb_link,
@@ -128,7 +178,40 @@ export async function GET(
       isCurrent: true,
     };
 
-    const allVersions = [currentFile, ...matchingBackups];
+    // Build version list from file system only
+    const allVersions: any[] = [];
+
+    // First, add the current file (always first)
+    if (currentFile.glbUrl) {
+      allVersions.push(currentFile);
+    }
+
+    // Then, add all backup files from BunnyCDN file system
+    // Try to fetch file sizes for backups that don't have them
+    for (const backup of matchingBackups) {
+      // If file size is missing, try to fetch it
+      if (backup.fileSize === 0 && backup.glbUrl) {
+        try {
+          const fileResponse = await fetch(backup.glbUrl, { method: "HEAD" });
+          const contentLength = fileResponse.headers.get("content-length");
+          if (contentLength) {
+            backup.fileSize = parseInt(contentLength, 10);
+          }
+        } catch {
+          // Ignore errors - file size is optional
+        }
+      }
+      allVersions.push(backup);
+    }
+
+    // Sort with current version first, then by timestamp
+    allVersions.sort((a: any, b: any) => {
+      // Current version should always be first (latest)
+      if (a.isCurrent && !b.isCurrent) return -1;
+      if (!a.isCurrent && b.isCurrent) return 1;
+      // If both or neither are current, sort by timestamp (newest first)
+      return b.timestamp - a.timestamp;
+    });
 
     return NextResponse.json({
       success: true,

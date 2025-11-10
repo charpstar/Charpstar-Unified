@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Badge } from "@/components/ui/feedback";
 import { Button } from "@/components/ui/display";
@@ -48,7 +48,7 @@ interface Asset {
   category: string;
   subcategory?: string;
   description?: string;
-  client?: string;
+  client?: string | null;
   materials?: string[];
   colors?: string[];
   tags?: string[];
@@ -58,6 +58,7 @@ interface Asset {
   zip_link?: string;
   created_at?: string;
   article_id?: string;
+  article_ids?: string[];
   modelUrl?: string;
   dimensions?: string;
 }
@@ -100,6 +101,117 @@ const getViewerParameters = (viewerType?: string | null) => {
   }
 };
 
+const normalizeArticleIds = (
+  articleId: unknown,
+  articleIds: unknown
+): string[] => {
+  const unique = new Set<string>();
+
+  const pushValue = (value: unknown) => {
+    if (value === null || value === undefined) return;
+
+    if (typeof value === "string") {
+      const trimmed = value.trim();
+      if (trimmed) unique.add(trimmed);
+      return;
+    }
+
+    if (typeof value === "number" || typeof value === "boolean") {
+      const normalized = String(value).trim();
+      if (normalized) unique.add(normalized);
+      return;
+    }
+
+    if (Array.isArray(value)) {
+      value.forEach(pushValue);
+    }
+  };
+
+  pushValue(articleId);
+
+  if (Array.isArray(articleIds)) {
+    articleIds.forEach(pushValue);
+  } else if (typeof articleIds === "string" && articleIds.trim() !== "") {
+    try {
+      const parsed = JSON.parse(articleIds);
+      if (Array.isArray(parsed)) {
+        parsed.forEach(pushValue);
+      } else {
+        pushValue(articleIds);
+      }
+    } catch {
+      articleIds.split(/[\s,;|]+/).forEach(pushValue);
+    }
+  } else if (articleIds !== null && articleIds !== undefined) {
+    pushValue(articleIds);
+  }
+
+  return Array.from(unique);
+};
+
+const getAdditionalArticleIds = (asset: {
+  article_id?: string | null;
+  article_ids?: string[] | null;
+}): string[] => {
+  if (!Array.isArray(asset?.article_ids)) return [];
+  return asset.article_ids.filter(
+    (id) => id && id !== (asset.article_id ?? undefined)
+  );
+};
+
+const sanitizeClientName = (client?: string | null): string | null => {
+  if (!client) return null;
+  return client.replace(/[^a-zA-Z0-9._-]/g, "_");
+};
+
+const getArticleIdsTooltip = (articleIds: string[] | undefined | null) => {
+  if (!articleIds || articleIds.length <= 1) return null;
+  return articleIds.join(", ");
+};
+
+const buildGlbLinks = (
+  asset: Asset
+): { articleId: string; url: string | null }[] => {
+  const ids =
+    Array.isArray(asset.article_ids) && asset.article_ids.length > 0
+      ? asset.article_ids
+      : asset.article_id
+        ? [asset.article_id]
+        : [];
+
+  if (ids.length === 0) return [];
+
+  let basePath: string | null = null;
+
+  if (asset.glb_link) {
+    try {
+      const url = new URL(asset.glb_link);
+      const parts = url.pathname.split("/");
+      parts.pop();
+      basePath = `${url.origin}${parts.join("/")}`;
+    } catch {
+      basePath = null;
+    }
+  }
+
+  if (!basePath && asset.client) {
+    const sanitizedClient = sanitizeClientName(asset.client);
+    if (sanitizedClient) {
+      basePath = `https://maincdn.b-cdn.net/${sanitizedClient}/Android`;
+    }
+  }
+
+  return ids.map((id, index) => {
+    let url: string | null = null;
+    if (basePath) {
+      url = `${basePath}/${id}.glb`;
+    } else if (asset.glb_link && index === 0) {
+      url = asset.glb_link;
+    }
+    return { articleId: id, url };
+  });
+};
+
 export default function AssetDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -120,6 +232,10 @@ export default function AssetDetailPage() {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [relatedAssets, setRelatedAssets] = useState<Asset[]>([]);
   const [clientViewerType, setClientViewerType] = useState<string | null>(null);
+
+  const glbLinks = asset ? buildGlbLinks(asset) : [];
+  const [showGlbDownloads, setShowGlbDownloads] = useState(false);
+  const downloadsRef = useRef<HTMLDivElement | null>(null);
 
   // Helper function to build back URL with current filters
   const buildBackUrl = () => {
@@ -188,8 +304,18 @@ export default function AssetDetailPage() {
           }
         }
 
-        setAsset(data);
-        setEditedAsset(data);
+        const articleIds = normalizeArticleIds(
+          data.article_id,
+          data.article_ids
+        );
+        const normalizedAsset: Asset = {
+          ...data,
+          article_ids: articleIds,
+          article_id: articleIds[0] || data.article_id,
+        };
+
+        setAsset(normalizedAsset);
+        setEditedAsset(normalizedAsset);
 
         // Fetch client's viewer type
         if (data.client) {
@@ -222,6 +348,28 @@ export default function AssetDetailPage() {
 
     fetchAsset();
   }, [params.id]);
+
+  useEffect(() => {
+    setShowGlbDownloads(false);
+  }, [asset?.id]);
+
+  useEffect(() => {
+    if (!showGlbDownloads) return;
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        downloadsRef.current &&
+        !downloadsRef.current.contains(event.target as Node)
+      ) {
+        setShowGlbDownloads(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [showGlbDownloads]);
 
   useEffect(() => {
     const getZipUrl = async () => {
@@ -845,26 +993,54 @@ export default function AssetDetailPage() {
                         {asset.subcategory ? `> ${asset.subcategory}` : ""}
                       </p>
                     </div>
-                    <div className="flex gap-2">
-                      {asset.glb_link && canDownloadGLB && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="cursor-pointer"
-                        >
-                          <a
-                            href={asset.glb_link}
-                            download
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-2"
+                    <div
+                      className="flex items-center gap-2 relative"
+                      ref={downloadsRef}
+                    >
+                      {canDownloadGLB && glbLinks.length > 0 && (
+                        <>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="cursor-pointer"
+                            onClick={() => setShowGlbDownloads((prev) => !prev)}
                           >
-                            <span className="flex items-center gap-2">
-                              <Download className="h-4 w-4" />
-                              GLB
-                            </span>
-                          </a>
-                        </Button>
+                            <Download className="h-4 w-4 mr-2" />
+                            {showGlbDownloads ? "Hide" : "Show"} GLB Links
+                          </Button>
+                          {showGlbDownloads && (
+                            <div className="absolute right-0 top-full mt-2 w-80 max-h-64 overflow-y-auto rounded-md border border-border bg-background shadow-lg z-30 p-3 space-y-2">
+                              {glbLinks.map(({ articleId, url }) => (
+                                <div
+                                  key={articleId}
+                                  className="text-xs sm:text-sm break-words"
+                                >
+                                  {url ? (
+                                    <a
+                                      href={url}
+                                      download
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="flex w-full items-start gap-2 text-blue-500 hover:text-blue-600 break-all whitespace-normal"
+                                    >
+                                      <Download className="h-4 w-4 mt-0.5 shrink-0" />
+                                      <span className="w-full break-words text-left whitespace-normal">
+                                        {articleId}
+                                      </span>
+                                    </a>
+                                  ) : (
+                                    <span className="flex w-full items-start gap-2 text-muted-foreground break-all whitespace-normal">
+                                      <Download className="h-4 w-4 mt-0.5 shrink-0" />
+                                      <span className="w-full break-words text-left">
+                                        {articleId} (unavailable)
+                                      </span>
+                                    </span>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </>
                       )}
                       {zipUrl && (
                         <Button
@@ -913,6 +1089,39 @@ export default function AssetDetailPage() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                       <div className="space-y-1">
                         <p className="text-xs sm:text-sm font-medium">
+                          Article IDs
+                        </p>
+                        {asset.article_id ? (
+                          <div className="flex flex-wrap gap-1.5">
+                            <Badge
+                              variant="outline"
+                              className="text-xs"
+                              title={
+                                getArticleIdsTooltip(asset.article_ids || []) ||
+                                undefined
+                              }
+                            >
+                              {asset.article_id}
+                            </Badge>
+                            {getAdditionalArticleIds(asset).map((id) => (
+                              <Badge
+                                key={id}
+                                variant="outline"
+                                className="text-xs"
+                                title={id}
+                              >
+                                {id}
+                              </Badge>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-xs sm:text-sm text-muted-foreground">
+                            Not specified
+                          </p>
+                        )}
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-xs sm:text-sm font-medium">
                           Dimensions
                         </p>
                         <p className="text-xs sm:text-sm text-muted-foreground">
@@ -943,16 +1152,46 @@ export default function AssetDetailPage() {
                         <p className="text-xs sm:text-sm font-medium">
                           GLB Link
                         </p>
-                        <p className="text-xs sm:text-sm text-muted-foreground">
-                          <a
-                            href={asset.glb_link}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-blue-500 hover:text-blue-600"
-                          >
-                            {asset.glb_link}
-                          </a>
-                        </p>
+                        {glbLinks.length > 0 ? (
+                          <details className="rounded-md border border-border/40 bg-muted/30 p-3 text-xs sm:text-sm">
+                            <summary className="cursor-pointer font-medium text-foreground">
+                              Show GLB URLs ({glbLinks.length})
+                            </summary>
+                            <div className="mt-2 space-y-2">
+                              {glbLinks.map(({ articleId, url }) => (
+                                <div
+                                  key={articleId}
+                                  className="text-muted-foreground break-words"
+                                >
+                                  {url ? (
+                                    <a
+                                      href={url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="block break-all whitespace-normal text-blue-500 hover:text-blue-600"
+                                    >
+                                      <span className="font-medium text-foreground">
+                                        {articleId}:
+                                      </span>{" "}
+                                      {url}
+                                    </a>
+                                  ) : (
+                                    <span className="break-words whitespace-normal">
+                                      <span className="font-medium text-foreground">
+                                        {articleId}:
+                                      </span>{" "}
+                                      Not available
+                                    </span>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </details>
+                        ) : (
+                          <p className="text-xs sm:text-sm text-muted-foreground">
+                            Not available
+                          </p>
+                        )}
                       </div>
                     </div>
                   </div>

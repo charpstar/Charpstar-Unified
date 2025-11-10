@@ -1,3 +1,14 @@
+/**
+ * ⚠️ DEPRECATED - THIS PAGE IS NO LONGER USED
+ *
+ * This onboarding page has been merged into the Users page (/users).
+ * All invitation management functionality is now available through the "Invitations"
+ * button in the Users page, accessible as a dialog.
+ *
+ * This file is kept for reference only and should not be accessed directly.
+ * Navigation to this page has been removed from the sidebar.
+ */
+
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
@@ -560,7 +571,7 @@ export default function OnboardingPage() {
                 Create User
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-h-[85vh] h-fit overflow-y-auto">
+            <DialogContent className="min-h-[85vh] h-fit overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Create User Account</DialogTitle>
               </DialogHeader>

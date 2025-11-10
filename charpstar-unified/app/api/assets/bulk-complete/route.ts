@@ -6,6 +6,56 @@ import { cookies } from "next/headers";
 import { cleanupSingleAllocationList } from "@/lib/allocationListCleanup";
 import { logActivityServer } from "@/lib/serverActivityLogger";
 
+const normalizeActive = (value: unknown, fallback = true): boolean => {
+  if (value === null || value === undefined) return fallback;
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") return value !== 0;
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (["false", "0", "no", "off", "inactive"].includes(normalized)) {
+      return false;
+    }
+    if (["true", "1", "yes", "on", "active"].includes(normalized)) {
+      return true;
+    }
+  }
+  return fallback;
+};
+
+const normalizeArticleIds = (
+  articleId: unknown,
+  articleIds: unknown
+): string[] => {
+  const values = new Set<string>();
+
+  const pushValue = (value: unknown) => {
+    if (!value || typeof value !== "string") return;
+    const trimmed = value.trim();
+    if (trimmed) values.add(trimmed);
+  };
+
+  if (Array.isArray(articleIds)) {
+    articleIds.forEach(pushValue);
+  } else if (typeof articleIds === "string" && articleIds.trim() !== "") {
+    try {
+      const parsed = JSON.parse(articleIds);
+      if (Array.isArray(parsed)) {
+        parsed.forEach(pushValue);
+      } else {
+        pushValue(articleIds);
+      }
+    } catch {
+      articleIds.split(/[\s,;]+/).forEach(pushValue);
+    }
+  }
+
+  if (typeof articleId === "string") {
+    pushValue(articleId);
+  }
+
+  return Array.from(values);
+};
+
 export async function POST(request: NextRequest) {
   try {
     const supabaseAuth = createRouteHandlerClient({ cookies });
@@ -142,34 +192,44 @@ export async function POST(request: NextRequest) {
 
         if (onboardingAssets.length > 0) {
           // Prepare data for assets table
-          const assetsToInsert = onboardingAssets.map((asset) => ({
-            article_id: asset.article_id,
-            product_name: asset.product_name,
-            product_link: asset.product_link,
-            glb_link: asset.glb_link,
-            category: asset.category,
-            subcategory: asset.subcategory,
-            client: asset.client,
-            tags: asset.tags,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-            preview_image: asset.preview_images
-              ? Array.isArray(asset.preview_images)
-                ? asset.preview_images[0]
-                : asset.preview_images
-              : null,
-            materials: null,
-            colors: null,
-            glb_status: "completed",
-          }));
+          const assetsToInsert = onboardingAssets.map((asset) => {
+            const normalizedArticles = normalizeArticleIds(
+              asset.article_id,
+              asset.article_ids
+            );
+
+            return {
+              article_id: asset.article_id,
+              product_name: asset.product_name,
+              product_link: asset.product_link,
+              glb_link: asset.glb_link,
+              category: asset.category,
+              subcategory: asset.subcategory,
+              client: asset.client,
+              tags: asset.tags,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+              preview_image: asset.preview_images
+                ? Array.isArray(asset.preview_images)
+                  ? asset.preview_images[0]
+                  : asset.preview_images
+                : null,
+              materials: null,
+              colors: null,
+              glb_status: "completed",
+              active: normalizeActive(asset.active),
+              article_ids: normalizedArticles,
+            };
+          });
 
           // Insert assets in chunks to avoid payload size limits
           const insertChunks = chunkArray(assetsToInsert, CHUNK_SIZE);
           for (const insertChunk of insertChunks) {
-            const { error: insertError } = await supabaseAuth
-              .from("assets")
-              .insert(insertChunk)
-              .select();
+            const { data: insertedAssets, error: insertError } =
+              await supabaseAuth
+                .from("assets")
+                .insert(insertChunk)
+                .select("id, article_id, client");
 
             if (insertError) {
               console.error("Error inserting assets chunk:", insertError);
@@ -177,6 +237,32 @@ export async function POST(request: NextRequest) {
                 { error: "Failed to transfer assets to assets table" },
                 { status: 500 }
               );
+            }
+
+            if (insertedAssets && insertedAssets.length > 0) {
+              const activeUpdatePromises = insertedAssets.map((inserted) => {
+                const source = onboardingAssets.find(
+                  (asset) =>
+                    asset.article_id === inserted.article_id &&
+                    asset.client === inserted.client
+                );
+
+                const normalizedActiveValue = normalizeActive(source?.active);
+                const normalizedArticles = normalizeArticleIds(
+                  source?.article_id,
+                  source?.article_ids
+                );
+
+                return supabaseAuth
+                  .from("assets")
+                  .update({
+                    active: normalizedActiveValue,
+                    article_ids: normalizedArticles,
+                  })
+                  .eq("id", inserted.id);
+              });
+
+              await Promise.all(activeUpdatePromises);
             }
           }
 
@@ -395,7 +481,7 @@ export async function POST(request: NextRequest) {
                 .from("asset_assignments")
                 .select(
                   `
-                onboarding_assets!inner(id, status)
+                onboarding_assets!inner(id, status, qa_team_handles_model, pricing_option_id)
               `
                 )
                 .eq("allocation_list_id", listId);
@@ -405,13 +491,27 @@ export async function POST(request: NextRequest) {
               allAssetsInList &&
               allAssetsInList.length > 0
             ) {
-              // Check if all assets in the list are approved
-              const allApproved = allAssetsInList.every(
-                (assignment: any) =>
-                  assignment.onboarding_assets.status ===
-                    "approved_by_client" ||
-                  assignment.onboarding_assets.status === "approved"
-              );
+              // Filter out QA-handled models - they don't count toward completion
+              const pricedAssets = allAssetsInList.filter((assignment: any) => {
+                if (!assignment.onboarding_assets) return false;
+                const asset = assignment.onboarding_assets;
+                // Exclude QA-handled models
+                return (
+                  !asset.qa_team_handles_model &&
+                  asset.pricing_option_id !== "qa_team_handles_model"
+                );
+              });
+
+              // Check if all priced assets in the list are approved
+              // If list has no priced assets (only QA-handled), it should never be marked as approved
+              const allApproved =
+                pricedAssets.length > 0 &&
+                pricedAssets.every(
+                  (assignment: any) =>
+                    assignment.onboarding_assets.status ===
+                      "approved_by_client" ||
+                    assignment.onboarding_assets.status === "approved"
+                );
 
               if (allApproved) {
                 // Update the allocation list to mark it as approved
@@ -430,7 +530,7 @@ export async function POST(request: NextRequest) {
                   );
                 } else {
                   console.log(
-                    `✅ Allocation list ${listId} marked as approved - all assets completed`
+                    `✅ Allocation list ${listId} marked as approved - all priced assets completed (${pricedAssets.length} priced, ${allAssetsInList.length - pricedAssets.length} QA-handled excluded)`
                   );
                 }
               }

@@ -25,6 +25,11 @@ export async function GET(
     // Parse JSON fields to arrays (same as in the main assets route)
     const parsedAsset = {
       ...data,
+      article_ids: Array.isArray(data.article_ids)
+        ? data.article_ids
+        : data.article_ids
+          ? JSON.parse((data.article_ids as unknown as string) || "[]")
+          : [],
       materials: Array.isArray(data.materials)
         ? data.materials
         : JSON.parse(data.materials || "[]"),
@@ -52,7 +57,9 @@ export async function PUT(
 ) {
   try {
     const cookieStore = cookies();
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
+    const supabase = createRouteHandlerClient({
+      cookies: () => cookieStore,
+    });
 
     // Check authentication
     const {
@@ -78,15 +85,60 @@ export async function PUT(
       );
     }
 
-    const assetData = await req.json();
+    const assetData = (await req.json()) as Record<string, unknown>;
+
+    // Prevent updating immutable fields and normalise payload
+    const updatePayload: Record<string, unknown> = {
+      ...assetData,
+      updated_at: new Date().toISOString(),
+    };
+
+    delete updatePayload.id;
+    delete updatePayload.created_at;
+    delete updatePayload.updated_at;
+
+    const { materials, colors, tags, article_ids } = assetData;
+
+    if (materials !== undefined) {
+      updatePayload.materials = Array.isArray(materials)
+        ? JSON.stringify(materials)
+        : (materials ?? null);
+    }
+
+    if (colors !== undefined) {
+      updatePayload.colors = Array.isArray(colors)
+        ? JSON.stringify(colors)
+        : (colors ?? null);
+    }
+
+    if (tags !== undefined) {
+      updatePayload.tags = Array.isArray(tags)
+        ? JSON.stringify(tags)
+        : (tags ?? null);
+    }
+
+    if (article_ids !== undefined) {
+      updatePayload.article_ids = Array.isArray(article_ids)
+        ? article_ids
+        : typeof article_ids === "string" && article_ids.trim() !== ""
+          ? article_ids
+              .split(/[\s,]+/)
+              .map((id) => id.trim())
+              .filter(Boolean)
+          : [];
+    }
+
+    // Remove keys with undefined to avoid overwriting with null
+    Object.keys(updatePayload).forEach((key) => {
+      if (updatePayload[key] === undefined) {
+        delete updatePayload[key];
+      }
+    });
 
     // Update the asset
     const { data, error } = await supabase
       .from("assets")
-      .update({
-        ...assetData,
-        updated_at: new Date().toISOString(),
-      })
+      .update(updatePayload)
       .eq("id", params.id)
       .select()
       .single();
@@ -102,6 +154,11 @@ export async function PUT(
     // Parse JSON fields to arrays for response
     const parsedAsset = {
       ...data,
+      article_ids: Array.isArray(data.article_ids)
+        ? data.article_ids
+        : data.article_ids
+          ? JSON.parse((data.article_ids as unknown as string) || "[]")
+          : [],
       materials: Array.isArray(data.materials)
         ? data.materials
         : JSON.parse(data.materials || "[]"),

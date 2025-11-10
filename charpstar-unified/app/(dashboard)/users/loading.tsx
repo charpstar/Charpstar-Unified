@@ -22,7 +22,7 @@ import { Select, SelectTrigger, SelectValue } from "@/components/ui/inputs";
 
 export default function UsersLoading() {
   return (
-    <div className="p-6 space-y-6">
+    <div className="container mx-auto p-3 sm:p-6 space-y-4 sm:space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold">Users</h1>
         <Skeleton className="h-10 w-32" /> {/* Add User button skeleton */}

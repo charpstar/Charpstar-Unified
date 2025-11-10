@@ -250,6 +250,21 @@ export const AssetLibraryControlPanel: React.FC<
               </Tooltip>
               <Tooltip>
                 <TooltipTrigger asChild>
+                  <Link href="/asset-library/upload">
+                    <Button variant="ghost" size="sm" className="h-7 px-2">
+                      <Upload className="h-3.5 w-3.5" />
+                    </Button>
+                  </Link>
+                </TooltipTrigger>
+                <TooltipContent>Upload Assets</TooltipContent>
+              </Tooltip>
+            </div>
+          )}
+          {/* Batch Edit - Admin */}
+          {userRole === "admin" && (
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <Tooltip>
+                <TooltipTrigger asChild>
                   <Button
                     variant="ghost"
                     size="sm"
@@ -261,15 +276,23 @@ export const AssetLibraryControlPanel: React.FC<
                 </TooltipTrigger>
                 <TooltipContent>Batch Edit</TooltipContent>
               </Tooltip>
+            </div>
+          )}
+          {/* Batch Edit - Client */}
+          {userRole === "client" && (
+            <div className="flex items-center gap-2 flex-shrink-0">
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Link href="/asset-library/upload">
-                    <Button variant="ghost" size="sm" className="h-7 px-2">
-                      <Upload className="h-3.5 w-3.5" />
-                    </Button>
-                  </Link>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={onBatchEdit}
+                    className="h-7 px-2"
+                  >
+                    <Edit3 className="h-3.5 w-3.5" />
+                  </Button>
                 </TooltipTrigger>
-                <TooltipContent>Upload Assets</TooltipContent>
+                <TooltipContent>Select Assets</TooltipContent>
               </Tooltip>
             </div>
           )}

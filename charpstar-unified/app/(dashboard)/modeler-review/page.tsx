@@ -346,13 +346,13 @@ export default function ModelerReviewPage() {
   }
 
   // Show access denied only after user context has loaded and user doesn't have access
-  if (user.metadata?.role !== "modeler") {
+  if (user.metadata?.role !== "modeler" && user.metadata?.role !== "qa") {
     return (
       <div className="container mx-auto p-6 space-y-6">
         <div className="text-center">
           <h1 className="text-2xl font-bold">Access Denied</h1>
           <p className="text-muted-foreground">
-            This page is only available for modelers.
+            This page is only available for modelers and QA team members.
           </p>
         </div>
       </div>

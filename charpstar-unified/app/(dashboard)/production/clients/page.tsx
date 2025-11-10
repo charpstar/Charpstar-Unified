@@ -1,3 +1,14 @@
+/**
+ * ⚠️ DEPRECATED - THIS PAGE IS NO LONGER USED
+ *
+ * This Clients page has been merged into the Users page (/users).
+ * All client management functionality is now available through the "Clients"
+ * tab in the Users page.
+ *
+ * This file is kept for reference only and should not be accessed directly.
+ * Navigation to this page has been removed from the sidebar.
+ */
+
 "use client";
 
 import { useState, useEffect } from "react";

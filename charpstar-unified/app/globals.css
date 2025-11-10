@@ -431,6 +431,9 @@ h6,
 @tailwind utilities;
 
 @layer base {
+  html {
+    scroll-behavior: smooth;
+  }
   * {
     @apply border-border outline-ring/50;
   }
@@ -737,6 +740,28 @@ model-viewer::part(default-ar-button):focus-visible {
     background-color: var(--priority-low-guidelines);
     color: var(--priority-low-guidelines-text);
     border-color: var(--priority-low-guidelines-border);
+  }
+
+  /* Dark mode priority badge backgrounds */
+  .dark .priority-high {
+    background-color: rgb(
+      127 29 29 / 0.3
+    ) !important; /* dark red with opacity */
+  }
+  .dark .priority-medium {
+    background-color: rgb(
+      113 63 18 / 0.3
+    ) !important; /* dark amber with opacity */
+  }
+  .dark .priority-low {
+    background-color: rgb(
+      20 83 45 / 0.3
+    ) !important; /* dark green with opacity */
+  }
+  .dark .priority-low-guidelines {
+    background-color: rgb(
+      5 150 105 / 0.3
+    ) !important; /* dark emerald with opacity */
   }
 
   /* Table row status backgrounds - high specificity */

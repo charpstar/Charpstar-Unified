@@ -14,7 +14,7 @@ import { useUser } from "@/contexts/useUser";
 import { createClient } from "@/utils/supabase/client";
 import { AssetLibraryControlPanel } from "@/components/asset-library/AssetLibraryControlPanel";
 import { AssetLibrarySkeleton } from "@/components/ui/skeletons";
-import { Search } from "lucide-react";
+import { Search, Download, Edit } from "lucide-react";
 import React from "react";
 import { Card, CardContent } from "@/components/ui/containers/card";
 import { AssetLibraryIntroPopup } from "@/components/asset-library/AssetLibraryIntroPopup";
@@ -86,6 +86,7 @@ export default function AssetLibraryPage() {
   const [selectedAssets, setSelectedAssets] = useState<string[]>([]);
   const [isBatchEditMode, setIsBatchEditMode] = useState(false);
   const [canDownloadGLB, setCanDownloadGLB] = useState(false);
+  const [batchEditOpen, setBatchEditOpen] = useState(false);
 
   // Search timeout ref
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -155,24 +156,14 @@ export default function AssetLibraryPage() {
         return;
       }
 
-      // Check enterprise contract
-      if (data?.client) {
-        const clientNames = Array.isArray(data.client)
-          ? data.client
-          : [data.client];
-
-        const { data: clients } = await supabase
-          .from("clients")
-          .select("contract_type")
-          .in("name", clientNames);
-
-        const hasEnterprise = clients?.some(
-          (c) => c.contract_type === "enterprise"
-        );
-        setCanDownloadGLB(hasEnterprise || false);
-      } else {
-        setCanDownloadGLB(false);
+      // Clients can download GLB files
+      if (data?.role === "client" || data?.client) {
+        setCanDownloadGLB(true);
+        return;
       }
+
+      // For other users, check enterprise contract
+      setCanDownloadGLB(false);
     };
     fetchUserRole();
   }, [user]);
@@ -513,6 +504,137 @@ export default function AssetLibraryPage() {
     }
   };
 
+  const handleDownloadSelectedGLB = async () => {
+    if (selectedAssets.length === 0 || !canDownloadGLB) return;
+
+    // Get selected assets with GLB links
+    const assetsToDownload = currentAssets.filter(
+      (asset) =>
+        selectedAssets.includes(asset.id) &&
+        asset.glb_link &&
+        asset.glb_link.trim() !== ""
+    );
+
+    if (assetsToDownload.length === 0) {
+      return;
+    }
+
+    // Download files sequentially in a queue (one at a time with delays)
+    // This ensures browser doesn't block multiple downloads
+    let downloadedCount = 0;
+    const failedDownloads: string[] = [];
+
+    // Process downloads one by one in a queue
+    for (let i = 0; i < assetsToDownload.length; i++) {
+      const asset = assetsToDownload[i];
+      const fileName = `${asset.article_id || asset.product_name || "asset"}_${asset.id}.glb`;
+
+      try {
+        // Fetch the file first to ensure it's available
+        const response = await fetch(asset.glb_link!, {
+          method: "GET",
+        });
+
+        if (!response.ok) {
+          console.error(
+            `Failed to fetch GLB for asset ${asset.id}:`,
+            response.statusText
+          );
+          failedDownloads.push(fileName);
+          continue;
+        }
+
+        // Convert to blob
+        const blob = await response.blob();
+        const blobUrl = window.URL.createObjectURL(blob);
+
+        // Create download link
+        const link = document.createElement("a");
+        link.href = blobUrl;
+        link.download = fileName;
+        link.style.display = "none";
+        document.body.appendChild(link);
+
+        // Trigger download
+        link.click();
+
+        // Wait before cleanup to ensure download starts
+        await new Promise((resolve) => setTimeout(resolve, 500));
+
+        // Clean up
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(blobUrl);
+        //eslint-disable-next-line @typescript-eslint/no-unused-vars
+        downloadedCount++;
+
+        // Wait between downloads to ensure browser processes each one
+        // Longer delay for better reliability - browsers need time to process each download
+        if (i < assetsToDownload.length - 1) {
+          await new Promise((resolve) => setTimeout(resolve, 1500));
+        }
+      } catch (error) {
+        console.error(`Error downloading GLB for asset ${asset.id}:`, error);
+        failedDownloads.push(fileName);
+
+        // Still wait even on failure to maintain queue timing
+        if (i < assetsToDownload.length - 1) {
+          await new Promise((resolve) => setTimeout(resolve, 1500));
+        }
+      }
+    }
+
+    // Downloads complete silently
+  };
+
+  const handleBatchUpdateActive = async (active: boolean) => {
+    if (selectedAssets.length === 0) return;
+
+    const assetCount = selectedAssets.length;
+
+    if (
+      !confirm(
+        `Are you sure you want to ${active ? "activate" : "deactivate"} ${assetCount} asset(s)?`
+      )
+    ) {
+      return;
+    }
+
+    try {
+      const supabase = createClient();
+
+      // Update assets in batches to avoid query limits
+      const CHUNK_SIZE = 100;
+      const chunks = [];
+      for (let i = 0; i < selectedAssets.length; i += CHUNK_SIZE) {
+        chunks.push(selectedAssets.slice(i, i + CHUNK_SIZE));
+      }
+
+      for (const chunk of chunks) {
+        const { error } = await supabase
+          .from("assets")
+          .update({
+            active,
+            updated_at: new Date().toISOString(),
+          })
+          .in("id", chunk);
+
+        if (error) {
+          throw error;
+        }
+      }
+
+      setSelectedAssets([]);
+      setBatchEditOpen(false);
+      refetch();
+      alert(
+        `Successfully ${active ? "activated" : "deactivated"} ${assetCount} asset(s).`
+      );
+    } catch (error) {
+      console.error("Error updating assets:", error);
+      alert("Failed to update assets. Please try again.");
+    }
+  };
+
   const handleSetCategory = (id: string | null) => {
     handleFilterChange("category", id);
   };
@@ -816,14 +938,38 @@ export default function AssetLibraryPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={handleDeleteSelected}
-                      disabled={selectedAssets.length === 0}
-                    >
-                      Delete Selected ({selectedAssets.length})
-                    </Button>
+                    {canDownloadGLB && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleDownloadSelectedGLB}
+                        disabled={selectedAssets.length === 0}
+                        className="gap-2"
+                      >
+                        <Download className="h-4 w-4" />
+                        Download GLB ({selectedAssets.length})
+                      </Button>
+                    )}
+                    {userRole === "admin" && (
+                      <>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setBatchEditOpen(true)}
+                          disabled={selectedAssets.length === 0}
+                        >
+                          Batch Edit
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={handleDeleteSelected}
+                          disabled={selectedAssets.length === 0}
+                        >
+                          Delete Selected ({selectedAssets.length})
+                        </Button>
+                      </>
+                    )}
                     <Button
                       variant="outline"
                       size="sm"
@@ -1041,6 +1187,48 @@ export default function AssetLibraryPage() {
               }}
             />
           </Suspense>
+        </SheetContent>
+      </Sheet>
+
+      {/* Batch Edit Sheet */}
+      <Sheet open={batchEditOpen} onOpenChange={setBatchEditOpen}>
+        <SheetContent side="right" className="w-full max-w-md">
+          <SheetHeader>
+            <SheetTitle className="flex items-center gap-2">
+              <Edit className="h-5 w-5" />
+              Batch Edit Assets
+            </SheetTitle>
+            <p className="text-sm text-muted-foreground mt-2">
+              Editing {selectedAssets.length} selected asset(s)
+            </p>
+          </SheetHeader>
+          <div className="mt-6 space-y-6">
+            {/* Active Status */}
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold">Active Status</h3>
+              <p className="text-sm text-muted-foreground">
+                Set the active status for all selected assets
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleBatchUpdateActive(true)}
+                  className="flex-1"
+                >
+                  Activate All
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleBatchUpdateActive(false)}
+                  className="flex-1"
+                >
+                  Deactivate All
+                </Button>
+              </div>
+            </div>
+          </div>
         </SheetContent>
       </Sheet>
 
