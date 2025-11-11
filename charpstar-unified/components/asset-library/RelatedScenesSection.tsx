@@ -174,7 +174,7 @@ const RelatedScenesSection: React.FC<RelatedScenesSectionProps> = ({
   if (loading) {
     return (
       <div className="space-y-4">
-        <h2 className="text-lg font-semibold">Generated Scenes</h2>
+        <h2 className="text-lg font-semibold">Generated Scene</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {[1, 2, 3].map((i) => (
             <div key={i} className="overflow-hidden border rounded-lg">
