@@ -1,0 +1,48 @@
+name: Auto Patch Notes to Discord (Embed)
+
+on:
+  push:
+    branches:
+      - main # or your production branch
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Generate summary from commits
+        id: summary
+        run: |
+          RECENT_COMMITS=$(git log -n 5 --pretty=format:'• %s' | awk '{print $0}')
+          echo "SUMMARY=$RECENT_COMMITS" >> $GITHUB_ENV
+
+      - name: Post update to Discord
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+          SUMMARY: ${{ env.SUMMARY }}
+        run: |
+          TITLE="⚙️ Platform Update Deployed!"
+          DESCRIPTION="A new update has just been pushed to **Production** 🎉\n\n**Date:** $(date +'%B %d, %Y')\n\n**What's new:**\n$SUMMARY\n\nThank you for your continued feedback and support."
+          COLOR=3447003 # Nice blue tone for embeds
+
+          JSON_PAYLOAD=$(jq -n \
+            --arg title "$TITLE" \
+            --arg description "$DESCRIPTION" \
+            --arg color "$COLOR" \
+            '{
+              "content": "@everyone",
+              "embeds": [{
+                "title": $title,
+                "description": $description,
+                "color": ($color | tonumber),
+                "footer": {"text": "Auto-generated from latest commits"},
+                "timestamp": (now | todate)
+              }]
+            }')
+
+          curl -H "Content-Type: application/json" \
+               -X POST \
+               -d "$JSON_PAYLOAD" \
+               $DISCORD_WEBHOOK
