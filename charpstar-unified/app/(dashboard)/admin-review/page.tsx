@@ -5237,7 +5237,7 @@ export default function AdminReviewPage() {
                     {!isExpanded && (
                       <div className="flex justify-center">
                         <div className="flex items-center gap-2 text-muted-foreground text-xs sm:text-sm">
-                          <span>Click to expand</span>
+                          <span>Click to view more details</span>
                           <ChevronDown className="h-3 w-3 sm:h-4 sm:w-4" />
                         </div>
                       </div>
