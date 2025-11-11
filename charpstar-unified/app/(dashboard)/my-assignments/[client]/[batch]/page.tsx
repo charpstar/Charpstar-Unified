@@ -157,7 +157,8 @@ interface BatchAsset {
   revision_count: number;
   glb_link: string | null;
   product_link: string | null;
-  reference: string[] | null;
+  reference: string[] | string | null;
+  internal_reference?: string[] | string | null;
   price?: number;
   bonus?: number;
   allocation_list_id?: string;
@@ -215,6 +216,13 @@ export default function BatchDetailPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const user = useUser();
+  const normalizedRole = (
+    (user?.metadata?.role ?? user?.role) as string | undefined
+  )
+    ?.toString()
+    .toLowerCase();
+  const isClient = normalizedRole === "client";
+  const includeInternalRefs = !isClient;
   const { startLoading, stopLoading } = useLoadingState();
 
   const client = decodeURIComponent(params.client as string);
@@ -439,7 +447,7 @@ export default function BatchDetailPage() {
       // Get asset details including files
       const { data: assetDetails } = await supabase
         .from("onboarding_assets")
-        .select("id, glb_link, reference, product_link")
+        .select("id, glb_link, reference, internal_reference, product_link")
         .in("id", assetIds);
 
       // Get GLB upload history for these assets
@@ -567,6 +575,7 @@ export default function BatchDetailPage() {
               glb_link,
               product_link,
               reference,
+              internal_reference,
               pricing_comment,
               measurements,
               qa_team_handles_model,
@@ -875,23 +884,23 @@ export default function BatchDetailPage() {
     if (searchTerm) {
       const lowerSearch = searchTerm.toLowerCase();
       filtered = filtered.filter((asset) => {
-        const matchesProduct = asset.product_name
-          .toLowerCase()
-          .includes(lowerSearch);
-        const matchesPrimary = asset.article_id
-          .toLowerCase()
-          .includes(lowerSearch);
+        const matchesProduct = toSafeLower(asset.product_name).includes(
+          lowerSearch
+        );
+        const matchesPrimary = toSafeLower(asset.article_id).includes(
+          lowerSearch
+        );
         const matchesAdditional = Array.isArray(asset.article_ids)
           ? asset.article_ids.some((id) =>
-              id?.toLowerCase().includes(lowerSearch)
+              toSafeLower(id).includes(lowerSearch)
             )
           : false;
-        const matchesCategory = asset.category
-          .toLowerCase()
-          .includes(lowerSearch);
-        const matchesSubcategory = asset.subcategory
-          ? asset.subcategory.toLowerCase().includes(lowerSearch)
-          : false;
+        const matchesCategory = toSafeLower(asset.category).includes(
+          lowerSearch
+        );
+        const matchesSubcategory = toSafeLower(asset.subcategory).includes(
+          lowerSearch
+        );
 
         return (
           matchesProduct ||
@@ -914,11 +923,22 @@ export default function BatchDetailPage() {
   // Highlight helper for search matches
   const escapeRegExp = (value: string) =>
     value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const highlightMatch = (text: string, query: string): React.ReactNode => {
-    if (!query) return text;
+
+  const toSafeLower = (value?: string | null) =>
+    typeof value === "string" ? value.toLowerCase() : "";
+
+  const toSafeString = (value?: string | null) =>
+    typeof value === "string" ? value : "";
+
+  const highlightMatch = (
+    text: string | null | undefined,
+    query: string
+  ): React.ReactNode => {
+    const baseText = toSafeString(text);
+    if (!query) return baseText;
     const pattern = new RegExp(`(${escapeRegExp(query)})`, "ig");
-    const parts = text.split(pattern);
-    if (parts.length === 1) return text;
+    const parts = baseText.split(pattern);
+    if (parts.length === 1) return baseText;
     return (
       <>
         {parts.map((part, idx) =>
@@ -1136,7 +1156,7 @@ export default function BatchDetailPage() {
       }
 
       // Check if file is too large for regular upload
-      const isLargeFile = file.size > 4.5 * 1024 * 1024; // 4.5MB
+      const isLargeFile = file.size > 3.5 * 1024 * 1024; // 3.5MB safety threshold (Vercel limit is ~4MB)
       let result: any;
 
       if (isLargeFile) {
@@ -1271,7 +1291,7 @@ export default function BatchDetailPage() {
       setUploadingFile(assetId);
 
       // Check if file is too large for regular upload
-      const isLargeFile = file.size > 4.5 * 1024 * 1024; // 4.5MB
+      const isLargeFile = file.size > 3.5 * 1024 * 1024; // 3.5MB safety threshold (Vercel limit is ~4MB)
 
       if (isLargeFile) {
         // Use direct upload (bypasses Vercel's 4.5MB limit)
@@ -1410,8 +1430,34 @@ export default function BatchDetailPage() {
   };
 
   // Helper function to separate GLB files from reference images
-  const separateReferences = (referenceImages: string[] | string | null) => {
-    const allReferences = parseReferences(referenceImages);
+  const getVisibleReferences = (
+    asset:
+      | {
+          reference?: string[] | string | null;
+          internal_reference?: string[] | string | null;
+        }
+      | null
+      | undefined
+  ): string[] => {
+    if (!asset) return [];
+    const clientRefs = parseReferences(asset.reference ?? null);
+    if (!includeInternalRefs) {
+      return clientRefs;
+    }
+    const internalRefs = parseReferences(asset.internal_reference ?? null);
+    return [...clientRefs, ...internalRefs];
+  };
+
+  const separateReferences = (
+    asset:
+      | {
+          reference?: string[] | string | null;
+          internal_reference?: string[] | string | null;
+        }
+      | null
+      | undefined
+  ) => {
+    const allReferences = getVisibleReferences(asset);
     const glbFiles = allReferences.filter((ref) =>
       ref.toLowerCase().endsWith(".glb")
     );
@@ -1482,7 +1528,7 @@ export default function BatchDetailPage() {
     try {
       const { data, error } = await supabase
         .from("onboarding_assets")
-        .select("reference, glb_link, measurements")
+        .select("reference, internal_reference, glb_link, measurements")
         .eq("id", assetId)
         .single();
 
@@ -1496,6 +1542,7 @@ export default function BatchDetailPage() {
                 ? {
                     ...asset,
                     reference: data.reference,
+                    internal_reference: data.internal_reference,
                     glb_link: data.glb_link,
                     measurements: data.measurements,
                   }
@@ -2467,13 +2514,16 @@ export default function BatchDetailPage() {
                                             >
                                               <FileText className="h-3 w-3 mr-1" />
                                               Ref (
-                                              {separateReferences(
-                                                asset.reference || null
-                                              ).imageReferences.length +
-                                                separateReferences(
-                                                  asset.reference || null
-                                                ).glbFiles.length +
-                                                (asset.glb_link ? 1 : 0)}
+                                              {(() => {
+                                                const separated =
+                                                  separateReferences(asset);
+                                                return (
+                                                  separated.imageReferences
+                                                    .length +
+                                                  separated.glbFiles.length +
+                                                  (asset.glb_link ? 1 : 0)
+                                                );
+                                              })()}
                                               )
                                             </Button>
                                           </div>
@@ -2789,13 +2839,15 @@ export default function BatchDetailPage() {
                                         >
                                           <FileText className="h-3 w-3 mr-1" />
                                           Ref (
-                                          {separateReferences(
-                                            asset.reference || null
-                                          ).imageReferences.length +
-                                            separateReferences(
-                                              asset.reference || null
-                                            ).glbFiles.length +
-                                            (asset.glb_link ? 1 : 0)}
+                                          {(() => {
+                                            const separated =
+                                              separateReferences(asset);
+                                            return (
+                                              separated.imageReferences.length +
+                                              separated.glbFiles.length +
+                                              (asset.glb_link ? 1 : 0)
+                                            );
+                                          })()}
                                           )
                                         </Button>
 

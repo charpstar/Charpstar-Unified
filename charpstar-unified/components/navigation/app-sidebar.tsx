@@ -343,6 +343,11 @@ export default function AppSidebar({
             icon: Package,
           },
           {
+            title: "Asset Lists",
+            url: "/asset-lists",
+            icon: Layers,
+          },
+          {
             title: "QA Review",
             url: "/qa-review",
             icon: MessageSquare,
@@ -396,6 +401,7 @@ export default function AppSidebar({
     Invoicing: 50,
     // QA
     "QA Assignments": 10,
+    "Asset Lists": 11,
     "QA Review": 12,
   };
 

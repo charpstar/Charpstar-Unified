@@ -1,5 +1,5 @@
 "use client";
-import { useState, useRef } from "react";
+import { useState, useRef, useMemo } from "react";
 import { Button } from "@/components/ui/display";
 import {
   Dialog,
@@ -11,6 +11,84 @@ import {
 import { Input } from "@/components/ui/inputs";
 import { Upload, X, GripVertical } from "lucide-react";
 import { toast } from "sonner";
+import { useUser } from "@/contexts/useUser";
+
+type ReferenceVisibility = "client" | "internal";
+
+const parseStoredReferences = (raw: unknown): string[] => {
+  if (!raw) return [];
+  if (Array.isArray(raw)) {
+    return raw
+      .map((item) => (typeof item === "string" ? item.trim() : ""))
+      .filter(Boolean);
+  }
+  if (typeof raw === "string") {
+    const trimmed = raw.trim();
+    if (!trimmed) return [];
+
+    if (trimmed.includes("|||")) {
+      return trimmed
+        .split("|||")
+        .map((part) => part.trim())
+        .filter(Boolean);
+    }
+
+    if (
+      (trimmed.startsWith("[") && trimmed.endsWith("]")) ||
+      trimmed.startsWith('"')
+    ) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) {
+          return parsed
+            .map((item) => (typeof item === "string" ? item.trim() : ""))
+            .filter(Boolean);
+        }
+      } catch {
+        // Fallback to treating as single value
+      }
+    }
+
+    return [trimmed];
+  }
+
+  return [];
+};
+
+const serializeStoredReferences = (
+  refs: string[],
+  originalValue?: unknown
+): string | string[] | null => {
+  if (!refs.length) return null;
+
+  if (Array.isArray(originalValue)) {
+    return refs;
+  }
+
+  if (typeof originalValue === "string") {
+    const trimmed = originalValue.trim();
+    if (trimmed.includes("|||")) {
+      return refs.join("|||");
+    }
+
+    if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+      try {
+        JSON.parse(trimmed);
+        return JSON.stringify(refs);
+      } catch {
+        // Fallthrough
+      }
+    }
+
+    if (refs.length === 1) {
+      return refs[0];
+    }
+
+    return refs.join("|||");
+  }
+
+  return refs.join("|||");
+};
 
 interface AddReferenceDialogProps {
   open: boolean;
@@ -44,6 +122,13 @@ export function AddReferenceDialog({
   const [height, setHeight] = useState("");
   const [width, setWidth] = useState("");
   const [depth, setDepth] = useState("");
+  const user = useUser();
+  const userRole = (user?.metadata?.role || "").toString().toLowerCase();
+  const canUseInternalReferences = useMemo(
+    () => userRole !== "client" && userRole !== "",
+    [userRole]
+  );
+  const [visibility, setVisibility] = useState<ReferenceVisibility>("client");
 
   // Validate file types
   const validateFiles = (
@@ -168,6 +253,7 @@ export function AddReferenceDialog({
         body: JSON.stringify({
           asset_id: assetId,
           reference_url: referenceUrl.trim(),
+          visibility,
         }),
         credentials: "include",
       });
@@ -209,15 +295,52 @@ export function AddReferenceDialog({
       // First, fetch the asset to get the client name and other details for notifications
       const { supabase } = await import("@/lib/supabaseClient");
 
-      const { data: asset, error: assetError } = await supabase
+      const baseQuery = supabase
         .from("onboarding_assets")
-        .select("client, product_name")
-        .eq("id", assetId)
-        .single();
+        .select("client, product_name, reference, internal_reference")
+        .eq("id", assetId);
 
-      if (assetError || !asset?.client) {
+      const { data: asset, error: assetError } = await baseQuery.single();
+
+      let resolvedAsset = asset as
+        | (typeof asset & { internal_reference?: unknown })
+        | null;
+      let resolvedError = assetError;
+      let internalReferencesSupported = true;
+
+      if (resolvedError && resolvedError.code === "42703") {
+        internalReferencesSupported = false;
+        const { data: fallbackData, error: fallbackError } = await supabase
+          .from("onboarding_assets")
+          .select("client, product_name, reference")
+          .eq("id", assetId)
+          .single();
+
+        if (!fallbackError && fallbackData) {
+          resolvedAsset = { ...fallbackData } as typeof resolvedAsset;
+          resolvedError = null;
+        } else {
+          resolvedError = fallbackError ?? resolvedError;
+        }
+      }
+
+      if (resolvedError || !resolvedAsset) {
         throw new Error("Failed to get asset client name");
       }
+
+      if (!internalReferencesSupported && visibility === "internal") {
+        toast.error(
+          "Internal references are not enabled yet. Please add the internal_reference column or choose Client visibility."
+        );
+        setUploading(false);
+        setUploadProgress(null);
+        setVisibility("client");
+        return;
+      }
+
+      const assetData = resolvedAsset;
+      const assetClientName =
+        (assetData.client || "Internal").trim() || "Internal";
 
       // Upload files sequentially and collect URLs
       const uploadedUrls: string[] = [];
@@ -232,7 +355,7 @@ export function AddReferenceDialog({
 
         const formData = new FormData();
         formData.append("file", file);
-        formData.append("client_name", asset.client);
+        formData.append("client_name", assetClientName);
 
         const response = await fetch("/api/assets/upload-file", {
           method: "POST",
@@ -266,40 +389,33 @@ export function AddReferenceDialog({
 
       // Add uploaded URLs to the asset's references
       if (uploadedUrls.length > 0) {
-        // Get current references
-        const { data: currentAsset } = await supabase
-          .from("onboarding_assets")
-          .select("reference")
-          .eq("id", assetId)
-          .single();
+        const existingReferenceValue =
+          visibility === "internal"
+            ? (assetData as any).internal_reference
+            : assetData.reference;
 
-        let existingReferences: string[] = [];
-        if (currentAsset?.reference) {
-          if (
-            typeof currentAsset.reference === "string" &&
-            currentAsset.reference.includes("|||")
-          ) {
-            existingReferences = currentAsset.reference
-              .split("|||")
-              .map((ref: string) => ref.trim())
-              .filter(Boolean);
-          } else if (Array.isArray(currentAsset.reference)) {
-            existingReferences = currentAsset.reference;
-          } else {
-            try {
-              existingReferences = JSON.parse(currentAsset.reference);
-            } catch {
-              existingReferences = [currentAsset.reference];
-            }
-          }
-        }
+        const existingReferences = parseStoredReferences(
+          existingReferenceValue
+        );
+        const updatedReferences = [...existingReferences, ...uploadedUrls];
+        const serialized = serializeStoredReferences(
+          updatedReferences,
+          existingReferenceValue
+        );
 
-        // Add new URLs and update
-        const allReferences = [...existingReferences, ...uploadedUrls];
-        await supabase
+        const updatePayload =
+          visibility === "internal"
+            ? { internal_reference: serialized }
+            : { reference: serialized };
+
+        const { error: updateError } = await supabase
           .from("onboarding_assets")
-          .update({ reference: allReferences.join("|||") })
+          .update(updatePayload)
           .eq("id", assetId);
+
+        if (updateError) {
+          throw updateError;
+        }
 
         // Send notification to QA, production, and admin if updated by a client
         try {
@@ -339,8 +455,8 @@ export function AddReferenceDialog({
 
               await notificationService.sendClientAssetUpdateNotification({
                 assetId: assetId,
-                assetName: asset?.product_name || "Unknown Asset",
-                clientName: asset?.client || "Unknown Client",
+                assetName: assetData.product_name || "Unknown Asset",
+                clientName: assetClientName || "Unknown Client",
                 updateType: "references",
                 updatedFields: ["reference"],
                 updatedBy: profile.title || user.email || "Unknown User",
@@ -379,6 +495,7 @@ export function AddReferenceDialog({
       setDraggedFileIndex(null);
       onOpenChange(false);
       setUploadMode("url");
+      setVisibility("client");
 
       // Notify parent component that upload is complete
       if (onUploadComplete) {
@@ -497,6 +614,7 @@ export function AddReferenceDialog({
     setWidth("");
     setDepth("");
     setUploadMode("url");
+    setVisibility("client");
   };
 
   return (
@@ -515,6 +633,36 @@ export function AddReferenceDialog({
             product measurements.
           </DialogDescription>
         </DialogHeader>
+
+        {canUseInternalReferences && (
+          <div className="space-y-2">
+            <label className="text-xs sm:text-sm font-semibold text-foreground dark:text-foreground">
+              Visibility
+            </label>
+            <div className="flex gap-1 sm:gap-2 p-1 bg-muted dark:bg-muted/20 rounded-lg">
+              <Button
+                variant={visibility === "client" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setVisibility("client")}
+                className="flex-1 dark:hover:bg-muted/50 text-xs sm:text-sm h-7 sm:h-8"
+              >
+                Client
+              </Button>
+              <Button
+                variant={visibility === "internal" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setVisibility("internal")}
+                className="flex-1 dark:hover:bg-muted/50 text-xs sm:text-sm h-7 sm:h-8"
+              >
+                Internal
+              </Button>
+            </div>
+            <p className="text-[11px] sm:text-xs text-muted-foreground dark:text-muted-foreground">
+              Internal references are only visible to Charpstar staff. Clients
+              will continue to see only client-visible references.
+            </p>
+          </div>
+        )}
 
         {/* Mode Toggle */}
         <div className="flex gap-1 sm:gap-2 p-1 bg-muted dark:bg-muted/20 rounded-lg">

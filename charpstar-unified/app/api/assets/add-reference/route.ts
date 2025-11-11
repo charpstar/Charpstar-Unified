@@ -3,6 +3,85 @@ import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 import { cookies } from "next/headers";
 import { notificationService } from "@/lib/notificationService";
 
+type ReferenceVisibility = "client" | "internal";
+
+const parseStoredReferences = (raw: unknown): string[] => {
+  if (!raw) return [];
+
+  if (Array.isArray(raw)) {
+    return raw
+      .map((item) => (typeof item === "string" ? item.trim() : ""))
+      .filter(Boolean);
+  }
+
+  if (typeof raw === "string") {
+    const trimmed = raw.trim();
+    if (!trimmed) return [];
+
+    if (trimmed.includes("|||")) {
+      return trimmed
+        .split("|||")
+        .map((part) => part.trim())
+        .filter(Boolean);
+    }
+
+    if (
+      (trimmed.startsWith("[") && trimmed.endsWith("]")) ||
+      trimmed.startsWith('"')
+    ) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) {
+          return parsed
+            .map((item) => (typeof item === "string" ? item.trim() : ""))
+            .filter(Boolean);
+        }
+      } catch {
+        // Ignore parse errors and fall back to single value handling
+      }
+    }
+
+    return [trimmed];
+  }
+
+  return [];
+};
+
+const serializeStoredReferences = (
+  refs: string[],
+  originalValue?: unknown
+): string | string[] | null => {
+  if (!refs.length) return null;
+
+  if (Array.isArray(originalValue)) {
+    return refs;
+  }
+
+  if (typeof originalValue === "string") {
+    const trimmed = originalValue.trim();
+    if (trimmed.includes("|||")) {
+      return refs.join("|||");
+    }
+
+    if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+      try {
+        JSON.parse(trimmed);
+        return JSON.stringify(refs);
+      } catch {
+        // Fallthrough to default behaviour
+      }
+    }
+
+    if (refs.length === 1) {
+      return refs[0];
+    }
+
+    return refs.join("|||");
+  }
+
+  return refs.join("|||");
+};
+
 export async function POST(request: NextRequest) {
   try {
     const cookieStore = cookies();
@@ -17,7 +96,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { asset_id, reference_url } = await request.json();
+    const body = await request.json();
+    const { asset_id, reference_url } = body;
+    const visibility: ReferenceVisibility =
+      body?.visibility === "internal" ? "internal" : "client";
 
     if (!asset_id || !reference_url) {
       return NextResponse.json(
@@ -27,13 +109,34 @@ export async function POST(request: NextRequest) {
     }
 
     // Get the current asset to check existing references and get asset details for notification
-    const { data: currentAsset, error: fetchError } = await supabase
+    let { data: currentAsset, error: fetchError } = await supabase
       .from("onboarding_assets")
-      .select("reference, product_name, client")
+      .select("reference, internal_reference, product_name, client")
       .eq("id", asset_id)
       .single();
 
-    if (fetchError) {
+    let internalReferencesSupported = true;
+
+    if (fetchError && fetchError.code === "42703") {
+      internalReferencesSupported = false;
+      const fallback = await supabase
+        .from("onboarding_assets")
+        .select("reference, product_name, client")
+        .eq("id", asset_id)
+        .single();
+
+      if (!fallback.error && fallback.data) {
+        currentAsset = {
+          ...fallback.data,
+          internal_reference: null,
+        } as typeof currentAsset;
+        fetchError = null;
+      } else {
+        fetchError = fallback.error ?? fetchError;
+      }
+    }
+
+    if (fetchError || !currentAsset) {
       console.error("Error fetching current asset:", fetchError);
       return NextResponse.json(
         { error: "Failed to fetch asset" },
@@ -41,25 +144,33 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Parse existing references
-    let existingReferences: string[] = [];
-    if (currentAsset.reference) {
-      try {
-        existingReferences = Array.isArray(currentAsset.reference)
-          ? currentAsset.reference
-          : JSON.parse(currentAsset.reference);
-      } catch {
-        existingReferences = [currentAsset.reference];
-      }
-    }
-
-    // Add new reference
+    const originalValue =
+      visibility === "internal"
+        ? (currentAsset as any).internal_reference
+        : currentAsset.reference;
+    const existingReferences = parseStoredReferences(originalValue);
     const newReferences = [...existingReferences, reference_url];
+    const serialized = serializeStoredReferences(newReferences, originalValue);
 
     // Update the asset
+    if (visibility === "internal" && !internalReferencesSupported) {
+      return NextResponse.json(
+        {
+          error:
+            "Internal references are not enabled yet. Please add the internal_reference column or choose client visibility.",
+        },
+        { status: 409 }
+      );
+    }
+
+    const updatePayload =
+      visibility === "internal"
+        ? { internal_reference: serialized }
+        : { reference: serialized };
+
     const { error: updateError } = await supabase
       .from("onboarding_assets")
-      .update({ reference: newReferences })
+      .update(updatePayload)
       .eq("id", asset_id);
 
     if (updateError) {
@@ -86,7 +197,7 @@ export async function POST(request: NextRequest) {
     });
 
     // Send notification to QA, production, and admin if updated by a client
-    if (profile?.role === "client") {
+    if (profile?.role === "client" && visibility === "client") {
       console.log("🔔 Attempting to send client_asset_update notification...");
       try {
         await notificationService.sendClientAssetUpdateNotification({

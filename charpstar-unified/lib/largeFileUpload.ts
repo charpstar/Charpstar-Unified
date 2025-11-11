@@ -141,7 +141,7 @@ export class LargeFileUploader {
 
 // Utility function to check if file is too large for regular upload
 export function isFileTooLarge(file: File): boolean {
-  const maxRegularSize = 4.5 * 1024 * 1024; // 4.5MB
+  const maxRegularSize = 3.5 * 1024 * 1024; // 3.5MB safety threshold (Vercel limit is ~4MB)
   return file.size > maxRegularSize;
 }
 

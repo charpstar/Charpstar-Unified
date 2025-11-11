@@ -49,6 +49,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Also update any existing modeler asset assignments so downstream views see the new price
+    const { error: assignmentError } = await supabaseAdmin
+      .from("asset_assignments")
+      .update({ price })
+      .eq("asset_id", assetId)
+      .eq("role", "modeler");
+
+    if (assignmentError) {
+      console.error("Error updating assignment price:", assignmentError);
+      return NextResponse.json(
+        { error: "Failed to update assignment price" },
+        { status: 500 }
+      );
+    }
+
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Error in update-price API:", error);

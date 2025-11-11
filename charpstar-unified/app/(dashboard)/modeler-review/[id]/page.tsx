@@ -35,6 +35,8 @@ import {
   History,
   RotateCcw,
   Clock,
+  FileText,
+  Copy,
 } from "lucide-react";
 import Script from "next/script";
 import { toast } from "sonner";
@@ -56,6 +58,7 @@ interface Asset {
   priority: number;
   revision_count: number;
   updated_at?: string;
+  measurements?: string | null;
 }
 
 interface Annotation {
@@ -134,6 +137,152 @@ const getStatusLabelText = (status: string): string => {
   }
 };
 
+const parseMeasurements = (
+  measurements?: string | null
+): { h: string; w: string; d: string } | null => {
+  if (!measurements) return null;
+  const parts = measurements
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean);
+  if (parts.length !== 3) return null;
+  const [h, w, d] = parts;
+  return { h, w, d };
+};
+
+const formatMeasurementValue = (value?: string): string => {
+  if (!value) return "—";
+  const trimmed = value.trim();
+  if (!trimmed) return "—";
+  const numeric = Number(trimmed);
+  if (Number.isFinite(numeric)) {
+    const rounded = Math.round(numeric * 100) / 100;
+    return `${rounded} mm`;
+  }
+  return trimmed;
+};
+
+const parseReferenceValues = (raw: unknown): string[] => {
+  if (!raw) return [];
+
+  if (Array.isArray(raw)) {
+    return raw
+      .map((item) =>
+        typeof item === "string" ? item.trim() : String(item ?? "").trim()
+      )
+      .filter(Boolean);
+  }
+
+  if (typeof raw === "string") {
+    const trimmed = raw.trim();
+    if (!trimmed) return [];
+
+    if (trimmed.includes("|||")) {
+      return trimmed
+        .split("|||")
+        .map((part) => part.trim())
+        .filter(Boolean);
+    }
+
+    if (
+      (trimmed.startsWith("[") && trimmed.endsWith("]")) ||
+      trimmed.startsWith("{")
+    ) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) {
+          return parsed
+            .map((item) =>
+              typeof item === "string" ? item.trim() : String(item ?? "").trim()
+            )
+            .filter(Boolean);
+        }
+      } catch {
+        // fall through
+      }
+    }
+
+    return [trimmed];
+  }
+
+  return [];
+};
+
+const getFileExtension = (url: string): string | null => {
+  const cleaned = url.split("?")[0].split("#")[0];
+  const segments = cleaned.split("/");
+  const fileName = segments[segments.length - 1] || "";
+  if (!fileName.includes(".")) return null;
+  const ext = fileName.split(".").pop();
+  return ext ? ext.toLowerCase() : null;
+};
+
+const imageExtensionSet = new Set([
+  "jpg",
+  "jpeg",
+  "png",
+  "gif",
+  "bmp",
+  "webp",
+  "svg",
+  "tiff",
+  "tif",
+  "heic",
+  "heif",
+]);
+
+const categorizeReferenceMedia = (references: string[]) => {
+  const images: string[] = [];
+  const files: string[] = [];
+
+  references.forEach((ref) => {
+    if (!ref) return;
+    const trimmed = ref.trim();
+    if (!trimmed) return;
+    const lower = trimmed.toLowerCase();
+
+    if (lower.startsWith("data:image") || lower.startsWith("blob:")) {
+      images.push(trimmed);
+      return;
+    }
+
+    const ext = getFileExtension(lower);
+    if (ext && imageExtensionSet.has(ext)) {
+      images.push(trimmed);
+      return;
+    }
+
+    files.push(trimmed);
+  });
+
+  return { images, files };
+};
+
+const extractFileName = (url: string): string => {
+  try {
+    const cleaned = decodeURIComponent(url.split("?")[0].split("#")[0]);
+    const parts = cleaned.split("/");
+    const fileName = parts[parts.length - 1] || cleaned;
+    return fileName || url;
+  } catch {
+    return url;
+  }
+};
+
+const getReferenceFileLabel = (url: string): string => {
+  const ext = getFileExtension(url);
+  if (!ext) {
+    return url.startsWith("http") ? "Link" : "File";
+  }
+
+  if (ext === "glb" || ext === "gltf") return "GLB";
+  if (ext === "zip") return "ZIP";
+  if (ext === "pdf") return "PDF";
+  if (ext === "doc" || ext === "docx") return "DOC";
+  if (imageExtensionSet.has(ext)) return "Image";
+  return ext.toUpperCase();
+};
+
 // Helper function to get viewer parameters based on client viewer type
 const getViewerParameters = (viewerType?: string | null) => {
   switch (viewerType) {
@@ -177,6 +326,12 @@ export default function ModelerReviewPage() {
   const searchParams = useSearchParams();
   const user = useUser();
   const assetId = params.id as string;
+  const normalizedUserRole = (
+    (user?.metadata?.role ?? user?.role) as string | undefined
+  )
+    ?.toString()
+    .toLowerCase();
+  const isClient = normalizedUserRole === "client";
 
   const [asset, setAsset] = useState<Asset | null>(null);
   const [annotations, setAnnotations] = useState<Annotation[]>([]);
@@ -189,6 +344,13 @@ export default function ModelerReviewPage() {
   const [selectedAnnotation, setSelectedAnnotation] =
     useState<Annotation | null>(null);
   const [referenceImages, setReferenceImages] = useState<string[]>([]);
+  const [referenceFiles, setReferenceFiles] = useState<string[]>([]);
+  const [internalReferenceImages, setInternalReferenceImages] = useState<
+    string[]
+  >([]);
+  const [internalReferenceFiles, setInternalReferenceFiles] = useState<
+    string[]
+  >([]);
   const [comments, setComments] = useState<any[]>([]);
   const [rightPanelTab, setRightPanelTab] = useState<"feedback" | "images">(
     "feedback"
@@ -294,11 +456,243 @@ export default function ModelerReviewPage() {
   // Reference image selection and zoom state
   const [selectedReferenceIndex, setSelectedReferenceIndex] = useState<
     number | null
-  >(0);
+  >(null);
+  //eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [selectedInternalReferenceIndex, setSelectedInternalReferenceIndex] =
+    useState<number | null>(null);
   const [imageZoom, setImageZoom] = useState(false);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const [zoomLevel, setZoomLevel] = useState(1);
   const [isZooming, setIsZooming] = useState(false);
+
+  const measurements = parseMeasurements(asset?.measurements ?? null);
+  const clientReferenceCount = referenceImages.length + referenceFiles.length;
+  const internalReferenceCount =
+    internalReferenceImages.length + internalReferenceFiles.length;
+  //eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const totalReferenceCount =
+    clientReferenceCount + (isClient ? 0 : internalReferenceCount);
+  //eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const renderReferenceSection = ({
+    title,
+    description,
+    images,
+    files,
+    selectedIndex,
+    onSelectImage,
+    highlight,
+  }: {
+    title: string;
+    description?: string;
+    images: string[];
+    files: string[];
+    selectedIndex: number | null;
+    onSelectImage: (index: number) => void;
+    highlight?: boolean;
+  }) => {
+    if (images.length === 0 && files.length === 0) {
+      return null;
+    }
+
+    const safeIndex =
+      images.length > 0
+        ? Math.min(selectedIndex ?? 0, images.length - 1)
+        : null;
+    const selectedImage = safeIndex !== null ? images[safeIndex] : undefined;
+
+    return (
+      <div
+        className={`space-y-4 rounded-xl border border-border/40 bg-muted/20 px-4 py-5 sm:px-5 ${
+          highlight
+            ? "border-dashed border-orange-300/70 bg-orange-50/60 dark:border-orange-500/40 dark:bg-orange-500/5"
+            : "dark:border-border/40 dark:bg-muted/10"
+        }`}
+      >
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+          <div>
+            <h4 className="text-sm sm:text-base font-semibold text-foreground">
+              {title}
+            </h4>
+            {description && (
+              <p className="text-xs text-muted-foreground">{description}</p>
+            )}
+          </div>
+          <Badge variant="outline" className="text-xs">
+            {images.length + files.length} file
+            {images.length + files.length === 1 ? "" : "s"}
+          </Badge>
+        </div>
+
+        {selectedImage && (
+          <div className="relative">
+            <div
+              className="aspect-video bg-muted rounded-lg overflow-hidden border border-border relative cursor-pointer"
+              onMouseMove={handleImageMouseMove}
+              onMouseEnter={handleImageMouseEnter}
+              onMouseLeave={handleImageMouseLeave}
+              onWheel={handleImageWheel}
+              onClick={() =>
+                window.open(selectedImage, "_blank", "noopener,noreferrer")
+              }
+            >
+              <Image
+                width={640}
+                height={360}
+                unoptimized
+                src={selectedImage}
+                alt={`${title} preview`}
+                className="w-full h-full object-contain transition-transform duration-200"
+                style={{
+                  transform: `scale(${zoomLevel})`,
+                  transformOrigin: isZooming
+                    ? `${mousePosition.x}% ${mousePosition.y}%`
+                    : "center",
+                }}
+                onError={(e) => {
+                  (e.currentTarget as HTMLElement).style.display = "none";
+                  (
+                    e.currentTarget.nextElementSibling as HTMLElement
+                  ).style.display = "flex";
+                }}
+              />
+              <div
+                className="absolute inset-0 hidden items-center justify-center bg-muted text-muted-foreground"
+                style={{ display: "none" }}
+              >
+                <div className="text-center">
+                  <LucideImage className="h-8 w-8 mx-auto mb-2" />
+                  Invalid image URL
+                </div>
+              </div>
+              <div className="absolute top-2 right-2 flex gap-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    window.open(selectedImage, "_blank", "noopener,noreferrer");
+                  }}
+                  className="h-10 w-10 p-0 bg-black/50 text-white hover:bg-black/70 cursor-pointer"
+                >
+                  <Maximize2 className="h-3 w-3" />
+                </Button>
+              </div>
+            </div>
+            <div className="mt-2 text-xs text-muted-foreground text-center">
+              Image {safeIndex !== null ? safeIndex + 1 : 0} of {images.length}
+            </div>
+          </div>
+        )}
+
+        {images.length > 0 && (
+          <div className="space-y-2">
+            <h5 className="text-xs uppercase tracking-wide text-muted-foreground">
+              Images ({images.length})
+            </h5>
+            <div className="flex gap-2 sm:gap-3 overflow-x-auto p-1 scrollbar-hide">
+              {images.map((url, index) => {
+                const isActive = safeIndex === index;
+                return (
+                  <div
+                    key={`${url}-${index}`}
+                    className={`relative flex-shrink-0 ${
+                      isActive
+                        ? "ring-2 ring-primary/70 ring-offset-2 rounded-lg"
+                        : "hover:ring-2 hover:ring-primary/50 ring-offset-2 rounded-lg"
+                    }`}
+                    onClick={() => onSelectImage(index)}
+                  >
+                    <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden border-2 border-border/50 hover:border-primary/50 transition-all duration-200 shadow-sm hover:shadow-md">
+                      <Image
+                        width={80}
+                        height={80}
+                        unoptimized
+                        src={url}
+                        alt={`${title} ${index + 1}`}
+                        className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform duration-200"
+                        onError={(e) => {
+                          (e.currentTarget as HTMLElement).style.display =
+                            "none";
+                        }}
+                      />
+                    </div>
+                    <div className="absolute -top-1 -right-1 w-5 h-5 sm:w-6 sm:h-6 bg-primary text-white text-xs font-medium rounded-full flex items-center justify-center shadow-sm border-2 border-background">
+                      {index + 1}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {files.length > 0 && (
+          <div className="space-y-2">
+            <h5 className="text-xs uppercase tracking-wide text-muted-foreground">
+              Files ({files.length})
+            </h5>
+            <div className="space-y-2">
+              {files.map((fileUrl) => {
+                const label = getReferenceFileLabel(fileUrl);
+                return (
+                  <div
+                    key={fileUrl}
+                    className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 rounded-lg border border-border/50 bg-muted/30 px-3 py-2"
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <FileText className="h-4 w-4 text-muted-foreground" />
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-foreground truncate">
+                          {extractFileName(fileUrl)}
+                        </p>
+                        <p className="text-xs text-muted-foreground break-all">
+                          {fileUrl}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="secondary" className="text-xs">
+                        {label}
+                      </Badge>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 px-2 cursor-pointer"
+                        onClick={() =>
+                          window.open(fileUrl, "_blank", "noopener,noreferrer")
+                        }
+                      >
+                        Open
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 cursor-pointer"
+                        onClick={async () => {
+                          try {
+                            await navigator.clipboard.writeText(fileUrl);
+                            toast.success("Reference link copied");
+                          } catch (error) {
+                            console.error(
+                              "Failed to copy reference link:",
+                              error
+                            );
+                            toast.error("Failed to copy link");
+                          }
+                        }}
+                      >
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   // Build a parent->children map for comments and annotations
   const groupByParent = <T extends { id: string; parent_id?: string | null }>(
@@ -532,25 +926,22 @@ export default function ModelerReviewPage() {
           setExistingGlbNameMismatch(null);
         }
 
-        // Parse reference images
-        if (data.reference) {
-          let refs: string[] = [];
-          if (Array.isArray(data.reference)) {
-            refs = data.reference;
-          } else if (
-            typeof data.reference === "string" &&
-            data.reference.startsWith("[")
-          ) {
-            try {
-              refs = JSON.parse(data.reference);
-            } catch {
-              refs = [data.reference];
-            }
-          } else if (data.reference) {
-            refs = [data.reference];
-          }
-          setReferenceImages(refs);
-        }
+        // Parse reference media
+        const clientReferenceValues = parseReferenceValues(data.reference);
+        const clientMedia = categorizeReferenceMedia(clientReferenceValues);
+        setReferenceImages(clientMedia.images);
+        setReferenceFiles(clientMedia.files);
+        setSelectedReferenceIndex(clientMedia.images.length > 0 ? 0 : null);
+
+        const internalReferenceValues = parseReferenceValues(
+          (data as any).internal_reference
+        );
+        const internalMedia = categorizeReferenceMedia(internalReferenceValues);
+        setInternalReferenceImages(internalMedia.images);
+        setInternalReferenceFiles(internalMedia.files);
+        setSelectedInternalReferenceIndex(
+          internalMedia.images.length > 0 ? 0 : null
+        );
 
         setLoading(false);
       } catch (error) {
@@ -677,55 +1068,40 @@ export default function ModelerReviewPage() {
     try {
       const { data, error } = await supabase
         .from("onboarding_assets")
-        .select("reference")
+        .select("reference, internal_reference")
         .eq("id", assetId)
         .single();
 
       if (error) {
-        console.error("Error fetching reference images:", error);
+        console.error("Error fetching reference media:", error);
         return [];
       }
 
-      if (!data?.reference) {
-        return [];
-      }
+      const clientRefs = parseReferenceValues(data?.reference);
+      const internalRefs = parseReferenceValues(data?.internal_reference);
 
-      let refs: string[] = [];
-      if (Array.isArray(data.reference)) {
-        refs = data.reference;
-      } else if (
-        typeof data.reference === "string" &&
-        data.reference.startsWith("[")
-      ) {
-        try {
-          refs = JSON.parse(data.reference);
-        } catch {
-          refs = [data.reference];
-        }
-      } else if (data.reference) {
-        refs = [data.reference];
-      }
+      const clientMedia = categorizeReferenceMedia(clientRefs);
+      const internalMedia = categorizeReferenceMedia(internalRefs);
 
-      // Filter to only show image files
-      const imageExtensions = [
-        ".jpg",
-        ".jpeg",
-        ".png",
-        ".gif",
-        ".bmp",
-        ".webp",
-        ".svg",
-      ];
-      const imageUrls = refs.filter((url) => {
-        if (!url) return false;
-        const lowerUrl = url.toLowerCase();
-        return imageExtensions.some((ext) => lowerUrl.includes(ext));
-      });
+      setReferenceImages(clientMedia.images);
+      setReferenceFiles(clientMedia.files);
+      setInternalReferenceImages(internalMedia.images);
+      setInternalReferenceFiles(internalMedia.files);
 
-      setReferenceImages(imageUrls);
-      return imageUrls;
+      setSelectedReferenceIndex((prev) =>
+        clientMedia.images.length === 0
+          ? null
+          : Math.min(prev ?? 0, clientMedia.images.length - 1)
+      );
+      setSelectedInternalReferenceIndex((prev) =>
+        internalMedia.images.length === 0
+          ? null
+          : Math.min(prev ?? 0, internalMedia.images.length - 1)
+      );
+
+      return clientMedia.images;
     } catch (error) {
-      console.error("Error fetching reference images:", error);
+      console.error("Error fetching reference media:", error);
       return [];
     }
   };
@@ -1003,7 +1379,7 @@ export default function ModelerReviewPage() {
       }
 
       // Check if file is too large for regular upload
-      const isLargeFile = selectedFile.size > 4.5 * 1024 * 1024; // 4.5MB
+      const isLargeFile = selectedFile.size > 3.5 * 1024 * 1024; // 3.5MB safety threshold (Vercel limit is ~4MB)
       let uploadResult: any;
 
       if (isLargeFile) {
@@ -2306,6 +2682,22 @@ export default function ModelerReviewPage() {
                           {new Date(asset.delivery_date).toLocaleDateString()}
                         </span>
                       )}
+                      {measurements && (
+                        <div className="flex items-center gap-2 rounded-md border border-border/40 bg-muted/40 px-2 py-1 text-xs text-muted-foreground">
+                          <span className="uppercase text-[10px] font-semibold tracking-wide text-muted-foreground/80">
+                            Measurements
+                          </span>
+                          <span className="text-xs font-medium text-foreground">
+                            H: {formatMeasurementValue(measurements.h)}
+                          </span>
+                          <span className="text-xs font-medium text-foreground">
+                            W: {formatMeasurementValue(measurements.w)}
+                          </span>
+                          <span className="text-xs font-medium text-foreground">
+                            D: {formatMeasurementValue(measurements.d)}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -2713,8 +3105,6 @@ export default function ModelerReviewPage() {
                       ".bmp",
                       ".webp",
                       ".svg",
-                      ".tiff",
-                      ".tif",
                     ];
                     const isImageFile = imageExtensions.some((ext) =>
                       lowerFileName.endsWith(ext)

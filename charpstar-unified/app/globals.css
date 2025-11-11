@@ -823,6 +823,46 @@ model-viewer::part(default-ar-button):focus-visible {
     background-color: rgb(156 163 175 / 0.2) !important;
   }
 
+  .highlighted-status.table-row-status-in-production {
+    background-color: rgb(30 64 175 / 0.18) !important;
+    color: rgb(17 24 39) !important;
+  }
+
+  .highlighted-status.table-row-status-revisions {
+    background-color: rgb(194 65 12 / 0.18) !important;
+    color: rgb(67 20 7) !important;
+  }
+
+  .highlighted-status.table-row-status-client-revision {
+    background-color: rgb(153 27 27 / 0.18) !important;
+    color: rgb(69 10 10) !important;
+  }
+
+  .highlighted-status.table-row-status-approved {
+    background-color: rgb(22 101 52 / 0.25) !important;
+    color: rgb(240 253 244) !important;
+  }
+
+  .highlighted-status.table-row-status-approved-by-client {
+    background-color: rgb(15 118 110 / 0.25) !important;
+    color: rgb(236 253 245) !important;
+  }
+
+  .highlighted-status.table-row-status-delivered-by-artist {
+    background-color: rgb(21 128 61 / 0.22) !important;
+    color: rgb(6 78 59) !important;
+  }
+
+  .highlighted-status.table-row-status-not-started {
+    background-color: rgb(202 138 4 / 0.18) !important;
+    color: rgb(69 26 3) !important;
+  }
+
+  .highlighted-status.table-row-status-unknown {
+    background-color: rgb(75 85 99 / 0.25) !important;
+    color: rgb(229 231 235) !important;
+  }
+
   /* Scrollbar gutter utility to prevent layout shift */
   .scrollbar-gutter-stable {
     scrollbar-gutter: stable;

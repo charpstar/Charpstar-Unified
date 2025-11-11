@@ -63,6 +63,7 @@ interface PendingAssignment {
     product_link: string;
     glb_link: string;
     reference: string[] | string | null;
+    internal_reference?: string[] | string | null;
     client: string;
     batch: number;
   } | null;
@@ -108,8 +109,17 @@ const parseReferences = (reference: string[] | string | null): string[] => {
 };
 
 // Helper function to separate GLB files from reference images
-const separateReferences = (referenceImages: string[] | string | null) => {
-  const allReferences = parseReferences(referenceImages);
+const separateReferences = (
+  referenceImages: string[] | string | null,
+  internalReferenceImages: string[] | string | null = null,
+  includeInternal = false
+) => {
+  const allReferences = [
+    ...parseReferences(referenceImages),
+    ...(includeInternal
+      ? parseReferences(internalReferenceImages ?? null)
+      : []),
+  ];
   const glbFiles = allReferences.filter((ref) =>
     ref.toLowerCase().endsWith(".glb")
   );
@@ -131,6 +141,13 @@ const getTaskTypeFromPrice = (price: number): string => {
 export default function PendingAssignmentsPage() {
   const user = useUser();
   const router = useRouter();
+  const normalizedRole = (
+    (user?.metadata?.role ?? user?.role) as string | undefined
+  )
+    ?.toString()
+    .toLowerCase();
+  const isClient = normalizedRole === "client";
+  const includeInternalRefs = !isClient;
   const [allocationLists, setAllocationLists] = useState<AllocationList[]>([]);
   const [filteredLists, setFilteredLists] = useState<AllocationList[]>([]);
   const [loading, setLoading] = useState(true);
@@ -278,6 +295,7 @@ export default function PendingAssignmentsPage() {
               product_link,
               glb_link,
               reference,
+              internal_reference,
               client,
               batch
             )
@@ -482,7 +500,7 @@ export default function PendingAssignmentsPage() {
     try {
       const { data, error } = await supabase
         .from("onboarding_assets")
-        .select("reference, glb_link")
+        .select("reference, internal_reference, glb_link")
         .eq("id", assetId)
         .single();
 
@@ -498,6 +516,7 @@ export default function PendingAssignmentsPage() {
                     onboarding_assets: {
                       ...assignment.onboarding_assets,
                       reference: data.reference,
+                      internal_reference: data.internal_reference,
                       glb_link: data.glb_link,
                     },
                   }
@@ -1013,7 +1032,9 @@ export default function PendingAssignmentsPage() {
                                       Ref (
                                       {(() => {
                                         const separated = separateReferences(
-                                          asset.reference
+                                          asset.reference,
+                                          asset.internal_reference ?? null,
+                                          includeInternalRefs
                                         );
 
                                         return (

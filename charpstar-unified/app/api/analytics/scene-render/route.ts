@@ -1,9 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createAdminClient } from "@/utils/supabase/admin";
+import { runQuery } from "@/lib/dbPool";
+
+type SceneRenderAnalyticsRow = {
+  id: string;
+  created_at: string;
+  client_name: string | null;
+  user_email: string | null;
+  user_id: string | null;
+  saved_to_library: boolean | null;
+  status: string | null;
+  object_type: string | null;
+  image_format: string | null;
+  generation_time_ms: number | null;
+  error_message: string | null;
+  render_format?: string | null;
+  inspiration_used?: boolean | null;
+  render_mode?: string | null;
+  asset_id?: string | null;
+  team_name?: string | null;
+  [key: string]: unknown;
+};
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createAdminClient();
     const { searchParams } = new URL(request.url);
 
     // Get query parameters
@@ -57,26 +76,24 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Build query filters
-    let query = supabase
-      .from("scene_render_analytics")
-      .select("*")
-      .gte("created_at", startDateFilter)
-      .lte("created_at", endDateFilter);
+    const params: Array<string | Date> = [startDateFilter, endDateFilter];
+    let sql = `
+      select *
+      from scene_render_analytics
+      where created_at between $1 and $2
+    `;
 
     if (clientName) {
-      query = query.eq("client_name", clientName);
+      params.push(clientName);
+      sql += ` and client_name = $${params.length} `;
     }
 
-    const { data: analyticsData, error } = await query;
+    sql += " order by created_at desc";
 
-    if (error) {
-      console.error("Error fetching analytics data:", error);
-      return NextResponse.json(
-        { error: "Failed to fetch analytics data" },
-        { status: 500 }
-      );
-    }
+    const { rows: analyticsData } = await runQuery<SceneRenderAnalyticsRow>(
+      sql,
+      params
+    );
 
     if (!analyticsData || analyticsData.length === 0) {
       return NextResponse.json({
@@ -165,7 +182,12 @@ export async function GET(request: NextRequest) {
       totalRenders > 0 ? (successfulRenders / totalRenders) * 100 : 0;
 
     const generationTimes = analyticsData
-      .filter((item) => item.generation_time_ms)
+      .filter(
+        (
+          item
+        ): item is SceneRenderAnalyticsRow & { generation_time_ms: number } =>
+          typeof item.generation_time_ms === "number"
+      )
       .map((item) => item.generation_time_ms);
     const averageGenerationTime =
       generationTimes.length > 0
@@ -230,16 +252,17 @@ export async function GET(request: NextRequest) {
     // Top users by render count
     const userStats = analyticsData.reduce(
       (acc, item) => {
-        if (!acc[item.client_name]) {
-          acc[item.client_name] = {
+        const clientKey = item.client_name ?? "Unknown";
+        if (!acc[clientKey]) {
+          acc[clientKey] = {
             renders: 0,
             saves: 0,
-            email: item.user_email || "",
+            email: item.user_email ?? "",
           };
         }
-        acc[item.client_name].renders++;
+        acc[clientKey].renders += 1;
         if (item.saved_to_library) {
-          acc[item.client_name].saves++;
+          acc[clientKey].saves += 1;
         }
         return acc;
       },
@@ -304,7 +327,7 @@ export async function GET(request: NextRequest) {
           .toISOString()
           .split("T")[1]
           .split(".")[0],
-        client: item.client_name,
+        client: item.client_name ?? "Unknown",
         email: item.user_email || "",
         objectType: item.object_type,
         format: item.image_format,
@@ -416,31 +439,63 @@ export async function GET(request: NextRequest) {
     previousStartDate.setDate(previousStartDate.getDate() - periodDays);
     const previousEndDate = new Date(startDateFilter);
 
-    const { data: previousData } = await supabase
-      .from("scene_render_analytics")
-      .select("*")
-      .gte("created_at", previousStartDate.toISOString())
-      .lt("created_at", previousEndDate.toISOString());
+    const previousParams: string[] = [
+      previousStartDate.toISOString(),
+      previousEndDate.toISOString(),
+    ];
+    let previousSql = `
+      select *
+      from scene_render_analytics
+      where created_at >= $1
+        and created_at < $2
+    `;
 
-    const previousPeriodRenders = previousData?.length || 0;
+    if (clientName) {
+      previousParams.push(clientName);
+      previousSql += ` and client_name = $${previousParams.length} `;
+    }
+
+    const { rows: previousData } = await runQuery<SceneRenderAnalyticsRow>(
+      previousSql + " order by created_at desc",
+      previousParams
+    );
+
+    const previousPeriodRenders = previousData.length;
     const growthRate =
       previousPeriodRenders > 0
         ? ((totalRenders - previousPeriodRenders) / previousPeriodRenders) * 100
+        : 0;
+    const previousSavedCount = previousData.filter(
+      (item) => !!item.saved_to_library
+    ).length;
+    const previousGenerationTimes = previousData
+      .filter(
+        (
+          item
+        ): item is SceneRenderAnalyticsRow & { generation_time_ms: number } =>
+          typeof item.generation_time_ms === "number"
+      )
+      .map((item) => item.generation_time_ms);
+    const previousAverageGenerationTime =
+      previousGenerationTimes.length > 0
+        ? previousGenerationTimes.reduce((sum, time) => sum + time, 0) /
+          previousGenerationTimes.length
         : 0;
 
     // Daily Active Users (DAU)
     const dailyActiveUsers = new Set(
       analyticsData.map((item) => {
         const date = new Date(item.created_at).toISOString().split("T")[0];
-        return `${item.user_id || item.client_name}-${date}`;
+        const identifier = item.user_id ?? item.client_name ?? "unknown";
+        return `${identifier}-${date}`;
       })
     ).size;
 
     // Weekly Active Users
     const weeklyActiveUsers = new Set(
       analyticsData
-        .map((item) => item.user_id || item.client_name)
-        .filter(Boolean)
+        .map((item) => item.user_id ?? item.client_name)
+        .filter((value): value is string => typeof value === "string")
     ).size;
 
     // Monthly Active Users (if timeRange is 30d or 90d)
@@ -451,17 +506,17 @@ export async function GET(request: NextRequest) {
     const userFirstSeen: Record<string, string> = {};
     const previousUserIds = new Set(
       previousData
-        ?.map((item) => item.user_id || item.client_name)
-        .filter(Boolean) || []
+        .map((item) => item.user_id ?? item.client_name)
+        .filter((value): value is string => typeof value === "string")
     );
     const currentUserIds = new Set(
       analyticsData
-        .map((item) => item.user_id || item.client_name)
-        .filter(Boolean)
+        .map((item) => item.user_id ?? item.client_name)
+        .filter((value): value is string => typeof value === "string")
     );
 
     analyticsData.forEach((item) => {
-      const userId = item.user_id || item.client_name;
+      const userId = item.user_id ?? item.client_name;
       if (userId && !userFirstSeen[userId]) {
         userFirstSeen[userId] = new Date(item.created_at)
           .toISOString()
@@ -477,10 +532,15 @@ export async function GET(request: NextRequest) {
     ).length;
 
     // Client growth rate
-    const uniqueClients = new Set(analyticsData.map((item) => item.client_name))
-      .size;
+    const uniqueClients = new Set(
+      analyticsData
+        .map((item) => item.client_name)
+        .filter((value): value is string => typeof value === "string")
+    ).size;
     const previousUniqueClients = new Set(
-      previousData?.map((item) => item.client_name) || []
+      previousData
+        .map((item) => item.client_name)
+        .filter((value): value is string => typeof value === "string")
     ).size;
     const clientGrowthRate =
       previousUniqueClients > 0
@@ -496,16 +556,18 @@ export async function GET(request: NextRequest) {
       { current: number; previous: number }
     > = {};
     analyticsData.forEach((item) => {
-      if (!clientActivityByPeriod[item.client_name]) {
-        clientActivityByPeriod[item.client_name] = { current: 0, previous: 0 };
+      const clientKey = item.client_name ?? "Unknown";
+      if (!clientActivityByPeriod[clientKey]) {
+        clientActivityByPeriod[clientKey] = { current: 0, previous: 0 };
       }
-      clientActivityByPeriod[item.client_name].current++;
+      clientActivityByPeriod[clientKey].current += 1;
     });
-    previousData?.forEach((item) => {
-      if (!clientActivityByPeriod[item.client_name]) {
-        clientActivityByPeriod[item.client_name] = { current: 0, previous: 0 };
+    previousData.forEach((item) => {
+      const clientKey = item.client_name ?? "Unknown";
+      if (!clientActivityByPeriod[clientKey]) {
+        clientActivityByPeriod[clientKey] = { current: 0, previous: 0 };
       }
-      clientActivityByPeriod[item.client_name].previous++;
+      clientActivityByPeriod[clientKey].previous += 1;
     });
 
     const churnRiskClients = Object.entries(clientActivityByPeriod)
@@ -528,12 +590,13 @@ export async function GET(request: NextRequest) {
     // Format preferences per client
     const clientFormatPreferences: Record<string, Record<string, number>> = {};
     analyticsData.forEach((item) => {
-      if (!clientFormatPreferences[item.client_name]) {
-        clientFormatPreferences[item.client_name] = {};
+      const clientKey = item.client_name ?? "Unknown";
+      if (!clientFormatPreferences[clientKey]) {
+        clientFormatPreferences[clientKey] = {};
       }
       const format = item.image_format || "unknown";
-      clientFormatPreferences[item.client_name][format] =
-        (clientFormatPreferences[item.client_name][format] || 0) + 1;
+      clientFormatPreferences[clientKey][format] =
+        (clientFormatPreferences[clientKey][format] || 0) + 1;
     });
     const formatPreferencesByClient = Object.entries(
       clientFormatPreferences
@@ -547,12 +610,13 @@ export async function GET(request: NextRequest) {
     // Most popular object types per client
     const clientObjectTypes: Record<string, Record<string, number>> = {};
     analyticsData.forEach((item) => {
-      if (!clientObjectTypes[item.client_name]) {
-        clientObjectTypes[item.client_name] = {};
+      const clientKey = item.client_name ?? "Unknown";
+      if (!clientObjectTypes[clientKey]) {
+        clientObjectTypes[clientKey] = {};
       }
       const objectType = item.object_type || "unknown";
-      clientObjectTypes[item.client_name][objectType] =
-        (clientObjectTypes[item.client_name][objectType] || 0) + 1;
+      clientObjectTypes[clientKey][objectType] =
+        (clientObjectTypes[clientKey][objectType] || 0) + 1;
     });
     const objectTypesByClient = Object.entries(clientObjectTypes).map(
       ([client, types]) => ({
@@ -566,7 +630,7 @@ export async function GET(request: NextRequest) {
     // Render frequency distribution
     const renderFrequency = analyticsData.reduce(
       (acc, item) => {
-        const client = item.client_name;
+        const client = item.client_name ?? "Unknown";
         acc[client] = (acc[client] || 0) + 1;
         return acc;
       },
@@ -675,11 +739,12 @@ export async function GET(request: NextRequest) {
     // Average generation time per client
     const generationTimeByClient: Record<string, number[]> = {};
     analyticsData.forEach((item) => {
-      if (item.generation_time_ms) {
-        if (!generationTimeByClient[item.client_name]) {
-          generationTimeByClient[item.client_name] = [];
+      if (typeof item.generation_time_ms === "number") {
+        const clientKey = item.client_name ?? "Unknown";
+        if (!generationTimeByClient[clientKey]) {
+          generationTimeByClient[clientKey] = [];
         }
-        generationTimeByClient[item.client_name].push(item.generation_time_ms);
+        generationTimeByClient[clientKey].push(item.generation_time_ms);
       }
     });
     const avgGenerationTimeByClient = Object.entries(generationTimeByClient)
@@ -708,43 +773,36 @@ export async function GET(request: NextRequest) {
       },
       previous: {
         totalRenders: previousPeriodRenders,
-        totalSaves:
-          previousData?.filter((item) => item.saved_to_library).length || 0,
+        totalSaves: previousSavedCount,
         conversionRate:
           previousPeriodRenders > 0
-            ? ((previousData?.filter((item) => item.saved_to_library).length ||
-                0) /
-                previousPeriodRenders) *
-              100
+            ? (previousSavedCount / previousPeriodRenders) * 100
             : 0,
         uniqueClients: previousUniqueClients,
-        averageGenerationTime: previousData
-          ? previousData
-              .filter((item) => item.generation_time_ms)
-              .reduce((sum, item) => sum + (item.generation_time_ms || 0), 0) /
-              previousData.filter((item) => item.generation_time_ms).length || 0
-          : 0,
+        averageGenerationTime: previousAverageGenerationTime,
       },
       growth: {
         renders: growthRate,
-        saves: previousData
-          ? ((totalSaves -
-              (previousData.filter((item) => item.saved_to_library).length ||
-                0)) /
-              (previousData.filter((item) => item.saved_to_library).length ||
-                1)) *
-            100
-          : 0,
+        saves:
+          previousSavedCount > 0
+            ? ((totalSaves - previousSavedCount) / previousSavedCount) * 100
+            : totalSaves > 0
+              ? 100
+              : 0,
         conversionRate: 0, // Will calculate below
         clients: clientGrowthRate,
       },
     };
 
     // Overall platform averages (for benchmarking)
-    const { data: allTimeData } = await supabase
-      .from("scene_render_analytics")
-      .select("*")
-      .limit(10000); // Sample for performance
+    const { rows: allTimeData } = await runQuery<SceneRenderAnalyticsRow>(
+      `
+        select *
+        from scene_render_analytics
+        order by created_at desc
+        limit 10000
+      `
+    ); // Sample for performance
 
     const platformAverages = allTimeData
       ? {

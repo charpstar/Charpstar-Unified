@@ -274,6 +274,12 @@ const ReviewTableSkeleton = () => (
 
 export default function ReviewDashboardPage() {
   const user = useUser();
+  const normalizedRole = (
+    (user?.metadata?.role ?? user?.role) as string | undefined
+  )
+    ?.toString()
+    .toLowerCase();
+  const isClient = normalizedRole === "client";
   const { startLoading, stopLoading } = useLoading();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -448,7 +454,7 @@ export default function ReviewDashboardPage() {
     try {
       const { data, error } = await supabase
         .from("onboarding_assets")
-        .select("reference, glb_link, measurements")
+        .select("reference, internal_reference, glb_link, measurements")
         .eq("id", assetId)
         .single();
 
@@ -459,6 +465,7 @@ export default function ReviewDashboardPage() {
               ? {
                   ...asset,
                   reference: data.reference,
+                  internal_reference: data.internal_reference,
                   glb_link: data.glb_link,
                   measurements: data.measurements,
                 }
@@ -537,7 +544,7 @@ export default function ReviewDashboardPage() {
       const { data, error } = await supabase
         .from("onboarding_assets")
         .select(
-          "id, product_name, article_id, article_ids, delivery_date, status, batch, priority, revision_count, product_link, glb_link, reference, client, upload_order, transferred, measurements, is_variation, parent_asset_id, variation_index"
+          "id, product_name, article_id, article_ids, delivery_date, status, batch, priority, revision_count, product_link, glb_link, reference, internal_reference, client, upload_order, transferred, measurements, is_variation, parent_asset_id, variation_index"
         )
         .in("client", user.metadata.client)
         .eq("transferred", false) // Hide transferred assets
@@ -832,6 +839,24 @@ export default function ReviewDashboardPage() {
     } catch {
       return [referenceImages];
     }
+  };
+
+  const getVisibleReferences = (
+    asset:
+      | {
+          reference?: string[] | string | null;
+          internal_reference?: string[] | string | null;
+        }
+      | null
+      | undefined
+  ): string[] => {
+    if (!asset) return [];
+    const clientRefs = parseReferences(asset.reference ?? null);
+    if (isClient) {
+      return clientRefs;
+    }
+    const internalRefs = parseReferences(asset.internal_reference ?? null);
+    return [...clientRefs, ...internalRefs];
   };
 
   // Handle delete asset
@@ -1567,21 +1592,23 @@ export default function ReviewDashboardPage() {
                                     setShowViewRefDialog(true);
                                   }}
                                   title={`View ${(() => {
-                                    const allRefs = parseReferences(
-                                      asset.reference
-                                    );
+                                    const visibleRefs =
+                                      getVisibleReferences(asset);
                                     const total =
-                                      allRefs.length + (asset.glb_link ? 1 : 0);
-                                    return `${total} reference${total !== 1 ? "s" : ""}`;
+                                      visibleRefs.length +
+                                      (asset.glb_link ? 1 : 0);
+                                    return `${total} reference${
+                                      total !== 1 ? "s" : ""
+                                    }`;
                                   })()}`}
                                 >
                                   <FileText className="mr-1 h-3 w-3" />
                                   {(() => {
-                                    const allRefs = parseReferences(
-                                      asset.reference
-                                    );
+                                    const visibleRefs =
+                                      getVisibleReferences(asset);
                                     return (
-                                      allRefs.length + (asset.glb_link ? 1 : 0)
+                                      visibleRefs.length +
+                                      (asset.glb_link ? 1 : 0)
                                     );
                                   })()}
                                 </Button>
@@ -1985,11 +2012,9 @@ export default function ReviewDashboardPage() {
                               <FileText className="mr-1 h-3 w-3" />
                               View (
                               {(() => {
-                                const allRefs = parseReferences(
-                                  asset.reference
-                                );
+                                const visibleRefs = getVisibleReferences(asset);
                                 return (
-                                  allRefs.length + (asset.glb_link ? 1 : 0)
+                                  visibleRefs.length + (asset.glb_link ? 1 : 0)
                                 );
                               })()}
                               )

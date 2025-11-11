@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState, useRef } from "react";
+import { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import { useUser } from "@/contexts/useUser";
 import { supabase } from "@/lib/supabaseClient";
@@ -22,6 +22,11 @@ import {
 } from "@/components/ui/inputs";
 import { Checkbox } from "@/components/ui/inputs";
 import { Button } from "@/components/ui/display";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/display/tooltip";
 
 import {
   Users,
@@ -671,7 +676,6 @@ function ModelerCombobox({
     </Popover>
   );
 }
-
 const AdminReviewTableSkeleton = () => (
   <>
     {/* Summary Stats Skeleton */}
@@ -805,6 +809,12 @@ const AdminReviewTableSkeleton = () => (
 
 export default function AdminReviewPage() {
   const user = useUser();
+  const normalizedRole = (
+    (user?.metadata?.role ?? user?.role) as string | undefined
+  )
+    ?.toString()
+    .toLowerCase();
+  const isClient = normalizedRole === "client";
   const { startLoading, stopLoading } = useLoading();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -870,6 +880,445 @@ export default function AdminReviewPage() {
   const [showAllocationLists, setShowAllocationLists] = useState(false);
   const [showQAAssets, setShowQAAssets] = useState(false);
   const [modelerEmail, setModelerEmail] = useState<string>("");
+  const [modelerQAAssignments, setModelerQAAssignments] = useState<
+    Record<
+      string,
+      { id: string; email: string | null; title?: string | null }[]
+    >
+  >({});
+  const [availableQAs, setAvailableQAs] = useState<
+    { id: string; email: string | null; title?: string | null }[]
+  >([]);
+  const [listQAAssignments, setListQAAssignments] = useState<
+    Record<
+      string,
+      { id: string; email: string | null; title?: string | null }[]
+    >
+  >({});
+  const [listDeadlineDrafts, setListDeadlineDrafts] = useState<
+    Record<string, string>
+  >({});
+  const [listDeadlineSaving, setListDeadlineSaving] = useState<Set<string>>(
+    new Set()
+  );
+  const [selectedQAForLists, setSelectedQAForLists] = useState<
+    Record<string, string>
+  >({});
+  const [listQaLoading, setListQaLoading] = useState<Set<string>>(new Set());
+  const loadModelerQAAssignments = useCallback(async (modelerIds: string[]) => {
+    if (!modelerIds || modelerIds.length === 0) {
+      setModelerQAAssignments({});
+      return;
+    }
+
+    try {
+      const { data: qaAllocations, error: qaAllocationsError } = await supabase
+        .from("qa_allocations")
+        .select("modeler_id, qa_id")
+        .in("modeler_id", modelerIds);
+
+      if (qaAllocationsError) {
+        console.error("Error fetching QA allocations:", qaAllocationsError);
+        setModelerQAAssignments({});
+        return;
+      }
+
+      if (!qaAllocations || qaAllocations.length === 0) {
+        setModelerQAAssignments({});
+        return;
+      }
+
+      const qaIds = [
+        ...new Set(
+          qaAllocations
+            .map((allocation: any) => allocation.qa_id)
+            .filter(
+              (qaId): qaId is string =>
+                typeof qaId === "string" && qaId.length > 0
+            )
+        ),
+      ];
+
+      if (qaIds.length === 0) {
+        setModelerQAAssignments({});
+        return;
+      }
+
+      const { data: qaProfiles, error: qaProfilesError } = await supabase
+        .from("profiles")
+        .select("id, email, title")
+        .in("id", qaIds);
+
+      if (qaProfilesError) {
+        console.error("Error fetching QA profile details:", qaProfilesError);
+        setModelerQAAssignments({});
+        return;
+      }
+
+      const qaProfileMap =
+        qaProfiles?.reduce<
+          Record<string, { email: string | null; title?: string | null }>
+        >((acc, profile) => {
+          acc[profile.id] = {
+            email: profile.email ?? null,
+            title: profile.title ?? null,
+          };
+          return acc;
+        }, {}) ?? {};
+
+      const qaMap: Record<
+        string,
+        { id: string; email: string | null; title?: string | null }[]
+      > = {};
+
+      qaAllocations.forEach((allocation: any) => {
+        const qaId = allocation.qa_id as string;
+        const modelerId = allocation.modeler_id as string;
+        const profile = qaProfileMap[qaId];
+        if (!qaId || !modelerId || !profile) return;
+        const entry = {
+          id: qaId,
+          email: profile.email,
+          title: profile.title,
+        };
+        if (!qaMap[modelerId]) {
+          qaMap[modelerId] = [];
+        }
+        qaMap[modelerId].push(entry);
+      });
+
+      setModelerQAAssignments(qaMap);
+    } catch (error) {
+      console.error("Error loading QA assignments:", error);
+      setModelerQAAssignments({});
+    }
+  }, []);
+  const loadListQAAssignments = useCallback(
+    async (lists: any[], options: { replace?: boolean } = {}) => {
+      const { replace = false } = options;
+      if (!lists || lists.length === 0) {
+        if (replace) {
+          setListQAAssignments({});
+        }
+        return;
+      }
+
+      const assetIdToListId = new Map<string, string>();
+      lists.forEach((list) => {
+        (list.asset_assignments || []).forEach((assignment: any) => {
+          const assetId = assignment.asset_id;
+          if (typeof assetId === "string" && assetId.length > 0) {
+            assetIdToListId.set(assetId, list.id);
+          }
+        });
+      });
+
+      const assetIds = Array.from(assetIdToListId.keys());
+
+      const ensureResult = (base: Record<string, any[]> = {}) => {
+        const result: Record<string, any[]> = { ...base };
+        lists.forEach((list) => {
+          if (!result[list.id]) {
+            result[list.id] = [];
+          }
+        });
+        return result;
+      };
+
+      if (assetIds.length === 0) {
+        const result = ensureResult();
+        if (replace) {
+          setListQAAssignments(result);
+        } else {
+          setListQAAssignments((prev) => ({ ...prev, ...result }));
+        }
+        return;
+      }
+
+      try {
+        const { data: qaAssignments, error } = await supabase
+          .from("asset_assignments")
+          .select("asset_id, user_id, is_provisional")
+          .in("asset_id", assetIds)
+          .eq("role", "qa");
+
+        if (error) {
+          console.error("Error fetching list QA assignments:", error);
+          return;
+        }
+
+        const provisionalAssignments =
+          qaAssignments?.filter(
+            (assignment: any) => assignment.is_provisional
+          ) ?? [];
+
+        if (provisionalAssignments.length === 0) {
+          const result = ensureResult();
+          if (replace) {
+            setListQAAssignments(result);
+          } else {
+            setListQAAssignments((prev) => ({ ...prev, ...result }));
+          }
+          return;
+        }
+
+        const qaIds = [
+          ...new Set(
+            provisionalAssignments
+              .map((assignment: any) => assignment.user_id)
+              .filter(
+                (id): id is string => typeof id === "string" && id.length > 0
+              )
+          ),
+        ];
+
+        if (qaIds.length === 0) {
+          const result = ensureResult();
+          if (replace) {
+            setListQAAssignments(result);
+          } else {
+            setListQAAssignments((prev) => ({ ...prev, ...result }));
+          }
+          return;
+        }
+
+        const { data: qaProfiles, error: qaProfilesError } = await supabase
+          .from("profiles")
+          .select("id, email, title")
+          .in("id", qaIds);
+
+        if (qaProfilesError) {
+          console.error("Error fetching QA profile details:", qaProfilesError);
+          return;
+        }
+
+        const qaProfileMap =
+          qaProfiles?.reduce<
+            Record<string, { email: string | null; title?: string | null }>
+          >((acc, profile) => {
+            acc[profile.id] = {
+              email: profile.email ?? null,
+              title: profile.title ?? null,
+            };
+            return acc;
+          }, {}) ?? {};
+
+        const mapUpdates: Record<
+          string,
+          { id: string; email: string | null; title?: string | null }[]
+        > = {};
+
+        provisionalAssignments.forEach((assignment: any) => {
+          const listId = assetIdToListId.get(assignment.asset_id);
+          if (!listId) return;
+          const profile = qaProfileMap[assignment.user_id];
+          if (!profile) return;
+          if (!mapUpdates[listId]) {
+            mapUpdates[listId] = [];
+          }
+          if (!mapUpdates[listId].some((qa) => qa.id === assignment.user_id)) {
+            mapUpdates[listId].push({
+              id: assignment.user_id,
+              email: profile.email,
+              title: profile.title,
+            });
+          }
+        });
+
+        const result = ensureResult(mapUpdates);
+        if (replace) {
+          setListQAAssignments(result);
+        } else {
+          setListQAAssignments((prev) => ({ ...prev, ...result }));
+        }
+      } catch (error) {
+        console.error("Error loading list QA assignments:", error);
+      }
+    },
+    []
+  );
+  const getListAssetIds = (list: any): string[] => {
+    return (list.asset_assignments || [])
+      .map((assignment: any) => assignment.asset_id)
+      .filter(
+        (assetId: unknown): assetId is string =>
+          typeof assetId === "string" && assetId.length > 0
+      );
+  };
+
+  const normalizeListDeadline = (deadline?: string | null): string => {
+    if (!deadline) return "";
+    const parsed = new Date(deadline);
+    if (Number.isNaN(parsed.getTime())) {
+      return "";
+    }
+    return format(parsed, "yyyy-MM-dd");
+  };
+
+  const handleListDeadlineSelect = (listId: string, date?: Date) => {
+    if (!date) return;
+    setListDeadlineDrafts((prev) => ({
+      ...prev,
+      [listId]: format(date, "yyyy-MM-dd"),
+    }));
+  };
+
+  const handleSaveListDeadline = async (list: any) => {
+    const draftDeadline = listDeadlineDrafts[list.id];
+    if (!draftDeadline) {
+      toast.error("Select a new deadline before saving");
+      return;
+    }
+
+    setListDeadlineSaving((prev) => {
+      const next = new Set(prev);
+      next.add(list.id);
+      return next;
+    });
+
+    try {
+      const response = await fetch(
+        `/api/allocation-lists/${list.id}/deadline`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ deadline: draftDeadline }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        throw new Error(
+          errorData?.error || "Failed to update allocation list deadline"
+        );
+      }
+
+      toast.success("Deadline updated");
+      setAllocationLists((prev) =>
+        prev.map((entry) =>
+          entry.id === list.id
+            ? {
+                ...entry,
+                deadline: draftDeadline,
+              }
+            : entry
+        )
+      );
+    } catch (error) {
+      console.error("Error updating allocation list deadline:", error);
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to update allocation list deadline"
+      );
+    } finally {
+      setListDeadlineSaving((prev) => {
+        const next = new Set(prev);
+        next.delete(list.id);
+        return next;
+      });
+    }
+  };
+
+  const handleAssignQAForList = async (list: any) => {
+    const selectedQa = selectedQAForLists[list.id];
+    if (!selectedQa) {
+      toast.error("Select a QA before assigning to this list");
+      return;
+    }
+
+    const assetIds = getListAssetIds(list);
+    if (assetIds.length === 0) {
+      toast.error("This list does not contain any assets");
+      return;
+    }
+
+    setListQaLoading((prev) => {
+      const next = new Set(prev);
+      next.add(list.id);
+      return next;
+    });
+
+    try {
+      const response = await fetch(`/api/allocation-lists/${list.id}/qa`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          qaId: selectedQa,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.error || "Failed to assign QA to this list");
+      }
+
+      toast.success("QA assigned to this list");
+      setSelectedQAForLists((prev) => ({ ...prev, [list.id]: "" }));
+      await loadListQAAssignments([list]);
+    } catch (error) {
+      console.error("Error assigning QA override:", error);
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to assign QA to this list"
+      );
+    } finally {
+      setListQaLoading((prev) => {
+        const next = new Set(prev);
+        next.delete(list.id);
+        return next;
+      });
+    }
+  };
+
+  const handleRemoveListQA = async (list: any) => {
+    const assetIds = getListAssetIds(list);
+    if (assetIds.length === 0) {
+      toast.error("This list does not contain any assets");
+      return;
+    }
+
+    setListQaLoading((prev) => {
+      const next = new Set(prev);
+      next.add(list.id);
+      return next;
+    });
+
+    try {
+      const response = await fetch(`/api/allocation-lists/${list.id}/qa`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        throw new Error(
+          errorData?.error || "Failed to remove QA from this list"
+        );
+      }
+
+      toast.success("QA removed from this list");
+      setSelectedQAForLists((prev) => ({ ...prev, [list.id]: "" }));
+      await loadListQAAssignments([list]);
+    } catch (error) {
+      console.error("Error removing QA override:", error);
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to remove QA from this list"
+      );
+    } finally {
+      setListQaLoading((prev) => {
+        const next = new Set(prev);
+        next.delete(list.id);
+        return next;
+      });
+    }
+  };
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [viewedUserRole, setViewedUserRole] = useState<string>("");
   const [refreshTrigger] = useState(0);
@@ -877,6 +1326,8 @@ export default function AdminReviewPage() {
     new Set()
   );
   const [expandedLists, setExpandedLists] = useState<Set<string>>(new Set());
+  const [activeListId, setActiveListId] = useState<string | null>(null);
+  const [activeAssetRowId, setActiveAssetRowId] = useState<string | null>(null);
   const [deletingAsset, setDeletingAsset] = useState<string | null>(null);
 
   // Allocation list cleanup state
@@ -951,7 +1402,6 @@ export default function AdminReviewPage() {
       countStuckAssets().then(setStuckAssetsCount);
     }
   }, [showFixStuckDialog, selected]);
-
   // Fetch assets function
   const fetchAssets = async () => {
     if (
@@ -982,7 +1432,7 @@ export default function AdminReviewPage() {
       let query = supabase
         .from("onboarding_assets")
         .select(
-          "id, product_name, article_id, article_ids, delivery_date, status, batch, priority, revision_count, product_link, glb_link, reference, client, upload_order, pricing_option_id, price, pricing_comment, transferred, is_variation, parent_asset_id, variation_index, qa_team_handles_model"
+          "id, product_name, article_id, article_ids, delivery_date, status, batch, priority, revision_count, product_link, glb_link, reference, internal_reference, client, upload_order, pricing_option_id, price, pricing_comment, transferred, is_variation, parent_asset_id, variation_index, qa_team_handles_model"
         )
         .eq("transferred", false) // Exclude transferred assets
         .order("upload_order", { ascending: true });
@@ -1605,7 +2055,9 @@ export default function AdminReviewPage() {
     try {
       const { data, error } = await supabase
         .from("onboarding_assets")
-        .select("reference, glb_link, status, transferred, measurements")
+        .select(
+          "reference, internal_reference, glb_link, status, transferred, measurements"
+        )
         .eq("id", assetId)
         .eq("transferred", false)
         .single();
@@ -1637,6 +2089,7 @@ export default function AdminReviewPage() {
                     onboarding_assets: {
                       ...assignment.onboarding_assets,
                       reference: data.reference,
+                      internal_reference: data.internal_reference,
                       glb_link: data.glb_link,
                       status:
                         data.status || assignment.onboarding_assets.status,
@@ -1655,6 +2108,7 @@ export default function AdminReviewPage() {
               ? {
                   ...asset,
                   reference: data.reference,
+                  internal_reference: data.internal_reference,
                   glb_link: data.glb_link,
                   status: data.status || asset.status,
                   measurements: data.measurements,
@@ -1667,7 +2121,6 @@ export default function AdminReviewPage() {
       console.error("Error refreshing asset reference data:", e);
     }
   };
-
   // Calculate status totals - use filtered data when URL parameters are present
   const statusTotals = useMemo(() => {
     if (showAllocationLists) {
@@ -1913,6 +2366,43 @@ export default function AdminReviewPage() {
     }
   }, [searchParams]);
 
+  useEffect(() => {
+    if (
+      !showAllocationLists ||
+      !user ||
+      (user.metadata?.role !== "admin" && user.metadata?.role !== "production")
+    ) {
+      setAvailableQAs([]);
+      return;
+    }
+
+    const loadAvailableQAs = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("id, email, title")
+          .eq("role", "qa")
+          .order("email", { ascending: true });
+
+        if (error) {
+          console.error("Error fetching available QAs:", error);
+          return;
+        }
+
+        setAvailableQAs(data || []);
+      } catch (error) {
+        console.error("Error fetching available QAs:", error);
+      }
+    };
+
+    loadAvailableQAs();
+  }, [showAllocationLists, user?.metadata?.role]);
+
+  useEffect(() => {
+    setSelectedQAForLists({});
+    setListQaLoading(new Set());
+  }, [modelerFilters]);
+
   // Update URL when filters change (temporarily disabled to prevent page reloads)
   // TODO: Implement proper URL state management without causing page reloads
   // useEffect(() => {
@@ -1946,8 +2436,11 @@ export default function AdminReviewPage() {
           user.metadata?.role !== "production") ||
         !showAllocationLists ||
         modelerFilters.length === 0
-      )
+      ) {
+        setModelerQAAssignments({});
+        setListQAAssignments({});
         return;
+      }
 
       startLoading();
       setLoading(true);
@@ -1965,6 +2458,7 @@ export default function AdminReviewPage() {
             created_at,
             status,
             correction_amount,
+            user_id,
             asset_assignments(
               asset_id,
               status,
@@ -2026,6 +2520,31 @@ export default function AdminReviewPage() {
         }));
 
         setAllocationLists(normalizedLists);
+        setListDeadlineDrafts(
+          normalizedLists.reduce<Record<string, string>>((acc, list) => {
+            acc[list.id] = normalizeListDeadline(list.deadline);
+            return acc;
+          }, {})
+        );
+        setSelectedQAForLists({});
+
+        const modelerIds = Array.from(
+          new Set(
+            (data || [])
+              .map((list) => list.user_id)
+              .filter(
+                (id): id is string => typeof id === "string" && id.length > 0
+              )
+          )
+        );
+
+        if (modelerIds.length > 0) {
+          await loadModelerQAAssignments(modelerIds);
+        } else {
+          setModelerQAAssignments({});
+        }
+
+        await loadListQAAssignments(normalizedLists, { replace: true });
       } catch (error) {
         console.error("Error fetching allocation lists:", error);
         toast.error("Failed to fetch allocation lists");
@@ -2043,6 +2562,8 @@ export default function AdminReviewPage() {
     showAllocationLists,
     modelerFilters,
     refreshTrigger,
+    loadModelerQAAssignments,
+    loadListQAAssignments,
   ]);
 
   // Fetch all assets for admin review
@@ -2092,7 +2613,7 @@ export default function AdminReviewPage() {
       let query = supabase
         .from("onboarding_assets")
         .select(
-          "id, product_name, article_id, article_ids, delivery_date, status, batch, priority, revision_count, client, reference, glb_link, product_link, upload_order, pricing_option_id, price, pricing_comment, transferred, measurements, is_variation, parent_asset_id, variation_index"
+          "id, product_name, article_id, article_ids, delivery_date, status, batch, priority, revision_count, client, reference, internal_reference, glb_link, product_link, upload_order, pricing_option_id, price, pricing_comment, transferred, measurements, is_variation, parent_asset_id, variation_index"
         )
         .eq("transferred", false) // Exclude transferred assets
         .order("upload_order", { ascending: true });
@@ -2294,7 +2815,6 @@ export default function AdminReviewPage() {
 
     setFilteredLists(filteredListsData);
   }, [allocationLists, clientFilters, batchFilters, showAllocationLists]);
-
   // Apply filters to assets
   useEffect(() => {
     if (showAllocationLists || showQAAssets || isManuallyReordering) return;
@@ -2563,6 +3083,7 @@ export default function AdminReviewPage() {
               status,
               priority,
               reference,
+              internal_reference,
               glb_link,
               product_link,
               created_at,
@@ -2601,6 +3122,7 @@ export default function AdminReviewPage() {
               variation_index: asset.variation_index,
               upload_order: asset.upload_order || 0,
               reference: asset.reference,
+              internal_reference: asset.internal_reference,
               created_at: asset.created_at,
               modeler_id: assignment.user_id, // Track which modeler this asset belongs to
               modeler_email: modeler?.email || "Unknown",
@@ -2724,6 +3246,90 @@ export default function AdminReviewPage() {
       ? filteredLists.slice(start, start + PAGE_SIZE)
       : filtered.slice(start, start + PAGE_SIZE);
   }, [filtered, filteredLists, page, showAllocationLists, showQAAssets]);
+
+  const assetsById = useMemo(() => {
+    const map = new Map<string, any>();
+    assets.forEach((asset) => {
+      if (asset?.id) {
+        map.set(asset.id, asset);
+      }
+    });
+    return map;
+  }, [assets]);
+
+  const currencyFormatter = useMemo(
+    () =>
+      new Intl.NumberFormat("en-US", {
+        style: "currency",
+        currency: "EUR",
+      }),
+    []
+  );
+
+  const selectedPricingSummary = useMemo(() => {
+    if (showAllocationLists || selected.size === 0) {
+      return { total: 0, missingCount: 0 };
+    }
+
+    let total = 0;
+    let missingCount = 0;
+
+    selected.forEach((id) => {
+      const asset = assetsById.get(id);
+      if (!asset) return;
+
+      const rawPrice =
+        assetPrices[id]?.price ??
+        (typeof asset.price === "number" ? asset.price : Number(asset.price));
+
+      if (
+        typeof rawPrice === "number" &&
+        !Number.isNaN(rawPrice) &&
+        rawPrice > 0
+      ) {
+        total += rawPrice;
+      } else {
+        missingCount += 1;
+      }
+    });
+
+    return { total, missingCount };
+  }, [assetsById, assetPrices, selected, showAllocationLists]);
+
+  const selectedTotalFormatted = useMemo(
+    () => currencyFormatter.format(selectedPricingSummary.total),
+    [currencyFormatter, selectedPricingSummary.total]
+  );
+
+  useEffect(() => {
+    if (!showAllocationLists) return;
+    if (
+      activeListId &&
+      !paged.some((list) => String(list.id) === String(activeListId))
+    ) {
+      setActiveListId(null);
+    }
+  }, [paged, activeListId, showAllocationLists]);
+
+  useEffect(() => {
+    if (!showAllocationLists) {
+      setActiveAssetRowId(null);
+      return;
+    }
+
+    if (
+      activeAssetRowId &&
+      !paged.some((list) =>
+        (list.asset_assignments ?? []).some(
+          (assignment: any) =>
+            String(assignment.onboarding_assets?.id ?? assignment.asset_id) ===
+            String(activeAssetRowId)
+        )
+      )
+    ) {
+      setActiveAssetRowId(null);
+    }
+  }, [paged, activeAssetRowId, showAllocationLists]);
 
   // Fetch pending assets
   const ensureAuthUsersLoaded = async () => {
@@ -3058,7 +3664,6 @@ export default function AdminReviewPage() {
       selectAll();
     }
   };
-
   const toggleListExpansion = (listId: string) => {
     setExpandedLists((prev) => {
       const newSet = new Set(prev);
@@ -3069,6 +3674,11 @@ export default function AdminReviewPage() {
       }
       return newSet;
     });
+  };
+
+  const handleListCardClick = (listId: string) => {
+    setActiveListId(String(listId));
+    toggleListExpansion(listId);
   };
 
   const handlePriorityUpdate = async (assetId: string, newPriority: number) => {
@@ -3854,7 +4464,6 @@ export default function AdminReviewPage() {
       setCleanupLoading(false);
     }
   };
-
   // Check for orphaned allocation lists
 
   if (
@@ -3907,6 +4516,24 @@ export default function AdminReviewPage() {
     } catch {
       return [referenceImages];
     }
+  };
+
+  const getVisibleReferences = (
+    asset:
+      | {
+          reference?: string[] | string | null;
+          internal_reference?: string[] | string | null;
+        }
+      | null
+      | undefined
+  ): string[] => {
+    if (!asset) return [];
+    const clientRefs = parseReferences(asset.reference ?? null);
+    if (isClient) {
+      return clientRefs;
+    }
+    const internalRefs = parseReferences(asset.internal_reference ?? null);
+    return [...clientRefs, ...internalRefs];
   };
 
   // Helper function to separate GLB files from reference images
@@ -4299,40 +4926,54 @@ export default function AdminReviewPage() {
             )}
 
             {selected.size > 0 && (
-              <div className="w-full sm:w-auto flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    // Navigate to the allocate page with selected assets
-                    const selectedAssetIds = Array.from(selected);
+              <div className="w-full sm:w-auto flex flex-col sm:flex-row sm:items-center gap-2">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                  <div className="flex items-center gap-2 text-sm font-medium text-green-700 bg-green-100 px-3 py-1 rounded-lg">
+                    <Euro className="h-4 w-4" />
+                    <span>
+                      {selected.size} selected • {selectedTotalFormatted}
+                    </span>
+                  </div>
+                  {selectedPricingSummary.missingCount > 0 && (
+                    <span className="text-xs text-muted-foreground">
+                      {selectedPricingSummary.missingCount} item
+                      {selectedPricingSummary.missingCount > 1 ? "s" : ""}{" "}
+                      without pricing
+                    </span>
+                  )}
+                </div>
+                <div className="flex gap-2 w-full sm:w-auto">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const selectedAssetIds = Array.from(selected);
+                      const params = new URLSearchParams();
+                      selectedAssetIds.forEach((id) =>
+                        params.append("selectedAssets", id)
+                      );
+                      router.push(`/production/allocate?${params.toString()}`);
+                    }}
+                    className="flex items-center gap-1 sm:gap-2 bg-primary/90  text-primary-foreground w-full sm:w-auto text-xs sm:text-sm h-8 sm:h-9"
+                  >
+                    <Package className="h-3 w-3 sm:h-4 sm:w-4" />
+                    <span className="hidden sm:inline">Allocate</span>
+                    <span className="sm:hidden">Advanced</span>
+                  </Button>
 
-                    // Create URL with selected asset IDs as query parameters
-                    const params = new URLSearchParams();
-                    selectedAssetIds.forEach((id) =>
-                      params.append("selectedAssets", id)
-                    );
-
-                    // Navigate to allocate page with selected assets
-                    router.push(`/production/allocate?${params.toString()}`);
-                  }}
-                  className="flex items-center gap-1 sm:gap-2 bg-primary/90  text-primary-foreground w-full sm:w-auto text-xs sm:text-sm h-8 sm:h-9"
-                >
-                  <Package className="h-3 w-3 sm:h-4 sm:w-4" />
-                  <span className="hidden sm:inline">Allocate</span>
-                  <span className="sm:hidden">Advanced</span>
-                </Button>
-
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowBulkStatusDialog(true)}
-                  className="flex items-center gap-1 sm:gap-2 bg-green-600 hover:bg-green-700 text-white w-full sm:w-auto text-xs sm:text-sm h-8 sm:h-9"
-                >
-                  <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4" />
-                  <span className="hidden sm:inline">Transfer To Library</span>
-                  <span className="sm:hidden">Approved</span>
-                </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowBulkStatusDialog(true)}
+                    className="flex items-center gap-1 sm:gap-2 bg-green-600 hover:bg-green-700 text-white w-full sm:w-auto text-xs sm:text-sm h-8 sm:h-9"
+                  >
+                    <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4" />
+                    <span className="hidden sm:inline">
+                      Transfer To Library
+                    </span>
+                    <span className="sm:hidden">Approved</span>
+                  </Button>
+                </div>
               </div>
             )}
           </div>
@@ -4427,11 +5068,32 @@ export default function AdminReviewPage() {
               paged.map((list) => {
                 const stats = calculateListStats(list);
                 const isExpanded = expandedLists.has(list.id);
+                const listModelerId =
+                  typeof list.user_id === "string" && list.user_id.length > 0
+                    ? list.user_id
+                    : modelerFilters.length === 1
+                      ? modelerFilters[0]
+                      : undefined;
+                const qasForModeler:
+                  | {
+                      id: string;
+                      email: string | null;
+                      title?: string | null;
+                    }[]
+                  | [] =
+                  (listModelerId && modelerQAAssignments[listModelerId]) || [];
                 return (
                   <Card
                     key={list.id}
-                    className="cursor-pointer transition-all duration-300 ease-in-out hover:shadow-md"
-                    onClick={() => toggleListExpansion(list.id)}
+                    className={`cursor-pointer transition-all duration-200 ease-in-out hover:shadow-md ${
+                      activeListId === String(list.id)
+                        ? "border-primary/60 bg-primary/10 dark:bg-primary/20 shadow-lg shadow-primary/20 highlighted-status"
+                        : "border-border"
+                    }`}
+                    tabIndex={0}
+                    onMouseDownCapture={() => setActiveListId(String(list.id))}
+                    onFocusCapture={() => setActiveListId(String(list.id))}
+                    onClick={() => handleListCardClick(list.id)}
                   >
                     <CardHeader className="p-4 sm:p-6">
                       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
@@ -4480,6 +5142,29 @@ export default function AdminReviewPage() {
                             >
                               {new Date(list.deadline).toLocaleDateString()}
                             </span>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-1 sm:gap-2">
+                            <span className="text-muted-foreground">QA:</span>
+                            {qasForModeler.length > 0 ? (
+                              qasForModeler.map((qa) => {
+                                const label = qa.title?.trim()
+                                  ? qa.title
+                                  : qa.email || "QA";
+                                return (
+                                  <Badge
+                                    key={`${list.id}-${qa.id}`}
+                                    variant="outline"
+                                    className="text-[11px]"
+                                  >
+                                    {label}
+                                  </Badge>
+                                );
+                              })
+                            ) : (
+                              <span className="italic text-muted-foreground">
+                                None assigned
+                              </span>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -4570,6 +5255,197 @@ export default function AdminReviewPage() {
                         className="p-4 sm:p-6"
                         onClick={(e) => e.stopPropagation()}
                       >
+                        {(() => {
+                          const listOverrides =
+                            listQAAssignments[list.id] || [];
+                          const selectedListQA =
+                            selectedQAForLists[list.id] || "";
+                          const isListLoading = listQaLoading.has(list.id);
+                          const currentDeadline = normalizeListDeadline(
+                            list.deadline
+                          );
+                          const draftDeadline =
+                            listDeadlineDrafts[list.id] !== undefined
+                              ? listDeadlineDrafts[list.id]
+                              : currentDeadline;
+                          const isSavingDeadline = listDeadlineSaving.has(
+                            list.id
+                          );
+                          const hasDeadlineChanged =
+                            draftDeadline !== "" &&
+                            draftDeadline !== currentDeadline;
+
+                          return (
+                            <div className="mb-4 rounded-lg border border-border bg-muted/40 p-4 space-y-4">
+                              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                                <div className="space-y-1">
+                                  <p className="text-sm font-medium text-foreground">
+                                    List Deadline
+                                  </p>
+                                  <p className="text-xs text-muted-foreground max-w-xl">
+                                    Update the deadline for this allocation list
+                                    only. QA and modeler assignments for other
+                                    lists stay unchanged.
+                                  </p>
+                                </div>
+                                <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                                  <Popover>
+                                    <PopoverTrigger asChild>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-8 px-3 text-xs sm:text-sm"
+                                        onClick={(event) =>
+                                          event.stopPropagation()
+                                        }
+                                      >
+                                        <CalendarIcon className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+                                        {draftDeadline
+                                          ? format(
+                                              new Date(draftDeadline),
+                                              "PPP"
+                                            )
+                                          : "Select deadline"}
+                                      </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent
+                                      className="w-auto p-0"
+                                      align="start"
+                                    >
+                                      <Calendar
+                                        mode="single"
+                                        selected={
+                                          draftDeadline
+                                            ? new Date(draftDeadline)
+                                            : undefined
+                                        }
+                                        onSelect={(date) => {
+                                          handleListDeadlineSelect(
+                                            list.id,
+                                            date || undefined
+                                          );
+                                        }}
+                                        initialFocus
+                                      />
+                                    </PopoverContent>
+                                  </Popover>
+                                  <Button
+                                    size="sm"
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      handleSaveListDeadline(list);
+                                    }}
+                                    disabled={
+                                      isSavingDeadline || !hasDeadlineChanged
+                                    }
+                                    className="text-xs sm:text-sm h-8 px-3 whitespace-nowrap"
+                                  >
+                                    {isSavingDeadline ? "Saving..." : "Save"}
+                                  </Button>
+                                </div>
+                              </div>
+                              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                                <div className="space-y-2">
+                                  <div className="flex items-center gap-2">
+                                    <p className="text-sm font-medium text-foreground">
+                                      List QA Override
+                                    </p>
+                                    <Badge
+                                      variant="outline"
+                                      className="text-[11px]"
+                                    >
+                                      Optional
+                                    </Badge>
+                                  </div>
+                                  {listOverrides.length > 0 ? (
+                                    <div className="flex flex-wrap gap-2">
+                                      {listOverrides.map((qa) => (
+                                        <Badge
+                                          key={`${list.id}-${qa.id}`}
+                                          variant="outline"
+                                          className="flex items-center gap-1.5 text-xs px-2.5 py-1 bg-blue-50 text-blue-700 border-blue-200"
+                                        >
+                                          <span>
+                                            {qa.title?.trim() ||
+                                              qa.email ||
+                                              "QA"}
+                                          </span>
+                                          <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            disabled={isListLoading}
+                                            onClick={(event) => {
+                                              event.stopPropagation();
+                                              handleRemoveListQA(list);
+                                            }}
+                                            className="h-4 w-4 p-0 text-destructive hover:text-destructive"
+                                            title="Remove QA override"
+                                          >
+                                            <X className="h-3 w-3" />
+                                          </Button>
+                                        </Badge>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <p className="text-xs text-muted-foreground">
+                                      No override set. The modeler&apos;s
+                                      default QA will be used.
+                                    </p>
+                                  )}
+                                </div>
+                                <div className="flex w-full sm:w-auto gap-2">
+                                  <Select
+                                    value={selectedListQA}
+                                    onValueChange={(value) =>
+                                      setSelectedQAForLists((prev) => ({
+                                        ...prev,
+                                        [list.id]: value,
+                                      }))
+                                    }
+                                    disabled={
+                                      isListLoading || availableQAs.length === 0
+                                    }
+                                  >
+                                    <SelectTrigger className="h-8 text-xs sm:text-sm w-full sm:w-48">
+                                      <SelectValue placeholder="Select QA" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {availableQAs.length === 0 ? (
+                                        <SelectItem value="" disabled>
+                                          No QA users available
+                                        </SelectItem>
+                                      ) : (
+                                        availableQAs.map((qa) => (
+                                          <SelectItem key={qa.id} value={qa.id}>
+                                            {qa.title?.trim() ||
+                                              qa.email ||
+                                              "QA"}
+                                          </SelectItem>
+                                        ))
+                                      )}
+                                    </SelectContent>
+                                  </Select>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      handleAssignQAForList(list);
+                                    }}
+                                    disabled={
+                                      isListLoading ||
+                                      !selectedListQA ||
+                                      availableQAs.length === 0
+                                    }
+                                    className="text-xs sm:text-sm h-8 px-3 whitespace-nowrap"
+                                  >
+                                    {isListLoading ? "Saving..." : "Assign QA"}
+                                  </Button>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })()}
                         <div className="overflow-x-auto">
                           <Table>
                             <TableHeader>
@@ -4685,7 +5561,22 @@ export default function AdminReviewPage() {
                                         : isParent
                                           ? "bg-amber-50/30 dark:bg-amber-950/10 border-l-2 border-l-black-400 dark:border-l-amber-600 border-t-4 border-t-amber-500 dark:border-t-amber-600"
                                           : ""
+                                    } ${
+                                      activeAssetRowId ===
+                                      String(asset?.id ?? assignment.asset_id)
+                                        ? "highlighted-status"
+                                        : ""
                                     }`}
+                                    onMouseDownCapture={() =>
+                                      setActiveAssetRowId(
+                                        String(asset?.id ?? assignment.asset_id)
+                                      )
+                                    }
+                                    onFocusCapture={() =>
+                                      setActiveAssetRowId(
+                                        String(asset?.id ?? assignment.asset_id)
+                                      )
+                                    }
                                   >
                                     <TableCell className="text-left">
                                       <Checkbox
@@ -4989,12 +5880,12 @@ export default function AdminReviewPage() {
                                           </span>
                                           <span className="sm:hidden"> </span>
                                           {(() => {
-                                            const allRefs = parseReferences(
-                                              assignment.onboarding_assets
-                                                .reference
-                                            );
+                                            const visibleRefs =
+                                              getVisibleReferences(
+                                                assignment.onboarding_assets
+                                              );
                                             return (
-                                              allRefs.length +
+                                              visibleRefs.length +
                                               (assignment.onboarding_assets
                                                 .glb_link
                                                 ? 1
@@ -5235,9 +6126,19 @@ export default function AdminReviewPage() {
                           isVariation
                             ? "bg-slate-50/50 dark:bg-slate-900/20 border-l-2 border-l-slate-300 dark:border-l-slate-600"
                             : isParent
-                              ? "bg-amber-50/30 dark:bg-amber-950/10 border-l-2 border-l-amber-400 dark:border-l-amber-600"
+                              ? "bg-amber-50/30 dark:bg-amber-950/10 border-l-2 border-l-black-400 dark:border-l-amber-600 border-t-4 border-t-amber-500 dark:border-t-amber-600"
                               : ""
-                        } ${draggedAssetId === asset.id ? "opacity-50 scale-105" : ""}`}
+                        } ${
+                          activeAssetRowId === String(asset.id)
+                            ? "highlighted-status"
+                            : ""
+                        }`}
+                        onMouseDownCapture={() =>
+                          setActiveAssetRowId(String(asset.id))
+                        }
+                        onFocusCapture={() =>
+                          setActiveAssetRowId(String(asset.id))
+                        }
                         onDragOver={handleDragOver}
                         onDragLeave={handleDragLeave}
                         onDrop={(e) => handleDrop(e, asset.id)}
@@ -5483,11 +6384,9 @@ export default function AdminReviewPage() {
                               <span className="hidden sm:inline">Ref (</span>
                               <span className="sm:hidden">(</span>
                               {(() => {
-                                const allRefs = parseReferences(
-                                  asset.reference
-                                );
+                                const visibleRefs = getVisibleReferences(asset);
                                 return (
-                                  allRefs.length + (asset.glb_link ? 1 : 0)
+                                  visibleRefs.length + (asset.glb_link ? 1 : 0)
                                 );
                               })()}
                               <span className="hidden sm:inline">)</span>
@@ -5862,7 +6761,7 @@ export default function AdminReviewPage() {
                     </TableRow>
                   ) : (
                     (dragPreview.length > 0 ? dragPreview : paged).map(
-                      (asset, index) => {
+                      (asset) => {
                         const isVariation = asset.is_variation === true;
                         const isParent = paged.some(
                           (a) => a.parent_asset_id === asset.id
@@ -5889,31 +6788,19 @@ export default function AdminReviewPage() {
                               isVariation
                                 ? "bg-slate-50/50 dark:bg-slate-900/20 border-l-2 border-l-slate-300 dark:border-l-slate-600"
                                 : isParent
-                                  ? "bg-amber-50/30 dark:bg-amber-950/10 border-l-2 border-l-amber-400 dark:border-l-amber-600"
+                                  ? "bg-amber-50/30 dark:bg-amber-950/10 border-l-2 border-l-black-400 dark:border-l-amber-600 border-t-4 border-t-amber-500 dark:border-t-amber-600"
                                   : ""
                             } ${
-                              draggedAssets.has(asset.id)
-                                ? "opacity-50 scale-98"
-                                : ""
-                            } ${
-                              selected.has(asset.id) && selected.size > 1
-                                ? "ring-2 ring-blue-200 bg-blue-50/50 dark:bg-blue-900/10"
-                                : ""
-                            } ${
-                              dragPreview.length > 0 &&
-                              index === dragInsertPosition
-                                ? isDraggingGroup
-                                  ? "border-t-4 border-green-500 bg-green-50/30"
-                                  : "border-t-4 border-blue-500 bg-blue-50/30"
-                                : ""
-                            } ${
-                              dragPreview.length > 0 &&
-                              draggedAssets.has(asset.id)
-                                ? isDraggingGroup
-                                  ? "bg-green-100/50 border-green-300"
-                                  : "bg-blue-100/50 border-blue-300"
+                              activeAssetRowId === String(asset.id)
+                                ? "highlighted-status"
                                 : ""
                             }`}
+                            onMouseDownCapture={() =>
+                              setActiveAssetRowId(String(asset.id))
+                            }
+                            onFocusCapture={() =>
+                              setActiveAssetRowId(String(asset.id))
+                            }
                             onDragOver={handleDragOver}
                             onDragLeave={handleDragLeave}
                             onDrop={(e) => handleDrop(e, asset.id)}
@@ -5988,18 +6875,28 @@ export default function AdminReviewPage() {
                                   {isParent && !isVariation && (
                                     <Package className="h-3 w-3 text-amber-600 dark:text-amber-500 flex-shrink-0" />
                                   )}
-                                  <span
-                                    className={`font-medium truncate cursor-help text-sm sm:text-base min-w-0 ${
-                                      isVariation
-                                        ? "text-slate-600 dark:text-slate-400"
-                                        : isParent
-                                          ? "text-amber-700 dark:text-amber-500"
-                                          : ""
-                                    }`}
-                                    title={asset.product_name}
-                                  >
-                                    {asset.product_name}
-                                  </span>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <span
+                                        className={` truncate cursor-help min-w-0 ${
+                                          isVariation
+                                            ? "text-slate-600 dark:text-slate-400"
+                                            : isParent
+                                              ? "text-amber-700 dark:text-amber-500"
+                                              : ""
+                                        }`}
+                                      >
+                                        {asset.product_name}
+                                      </span>
+                                    </TooltipTrigger>
+                                    <TooltipContent
+                                      side="top"
+                                      align="start"
+                                      className="max-w-sm"
+                                    >
+                                      {asset.product_name || "Unnamed asset"}
+                                    </TooltipContent>
+                                  </Tooltip>
                                   {isParent && !isVariation && (
                                     <Badge
                                       variant="outline"
@@ -6046,18 +6943,28 @@ export default function AdminReviewPage() {
                                   <Package className="h-3 w-3 text-amber-600 dark:text-amber-500 flex-shrink-0" />
                                 )}
                                 <div className="flex flex-col gap-1 min-w-0">
-                                  <span
-                                    className={`truncate min-w-0 ${
-                                      isVariation
-                                        ? "text-slate-600 dark:text-slate-400"
-                                        : isParent
-                                          ? "text-amber-700 dark:text-amber-500"
-                                          : ""
-                                    }`}
-                                    title={articleIdsTooltip || undefined}
-                                  >
-                                    {asset.article_id}
-                                  </span>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <span
+                                        className={`truncate min-w-0 ${
+                                          isVariation
+                                            ? "text-slate-600 dark:text-slate-400"
+                                            : isParent
+                                              ? "text-amber-700 dark:text-amber-500"
+                                              : ""
+                                        }`}
+                                      >
+                                        {asset.article_id}
+                                      </span>
+                                    </TooltipTrigger>
+                                    <TooltipContent
+                                      side="top"
+                                      align="start"
+                                      className="max-w-sm"
+                                    >
+                                      {articleIdsTooltip || asset.article_id}
+                                    </TooltipContent>
+                                  </Tooltip>
                                   {additionalArticleIds.length > 0 && (
                                     <div className="flex flex-wrap gap-1">
                                       {additionalArticleIds.map((id) => (
@@ -6201,11 +7108,11 @@ export default function AdminReviewPage() {
                                   </span>
                                   <span className="sm:hidden">(</span>
                                   {(() => {
-                                    const allRefs = parseReferences(
-                                      asset.reference
-                                    );
+                                    const visibleRefs =
+                                      getVisibleReferences(asset);
                                     return (
-                                      allRefs.length + (asset.glb_link ? 1 : 0)
+                                      visibleRefs.length +
+                                      (asset.glb_link ? 1 : 0)
                                     );
                                   })()}
                                   <span className="hidden sm:inline">)</span>

@@ -20,6 +20,7 @@ import {
   Link2,
   Edit,
   Save,
+  Copy,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -64,26 +65,78 @@ const parseMeasurements = (
   return null;
 };
 
-// Helper function to parse references
-const parseReferences = (
-  referenceImages: string[] | string | null
-): string[] => {
-  if (!referenceImages) return [];
-  if (Array.isArray(referenceImages)) return referenceImages;
+const parseStoredReferences = (raw: unknown): string[] => {
+  if (!raw) return [];
 
-  // Check if it's a string with ||| separator
-  if (typeof referenceImages === "string" && referenceImages.includes("|||")) {
-    return referenceImages
-      .split("|||")
-      .map((ref) => ref.trim())
+  if (Array.isArray(raw)) {
+    return raw
+      .map((item) => (typeof item === "string" ? item.trim() : ""))
       .filter(Boolean);
   }
 
-  try {
-    return JSON.parse(referenceImages);
-  } catch {
-    return [referenceImages];
+  if (typeof raw === "string") {
+    const trimmed = raw.trim();
+    if (!trimmed) return [];
+
+    if (trimmed.includes("|||")) {
+      return trimmed
+        .split("|||")
+        .map((part) => part.trim())
+        .filter(Boolean);
+    }
+
+    if (
+      (trimmed.startsWith("[") && trimmed.endsWith("]")) ||
+      trimmed.startsWith('"')
+    ) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) {
+          return parsed
+            .map((item) => (typeof item === "string" ? item.trim() : ""))
+            .filter(Boolean);
+        }
+      } catch {
+        // Ignore parse error and treat as single value
+      }
+    }
+
+    return [trimmed];
   }
+
+  return [];
+};
+
+const categorizeReferences = (references: string[]): Categories => {
+  const buckets: Categories = {
+    glb: [],
+    images: [],
+    documents: [],
+    other: [],
+  };
+
+  references.forEach((ref: string, index: number) => {
+    const extension = ref.toLowerCase().split(".").pop() || "";
+    const fileName = ref.split("/").pop() || `Reference ${index + 1}`;
+
+    if (extension === "glb" || extension === "gltf") {
+      buckets.glb.push({
+        url: ref,
+        name: fileName,
+        isDirect: false,
+      });
+    } else if (
+      ["jpg", "jpeg", "png", "gif", "webp", "svg"].includes(extension)
+    ) {
+      buckets.images.push({ url: ref, name: fileName });
+    } else if (["pdf", "doc", "docx", "txt", "rtf"].includes(extension)) {
+      buckets.documents.push({ url: ref, name: fileName });
+    } else {
+      buckets.other.push({ url: ref, name: fileName });
+    }
+  });
+
+  return buckets;
 };
 
 export function ViewReferencesDialog({
@@ -101,9 +154,26 @@ export function ViewReferencesDialog({
   const [isSavingMeasurements, setIsSavingMeasurements] = useState(false);
   const user = useUser();
   const isModeler = user?.metadata?.role === "modeler";
+  const isClient =
+    (user?.metadata?.role || "").toString().toLowerCase() === "client";
+
+  const openInNewTab = (url: string) => {
+    if (!url) return;
+    window.open(url, "_blank", "noopener,noreferrer");
+  };
+
+  const copyToClipboard = async (value: string, label = "Link copied") => {
+    try {
+      await navigator.clipboard.writeText(value);
+      toast.success(label);
+    } catch (error) {
+      console.error("Failed to copy to clipboard:", error);
+      toast.error("Unable to copy link");
+    }
+  };
 
   // Get all files (GLB + references + temporary references)
-  const allReferences = asset ? parseReferences(asset.reference) : [];
+  const allReferences = parseStoredReferences(asset?.reference);
   const hasDirectGlb = asset?.glb_link;
 
   // Combine database references with temporary references
@@ -118,6 +188,10 @@ export function ViewReferencesDialog({
 
   // Get measurements if available
   const measurements = asset ? parseMeasurements(asset.measurements) : null;
+
+  const internalReferences = !isClient
+    ? parseStoredReferences(asset?.internal_reference)
+    : [];
 
   // Categorize files
   const categories: Categories = {
@@ -176,6 +250,12 @@ export function ViewReferencesDialog({
   });
 
   const hasAnyFiles = Object.values(categories).some((cat) => cat.length > 0);
+  const internalCategories = !isClient
+    ? categorizeReferences(internalReferences)
+    : { glb: [], images: [], documents: [], other: [] };
+  const hasInternalFiles = !isClient
+    ? Object.values(internalCategories).some((cat) => cat.length > 0)
+    : false;
 
   // Function to handle editing measurements
   const handleEditMeasurements = () => {
@@ -302,6 +382,26 @@ export function ViewReferencesDialog({
         ...file,
         type: "other",
       })),
+      ...(!isClient
+        ? [
+            ...internalCategories.glb.map((file) => ({
+              ...file,
+              type: "glb",
+            })),
+            ...internalCategories.images.map((file) => ({
+              ...file,
+              type: "image",
+            })),
+            ...internalCategories.documents.map((file) => ({
+              ...file,
+              type: "document",
+            })),
+            ...internalCategories.other.map((file) => ({
+              ...file,
+              type: "other",
+            })),
+          ]
+        : []),
     ];
 
     for (const file of allFiles) {
@@ -403,7 +503,8 @@ export function ViewReferencesDialog({
       toast.success(`Downloaded ${file.name} successfully!`);
     } catch (error) {
       console.error(`Failed to download ${file.name}:`, error);
-      toast.error(`Failed to download ${file.name}`);
+      toast.warning("Download failed, opening link instead…");
+      openInNewTab(file.url);
     }
   };
 
@@ -461,6 +562,296 @@ export function ViewReferencesDialog({
       </Dialog>
     );
   }
+
+  const renderReferenceSection = (
+    sectionTitle: string,
+    sectionDescription: string,
+    sectionCategories: Categories,
+    options?: { badgeVariant?: "secondary" | "outline"; highlight?: boolean }
+  ) => {
+    const badgeVariant = options?.badgeVariant ?? "secondary";
+    const highlight = options?.highlight ?? false;
+
+    return (
+      <div className="space-y-4 sm:space-y-6">
+        {sectionCategories.glb.length > 0 && (
+          <div className="space-y-2 sm:space-y-3">
+            <div className="flex items-center gap-2">
+              <Package
+                className={`h-4 w-4 sm:h-5 sm:w-5 ${highlight ? "text-orange-500" : "text-primary"}`}
+              />
+              <h3 className="font-semibold text-foreground text-sm sm:text-base">
+                {sectionTitle} – 3D Models (GLB)
+              </h3>
+              <Badge variant={badgeVariant} className="text-xs">
+                {sectionCategories.glb.length}
+              </Badge>
+            </div>
+            <div className="space-y-2">
+              {sectionCategories.glb.map((file, index) => (
+                <div
+                  key={`section-glb-${file.url}-${index}`}
+                  className="flex flex-col sm:flex-row sm:items-start sm:justify-between p-2 sm:p-3 border rounded-lg dark:border-border dark:bg-muted/10 gap-3"
+                >
+                  <div className="flex items-start gap-2 sm:gap-3 min-w-0 flex-1">
+                    <Package
+                      className={`h-3 w-3 sm:h-4 sm:w-4 ${highlight ? "text-orange-500" : "text-primary"} flex-shrink-0 mt-0.5`}
+                    />
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <p className="text-xs sm:text-sm font-medium dark:text-foreground">
+                        {file.name}
+                      </p>
+                      <p className="text-xs text-muted-foreground dark:text-muted-foreground break-all select-text">
+                        {file.url}
+                      </p>
+                      <div className="flex gap-1 mt-1 flex-wrap">
+                        {file.isDirect && (
+                          <Badge variant="outline" className="text-xs">
+                            Primary Model
+                          </Badge>
+                        )}
+                        {file.url.startsWith("blob:") && (
+                          <Badge variant="secondary" className="text-xs">
+                            Temporary
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap sm:flex-col sm:items-end gap-1.5">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => downloadGlbFile(file)}
+                      className="text-[11px] flex-shrink-0 dark:border-border dark:hover:bg-muted/50 h-6 sm:h-7 px-2 sm:px-3"
+                    >
+                      <Download className="h-3 w-3 mr-1" />
+                      Download
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => openInNewTab(file.url)}
+                      className="text-[11px] flex-shrink-0 h-6 sm:h-7 px-2 sm:px-3"
+                    >
+                      <ExternalLink className="h-3 w-3 mr-1" />
+                      Open Link
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => copyToClipboard(file.url)}
+                      className="text-[11px] flex-shrink-0 h-6 sm:h-7 px-2 sm:px-3"
+                    >
+                      <Copy className="h-3 w-3 mr-1" />
+                      Copy Link
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {sectionCategories.images.length > 0 && (
+          <div className="space-y-2 sm:space-y-3">
+            <div className="flex items-center gap-2">
+              <ImageIcon
+                className={`h-4 w-4 sm:h-5 sm:w-5 ${highlight ? "text-orange-500" : "text-blue-500"}`}
+              />
+              <h3 className="font-semibold text-foreground text-sm sm:text-base">
+                {sectionTitle} – Reference Images
+              </h3>
+              <Badge variant={badgeVariant} className="text-xs">
+                {sectionCategories.images.length}
+              </Badge>
+            </div>
+            <div className="space-y-2">
+              {sectionCategories.images.map((file, index) => (
+                <div
+                  key={`section-img-${file.url}-${index}`}
+                  className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-2 sm:p-3 border rounded-lg dark:border-border dark:bg-muted/10 gap-2 sm:gap-0"
+                >
+                  <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                    <div className="w-12 h-12 sm:w-16 sm:h-16 bg-muted rounded-lg border border-border flex items-center justify-center overflow-hidden flex-shrink-0">
+                      <Image
+                        width={64}
+                        height={64}
+                        src={file.url}
+                        alt={file.name}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.style.display = "none";
+                          const fallback =
+                            target.nextElementSibling as HTMLElement;
+                          if (fallback) fallback.style.display = "flex";
+                        }}
+                      />
+                      <div className="hidden w-full h-full items-center justify-center bg-muted">
+                        <ImageIcon className="h-4 w-4 sm:h-6 sm:w-6 text-muted-foreground" />
+                      </div>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs sm:text-sm font-medium truncate dark:text-foreground">
+                        {file.name}
+                      </p>
+                      {file.url.startsWith("blob:") && (
+                        <Badge variant="secondary" className="text-xs mt-1">
+                          Temporary
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => window.open(file.url, "_blank")}
+                    className="text-xs flex-shrink-0 dark:border-border dark:hover:bg-muted/50 h-7 sm:h-8 w-full sm:w-auto"
+                  >
+                    <ExternalLink className="h-3 w-3 mr-1" />
+                    View
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {sectionCategories.documents.length > 0 && (
+          <div className="space-y-2 sm:space-y-3">
+            <div className="flex items-center gap-2">
+              <FileText
+                className={`h-4 w-4 sm:h-5 sm:w-5 ${highlight ? "text-orange-500" : "text-green-500"}`}
+              />
+              <h3 className="font-semibold text-foreground text-sm sm:text-base">
+                {sectionTitle} – Documents
+              </h3>
+              <Badge variant={badgeVariant} className="text-xs">
+                {sectionCategories.documents.length}
+              </Badge>
+            </div>
+            <div className="space-y-2">
+              {sectionCategories.documents.map((file, index) => (
+                <div
+                  key={`section-doc-${file.url}-${index}`}
+                  className="flex flex-col sm:flex-row sm:items-start sm:justify-between p-2 sm:p-3 border rounded-lg dark:border-border dark:bg-muted/10 gap-3"
+                >
+                  <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                    <FileText
+                      className={`h-3 w-3 sm:h-4 sm:w-4 ${highlight ? "text-orange-500" : "text-green-500"} flex-shrink-0`}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs sm:text-sm font-medium dark:text-foreground">
+                        {file.name}
+                      </p>
+                      <p className="text-xs text-muted-foreground dark:text-muted-foreground break-all select-text">
+                        {file.url}
+                      </p>
+                      {file.url.startsWith("blob:") && (
+                        <Badge variant="secondary" className="text-xs mt-1">
+                          Temporary
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap sm:flex-col sm:items-end gap-1.5">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => openInNewTab(file.url)}
+                      className="text-[11px] flex-shrink-0 dark:border-border dark:hover:bg-muted/50 h-6 sm:h-7 px-2 sm:px-3"
+                    >
+                      <ExternalLink className="h-3 w-3 mr-1" />
+                      Open
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => copyToClipboard(file.url)}
+                      className="text-[11px] flex-shrink-0 h-6 sm:h-7 px-2 sm:px-3"
+                    >
+                      <Copy className="h-3 w-3 mr-1" />
+                      Copy Link
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {sectionCategories.other.length > 0 && (
+          <div className="space-y-2 sm:space-y-3">
+            <div className="flex items-center gap-2">
+              <Link2
+                className={`h-4 w-4 sm:h-5 sm:w-5 ${highlight ? "text-orange-500" : "text-orange-500"}`}
+              />
+              <h3 className="font-semibold text-foreground text-sm sm:text-base">
+                {sectionTitle} – External Links
+              </h3>
+              <Badge variant={badgeVariant} className="text-xs">
+                {sectionCategories.other.length}
+              </Badge>
+            </div>
+            <div className="space-y-2">
+              {sectionCategories.other.map((file, index) => (
+                <div
+                  key={`section-other-${file.url}-${index}`}
+                  className="flex flex-col sm:flex-row sm:items-start sm:justify-between p-2 sm:p-3 border rounded-lg dark:border-border dark:bg-muted/10 gap-3"
+                >
+                  <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                    <Link2
+                      className={`h-3 w-3 sm:h-4 sm:w-4 ${highlight ? "text-orange-500" : "text-orange-500"} flex-shrink-0`}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs sm:text-sm font-medium dark:text-foreground">
+                        {file.name}
+                      </p>
+                      <p className="text-xs text-muted-foreground dark:text-muted-foreground break-all select-text">
+                        {file.url}
+                      </p>
+                      {file.url.startsWith("blob:") && (
+                        <Badge variant="secondary" className="text-xs mt-1">
+                          Temporary
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap sm:flex-col sm:items-end gap-1.5">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => openInNewTab(file.url)}
+                      className="text-[11px] flex-shrink-0 dark:border-border dark:hover:bg-muted/50 h-6 sm:h-7 px-2 sm:px-3"
+                    >
+                      <ExternalLink className="h-3 w-3 mr-1" />
+                      Open
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => copyToClipboard(file.url)}
+                      className="text-[11px] flex-shrink-0 h-6 sm:h-7 px-2 sm:px-3"
+                    >
+                      <Copy className="h-3 w-3 mr-1" />
+                      Copy Link
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {sectionDescription && (
+          <p className="text-[11px] sm:text-xs text-muted-foreground dark:text-muted-foreground">
+            {sectionDescription}
+          </p>
+        )}
+      </div>
+    );
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -673,222 +1064,39 @@ export function ViewReferencesDialog({
             </Button>
           </div>
 
-          {/* GLB Files Section */}
-          {categories.glb.length > 0 && (
-            <div className="space-y-2 sm:space-y-3">
-              <div className="flex items-center gap-2">
-                <Package className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
-                <h3 className="font-semibold text-foreground text-sm sm:text-base">
-                  3D Models (GLB)
-                </h3>
-                <Badge variant="secondary" className="text-xs">
-                  {categories.glb.length}
-                </Badge>
-              </div>
-              <div className="space-y-2">
-                {categories.glb.map((file, index) => (
-                  <div
-                    key={`glb-${index}`}
-                    className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-2 sm:p-3 border rounded-lg dark:border-border dark:bg-muted/10 gap-2 sm:gap-0"
-                  >
-                    <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-                      <Package className="h-3 w-3 sm:h-4 sm:w-4 text-primary flex-shrink-0" />
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs sm:text-sm font-medium truncate dark:text-foreground">
-                          {file.name}
-                        </p>
-                        <p className="text-xs text-muted-foreground dark:text-muted-foreground truncate">
-                          {file.url}
-                        </p>
-                        <div className="flex gap-1 mt-1">
-                          {file.isDirect && (
-                            <Badge variant="outline" className="text-xs">
-                              Primary Model
-                            </Badge>
-                          )}
-                          {file.url.startsWith("blob:") && (
-                            <Badge variant="secondary" className="text-xs">
-                              Temporary
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => downloadGlbFile(file)}
-                      className="text-xs flex-shrink-0 dark:border-border dark:hover:bg-muted/50 h-7 sm:h-8 w-full sm:w-auto"
-                    >
-                      <Download className="h-3 w-3 mr-1" />
-                      Download
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            </div>
+          {renderReferenceSection(
+            "Client References",
+            "Visible to clients and internal users.",
+            categories
           )}
 
-          {/* Images Section */}
-          {categories.images.length > 0 && (
-            <div className="space-y-2 sm:space-y-3">
-              <div className="flex items-center gap-2">
-                <ImageIcon className="h-4 w-4 sm:h-5 sm:w-5 text-blue-500" />
-                <h3 className="font-semibold text-foreground text-sm sm:text-base">
-                  Reference Images
-                </h3>
+          {!isClient && hasInternalFiles && (
+            <div className="rounded-lg border border-dashed border-orange-400/60 bg-orange-50/40 dark:bg-orange-500/5 p-3 sm:p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm sm:text-base font-semibold text-orange-800 dark:text-orange-200">
+                    Internal References (Hidden from clients)
+                  </h3>
+                  <p className="text-[11px] sm:text-xs text-orange-700/80 dark:text-orange-200/80">
+                    Only Charpstar staff can view these files. Use for previous
+                    builds or sensitive customer assets.
+                  </p>
+                </div>
                 <Badge variant="secondary" className="text-xs">
-                  {categories.images.length}
+                  {Object.values(internalCategories).reduce(
+                    (sum, bucket) => sum + bucket.length,
+                    0
+                  )}{" "}
+                  total
                 </Badge>
               </div>
-              <div className="space-y-2">
-                {categories.images.map((file, index) => (
-                  <div
-                    key={`img-${index}`}
-                    className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-2 sm:p-3 border rounded-lg dark:border-border dark:bg-muted/10 gap-2 sm:gap-0"
-                  >
-                    <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-                      {/* Image Preview */}
-                      <div className="w-12 h-12 sm:w-16 sm:h-16 bg-muted rounded-lg border border-border flex items-center justify-center overflow-hidden flex-shrink-0">
-                        <Image
-                          width={64}
-                          height={64}
-                          src={file.url}
-                          alt={file.name}
-                          className="w-full h-full object-cover"
-                          onError={(e) => {
-                            const target = e.target as HTMLImageElement;
-                            target.style.display = "none";
-                            const fallback =
-                              target.nextElementSibling as HTMLElement;
-                            if (fallback) fallback.style.display = "flex";
-                          }}
-                        />
-                        <div className="hidden w-full h-full items-center justify-center bg-muted">
-                          <ImageIcon className="h-4 w-4 sm:h-6 sm:w-6 text-muted-foreground" />
-                        </div>
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs sm:text-sm font-medium truncate dark:text-foreground">
-                          {file.name}
-                        </p>
-                        {file.url.startsWith("blob:") && (
-                          <Badge variant="secondary" className="text-xs mt-1">
-                            Temporary
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => window.open(file.url, "_blank")}
-                      className="text-xs flex-shrink-0 dark:border-border dark:hover:bg-muted/50 h-7 sm:h-8 w-full sm:w-auto"
-                    >
-                      <ExternalLink className="h-3 w-3 mr-1" />
-                      View
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
 
-          {/* Documents Section */}
-          {categories.documents.length > 0 && (
-            <div className="space-y-2 sm:space-y-3">
-              <div className="flex items-center gap-2">
-                <FileText className="h-4 w-4 sm:h-5 sm:w-5 text-green-500" />
-                <h3 className="font-semibold text-foreground text-sm sm:text-base">
-                  Documents
-                </h3>
-                <Badge variant="secondary" className="text-xs">
-                  {categories.documents.length}
-                </Badge>
-              </div>
-              <div className="space-y-2">
-                {categories.documents.map((file, index) => (
-                  <div
-                    key={`doc-${index}`}
-                    className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-2 sm:p-3 border rounded-lg dark:border-border dark:bg-muted/10 gap-2 sm:gap-0"
-                  >
-                    <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-                      <FileText className="h-3 w-3 sm:h-4 sm:w-4 text-green-500 flex-shrink-0" />
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs sm:text-sm font-medium truncate dark:text-foreground">
-                          {file.name}
-                        </p>
-                        <p className="text-xs text-muted-foreground dark:text-muted-foreground truncate">
-                          {file.url}
-                        </p>
-                        {file.url.startsWith("blob:") && (
-                          <Badge variant="secondary" className="text-xs mt-1">
-                            Temporary
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => window.open(file.url, "_blank")}
-                      className="text-xs flex-shrink-0 dark:border-border dark:hover:bg-muted/50 h-7 sm:h-8 w-full sm:w-auto"
-                    >
-                      <ExternalLink className="h-3 w-3 mr-1" />
-                      Open
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Other Files Section */}
-          {categories.other.length > 0 && (
-            <div className="space-y-2 sm:space-y-3">
-              <div className="flex items-center gap-2">
-                <Link2 className="h-4 w-4 sm:h-5 sm:w-5 text-orange-500" />
-                <h3 className="font-semibold text-foreground text-sm sm:text-base">
-                  External Links
-                </h3>
-                <Badge variant="secondary" className="text-xs">
-                  {categories.other.length}
-                </Badge>
-              </div>
-              <div className="space-y-2">
-                {categories.other.map((file, index) => (
-                  <div
-                    key={`other-${index}`}
-                    className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-2 sm:p-3 border rounded-lg dark:border-border dark:bg-muted/10 gap-2 sm:gap-0"
-                  >
-                    <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-                      <Link2 className="h-3 w-3 sm:h-4 sm:w-4 text-orange-500 flex-shrink-0" />
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs sm:text-sm font-medium truncate dark:text-foreground">
-                          {file.name}
-                        </p>
-                        <p className="text-xs text-muted-foreground dark:text-muted-foreground truncate">
-                          {file.url}
-                        </p>
-                        {file.url.startsWith("blob:") && (
-                          <Badge variant="secondary" className="text-xs mt-1">
-                            Temporary
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => window.open(file.url, "_blank")}
-                      className="text-xs flex-shrink-0 dark:border-border dark:hover:bg-muted/50 h-7 sm:h-8 w-full sm:w-auto"
-                    >
-                      <ExternalLink className="h-3 w-3 mr-1" />
-                      Open
-                    </Button>
-                  </div>
-                ))}
-              </div>
+              {renderReferenceSection(
+                "Internal",
+                "These references remain private to the Charpstar team.",
+                internalCategories,
+                { badgeVariant: "outline", highlight: true }
+              )}
             </div>
           )}
         </div>

@@ -69,7 +69,8 @@ interface QAAsset {
   revision_count: number;
   glb_link: string | null;
   product_link: string | null;
-  reference: string[] | null;
+  reference: string[] | string | null;
+  internal_reference?: string[] | string | null;
   measurements?: any;
   qa_team_handles_model?: boolean;
   pricing_option_id?: string;
@@ -91,6 +92,13 @@ export default function QABatchDetailPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const user = useUser();
+  const normalizedRole = (
+    (user?.metadata?.role ?? user?.role) as string | undefined
+  )
+    ?.toString()
+    .toLowerCase();
+  const isClient = normalizedRole === "client";
+  const includeInternalRefs = !isClient;
   const { startLoading, stopLoading } = useLoadingState();
 
   const client = decodeURIComponent(params.client as string);
@@ -162,6 +170,7 @@ export default function QABatchDetailPage() {
           glb_link,
           product_link,
           reference,
+          internal_reference,
           measurements,
           qa_team_handles_model,
           pricing_option_id
@@ -387,7 +396,7 @@ export default function QABatchDetailPage() {
       }
 
       // Check if file is too large for regular upload
-      const isLargeFile = file.size > 4.5 * 1024 * 1024; // 4.5MB
+      const isLargeFile = file.size > 3.5 * 1024 * 1024; // 3.5MB safety threshold (Vercel limit is ~4MB)
       let result: any;
 
       if (isLargeFile) {
@@ -553,8 +562,34 @@ export default function QABatchDetailPage() {
     return [];
   };
 
-  const separateReferences = (referenceImages: string[] | string | null) => {
-    const allReferences = parseReferences(referenceImages);
+  const getVisibleReferences = (
+    asset:
+      | {
+          reference?: string[] | string | null;
+          internal_reference?: string[] | string | null;
+        }
+      | null
+      | undefined
+  ): string[] => {
+    if (!asset) return [];
+    const clientRefs = parseReferences(asset.reference ?? null);
+    if (!includeInternalRefs) {
+      return clientRefs;
+    }
+    const internalRefs = parseReferences(asset.internal_reference ?? null);
+    return [...clientRefs, ...internalRefs];
+  };
+
+  const separateReferences = (
+    asset:
+      | {
+          reference?: string[] | string | null;
+          internal_reference?: string[] | string | null;
+        }
+      | null
+      | undefined
+  ) => {
+    const allReferences = getVisibleReferences(asset);
     const glbFiles = allReferences.filter((ref) =>
       ref.toLowerCase().endsWith(".glb")
     );
@@ -878,11 +913,14 @@ export default function QABatchDetailPage() {
                         >
                           <FileText className="h-3 w-3 mr-1" />
                           Ref (
-                          {separateReferences(asset.reference || null)
-                            .imageReferences.length +
-                            separateReferences(asset.reference || null).glbFiles
-                              .length +
-                            (asset.glb_link ? 1 : 0)}
+                          {(() => {
+                            const separated = separateReferences(asset);
+                            return (
+                              separated.imageReferences.length +
+                              separated.glbFiles.length +
+                              (asset.glb_link ? 1 : 0)
+                            );
+                          })()}
                           )
                         </Button>
                       </TableCell>

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useUser } from "@/contexts/useUser";
 import { useLoadingState } from "@/hooks/useLoadingState";
@@ -237,8 +237,9 @@ interface AssignedAsset {
   category: string;
   subcategory: string;
   subcategory_missing?: boolean;
+  reference?: string[] | string | null;
+  internal_reference?: string[] | string | null;
   created_at: string;
-  reference?: string[] | null;
   price: number;
   pricing_comment?: string;
   model_updated_at?: string; // New field for GLB upload date
@@ -252,6 +253,13 @@ interface AssignedAsset {
 
 export default function QAReviewPage() {
   const user = useUser();
+  const normalizedRole = (
+    (user?.metadata?.role ?? user?.role) as string | undefined
+  )
+    ?.toString()
+    .toLowerCase();
+  const isClient = normalizedRole === "client";
+  const includeInternalRefs = !isClient;
   const router = useRouter();
   const searchParams = useSearchParams();
   const { startLoading, stopLoading } = useLoadingState();
@@ -282,6 +290,7 @@ export default function QAReviewPage() {
     "delivered_by_artist",
   ]);
   const [clients, setClients] = useState<string[]>([]);
+  const fetchAssignedAssetsRef = useRef<() => void>(() => {});
 
   // Add Ref dialog state
   const [showAddRefDialog, setShowAddRefDialog] = useState(false);
@@ -394,7 +403,7 @@ export default function QAReviewPage() {
     try {
       const { data, error } = await supabase
         .from("onboarding_assets")
-        .select("reference, glb_link, measurements")
+        .select("reference, internal_reference, glb_link, measurements")
         .eq("id", assetId)
         .single();
 
@@ -405,6 +414,7 @@ export default function QAReviewPage() {
               ? {
                   ...asset,
                   reference: data.reference,
+                  internal_reference: data.internal_reference,
                   glb_link: data.glb_link,
                   measurements: data.measurements,
                 }
@@ -460,6 +470,20 @@ export default function QAReviewPage() {
     }
   };
 
+  useEffect(() => {
+    fetchAssignedAssetsRef.current = fetchAssignedAssets;
+  });
+
+  useEffect(() => {
+    const handler = () => {
+      fetchAssignedAssetsRef.current?.();
+    };
+    window.addEventListener("qaAssetAssignmentsUpdated", handler);
+    return () => {
+      window.removeEventListener("qaAssetAssignmentsUpdated", handler);
+    };
+  }, []);
+
   const fetchRegularQAAssets = async (): Promise<AssignedAsset[]> => {
     // First, get the modelers allocated to this QA user
     const { data: qaAllocations, error: allocationError } = await supabase
@@ -486,6 +510,7 @@ export default function QAReviewPage() {
         asset_id,
         user_id,
         price,
+        allocation_list_id,
         onboarding_assets!inner(
           id,
           product_name,
@@ -503,6 +528,7 @@ export default function QAReviewPage() {
           subcategory_missing,
           created_at,
           reference,
+          internal_reference,
           pricing_comment,
           upload_order,
           measurements
@@ -524,7 +550,58 @@ export default function QAReviewPage() {
       return [];
     }
 
-    return await processAssetAssignments(assetAssignments || []);
+    const allocationListIds = Array.from(
+      new Set(
+        (assetAssignments || [])
+          .map((assignment) => assignment.allocation_list_id as string | null)
+          .filter(
+            (listId): listId is string =>
+              typeof listId === "string" && listId.length > 0
+          )
+      )
+    );
+
+    let overridesByList = new Map<string, Set<string>>();
+
+    if (allocationListIds.length > 0) {
+      const { data: overrides, error: overridesError } = await supabase
+        .from("asset_assignments")
+        .select("allocation_list_id, user_id")
+        .in("allocation_list_id", allocationListIds)
+        .eq("role", "qa")
+        .eq("is_provisional", true);
+
+      if (overridesError) {
+        console.error(
+          "Error fetching QA overrides for allocation lists:",
+          overridesError
+        );
+      } else {
+        overridesByList = new Map();
+        (overrides ?? []).forEach((entry) => {
+          const listId = entry.allocation_list_id as string | null;
+          const qaId = entry.user_id as string | null;
+          if (!listId || !qaId) return;
+          if (!overridesByList.has(listId)) {
+            overridesByList.set(listId, new Set());
+          }
+          overridesByList.get(listId)!.add(qaId);
+        });
+      }
+    }
+
+    const filteredAssignments =
+      assetAssignments?.filter((assignment) => {
+        const listId = assignment.allocation_list_id as string | null;
+        if (!listId) return true;
+        const overrideSet = overridesByList.get(listId);
+        if (!overrideSet || overrideSet.size === 0) {
+          return true;
+        }
+        return overrideSet.has(user?.id ?? "");
+      }) ?? [];
+
+    return await processAssetAssignments(filteredAssignments);
   };
 
   const fetchProvisionalQAAssets = async (): Promise<AssignedAsset[]> => {
@@ -554,6 +631,7 @@ export default function QAReviewPage() {
           subcategory_missing,
           created_at,
           reference,
+          internal_reference,
           pricing_comment,
           upload_order,
           measurements
@@ -1075,8 +1153,14 @@ export default function QAReviewPage() {
   };
 
   // Helper function to separate GLB files from reference images
-  const separateReferences = (referenceImages: string[] | string | null) => {
-    const allReferences = parseReferences(referenceImages);
+  const separateReferences = (
+    referenceImages: string[] | string | null,
+    internalReferenceImages: string[] | string | null
+  ) => {
+    const allReferences = [
+      ...parseReferences(referenceImages),
+      ...(includeInternalRefs ? parseReferences(internalReferenceImages) : []),
+    ];
     const glbFiles = allReferences.filter((ref) =>
       ref.toLowerCase().endsWith(".glb")
     );
@@ -1853,10 +1937,18 @@ export default function QAReviewPage() {
                           >
                             <FileText className="mr-1 h-3 w-3" />
                             Ref (
-                            {separateReferences(asset.reference || null)
-                              .imageReferences.length +
-                              separateReferences(asset.reference || null)
-                                .glbFiles.length}
+                            {(() => {
+                              const separated = separateReferences(
+                                asset.reference ?? null,
+                                includeInternalRefs
+                                  ? (asset.internal_reference ?? null)
+                                  : null
+                              );
+                              return (
+                                separated.imageReferences.length +
+                                separated.glbFiles.length
+                              );
+                            })()}
                             )
                           </Button>
                         </div>
@@ -2181,10 +2273,18 @@ export default function QAReviewPage() {
                       >
                         <FileText className="mr-1 h-3 w-3" />
                         Files (
-                        {separateReferences(asset.reference || null)
-                          .imageReferences.length +
-                          separateReferences(asset.reference || null).glbFiles
-                            .length}
+                        {(() => {
+                          const separated = separateReferences(
+                            asset.reference ?? null,
+                            includeInternalRefs
+                              ? (asset.internal_reference ?? null)
+                              : null
+                          );
+                          return (
+                            separated.imageReferences.length +
+                            separated.glbFiles.length
+                          );
+                        })()}
                         )
                       </Button>
                     </div>

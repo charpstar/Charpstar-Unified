@@ -313,9 +313,9 @@ export function SubcategoryEditor({
         </div>
       ) : (
         <div className="flex items-center gap-1">
-          <span className="text-xs">
+          <span className="text-xs font-medium text-foreground dark:text-foreground">
             {currentSubcategory || (
-              <span className="text-yellow-200 dark:text-yellow-400 font-medium  py-1 ">
+              <span className="text-amber-600 dark:text-amber-300">
                 No subcategory
               </span>
             )}

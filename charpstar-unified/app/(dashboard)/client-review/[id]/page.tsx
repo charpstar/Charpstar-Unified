@@ -52,6 +52,7 @@ import {
   Download,
   Star,
   FileText,
+  Copy,
 } from "lucide-react";
 import Script from "next/script";
 import { toast } from "sonner";
@@ -69,6 +70,7 @@ interface Asset {
   product_link: string;
   glb_link: string;
   pricing_comment?: string;
+  measurements?: string | null;
 }
 
 interface Annotation {
@@ -250,8 +252,9 @@ const getAdditionalArticleIds = (asset: {
 };
 
 const getArticleIdsTooltip = (articleIds: string[]): string | null => {
-  if (!articleIds || articleIds.length <= 1) return null;
-  return articleIds.join(", ");
+  if (articleIds.length <= 2) return null;
+  const extraIds = articleIds.slice(2);
+  return extraIds.join(", ");
 };
 
 // Helper function to get viewer parameters based on client viewer type
@@ -292,12 +295,165 @@ const getViewerParameters = (viewerType?: string | null) => {
   console.log("viewerType", viewerType);
 };
 
+const getViewerLabel = (viewerType?: string | null): string => {
+  switch (viewerType) {
+    case "v6_aces":
+      return "V6 ACES";
+    case "v5_tester":
+      return "V5 Tester";
+    case "synsam":
+      return "Synsam";
+    case "v2":
+      return "V2 Classic";
+    default:
+      return "Default Viewer";
+  }
+};
+
+const parseMeasurements = (
+  measurements?: string | null
+): { h: string; w: string; d: string } | null => {
+  if (!measurements) return null;
+  const parts = measurements
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean);
+  if (parts.length !== 3) return null;
+  const [h, w, d] = parts;
+  return { h, w, d };
+};
+
+const formatMeasurementValue = (value?: string): string => {
+  if (!value) return "—";
+  const trimmed = value.trim();
+  if (!trimmed) return "—";
+  const numeric = Number(trimmed);
+  if (Number.isFinite(numeric)) {
+    const rounded = Math.round(numeric * 100) / 100;
+    return `${rounded} mm`;
+  }
+  return trimmed;
+};
+
+const parseReferenceValues = (raw: unknown): string[] => {
+  if (!raw) return [];
+
+  if (Array.isArray(raw)) {
+    return raw
+      .map((item) =>
+        typeof item === "string" ? item.trim() : String(item ?? "").trim()
+      )
+      .filter(Boolean);
+  }
+
+  if (typeof raw === "string") {
+    const trimmed = raw.trim();
+    if (!trimmed) return [];
+
+    if (trimmed.includes("|||")) {
+      return trimmed
+        .split("|||")
+        .map((part) => part.trim())
+        .filter(Boolean);
+    }
+
+    if (
+      (trimmed.startsWith("[") && trimmed.endsWith("]")) ||
+      trimmed.startsWith("{")
+    ) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) {
+          return parsed
+            .map((item) =>
+              typeof item === "string" ? item.trim() : String(item ?? "").trim()
+            )
+            .filter(Boolean);
+        }
+      } catch {
+        // fall through to treat as single value
+      }
+    }
+
+    return [trimmed];
+  }
+
+  return [];
+};
+
+const getFileExtension = (url: string): string | null => {
+  const cleaned = url.split("?")[0].split("#")[0];
+  const segments = cleaned.split("/");
+  const fileName = segments[segments.length - 1] || "";
+  if (!fileName.includes(".")) return null;
+  const ext = fileName.split(".").pop();
+  return ext ? ext.toLowerCase() : null;
+};
+
+const imageExtensionSet = new Set([
+  "jpg",
+  "jpeg",
+  "png",
+  "gif",
+  "bmp",
+  "webp",
+  "svg",
+  "tiff",
+  "tif",
+  "heic",
+  "heif",
+]);
+
+const categorizeReferenceMedia = (references: string[]) => {
+  const images: string[] = [];
+  const files: string[] = [];
+
+  references.forEach((ref) => {
+    if (!ref) return;
+    const trimmed = ref.trim();
+    if (!trimmed) return;
+
+    const lower = trimmed.toLowerCase();
+    if (lower.startsWith("data:image") || lower.startsWith("blob:")) {
+      images.push(trimmed);
+      return;
+    }
+
+    const ext = getFileExtension(lower);
+    if (ext && imageExtensionSet.has(ext)) {
+      images.push(trimmed);
+      return;
+    }
+
+    files.push(trimmed);
+  });
+
+  return { images, files };
+};
+
+const extractFileName = (url: string): string => {
+  try {
+    const cleaned = decodeURIComponent(url.split("?")[0].split("#")[0]);
+    const parts = cleaned.split("/");
+    const fileName = parts[parts.length - 1] || cleaned;
+    return fileName || url;
+  } catch {
+    return url;
+  }
+};
+
 export default function ReviewPage() {
   const params = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
   const user = useUser();
   const assetId = params.id as string;
+  const normalizedUserRole = (
+    (user?.metadata?.role ?? user?.role) as string | undefined
+  )
+    ?.toString()
+    .toLowerCase();
+  const isClient = normalizedUserRole === "client";
 
   const [asset, setAsset] = useState<Asset | null>(null);
   const [annotations, setAnnotations] = useState<Annotation[]>([]);
@@ -327,6 +483,13 @@ export default function ReviewPage() {
   const [inlineEditingId, setInlineEditingId] = useState<string | null>(null);
   const [inlineEditComment, setInlineEditComment] = useState("");
   const [referenceImages, setReferenceImages] = useState<string[]>([]);
+  const [referenceFiles, setReferenceFiles] = useState<string[]>([]);
+  const [internalReferenceImages, setInternalReferenceImages] = useState<
+    string[]
+  >([]);
+  const [internalReferenceFiles, setInternalReferenceFiles] = useState<
+    string[]
+  >([]);
 
   // Notes state
   const [notes, setNotes] = useState<
@@ -379,8 +542,9 @@ export default function ReviewPage() {
   };
   const [selectedReferenceIndex, setSelectedReferenceIndex] = useState<
     number | null
-  >(0); // Always start with the first image selected
-  const [carouselIndex] = useState(0);
+  >(null);
+  const [selectedInternalReferenceIndex, setSelectedInternalReferenceIndex] =
+    useState<number | null>(null);
   const [comments, setComments] = useState<any[]>([]);
   const [rightPanelTab, setRightPanelTab] = useState<"images" | "feedback">(
     "feedback"
@@ -393,6 +557,277 @@ export default function ReviewPage() {
 
   // Keep all annotations for comment sections (including old ones for context)
   const allAnnotations = annotations;
+  const clientReferenceCount = referenceImages.length + referenceFiles.length;
+  const internalReferenceCount =
+    internalReferenceImages.length + internalReferenceFiles.length;
+  const totalReferenceCount =
+    clientReferenceCount + (isClient ? 0 : internalReferenceCount);
+
+  const handleRemoveClientImage = async (index: number) => {
+    if (!assetId) return;
+    try {
+      const updatedImages = referenceImages.filter((_, i) => i !== index);
+      const updatedReferences = [...updatedImages, ...referenceFiles];
+      const { error } = await supabase
+        .from("onboarding_assets")
+        .update({
+          reference: updatedReferences.length > 0 ? updatedReferences : null,
+        })
+        .eq("id", assetId);
+
+      if (error) {
+        console.error("Error updating reference images:", error);
+        toast.error("Failed to delete reference image");
+        return;
+      }
+
+      setReferenceImages(updatedImages);
+
+      if (updatedImages.length === 0) {
+        setSelectedReferenceIndex(null);
+      } else if (selectedReferenceIndex !== null) {
+        if (selectedReferenceIndex === index) {
+          setSelectedReferenceIndex(Math.min(index, updatedImages.length - 1));
+        } else if (selectedReferenceIndex > index) {
+          setSelectedReferenceIndex(selectedReferenceIndex - 1);
+        }
+      }
+
+      toast.success("Reference image deleted successfully");
+    } catch (error) {
+      console.error("Error deleting reference image:", error);
+      toast.error("Failed to delete reference image");
+    }
+  };
+
+  const renderReferenceSection = ({
+    title,
+    description,
+    images,
+    files,
+    selectedIndex,
+    onSelectImage,
+    onRemoveImage,
+    highlight,
+  }: {
+    title: string;
+    description?: string;
+    images: string[];
+    files: string[];
+    selectedIndex: number | null;
+    onSelectImage: (index: number) => void;
+    onRemoveImage?: (index: number) => void;
+    highlight?: boolean;
+  }) => {
+    if (images.length === 0 && files.length === 0) {
+      return null;
+    }
+
+    const safeIndex =
+      images.length > 0
+        ? Math.min(selectedIndex ?? 0, images.length - 1)
+        : null;
+    const selectedImage = safeIndex !== null ? images[safeIndex] : undefined;
+
+    return (
+      <div
+        className={`space-y-4 rounded-xl border border-border/40 bg-muted/20 px-4 py-5 sm:px-5 ${
+          highlight
+            ? "border-dashed border-orange-300/70 bg-orange-50/60 dark:border-orange-500/40 dark:bg-orange-500/5"
+            : "dark:border-border/40 dark:bg-muted/10"
+        }`}
+      >
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+          <div>
+            <h4 className="text-sm sm:text-base font-semibold text-foreground">
+              {title}
+            </h4>
+            {description && (
+              <p className="text-xs text-muted-foreground">{description}</p>
+            )}
+          </div>
+          <Badge variant="outline" className="text-xs">
+            {images.length + files.length} file
+            {images.length + files.length === 1 ? "" : "s"}
+          </Badge>
+        </div>
+
+        {selectedImage && (
+          <div className="relative">
+            <div
+              className="aspect-video bg-muted rounded-lg overflow-hidden border border-border relative cursor-pointer"
+              onMouseMove={handleImageMouseMove}
+              onMouseEnter={handleImageMouseEnter}
+              onMouseLeave={handleImageMouseLeave}
+              onWheel={handleImageWheel}
+            >
+              <Image
+                width={640}
+                height={360}
+                unoptimized
+                src={selectedImage}
+                alt={`${title} preview`}
+                className="w-full h-full object-contain transition-transform duration-200"
+                style={{
+                  transform: `scale(${zoomLevel})`,
+                  transformOrigin: isZooming
+                    ? `${mousePosition.x}% ${mousePosition.y}%`
+                    : "center",
+                }}
+                onError={(e) => {
+                  (e.currentTarget as HTMLElement).style.display = "none";
+                  (
+                    e.currentTarget.nextElementSibling as HTMLElement
+                  ).style.display = "flex";
+                }}
+              />
+              <div
+                className="absolute inset-0 hidden items-center justify-center bg-muted text-muted-foreground"
+                style={{ display: "none" }}
+              >
+                <div className="text-center">
+                  <LucideImage className="h-8 w-8 mx-auto mb-2" />
+                  Invalid image URL
+                </div>
+              </div>
+              <div className="absolute top-2 right-2 flex gap-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() =>
+                    handleImageClick(
+                      selectedImage,
+                      `${title} ${safeIndex !== null ? safeIndex + 1 : ""}`.trim()
+                    )
+                  }
+                  className="h-10 w-10 p-0 bg-black/50 text-white hover:bg-black/70 cursor-pointer"
+                >
+                  <Maximize2 className="h-3 w-3" />
+                </Button>
+              </div>
+            </div>
+            <div className="mt-2 text-xs text-muted-foreground text-center">
+              Image {safeIndex !== null ? safeIndex + 1 : 0} of {images.length}
+            </div>
+          </div>
+        )}
+
+        {images.length > 0 && (
+          <div className="space-y-2">
+            <h5 className="text-xs uppercase tracking-wide text-muted-foreground">
+              Images ({images.length})
+            </h5>
+            <div className="flex gap-2 sm:gap-3 overflow-x-auto p-1 scrollbar-hide">
+              {images.map((url, index) => {
+                const isActive = safeIndex === index;
+                return (
+                  <div
+                    key={`${url}-${index}`}
+                    className={`relative flex-shrink-0 ${
+                      isActive
+                        ? "ring-2 ring-primary/70 ring-offset-2 rounded-lg"
+                        : "hover:ring-2 hover:ring-primary/50 ring-offset-2 rounded-lg"
+                    }`}
+                    onClick={() => onSelectImage(index)}
+                  >
+                    <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden border-2 border-border/50 hover:border-primary/50 transition-all duration-200 shadow-sm hover:shadow-md">
+                      <Image
+                        width={80}
+                        height={80}
+                        unoptimized
+                        src={url}
+                        alt={`${title} ${index + 1}`}
+                        className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform duration-200"
+                        onError={(e) => {
+                          (e.currentTarget as HTMLElement).style.display =
+                            "none";
+                        }}
+                      />
+                    </div>
+                    <div className="absolute -top-1 -right-1 w-5 h-5 sm:w-6 sm:h-6 bg-primary text-white text-xs font-medium rounded-full flex items-center justify-center shadow-sm border-2 border-background">
+                      {index + 1}
+                    </div>
+                    {onRemoveImage && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onRemoveImage(index);
+                        }}
+                        className="absolute -top-1 -left-1 h-4 w-4 sm:h-5 sm:w-5 p-0 text-black/60 hover:text-black/80 hover:bg-black/5 rounded-full"
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {files.length > 0 && (
+          <div className="space-y-2">
+            <h5 className="text-xs uppercase tracking-wide text-muted-foreground">
+              Files ({files.length})
+            </h5>
+            <div className="space-y-2">
+              {files.map((fileUrl) => (
+                <div
+                  key={fileUrl}
+                  className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 rounded-lg border border-border/50 bg-muted/40 px-3 py-2"
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <FileText className="h-4 w-4 text-muted-foreground" />
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate">
+                        {extractFileName(fileUrl)}
+                      </p>
+                      <p className="text-xs text-muted-foreground break-all">
+                        {fileUrl}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 px-2 cursor-pointer"
+                      onClick={() =>
+                        window.open(fileUrl, "_blank", "noopener,noreferrer")
+                      }
+                    >
+                      Open
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 cursor-pointer"
+                      onClick={async () => {
+                        try {
+                          await navigator.clipboard.writeText(fileUrl);
+                          toast.success("Reference link copied");
+                        } catch (error) {
+                          console.error(
+                            "Failed to copy reference link:",
+                            error
+                          );
+                          toast.error("Failed to copy link");
+                        }
+                      }}
+                    >
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   const [imageZoom, setImageZoom] = useState(false);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
@@ -429,6 +864,12 @@ export default function ReviewPage() {
   const [selectedRevision, setSelectedRevision] = useState<any>(null);
 
   const modelViewerRef = useRef<any>(null);
+  //eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  //eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [modelViewerKey, setModelViewerKey] = useState(0);
+
+  const measurements = parseMeasurements(asset?.measurements ?? null);
 
   // Reply system state
   const [replyingTo, setReplyingTo] = useState<{
@@ -586,18 +1027,34 @@ export default function ReviewPage() {
         article_id: articleIds[0] || (data as any).article_id,
       });
 
-      // Fetch client's viewer type
+      // Fetch client's viewer type through service-backed API (case-insensitive)
       try {
-        const { data: clientData, error: clientError } = await supabase
-          .from("clients")
-          .select("viewer_type")
-          .eq("name", data.client)
-          .single();
+        const clientName = (data as any)?.client ?? "";
+        const clientId =
+          typeof (data as any)?.client_id === "string"
+            ? ((data as any)?.client_id as string)
+            : null;
 
-        if (!clientError && clientData) {
-          setClientViewerType(clientData.viewer_type);
+        const params = new URLSearchParams();
+        if (clientId) {
+          params.set("id", clientId);
+        } else if (clientName) {
+          params.set("name", clientName);
+        }
+
+        if (params.size > 0) {
+          const response = await fetch(
+            `/api/clients/viewer-type?${params.toString()}`,
+            { cache: "no-store" }
+          );
+
+          if (response.ok) {
+            const payload = await response.json();
+            setClientViewerType(payload.viewerType ?? null);
+          } else {
+            setClientViewerType(null);
+          }
         } else {
-          // If no client found, default to null (will use default viewer)
           setClientViewerType(null);
         }
       } catch (error) {
@@ -630,39 +1087,28 @@ export default function ReviewPage() {
 
       setRevisionCount(finalRevisionCount);
 
-      // Parse reference images
-      if (data.reference) {
-        let refs: string[] = [];
-        if (Array.isArray(data.reference)) {
-          refs = data.reference;
-        } else if (
-          typeof data.reference === "string" &&
-          data.reference.startsWith("[")
-        ) {
-          try {
-            refs = JSON.parse(data.reference);
-          } catch {
-            refs = [data.reference];
-          }
-        } else if (data.reference) {
-          refs = [data.reference];
-        }
-        // Filter to only show image files in client review
-        const imageExtensions = [
-          ".jpg",
-          ".jpeg",
-          ".png",
-          ".gif",
-          ".bmp",
-          ".webp",
-          ".svg",
-        ];
-        const imageUrls = refs.filter((url) => {
-          if (!url) return false;
-          const lowerUrl = url.toLowerCase();
-          return imageExtensions.some((ext) => lowerUrl.includes(ext));
-        });
-        setReferenceImages(imageUrls);
+      // Parse client references
+      const clientReferenceValues = parseReferenceValues(data.reference);
+      const clientMedia = categorizeReferenceMedia(clientReferenceValues);
+      setReferenceImages(clientMedia.images);
+      setReferenceFiles(clientMedia.files);
+      setSelectedReferenceIndex(clientMedia.images.length > 0 ? 0 : null);
+
+      // Parse internal references for non-client roles
+      if (!isClient) {
+        const internalReferenceValues = parseReferenceValues(
+          (data as any).internal_reference
+        );
+        const internalMedia = categorizeReferenceMedia(internalReferenceValues);
+        setInternalReferenceImages(internalMedia.images);
+        setInternalReferenceFiles(internalMedia.files);
+        setSelectedInternalReferenceIndex(
+          internalMedia.images.length > 0 ? 0 : null
+        );
+      } else {
+        setInternalReferenceImages([]);
+        setInternalReferenceFiles([]);
+        setSelectedInternalReferenceIndex(null);
       }
 
       setLoading(false);
@@ -1319,13 +1765,16 @@ export default function ReviewPage() {
 
       const uploadedUrls = await Promise.all(uploadPromises);
 
-      // Add new URLs to existing reference images
+      // Add new URLs to existing references
       const newReferenceImages = [...referenceImages, ...uploadedUrls];
+      const combinedReferences = [...newReferenceImages, ...referenceFiles];
 
       // Update the asset in the database
       const { error } = await supabase
         .from("onboarding_assets")
-        .update({ reference: newReferenceImages })
+        .update({
+          reference: combinedReferences.length > 0 ? combinedReferences : null,
+        })
         .eq("id", assetId);
 
       if (error) {
@@ -1335,7 +1784,12 @@ export default function ReviewPage() {
       }
 
       // Update local state
-      setReferenceImages(newReferenceImages);
+      const categorized = categorizeReferenceMedia(combinedReferences);
+      setReferenceImages(categorized.images);
+      setReferenceFiles(categorized.files);
+      setSelectedReferenceIndex(
+        categorized.images.length > 0 ? categorized.images.length - 1 : null
+      );
       toast.success(
         `${uploadedUrls.length} reference image(s) uploaded successfully!`
       );
@@ -1357,13 +1811,15 @@ export default function ReviewPage() {
         return;
       }
 
-      // Add new URL to existing reference images
       const newReferenceImages = [...referenceImages, referenceImageUrl.trim()];
+      const combinedReferences = [...newReferenceImages, ...referenceFiles];
 
       // Update the asset in the database
       const { error } = await supabase
         .from("onboarding_assets")
-        .update({ reference: newReferenceImages })
+        .update({
+          reference: combinedReferences.length > 0 ? combinedReferences : null,
+        })
         .eq("id", assetId);
 
       if (error) {
@@ -1373,7 +1829,12 @@ export default function ReviewPage() {
       }
 
       // Update local state
-      setReferenceImages(newReferenceImages);
+      const categorized = categorizeReferenceMedia(combinedReferences);
+      setReferenceImages(categorized.images);
+      setReferenceFiles(categorized.files);
+      setSelectedReferenceIndex(
+        categorized.images.length > 0 ? categorized.images.length - 1 : null
+      );
       setReferenceImageUrl(""); // Clear the input
       toast.success("Reference image URL added successfully!");
     } catch (error) {
@@ -3638,16 +4099,45 @@ export default function ReviewPage() {
                         <span className="sm:hidden">{notes.length}</span>
                       </Button>
                     )}
-                    <Button
-                      variant="outline"
-                      size="xxs"
-                      onClick={() => setIsApprovalHistoryDialogOpen(true)}
-                      className="cursor-pointer bg-blue-500/20 text-blue-700 hover:bg-blue-500/30 hover:text-blue-700 text-x"
-                    >
-                      <Clock className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
-                      <span className="hidden sm:inline">Status History</span>
-                      <span className="sm:hidden">History</span>
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="xxs"
+                        onClick={() => setIsApprovalHistoryDialogOpen(true)}
+                        className="cursor-pointer bg-blue-500/20 text-blue-700 hover:bg-blue-500/30 hover:text-blue-700 text-x"
+                      >
+                        <Clock className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+                        <span className="hidden sm:inline">Status History</span>
+                        <span className="sm:hidden">History</span>
+                      </Button>
+                      <Badge
+                        variant="outline"
+                        className="border-blue-200 bg-blue-50 text-blue-700 text-[10px] sm:text-xs"
+                      >
+                        Viewer:{" "}
+                        <span className="font-medium ml-1">
+                          {getViewerLabel(clientViewerType)}
+                        </span>
+                      </Badge>
+                      {asset?.product_link && (
+                        <Button
+                          variant="outline"
+                          size="xxs"
+                          onClick={() =>
+                            window.open(
+                              asset.product_link,
+                              "_blank",
+                              "noopener,noreferrer"
+                            )
+                          }
+                          className="cursor-pointer bg-green-500/15 text-green-700 hover:bg-green-500/25 hover:text-green-800 text-x"
+                        >
+                          <Eye className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+                          <span className="hidden sm:inline">Product Link</span>
+                          <span className="sm:hidden">Product</span>
+                        </Button>
+                      )}
+                    </div>
                   </div>
                   <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mt-2">
                     <div className="flex flex-wrap items-center gap-2 sm:gap-4">
@@ -3723,6 +4213,22 @@ export default function ReviewPage() {
                         Due:{" "}
                         {new Date(asset.delivery_date).toLocaleDateString()}
                       </span>
+                    )}
+                    {measurements && (
+                      <div className="flex items-center gap-2 rounded-md border border-border/40 bg-muted/40 px-2 py-1 text-xs text-muted-foreground">
+                        <span className="uppercase text-[10px] font-semibold tracking-wide text-muted-foreground/80">
+                          Reference Measurements
+                        </span>
+                        <span className="text-xs font-medium text-foreground">
+                          H: {formatMeasurementValue(measurements.h)}
+                        </span>
+                        <span className="text-xs font-medium text-foreground">
+                          W: {formatMeasurementValue(measurements.w)}
+                        </span>
+                        <span className="text-xs font-medium text-foreground">
+                          D: {formatMeasurementValue(measurements.d)}
+                        </span>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -4301,233 +4807,52 @@ export default function ReviewPage() {
                 <div className="flex items-center gap-1 sm:gap-2">
                   <LucideImage className="h-3 w-3 sm:h-4 sm:w-4" />
                   <span className="hidden sm:inline">
-                    Reference Images ({referenceImages.length})
+                    References ({totalReferenceCount})
                   </span>
                   <span className="sm:hidden">
-                    Images ({referenceImages.length})
+                    Refs ({totalReferenceCount})
                   </span>
                 </div>
               </button>
             </div>
 
-            {/* Reference Images Tab */}
+            {/* Reference Tab */}
             {rightPanelTab === "images" && (
-              <div className="flex-1 overflow-y-auto">
-                <div className="flex items-center justify-between mb-3 sm:mb-4">
-                  <h4 className="text-sm sm:text-base text-muted-foreground font-semibold">
-                    Reference Images
-                  </h4>
-                </div>
-
-                {/* Carousel of Thumbnails */}
-
-                {/* Large Selected Image - Show selected image */}
-                {referenceImages.length > 0 && (
-                  <div className="relative mb-3 sm:mb-4">
-                    <div
-                      className="aspect-video bg-muted rounded-lg overflow-hidden border border-border relative cursor-pointer"
-                      onMouseMove={handleImageMouseMove}
-                      onMouseEnter={handleImageMouseEnter}
-                      onMouseLeave={handleImageMouseLeave}
-                      onWheel={handleImageWheel}
-                    >
-                      <Image
-                        width={640}
-                        height={360}
-                        unoptimized
-                        src={referenceImages[selectedReferenceIndex || 0]}
-                        alt={`Reference ${(selectedReferenceIndex || 0) + 1}`}
-                        className="w-full h-full object-contain transition-transform duration-200"
-                        style={{
-                          transform: `scale(${zoomLevel})`,
-                          transformOrigin: isZooming
-                            ? `${mousePosition.x}% ${mousePosition.y}%`
-                            : "center",
-                        }}
-                        onError={(e) => {
-                          (e.currentTarget as HTMLElement).style.display =
-                            "none";
-                          (e.currentTarget
-                            .nextElementSibling as HTMLElement)!.style.display =
-                            "flex";
-                        }}
-                      />
-                      <div
-                        className="absolute inset-0 flex items-center justify-center bg-muted text-muted-foreground"
-                        style={{ display: "none" }}
-                      >
-                        <div className="text-center">
-                          <LucideImage className="h-6 w-6 sm:h-8 sm:w-8 mx-auto mb-2" />
-                          <span className="text-xs sm:text-sm">
-                            Invalid image URL
-                          </span>
-                        </div>
-                      </div>
+              <div className="flex-1 overflow-y-auto space-y-6">
+                {renderReferenceSection({
+                  title: "Client References",
+                  description:
+                    clientReferenceCount > 0
+                      ? "Images and files visible to the client."
+                      : undefined,
+                  images: referenceImages,
+                  files: referenceFiles,
+                  selectedIndex: selectedReferenceIndex,
+                  onSelectImage: setSelectedReferenceIndex,
+                  onRemoveImage: handleRemoveClientImage,
+                })}
+                {!isClient &&
+                  renderReferenceSection({
+                    title: "Internal References",
+                    description:
+                      internalReferenceCount > 0
+                        ? "Only Charpstar staff can access these references."
+                        : undefined,
+                    images: internalReferenceImages,
+                    files: internalReferenceFiles,
+                    selectedIndex: selectedInternalReferenceIndex,
+                    onSelectImage: setSelectedInternalReferenceIndex,
+                    highlight: true,
+                  })}
+                {clientReferenceCount === 0 &&
+                  (isClient || internalReferenceCount === 0) && (
+                    <div className="text-center py-12">
+                      <LucideImage className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+                      <p className="text-sm text-muted-foreground mb-3">
+                        No references added yet
+                      </p>
                     </div>
-                    <div className="absolute top-1 right-1 sm:top-2 sm:right-2 flex gap-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() =>
-                          handleImageClick(
-                            referenceImages[selectedReferenceIndex || 0],
-                            `Reference Image ${(selectedReferenceIndex || 0) + 1}`
-                          )
-                        }
-                        className="h-8 w-8 sm:h-10 sm:w-10 p-0 bg-black/50 text-white hover:bg-black/70 cursor-pointer"
-                      >
-                        <Maximize2 className="h-3 w-3" />
-                      </Button>
-                    </div>
-                    <div className="mt-2 text-xs text-muted-foreground text-center">
-                      Reference {(selectedReferenceIndex || 0) + 1} •{" "}
-                      <span className="hidden sm:inline">
-                        Scroll to zoom (1x-3x)
-                      </span>
-                      <span className="sm:hidden">Scroll to zoom</span>
-                    </div>
-                  </div>
-                )}
-                {referenceImages.length > 0 && (
-                  <div className="relative">
-                    {/* Carousel Header */}
-                    <div className="flex items-center justify-between mb-3 sm:mb-4">
-                      {referenceImages.length > 4 && (
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <span>
-                            {carouselIndex + 1} -{" "}
-                            {Math.min(
-                              carouselIndex + 4,
-                              referenceImages.length
-                            )}{" "}
-                            of {referenceImages.length}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Carousel Container */}
-                    <div className="relative">
-                      {/* Thumbnails Container */}
-                      <div className="flex gap-2 sm:gap-3 overflow-x-auto p-1 scrollbar-hide relative">
-                        {referenceImages.map((imageUrl, index) => (
-                          <div
-                            key={index}
-                            className={`relative flex-shrink-0 cursor-pointer transition-all duration-300 ${
-                              selectedReferenceIndex === index
-                                ? "ring-2 ring-primary/80 ring-offset-2 rounded-lg"
-                                : "hover:ring-2 hover:ring-primary/50 ring-offset-2 rounded-lg"
-                            }`}
-                            onClick={() => setSelectedReferenceIndex(index)}
-                          >
-                            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden border-2 border-border/50 hover:border-primary/50 transition-all duration-200 shadow-sm hover:shadow-md">
-                              <Image
-                                width={80}
-                                height={80}
-                                unoptimized
-                                src={imageUrl}
-                                alt={`Reference ${index + 1}`}
-                                className="w-full h-full object-contain cursor-pointer hover:scale-105 transition-transform duration-200"
-                                onError={(e) => {
-                                  (
-                                    e.currentTarget as HTMLElement
-                                  ).style.display = "none";
-                                }}
-                              />
-                            </div>
-                            <div className="absolute -top-1 -right-1 w-5 h-5 sm:w-6 sm:h-6 bg-primary text-white text-xs font-medium rounded-full flex items-center justify-center shadow-sm border-2 border-background">
-                              {index + 1}
-                            </div>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={async (e) => {
-                                e.stopPropagation();
-
-                                try {
-                                  // Remove the image from the array
-                                  const newImages = referenceImages.filter(
-                                    (_, i) => i !== index
-                                  );
-
-                                  // Update the asset in the database
-                                  const { error } = await supabase
-                                    .from("onboarding_assets")
-                                    .update({ reference: newImages })
-                                    .eq("id", assetId);
-
-                                  if (error) {
-                                    console.error(
-                                      "Error updating reference images:",
-                                      error
-                                    );
-                                    toast.error(
-                                      "Failed to delete reference image"
-                                    );
-                                    return;
-                                  }
-
-                                  // Update local state
-                                  setReferenceImages(newImages);
-
-                                  // Adjust selected index if needed
-                                  if (selectedReferenceIndex === index) {
-                                    setSelectedReferenceIndex(
-                                      newImages.length > 0 ? 0 : null
-                                    );
-                                  } else if (
-                                    selectedReferenceIndex &&
-                                    selectedReferenceIndex > index
-                                  ) {
-                                    setSelectedReferenceIndex(
-                                      selectedReferenceIndex - 1
-                                    );
-                                  }
-
-                                  toast.success(
-                                    "Reference image deleted successfully"
-                                  );
-                                } catch (error) {
-                                  console.error(
-                                    "Error deleting reference image:",
-                                    error
-                                  );
-                                  toast.error(
-                                    "Failed to delete reference image"
-                                  );
-                                }
-                              }}
-                              className="absolute -top-1 -left-1 h-4 w-4 sm:h-5 sm:w-5 p-0 text-black/60 hover:text-black/80 hover:bg-black/5 rounded-full"
-                            >
-                              <X className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        ))}
-                      </div>
-
-                      {/* Scroll Hint */}
-                      {referenceImages.length > 4 && (
-                        <div className="flex justify-center mt-3">
-                          <p className="text-xs text-muted-foreground">
-                            Shift to scroll
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Empty State */}
-                {referenceImages.length === 0 && (
-                  <div className="text-center py-12">
-                    <LucideImage className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
-                    <p className="text-sm text-muted-foreground mb-3">
-                      No reference images yet
-                    </p>
-                  </div>
-                )}
-
-                {/* Functionality Disabled Warning */}
+                  )}
                 {isFunctionalityDisabled() && (
                   <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg dark:bg-yellow-950/20 dark:border-yellow-800/30">
                     <div className="flex items-center gap-3">
