@@ -28,17 +28,7 @@ jobs:
         run: |
           TITLE="⚙️ Platform Update Deployed"
 
-          DESCRIPTION=$(cat <<EOF
-A new update has just been deployed to **Production** 🎉
-
-**Date:** $(date +'%B %d, %Y')
-
-**What's new:**
-${SUMMARY}
-
-Thank you for your continued feedback and support.
-EOF
-)
+          DESCRIPTION="${SUMMARY}"
 
           COLOR=3447003  # blue accent
           TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
