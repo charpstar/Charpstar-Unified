@@ -20,7 +20,7 @@ jobs:
         run: |
           RECENT_COMMITS=$(git log -n 5 --pretty=format:'• %s')
           {
-            echo "SUMMARY<<'EOF'"
+            echo "SUMMARY<<EOF"
             printf '%s\n' "$RECENT_COMMITS"
             echo "EOF"
           } >> "$GITHUB_ENV"
