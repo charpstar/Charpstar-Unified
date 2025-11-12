@@ -1,9 +1,9 @@
-name: Auto Patch Notes to Discord (Embed)
+name: Auto Patch Notes to Discord (Pro)
 
 on:
   push:
     branches:
-      - main # or your production branch
+      - main   # or your production branch
 
 jobs:
   notify:
@@ -12,20 +12,30 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+
       - name: Generate summary from commits
         id: summary
         run: |
-          RECENT_COMMITS=$(git log -n 5 --pretty=format:'• %s' | awk '{print $0}')
+          RECENT_COMMITS=$(git log -n 5 --pretty=format:'• %s' | tr '\n' '\n')
           echo "SUMMARY=$RECENT_COMMITS" >> $GITHUB_ENV
 
-      - name: Post update to Discord
+      - name: Post formatted embed to Discord
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
           SUMMARY: ${{ env.SUMMARY }}
         run: |
-          TITLE="⚙️ Platform Update Deployed!"
-          DESCRIPTION="A new update has just been pushed to **Production** 🎉\n\n**Date:** $(date +'%B %d, %Y')\n\n**What's new:**\n$SUMMARY\n\nThank you for your continued feedback and support."
-          COLOR=3447003 # Nice blue tone for embeds
+          TITLE="⚙️ Platform Update Deployed"
+          DESCRIPTION="A new update has just been deployed to **Production** 🎉
+
+**Date:** $(date +'%B %d, %Y')
+
+**What's new:**
+$SUMMARY
+
+Thank you for your continued feedback and support."
+          COLOR=3447003 # blue accent
 
           JSON_PAYLOAD=$(jq -n \
             --arg title "$TITLE" \
