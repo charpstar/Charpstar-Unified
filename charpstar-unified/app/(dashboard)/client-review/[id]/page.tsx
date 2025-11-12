@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useUser } from "@/contexts/useUser";
 import { supabase } from "@/lib/supabaseClient";
@@ -71,6 +71,7 @@ interface Asset {
   glb_link: string;
   pricing_comment?: string;
   measurements?: string | null;
+  updated_at?: string | null;
 }
 
 interface Annotation {
@@ -439,6 +440,49 @@ const extractFileName = (url: string): string => {
     return fileName || url;
   } catch {
     return url;
+  }
+};
+
+const createCacheBustedUrl = (
+  url?: string | null,
+  cacheKey?: string | number | null
+): string | null => {
+  if (!url) return null;
+
+  const normalizedKey =
+    cacheKey !== null && cacheKey !== undefined ? String(cacheKey) : null;
+
+  const appendParam = (target: string) => {
+    const separator = target.includes("?") ? "&" : "?";
+    const keyValue = encodeURIComponent(
+      normalizedKey ?? Date.now().toString(36)
+    );
+    return `${target}${separator}cb=${keyValue}`;
+  };
+
+  const isRelative = !/^([a-z][a-z\d+\-.]*:)?\/\//i.test(url);
+
+  if (typeof window === "undefined" && isRelative) {
+    return appendParam(url);
+  }
+
+  try {
+    const base =
+      isRelative && typeof window !== "undefined"
+        ? window.location.origin
+        : undefined;
+    const urlObj = base ? new URL(url, base) : new URL(url);
+    urlObj.searchParams.set(
+      "cb",
+      normalizedKey ?? Date.now().toString(36) // fallback for unexpected missing key
+    );
+    const result = urlObj.toString();
+    if (isRelative && typeof window !== "undefined") {
+      return result.replace(window.location.origin, "");
+    }
+    return result;
+  } catch {
+    return appendParam(url);
   }
 };
 
@@ -3941,6 +3985,17 @@ export default function ReviewPage() {
   const annotationRepliesMap = groupByParent(annotations as any);
   const commentRepliesMap = groupByParent(comments as any);
 
+  const cacheBustedGlbLink = useMemo(() => {
+    if (!asset?.glb_link) return null;
+
+    const key =
+      asset.updated_at ??
+      (asset as any)?.glb_updated_at ??
+      (revisionCount > 0 ? `revision-${revisionCount}` : null);
+
+    return createCacheBustedUrl(asset.glb_link, key) ?? asset.glb_link;
+  }, [asset?.glb_link, asset?.updated_at, revisionCount]);
+
   if (loading) {
     return (
       <div className="h-full flex flex-col bg-muted">
@@ -4593,8 +4648,9 @@ export default function ReviewPage() {
               <div className="w-full h-full overflow-hidden">
                 {/* @ts-expect-error cant really fix viewer errors */}
                 <model-viewer
+                  key={cacheBustedGlbLink ?? asset.glb_link}
                   ref={modelViewerRef}
-                  src={asset.glb_link}
+                  src={cacheBustedGlbLink ?? asset.glb_link}
                   alt={asset.product_name}
                   camera-controls={!annotationMode}
                   shadow-intensity="0.5"
