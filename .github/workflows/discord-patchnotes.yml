@@ -3,7 +3,7 @@ name: Auto Patch Notes to Discord (Pro)
 on:
   push:
     branches:
-      - main  # or your production branch
+      - main # or your production branch
 
 jobs:
   notify:
@@ -29,16 +29,16 @@ jobs:
           TITLE="⚙️ Platform Update Deployed"
 
           DESCRIPTION=$(cat <<'EOF'
-A new update has just been deployed to **Production** 🎉
+          A new update has just been deployed to **Production** 🎉
 
-**Date:** $(date +'%B %d, %Y')
+          **Date:** $(date +'%B %d, %Y')
 
-**What's new:**
-${SUMMARY}
+          **What's new:**
+          ${SUMMARY}
 
-Thank you for your continued feedback and support.
-EOF
-)
+          Thank you for your continued feedback and support.
+          EOF
+          )
 
           COLOR=3447003  # blue accent
 
