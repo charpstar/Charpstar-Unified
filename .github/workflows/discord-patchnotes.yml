@@ -39,7 +39,7 @@ jobs:
             --arg color "$COLOR" \
             --arg timestamp "$TIMESTAMP" \
             '{
-              "content": "@everyone",
+              "content": "",
               "embeds": [
                 {
                   "title": $title,

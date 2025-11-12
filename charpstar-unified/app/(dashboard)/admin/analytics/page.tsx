@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Card,
@@ -278,6 +278,7 @@ interface ModelerCosts {
 interface ClientModelerBreakdown {
   modelerId: string;
   modelerEmail: string;
+  modelerName: string;
   totalAssets: number;
   baseCost: number;
   bonusCost: number;
@@ -310,6 +311,7 @@ interface AssetCost {
   bonus_amount: number;
   total_cost: number;
   modeler_email: string;
+  modeler_name: string;
   created_at: string;
   approved_at?: string;
   allocation_list_completed?: boolean;
@@ -411,6 +413,7 @@ interface QAChartData {
 
 interface TimeSeriesData {
   date: string;
+  label: string;
   reviews: number;
   approvals: number;
 }
@@ -696,6 +699,50 @@ export default function AdminAnalyticsPage() {
     }
   };
 
+  const fetchAuthDisplayNames = useCallback(async (ids: string[]) => {
+    if (!ids || ids.length === 0) {
+      return new Map<string, string>();
+    }
+
+    try {
+      const response = await fetch("/api/users?role=modeler");
+      if (!response.ok) {
+        throw new Error("Failed to fetch auth users");
+      }
+
+      const { users } = (await response.json()) as {
+        users?: Array<{ id: string; name?: string | null }>;
+      };
+
+      if (!users || users.length === 0) {
+        return new Map<string, string>();
+      }
+
+      const targetIds = new Set(ids);
+      const result = new Map<string, string>();
+
+      users
+        .filter((user) => user && typeof user.id === "string")
+        .forEach((user) => {
+          if (!targetIds.has(user.id)) {
+            return;
+          }
+          const name =
+            typeof user.name === "string" && user.name.trim().length > 0
+              ? user.name.trim()
+              : "";
+          if (name) {
+            result.set(user.id, name);
+          }
+        });
+
+      return result;
+    } catch (error) {
+      console.error("Error fetching auth display names:", error);
+      return new Map<string, string>();
+    }
+  }, []);
+
   const fetchCostData = async () => {
     try {
       setLoading(true);
@@ -714,22 +761,47 @@ export default function AdminAnalyticsPage() {
         ),
       ];
 
-      const [profilesResponse, listsResponse] = await Promise.all([
-        supabase.from("profiles").select("id, email").in("id", userIds),
-        supabase
-          .from("allocation_lists")
-          .select("id, bonus, approved_at")
-          .in("id", allocationListIds),
-      ]);
+      const [authDisplayNameMap, profilesResponse, listsResponse] =
+        await Promise.all([
+          fetchAuthDisplayNames(userIds),
+          supabase
+            .from("profiles")
+            .select("id, email, title")
+            .in("id", userIds),
+          supabase
+            .from("allocation_lists")
+            .select("id, bonus, approved_at")
+            .in("id", allocationListIds),
+        ]);
 
       if (profilesResponse.error) throw profilesResponse.error;
       if (listsResponse.error) throw listsResponse.error;
 
-      const userToProfile = new Map();
+      const userToProfile = new Map<string, { email: string; name: string }>();
       profilesResponse.data?.forEach((profile) => {
-        userToProfile.set(profile.id, {
-          email: profile.email,
-          name: profile.email,
+        const email: string =
+          typeof profile.email === "string" ? profile.email : "Unknown";
+        const profileId =
+          typeof profile.id === "string" && profile.id.trim().length > 0
+            ? profile.id
+            : null;
+        if (!profileId) {
+          return;
+        }
+        const profileTitle =
+          typeof (profile as { title?: string | null }).title === "string"
+            ? ((profile as { title?: string | null }).title ?? "").trim()
+            : "";
+        const authDisplayName =
+          (authDisplayNameMap as Map<string, string>).get(profileId) ?? "";
+        const displayName =
+          authDisplayName ||
+          profileTitle ||
+          (email.includes("@") ? email.split("@")[0] : email);
+
+        userToProfile.set(profileId, {
+          email,
+          name: displayName,
         });
       });
 
@@ -817,6 +889,7 @@ export default function AdminAnalyticsPage() {
             bonus_amount: bonusAmount,
             total_cost: totalCost,
             modeler_email: modelerInfo.email,
+            modeler_name: modelerInfo.name,
             status: asset.status,
             approved_at: approvedAt || undefined,
             allocation_list_completed: isCompleted,
@@ -862,7 +935,7 @@ export default function AdminAnalyticsPage() {
           modelerCostMap.set(modelerId, {
             modelerId,
             modelerEmail: asset.modeler_email,
-            modelerName: asset.modeler_email,
+            modelerName: asset.modeler_name || asset.modeler_email,
             totalAssets: 0,
             baseCost: 0,
             bonusCost: 0,
@@ -875,6 +948,9 @@ export default function AdminAnalyticsPage() {
         }
 
         const modelerCost = modelerCostMap.get(modelerId)!;
+        if (!modelerCost.modelerName && asset.modeler_name) {
+          modelerCost.modelerName = asset.modeler_name;
+        }
         modelerCost.totalAssets++;
         modelerCost.baseCost += asset.price || 50;
         modelerCost.bonusCost += asset.bonus_amount;
@@ -917,7 +993,7 @@ export default function AdminAnalyticsPage() {
           currentMonthModelerCostMap.set(modelerId, {
             modelerId,
             modelerEmail: asset.modeler_email,
-            modelerName: asset.modeler_email,
+            modelerName: asset.modeler_name || asset.modeler_email,
             totalAssets: 0,
             baseCost: 0,
             bonusCost: 0,
@@ -930,6 +1006,9 @@ export default function AdminAnalyticsPage() {
         }
 
         const modelerCost = currentMonthModelerCostMap.get(modelerId)!;
+        if (!modelerCost.modelerName && asset.modeler_name) {
+          modelerCost.modelerName = asset.modeler_name;
+        }
         modelerCost.totalAssets++;
         modelerCost.baseCost += asset.price || 50;
         modelerCost.bonusCost += asset.bonus_amount;
@@ -1040,6 +1119,7 @@ export default function AdminAnalyticsPage() {
         modelerEntry = {
           modelerId: asset.modeler_email,
           modelerEmail: asset.modeler_email,
+          modelerName: asset.modeler_name || asset.modeler_email,
           totalAssets: 0,
           baseCost: 0,
           bonusCost: 0,
@@ -1050,6 +1130,8 @@ export default function AdminAnalyticsPage() {
           pendingAssets: 0,
         };
         clientData.modelers.push(modelerEntry);
+      } else if (!modelerEntry.modelerName && asset.modeler_name) {
+        modelerEntry.modelerName = asset.modeler_name;
       }
 
       modelerEntry.totalAssets++;
@@ -1214,7 +1296,9 @@ export default function AdminAnalyticsPage() {
         "Pending Assets",
       ],
       ...filteredModelerCosts.map((modeler) => [
-        modeler.modelerEmail,
+        modeler.modelerName && modeler.modelerName !== modeler.modelerEmail
+          ? `${modeler.modelerName} (${modeler.modelerEmail})`
+          : modeler.modelerEmail,
         modeler.totalAssets.toString(),
         `€${modeler.baseCost.toFixed(2)}`,
         `€${modeler.bonusCost.toFixed(2)}`,
@@ -1444,7 +1528,8 @@ export default function AdminAnalyticsPage() {
           }).length || 0;
 
         timeSeries.push({
-          date: date.toLocaleDateString("en-US", {
+          date: date.toISOString(),
+          label: date.toLocaleDateString("en-US", {
             month: "short",
             day: "numeric",
           }),
@@ -1841,16 +1926,10 @@ export default function AdminAnalyticsPage() {
                             </linearGradient>
                           </defs>
                           <XAxis
-                            dataKey="date"
+                            dataKey="label"
                             tickLine={false}
                             axisLine={false}
                             tickMargin={8}
-                            tickFormatter={(value) =>
-                              new Date(value).toLocaleDateString("en-US", {
-                                month: "short",
-                                day: "numeric",
-                              })
-                            }
                           />
                           <YAxis
                             tickLine={false}
@@ -1860,20 +1939,21 @@ export default function AdminAnalyticsPage() {
                           />
                           <Tooltip
                             cursor={{ stroke: "#3b82f6", strokeWidth: 1 }}
-                            content={({ active, payload, label }) => {
+                            content={({ active, payload }) => {
                               if (active && payload && payload.length) {
+                                const datum = payload[0]
+                                  .payload as TimeSeriesData;
                                 return (
                                   <div className="rounded-lg border bg-background p-2 shadow-sm">
                                     <div className="grid gap-2">
                                       <div className="text-xs text-muted-foreground">
-                                        {new Date(label).toLocaleDateString(
-                                          "en-US",
-                                          {
-                                            month: "long",
-                                            day: "numeric",
-                                            year: "numeric",
-                                          }
-                                        )}
+                                        {new Date(
+                                          datum.date
+                                        ).toLocaleDateString("en-US", {
+                                          month: "long",
+                                          day: "numeric",
+                                          year: "numeric",
+                                        })}
                                       </div>
                                       {payload.map((entry, index) => (
                                         <div
@@ -3869,7 +3949,10 @@ export default function AdminAnalyticsPage() {
                             key={modeler.modelerId}
                             value={modeler.modelerId}
                           >
-                            {modeler.modelerEmail}
+                            {modeler.modelerName &&
+                            modeler.modelerName !== modeler.modelerEmail
+                              ? `${modeler.modelerName} (${modeler.modelerEmail})`
+                              : modeler.modelerEmail}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -3993,8 +4076,15 @@ export default function AdminAnalyticsPage() {
                           <TableCell className="text-left">
                             <div>
                               <div className="font-medium text-sm sm:text-base">
-                                {modeler.modelerEmail}
+                                {modeler.modelerName || modeler.modelerEmail}
                               </div>
+                              {modeler.modelerName &&
+                                modeler.modelerName !==
+                                  modeler.modelerEmail && (
+                                  <div className="text-xs text-muted-foreground">
+                                    {modeler.modelerEmail}
+                                  </div>
+                                )}
                               <div className="text-xs text-muted-foreground">
                                 {modeler.totalAssets} assets
                               </div>
@@ -4246,8 +4336,18 @@ export default function AdminAnalyticsPage() {
                                         {client.modelers.map((m) => (
                                           <TableRow key={m.modelerEmail}>
                                             <TableCell className="text-left">
-                                              <div className="text-xs sm:text-sm">
-                                                {m.modelerEmail}
+                                              <div className="flex flex-col">
+                                                <span className="text-xs sm:text-sm font-medium">
+                                                  {m.modelerName ||
+                                                    m.modelerEmail}
+                                                </span>
+                                                {m.modelerName &&
+                                                  m.modelerName !==
+                                                    m.modelerEmail && (
+                                                    <span className="text-[11px] text-muted-foreground">
+                                                      {m.modelerEmail}
+                                                    </span>
+                                                  )}
                                               </div>
                                             </TableCell>
                                             <TableCell className="text-left text-xs sm:text-sm">
@@ -4538,7 +4638,7 @@ export default function AdminAnalyticsPage() {
                               </linearGradient>
                             </defs>
                             <XAxis
-                              dataKey="date"
+                              dataKey="label"
                               tickLine={false}
                               axisLine={false}
                               tick={{ fontSize: 12 }}
@@ -4548,7 +4648,47 @@ export default function AdminAnalyticsPage() {
                               axisLine={false}
                               tick={{ fontSize: 12 }}
                             />
-                            <Tooltip />
+                            <Tooltip
+                              content={({ active, payload }) => {
+                                if (active && payload && payload.length) {
+                                  const datum = payload[0]
+                                    .payload as TimeSeriesData;
+                                  return (
+                                    <div className="rounded-lg border bg-background p-2 shadow-sm">
+                                      <div className="text-xs text-muted-foreground mb-2">
+                                        {new Date(
+                                          datum.date
+                                        ).toLocaleDateString("en-US", {
+                                          month: "long",
+                                          day: "numeric",
+                                          year: "numeric",
+                                        })}
+                                      </div>
+                                      {payload.map((entry, index) => (
+                                        <div
+                                          key={index}
+                                          className="flex items-center gap-2 text-sm"
+                                        >
+                                          <span
+                                            className="inline-block h-2.5 w-2.5 rounded-full"
+                                            style={{
+                                              backgroundColor: entry.color,
+                                            }}
+                                          />
+                                          <span>
+                                            {entry.name === "reviews"
+                                              ? "Reviews"
+                                              : "Approvals"}
+                                            : {entry.value}
+                                          </span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  );
+                                }
+                                return null;
+                              }}
+                            />
                             <Legend />
                             <Area
                               type="monotone"
