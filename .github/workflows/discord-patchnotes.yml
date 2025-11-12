@@ -18,12 +18,8 @@ jobs:
       - name: Generate summary from commits
         id: summary
         run: |
-          RECENT_COMMITS=$(git log -n 5 --pretty=format:'• %s')
-          {
-            echo "SUMMARY<<EOF"
-            printf '%s\n' "$RECENT_COMMITS"
-            echo "EOF"
-          } >> "$GITHUB_ENV"
+          RECENT_COMMITS=$(git log -n 5 --pretty=format:'• %s' | tr '\n' '\n')
+          echo "SUMMARY=$RECENT_COMMITS" >> $GITHUB_ENV
 
       - name: Post formatted embed to Discord
         env:
@@ -32,7 +28,7 @@ jobs:
         run: |
           TITLE="⚙️ Platform Patch Notes"
 
-          DESCRIPTION=$'**What'\''s new:**\n\n'"${SUMMARY}"
+          DESCRIPTION=$'**What'\''s new:**'"${SUMMARY}"
 
           COLOR=3447003  # blue accent
           TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
