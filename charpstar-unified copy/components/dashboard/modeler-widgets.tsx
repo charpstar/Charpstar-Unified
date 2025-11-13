@@ -1,0 +1,1098 @@
+"use client";
+
+import React from "react";
+import { useRouter } from "next/navigation";
+import { useUser } from "@/contexts/useUser";
+import { useState, useEffect } from "react";
+import { supabase } from "@/lib/supabaseClient";
+import { Button } from "@/components/ui/display";
+import { Badge } from "@/components/ui/feedback";
+import { Card } from "@/components/ui/containers";
+import {
+  Clock,
+  CheckCircle,
+  AlertCircle,
+  RotateCcw,
+  Eye,
+  Package,
+  FileText,
+} from "lucide-react";
+// Enhanced header component matching admin/QA widgets
+function ModelerWidgetHeader({
+  icon: Icon,
+  title,
+  subtitle,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  title: string;
+  subtitle?: string;
+}) {
+  return (
+    <div className="flex items-center gap-3 mb-6">
+      <div className="relative">
+        <div className="p-3 bg-primary rounded-2xl shadow-[0_4px_16px_hsl(var(--primary),0.1)] dark:shadow-[0_4px_16px_hsl(var(--primary),0.2)]">
+          <Icon className="h-6 w-6 text-primary-foreground" />
+        </div>
+        <div className="absolute inset-0 bg-primary/30 rounded-2xl blur-sm -z-10" />
+      </div>
+      <div>
+        <h3 className="text-xl font-bold text-foreground">{title}</h3>
+        {subtitle ? (
+          <p className="text-sm text-muted-foreground">{subtitle}</p>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+// Helper function to get priority CSS class
+const getPriorityClass = (priority: number): string => {
+  if (priority === 1) return "priority-high";
+  if (priority === 2) return "priority-medium";
+  return "priority-low";
+};
+
+// Simple Modeler Stats Widget
+export function ModelerStatsWidget() {
+  const user = useUser();
+  const [stats, setStats] = useState({
+    totalAssigned: 0,
+    completed: 0,
+    waitingForApproval: 0,
+    inProgress: 0,
+    pending: 0,
+    revisions: 0,
+    clientRevisions: 0,
+  });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (user?.id) {
+      fetchStats();
+    }
+  }, [user?.id]);
+
+  const fetchStats = async () => {
+    try {
+      setLoading(true);
+
+      // Get user's individual asset assignments
+      const { data: assetAssignments, error: assignmentError } = await supabase
+        .from("asset_assignments")
+        .select(
+          `
+          asset_id,
+          status,
+          onboarding_assets!inner(*)
+        `
+        )
+        .eq("user_id", user?.id)
+        .eq("role", "modeler");
+
+      if (assignmentError) {
+        console.error("Error fetching asset assignments:", assignmentError);
+        return;
+      }
+
+      if (!assetAssignments || assetAssignments.length === 0) {
+        setStats({
+          totalAssigned: 0,
+          completed: 0,
+          waitingForApproval: 0,
+          inProgress: 0,
+          pending: 0,
+          revisions: 0,
+          clientRevisions: 0,
+        });
+        return;
+      }
+
+      // Calculate statistics - only count accepted assignments
+      const acceptedAssignments = assetAssignments.filter(
+        (assignment) => assignment.status === "accepted"
+      );
+      const acceptedAssets = acceptedAssignments
+        .map((assignment) => assignment.onboarding_assets)
+        .filter(Boolean) as any[];
+
+      const totalAssigned = acceptedAssets.length;
+      const completed = acceptedAssets.filter(
+        (asset) =>
+          asset.status === "approved" || asset.status === "approved_by_client"
+      ).length;
+      const waitingForApproval = acceptedAssets.filter(
+        (asset) => asset.status === "delivered_by_artist"
+      ).length;
+      const inProgress = acceptedAssets.filter(
+        (asset) => asset.status === "in_production"
+      ).length;
+      const pending = acceptedAssets.filter(
+        (asset) => asset.status === "not_started"
+      ).length;
+      const revisions = acceptedAssets.filter(
+        (asset) => asset.status === "revisions"
+      ).length;
+      const clientRevisions = acceptedAssets.filter(
+        (asset) => asset.status === "client_revision"
+      ).length;
+
+      setStats({
+        totalAssigned,
+        completed,
+        waitingForApproval,
+        inProgress,
+        pending,
+        revisions,
+        clientRevisions,
+      });
+    } catch (error) {
+      console.error("Error fetching stats:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!user) {
+    return (
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 lg:gap-6 min-h-[320px]">
+        {[...Array(7)].map((_, i) => (
+          <div
+            key={i}
+            className="h-24 sm:h-32 bg-gradient-to-br from-muted/50 to-muted animate-pulse rounded-2xl"
+          />
+        ))}
+      </div>
+    );
+  }
+
+  const statCards = [
+    {
+      title: "Total Assigned",
+      value: stats.totalAssigned,
+      icon: Package,
+      color: "text-blue-600 dark:text-blue-400",
+      bgColor:
+        "bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950/50 dark:to-blue-900/50",
+      borderColor: "border-blue-200 dark:border-none",
+      iconBg: "bg-blue-500 dark:bg-blue-600",
+      description: "Assets assigned to you",
+    },
+    {
+      title: "In Progress",
+      value: stats.inProgress,
+      icon: Clock,
+      color: "text-blue-600 dark:text-blue-400",
+      bgColor:
+        "bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950/50 dark:to-blue-900/50",
+      borderColor: "border-blue-200 dark:border-none",
+      iconBg: "bg-blue-500 dark:bg-blue-600",
+      description: "Currently working on",
+    },
+    {
+      title: "Waiting for Approval",
+      value: stats.waitingForApproval,
+      icon: AlertCircle,
+      color: "text-green-600 dark:text-green-400",
+      bgColor:
+        "bg-gradient-to-br from-green-50 to-green-100 dark:from-green-950/50 dark:to-green-900/50",
+      borderColor: "border-green-200 dark:border-none",
+      iconBg: "bg-green-500 dark:bg-green-600",
+      description: "Awaiting feedback",
+    },
+    {
+      title: "Completed",
+      value: stats.completed,
+      icon: CheckCircle,
+      color: "text-emerald-600 dark:text-emerald-400",
+      bgColor:
+        "bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-950/50 dark:to-emerald-900/50",
+      borderColor: "border-emerald-200 dark:border-none",
+      iconBg: "bg-emerald-500 dark:bg-emerald-600",
+      description: "Successfully finished",
+    },
+    {
+      title: "Pending",
+      value: stats.pending,
+      icon: Clock,
+      color: "text-gray-600 dark:text-gray-400",
+      bgColor:
+        "bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-950/50 dark:to-gray-900/50",
+      borderColor: "border-gray-200 dark:border-none",
+      iconBg: "bg-gray-500 dark:bg-gray-600",
+      description: "Not started yet",
+    },
+    {
+      title: "Revisions",
+      value: stats.revisions,
+      icon: RotateCcw,
+      color: "text-orange-600 dark:text-orange-400",
+      bgColor:
+        "bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-950/50 dark:to-orange-900/50",
+      borderColor: "border-orange-200 dark:border-none",
+      iconBg: "bg-orange-500 dark:bg-orange-600",
+      description: "QA requested changes",
+    },
+    {
+      title: "Client Revisions",
+      value: stats.clientRevisions,
+      icon: RotateCcw,
+      color: "text-red-600 dark:text-red-400",
+      bgColor:
+        "bg-gradient-to-br from-red-50 to-red-100 dark:from-red-950/50 dark:to-red-900/50",
+      borderColor: "border-red-200 dark:border-none",
+      iconBg: "bg-red-500 dark:bg-red-600",
+      description: "Client requested changes",
+    },
+  ];
+
+  return (
+    <div className="h-full flex flex-col p-6">
+      <ModelerWidgetHeader
+        icon={Package}
+        title="Assignment Overview"
+        subtitle="Track your current workload and progress"
+      />
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 flex-1">
+        {statCards.map((stat, index: number) => (
+          <div
+            key={index}
+            className={`
+              group relative overflow-hidden rounded-xl transition-all duration-300 ease-out min-h-[64px]
+              bg-gradient-to-br from-card/80 to-card/60
+              shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05),0_1px_3px_rgba(0,0,0,0.1),0_1px_2px_rgba(0,0,0,0.06)]
+              hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.08),0_4px_12px_rgba(0,0,0,0.15),0_2px_4px_rgba(0,0,0,0.1)]
+              hover:translate-y-[-2px]
+              dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.05),inset_0_0_12px_rgba(0,0,0,0.2),0_2px_8px_rgba(0,0,0,0.3)]
+              dark:hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.08),inset_0_0_16px_rgba(0,0,0,0.25),0_4px_16px_rgba(0,0,0,0.4)]
+              border border-border/50
+              ${loading ? "animate-pulse" : ""}
+              ${index === 0 ? "sm:col-span-2 lg:col-span-1 xl:col-span-2 min-h-[72px]" : ""}
+            `}
+          >
+            {/* Content */}
+            <div className="relative p-4 h-full flex flex-col justify-between">
+              {/* Header */}
+              <div className="flex items-start justify-between mb-2">
+                <div
+                  className={`relative p-3 rounded-xl ${stat.iconBg} 
+                    shadow-[inset_0_2px_4px_rgba(255,255,255,0.1),0_2px_8px_rgba(0,0,0,0.1)]
+                    dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.05),0_2px_8px_rgba(0,0,0,0.3)]
+                    group-hover:shadow-[inset_0_2px_4px_rgba(255,255,255,0.15),0_3px_12px_rgba(0,0,0,0.15)]
+                    transition-shadow duration-300`}
+                >
+                  <stat.icon className="h-4 w-4 text-white relative z-10" />
+                  <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                </div>
+              </div>
+
+              {/* Stats */}
+              <div>
+                <p className="text-2xl font-bold text-foreground mb-1 tabular-nums drop-shadow-[0_2px_4px_rgba(0,0,0,0.1)]">
+                  {stat.value}
+                </p>
+                <div>
+                  <p className="text-sm font-semibold text-foreground/90 mb-1 group-hover:text-foreground transition-colors">
+                    {stat.title}
+                  </p>
+                  <div className="h-0.5 w-0 group-hover:w-full bg-gradient-to-r from-primary/50 to-transparent transition-all duration-300 rounded-full mb-1" />
+                  <p className="text-xs text-muted-foreground line-clamp-2">
+                    {stat.description}
+                  </p>
+                </div>
+              </div>
+
+              {/* Progress Bar for In Progress */}
+              {!loading &&
+                stat.title === "In Progress" &&
+                stats.inProgress > 0 && (
+                  <div className="mt-2">
+                    <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
+                      <span>Progress</span>
+                      <span>
+                        {Math.round(
+                          (stats.inProgress / stats.totalAssigned) * 100
+                        )}
+                        %
+                      </span>
+                    </div>
+                    <div className="w-full bg-muted/30 dark:bg-muted/20 rounded-full h-2 overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-indigo-500 to-indigo-600 dark:from-indigo-400 dark:to-indigo-500 rounded-full transition-all duration-1000 ease-out"
+                        style={{
+                          width: `${(stats.inProgress / stats.totalAssigned) * 100}%`,
+                        }}
+                      ></div>
+                    </div>
+                  </div>
+                )}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Summary Footer */}
+      {!loading && (
+        <div className="mt-4 sm:mt-6 p-3 sm:p-4 bg-gradient-to-r from-muted/30 to-muted/50 dark:from-muted/20 dark:to-muted/30 rounded-xl border border-border/50 dark:border-border/30">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
+            <div className="flex flex-wrap items-center gap-3 sm:gap-4">
+              <div className="flex items-center gap-2">
+                <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 bg-emerald-500 dark:bg-emerald-400 rounded-full"></div>
+                <span className="text-xs sm:text-sm text-muted-foreground">
+                  Completed
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 bg-indigo-500 dark:bg-indigo-400 rounded-full"></div>
+                <span className="text-xs sm:text-sm text-muted-foreground">
+                  In Progress
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 bg-amber-500 dark:bg-amber-400 rounded-full"></div>
+                <span className="text-xs sm:text-sm text-muted-foreground">
+                  Pending Review
+                </span>
+              </div>
+            </div>
+            <div className="text-left sm:text-right">
+              <p className="text-xs sm:text-sm font-medium text-foreground">
+                {stats.totalAssigned > 0
+                  ? Math.round((stats.completed / stats.totalAssigned) * 100)
+                  : 0}
+                % Complete
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {stats.completed} of {stats.totalAssigned} assets
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Simple Assigned Models Widget
+export function AssignedModelsWidget() {
+  const router = useRouter();
+  const user = useUser();
+  const [assignedAssets, setAssignedAssets] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (user?.id) {
+      fetchAssignedAssets();
+    }
+  }, [user?.id]);
+
+  const fetchAssignedAssets = async () => {
+    try {
+      setLoading(true);
+
+      // Get user's individual asset assignments
+      const { data: assetAssignments, error: assignmentError } = await supabase
+        .from("asset_assignments")
+        .select(
+          `
+          asset_id,
+          onboarding_assets!inner(*)
+        `
+        )
+        .eq("user_id", user?.id)
+        .eq("role", "modeler")
+        .order("onboarding_assets.priority", { ascending: true })
+        .limit(5);
+
+      if (assignmentError) {
+        console.error("Error fetching asset assignments:", assignmentError);
+        return;
+      }
+
+      if (!assetAssignments || assetAssignments.length === 0) {
+        setAssignedAssets([]);
+        return;
+      }
+
+      // Extract assets from assignments
+      const assets = assetAssignments
+        .map((assignment) => assignment.onboarding_assets)
+        .filter(Boolean) as any[];
+
+      setAssignedAssets(assets);
+    } catch (error) {
+      console.error("Error fetching assigned assets:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case "approved":
+        return <CheckCircle className="h-4 w-4 text-success" />;
+      case "delivered_by_artist":
+        return <Clock className="h-4 w-4 text-accent-purple" />;
+      case "in_production":
+        return <Clock className="h-4 w-4 text-warning" />;
+      case "not_started":
+        return <AlertCircle className="h-4 w-4 text-error" />;
+      case "revisions":
+        return <RotateCcw className="h-4 w-4 text-info" />;
+      default:
+        return <Eye className="h-4 w-4 text-gray-600" />;
+    }
+  };
+
+  return (
+    <div className="space-y-4 min-h-[283px]">
+      <div className="flex items-center justify-between">
+        <ModelerWidgetHeader icon={Package} title="Recent Assigned Models" />
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => router.push("/my-assignments")}
+        >
+          View All
+        </Button>
+      </div>
+
+      <div className="space-y-3 h-full flex flex-col">
+        {loading ? (
+          [...Array(3)].map((_, i) => (
+            <Card key={i} className="p-4 flex-1">
+              <div className="animate-pulse space-y-3 h-full flex flex-col justify-center">
+                <div className="h-4 bg-gray-200 rounded w-3/4" />
+                <div className="h-3 bg-gray-200 rounded w-1/2" />
+              </div>
+            </Card>
+          ))
+        ) : assignedAssets.length === 0 ? (
+          <Card className="p-4 text-center flex-1 flex flex-col justify-center">
+            <Package className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+            <p className="text-sm text-muted-foreground">No assigned models</p>
+          </Card>
+        ) : (
+          assignedAssets.map((asset) => (
+            <Card
+              key={asset.id}
+              className="p-4 hover:shadow-md transition-shadow cursor-pointer flex-1"
+              onClick={() => router.push(`/modeler-review/${asset.id}`)}
+            >
+              <div className="flex items-center justify-between h-full">
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  {getStatusIcon(asset.status)}
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium truncate">{asset.product_name}</p>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <span>
+                        {asset.client} - Batch {asset.batch}
+                      </span>
+                      <span>•</span>
+                      <span>{asset.category}</span>
+                      {asset.subcategory && (
+                        <>
+                          <span>•</span>
+                          <span>{asset.subcategory}</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge
+                    variant="outline"
+                    className={`text-xs ${getPriorityClass(asset.priority)}`}
+                  >
+                    Priority {asset.priority}
+                  </Badge>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      router.push(`/modeler-review/${asset.id}`);
+                    }}
+                  >
+                    <Eye className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </Card>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+import {
+  CartesianGrid,
+  Line,
+  LineChart,
+  XAxis,
+  YAxis,
+  ReferenceLine,
+  Tooltip,
+} from "recharts";
+import { ChartConfig, ChartContainer } from "@/components/ui/display/chart";
+
+// Modeler Earnings Widget with Chart
+export function ModelerEarningsWidget() {
+  const user = useUser();
+  const [earningsData, setEarningsData] = useState({
+    thisMonth: 0,
+    lastMonth: 0,
+    totalEarnings: 0,
+    approvedThisMonth: 0,
+    chartData: [] as any[],
+  });
+  const [loading, setLoading] = useState(true);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+  useEffect(() => {
+    if (user?.id) {
+      fetchEarningsData();
+    }
+  }, [user?.id, refreshTrigger]);
+
+  // Listen for allocation list approval/unapproval events
+  useEffect(() => {
+    const handleAllocationListStatusChange = () => {
+      setRefreshTrigger((prev) => prev + 1);
+    };
+
+    // Listen for custom events when allocation lists are approved or unapproved
+    window.addEventListener(
+      "allocationListApproved",
+      handleAllocationListStatusChange
+    );
+    window.addEventListener(
+      "allocationListUnapproved",
+      handleAllocationListStatusChange
+    );
+
+    // Also listen for asset status changes that might affect allocation lists
+    window.addEventListener(
+      "assetStatusChanged",
+      handleAllocationListStatusChange
+    );
+
+    return () => {
+      window.removeEventListener(
+        "allocationListApproved",
+        handleAllocationListStatusChange
+      );
+      window.removeEventListener(
+        "allocationListUnapproved",
+        handleAllocationListStatusChange
+      );
+      window.removeEventListener(
+        "assetStatusChanged",
+        handleAllocationListStatusChange
+      );
+    };
+  }, []);
+
+  const fetchEarningsData = async () => {
+    try {
+      setLoading(true);
+
+      // Get individual approved assets instead of requiring fully approved allocation lists
+      const { data: approvedAssets, error: assetsError } = await supabase
+        .from("asset_assignments")
+        .select(
+          `
+          asset_id,
+          price,
+          allocation_list_id,
+          allocation_lists!inner(
+            id,
+            name,
+            bonus,
+            deadline,
+            status,
+            approved_at,
+            created_at
+          ),
+          onboarding_assets!inner(
+            id,
+            product_name,
+            status,
+            created_at
+          )
+        `
+        )
+        .eq("user_id", user?.id)
+        .eq("role", "modeler")
+        .in("onboarding_assets.status", ["approved", "approved_by_client"]);
+
+      if (assetsError) {
+        console.error("Error fetching approved assets:", assetsError);
+        return;
+      }
+
+      if (!approvedAssets || approvedAssets.length === 0) {
+        setEarningsData({
+          thisMonth: 0,
+          lastMonth: 0,
+          totalEarnings: 0,
+          approvedThisMonth: 0,
+          chartData: [],
+        });
+        return;
+      }
+
+      // Calculate earnings from individual approved assets
+      const now = new Date();
+      const currentMonth = now.getMonth();
+      const currentYear = now.getFullYear();
+      const lastMonth = currentMonth === 0 ? 11 : currentMonth - 1;
+      const lastMonthYear = currentMonth === 0 ? currentYear - 1 : currentYear;
+
+      let thisMonthEarnings = 0;
+      let lastMonthEarnings = 0;
+      let totalEarnings = 0;
+      let approvedThisMonth = 0;
+
+      // Group earnings by day for chart
+      const dailyData = new Map<string, number>();
+
+      // Group assets by allocation list to calculate bonuses properly
+      const assetsByList = new Map<string, any[]>();
+      approvedAssets.forEach((asset: any) => {
+        const listId = asset.allocation_list_id;
+        if (!assetsByList.has(listId)) {
+          assetsByList.set(listId, []);
+        }
+        assetsByList.get(listId)!.push(asset);
+      });
+
+      assetsByList.forEach((assets) => {
+        const firstAsset = assets[0];
+        const allocationList = firstAsset.allocation_lists;
+
+        // Calculate total earnings for this allocation list
+        const listEarnings = assets.reduce(
+          (sum: number, asset: any) => sum + (asset.price || 0),
+          0
+        );
+
+        // Check if work was completed before deadline to determine if bonus applies
+        let bonusAmount = 0;
+        let totalListEarnings = listEarnings;
+
+        if (allocationList.approved_at && allocationList.deadline) {
+          const approvedDate = new Date(allocationList.approved_at);
+          const deadlineDate = new Date(allocationList.deadline);
+
+          // Only apply bonus if work was completed before or on the deadline
+          if (approvedDate <= deadlineDate) {
+            bonusAmount = listEarnings * (allocationList.bonus / 100);
+            //eslint-disable-next-line
+            totalListEarnings = listEarnings + bonusAmount;
+          }
+        }
+
+        // Calculate earnings for each individual asset
+        assets.forEach((asset: any) => {
+          const assetPrice = asset.price || 0;
+          const assetEarnings = assetPrice;
+
+          // Add to total earnings
+          totalEarnings += assetEarnings;
+
+          // For monthly calculations, use allocation list approval date if available,
+          // otherwise use asset creation date as fallback
+          const approvalDate = allocationList.approved_at
+            ? new Date(allocationList.approved_at)
+            : new Date(asset.onboarding_assets.created_at);
+
+          const approvedMonth = approvalDate.getMonth();
+          const approvedYear = approvalDate.getFullYear();
+
+          if (approvedMonth === currentMonth && approvedYear === currentYear) {
+            thisMonthEarnings += assetEarnings;
+            approvedThisMonth += 1;
+          } else if (
+            approvedMonth === lastMonth &&
+            approvedYear === lastMonthYear
+          ) {
+            lastMonthEarnings += assetEarnings;
+          }
+
+          // Add to daily chart data - use the last 30 days instead of 15
+          const dayKey = `${approvedYear}-${String(approvedMonth + 1).padStart(2, "0")}-${String(approvalDate.getDate()).padStart(2, "0")}`;
+          dailyData.set(dayKey, (dailyData.get(dayKey) || 0) + assetEarnings);
+        });
+      });
+
+      // Generate chart data for last 30 days
+      const chartData = [];
+
+      for (let i = 29; i >= 0; i--) {
+        const date = new Date();
+        date.setDate(date.getDate() - i);
+        const dayKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+        const earnings = dailyData.get(dayKey) || 0;
+
+        chartData.push({
+          day: date.toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+          }),
+          earnings: Math.round(earnings * 100) / 100, // Round to 2 decimal places
+          date: dayKey,
+          fullDate: date.toLocaleDateString("en-US", {
+            weekday: "short",
+            month: "short",
+            day: "numeric",
+          }),
+        });
+      }
+
+      const finalData = {
+        thisMonth: Math.round(thisMonthEarnings * 100) / 100,
+        lastMonth: Math.round(lastMonthEarnings * 100) / 100,
+        totalEarnings: Math.round(totalEarnings * 100) / 100,
+        approvedThisMonth,
+        chartData,
+      };
+
+      setEarningsData(finalData);
+    } catch (error) {
+      console.error("Error fetching earnings data:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const chartConfig = {
+    earnings: {
+      label: "Earnings",
+      color: "var(--color-chart-1)",
+    },
+  } satisfies ChartConfig;
+
+  if (!user) {
+    return null;
+  }
+
+  if (loading) {
+    return (
+      <div className="h-full flex flex-col p-6 min-h-[400px]">
+        <ModelerWidgetHeader
+          icon={CheckCircle}
+          title="Earnings & Performance"
+          subtitle="Your earnings over the last 15 days"
+        />
+        <div className="flex-1">
+          <div className="h-64 bg-muted animate-pulse rounded-xl" />
+        </div>
+      </div>
+    );
+  }
+
+  // Calculate trend percentage
+  const trendPercentage =
+    earningsData.lastMonth > 0
+      ? (
+          ((earningsData.thisMonth - earningsData.lastMonth) /
+            earningsData.lastMonth) *
+          100
+        ).toFixed(1)
+      : "0.0";
+
+  const isTrendingUp = earningsData.thisMonth > earningsData.lastMonth;
+
+  return (
+    <div className="h-full flex flex-col p-6 min-h-[400px] ">
+      <ModelerWidgetHeader
+        icon={CheckCircle}
+        title="Earnings & Performance"
+        subtitle="Your earnings over the last 15 days"
+      />
+
+      {/* Chart Container */}
+      <div className="flex-1 mb-4 sm:mb-6">
+        <div className="group relative overflow-hidden rounded-2xl border border-border/50 dark:border-border/30 bg-gradient-to-br from-muted/30 to-muted/50 dark:from-muted/20 dark:to-muted/30 p-2 sm:p-6 transition-all duration-300 ease-out hover:shadow-lg hover:shadow-black/5 dark:hover:shadow-white/5">
+          <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+
+          <div className="relative overflow-x-auto">
+            {earningsData.chartData.length > 0 ? (
+              <ChartContainer className="h-48 sm:h-68 " config={chartConfig}>
+                <LineChart
+                  accessibilityLayer
+                  data={earningsData.chartData}
+                  margin={{
+                    left: 8,
+                    right: 8,
+                    top: 8,
+                    bottom: 8,
+                  }}
+                >
+                  <CartesianGrid
+                    vertical={false}
+                    strokeDasharray="2 2"
+                    stroke="hsl(var(--muted-foreground) / 0.15)"
+                  />
+                  <XAxis
+                    dataKey="day"
+                    tickLine={false}
+                    axisLine={false}
+                    tickMargin={4}
+                    interval="preserveStartEnd"
+                    tick={{
+                      fontSize: 10,
+                      fill: "hsl(var(--muted-foreground))",
+                    }}
+                    tickCount={5}
+                  />
+                  <YAxis
+                    tickLine={false}
+                    axisLine={false}
+                    tickMargin={4}
+                    tick={{
+                      fontSize: 10,
+                      fill: "hsl(var(--muted-foreground))",
+                    }}
+                    tickFormatter={(value) => `€${value}`}
+                    width={40}
+                    tickCount={4}
+                  />
+                  <Tooltip
+                    cursor={{
+                      stroke: "hsl(var(--chart-1))",
+                      strokeWidth: 2,
+                      strokeDasharray: "3 3",
+                    }}
+                    contentStyle={{
+                      backgroundColor: "hsl(var(--background))",
+                      border: "1px solid hsl(var(--border))",
+                      borderRadius: "6px",
+                      boxShadow: "0 2px 4px -1px rgb(0 0 0 / 0.1)",
+                      color: "hsl(var(--foreground))",
+                      fontSize: "12px",
+                      padding: "8px 12px",
+                    }}
+                    labelStyle={{
+                      color: "hsl(var(--muted-foreground))",
+                      fontWeight: "600",
+                      fontSize: "11px",
+                    }}
+                    formatter={(value: any) => [`€${value}`, "Earnings"]}
+                    wrapperStyle={{
+                      outline: "none",
+                    }}
+                  />
+                  {/* Reference line for average earnings */}
+                  {earningsData.chartData.length > 0 && (
+                    <ReferenceLine
+                      y={
+                        earningsData.chartData.reduce(
+                          (sum, item) => sum + item.earnings,
+                          0
+                        ) / earningsData.chartData.length
+                      }
+                      stroke="hsl(var(--muted-foreground) / 0.3)"
+                      strokeDasharray="2 2"
+                      strokeWidth={1}
+                    />
+                  )}
+                  <Line
+                    dataKey="earnings"
+                    type="monotone"
+                    stroke="hsl(var(--chart-1))"
+                    strokeWidth={2}
+                    dot={false}
+                    activeDot={{
+                      r: 4,
+                      stroke: "hsl(var(--chart-1))",
+                      strokeWidth: 2,
+                      fill: "hsl(var(--background))",
+                    }}
+                    connectNulls={false}
+                  />
+                </LineChart>
+              </ChartContainer>
+            ) : (
+              <div className="h-32 sm:h-48 flex items-center justify-center">
+                <div className="text-center">
+                  <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-950/50 dark:to-emerald-900/50 rounded-2xl flex items-center justify-center mx-auto mb-3 sm:mb-4">
+                    <span className="text-lg sm:text-2xl">€</span>
+                  </div>
+                  <h4 className="text-sm sm:text-lg font-semibold text-foreground mb-1 sm:mb-2">
+                    No Earnings Data
+                  </h4>
+                  <p className="text-xs sm:text-sm text-muted-foreground max-w-sm">
+                    Complete and get approved assignments to see your earnings
+                    chart
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Hover Effect Overlay */}
+        </div>
+      </div>
+
+      {/* Summary Footer */}
+      <div className="mt-auto">
+        <div className="p-3 sm:p-4 bg-gradient-to-r from-muted/30 to-muted/50 dark:from-muted/20 dark:to-muted/30 rounded-xl border border-border/50 dark:border-border/30">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
+            <div className="flex flex-wrap items-center gap-3 sm:gap-4">
+              <div className="flex items-center gap-2">
+                <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 bg-emerald-500 dark:bg-emerald-400 rounded-full"></div>
+                <span className="text-xs sm:text-sm text-muted-foreground">
+                  This Month
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 bg-blue-500 dark:bg-blue-400 rounded-full"></div>
+                <span className="text-xs sm:text-sm text-muted-foreground">
+                  Last Month
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 bg-amber-500 dark:bg-amber-400 rounded-full"></div>
+                <span className="text-xs sm:text-sm text-muted-foreground">
+                  Total
+                </span>
+              </div>
+            </div>
+            <div className="text-left sm:text-right">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-xs sm:text-sm font-medium text-foreground">
+                  {isTrendingUp ? "↗ Trending up" : "↘ Trending down"} by{" "}
+                  {trendPercentage}%
+                </span>
+                <div
+                  className={`w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full ${isTrendingUp ? "bg-emerald-500 dark:bg-emerald-400" : "bg-red-500 dark:bg-red-400"} animate-pulse`}
+                ></div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                €{earningsData.totalEarnings.toLocaleString()} total earnings
+              </p>
+            </div>
+          </div>
+
+          {/* Quick Stats */}
+          <div className="grid grid-cols-3 gap-2 sm:gap-4 mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-border/30 dark:border-border/20">
+            <div className="text-center">
+              <p className="text-sm sm:text-lg font-bold text-emerald-600 dark:text-emerald-400">
+                €{earningsData.thisMonth.toLocaleString()}
+              </p>
+              <p className="text-xs text-muted-foreground">This Month</p>
+            </div>
+            <div className="text-center">
+              <p className="text-sm sm:text-lg font-bold text-blue-600 dark:text-blue-400">
+                €{earningsData.lastMonth.toLocaleString()}
+              </p>
+              <p className="text-xs text-muted-foreground">Last Month</p>
+            </div>
+            <div className="text-center">
+              <p className="text-sm sm:text-lg font-bold text-amber-600 dark:text-amber-400">
+                {earningsData.approvedThisMonth}
+              </p>
+              <p className="text-xs text-muted-foreground">Approved Lists</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Simple Quick Actions Widget
+export function ModelerQuickActionsWidget() {
+  const router = useRouter();
+
+  const actions = [
+    {
+      title: "My Assignments",
+      description: "View your assigned assets and batches",
+      icon: Package,
+      action: () => router.push("/my-assignments"),
+      color: "from-blue-500 to-blue-600",
+      hoverColor: "from-blue-600 to-blue-700",
+      iconBg: "bg-blue-100 dark:bg-blue-900/50",
+      iconColor: "text-blue-600 dark:text-blue-400",
+    },
+    {
+      title: "View Guidelines",
+      description: "Quality standards & requirements",
+      icon: FileText,
+      action: () => router.push("/guidelines"),
+      color: "from-amber-500 to-amber-600",
+      hoverColor: "from-amber-600 to-amber-700",
+      iconBg: "bg-amber-100 dark:bg-amber-900/50",
+      iconColor: "text-amber-600 dark:text-amber-400",
+    },
+    {
+      title: "Model Viewer",
+      description: "View 3D models in the Charpstar viewer",
+      icon: Eye,
+      action: () => window.open("https://viewer.charpstar.co/", "_blank"),
+      color: "from-purple-500 to-purple-600",
+      hoverColor: "from-purple-600 to-purple-700",
+      iconBg: "bg-purple-100 dark:bg-purple-900/50",
+      iconColor: "text-purple-600 dark:text-purple-400",
+    },
+  ];
+
+  return (
+    <div className="h-full flex flex-col p-6 flex-1">
+      <ModelerWidgetHeader
+        icon={FileText}
+        title="Quick Actions"
+        subtitle="Access your most important tools and workflows"
+      />
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 flex-1">
+        {actions.map((action, index) => (
+          <div
+            key={index}
+            className={`group relative overflow-hidden rounded-xl p-6 transition-all duration-300 cursor-pointer
+              bg-gradient-to-br from-card/80 to-card/60
+              shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05),0_1px_3px_rgba(0,0,0,0.1),0_1px_2px_rgba(0,0,0,0.06)]
+              hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.08),0_4px_12px_rgba(0,0,0,0.15),0_2px_4px_rgba(0,0,0,0.1)]
+              hover:translate-y-[-2px]
+              dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.05),inset_0_0_12px_rgba(0,0,0,0.2),0_2px_8px_rgba(0,0,0,0.3)]
+              dark:hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.08),inset_0_0_16px_rgba(0,0,0,0.25),0_4px_16px_rgba(0,0,0,0.4)]
+              border border-border/50 ${
+                action.title === "Model Viewer" ? "sm:col-span-2" : ""
+              }`}
+            onClick={action.action}
+          >
+            <div className="relative flex flex-col h-full">
+              <div className="flex items-center gap-4 mb-4">
+                <div
+                  className={`relative p-3 rounded-xl ${action.iconBg} 
+                    shadow-[inset_0_2px_4px_rgba(255,255,255,0.1),0_2px_8px_rgba(0,0,0,0.1)]
+                    dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.05),0_2px_8px_rgba(0,0,0,0.3)]
+                    group-hover:shadow-[inset_0_2px_4px_rgba(255,255,255,0.15),0_3px_12px_rgba(0,0,0,0.15)]
+                    transition-shadow duration-300 flex-shrink-0`}
+                >
+                  <action.icon
+                    className={`h-6 w-6 ${action.iconColor} relative z-10`}
+                  />
+                  <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h4 className="text-lg font-semibold text-foreground mb-1 group-hover:text-foreground transition-colors">
+                    {action.title}
+                  </h4>
+                  <div className="h-0.5 w-0 group-hover:w-full bg-gradient-to-r from-primary/50 to-transparent transition-all duration-300 rounded-full" />
+                  <p className="text-sm text-muted-foreground leading-relaxed line-clamp-2 mt-1">
+                    {action.description}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}

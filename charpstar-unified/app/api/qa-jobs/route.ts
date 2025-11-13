@@ -275,8 +275,8 @@ async function processQAJob(
     }
 
     // Technical requirements check
+    const warnings: string[] = [];
     if (modelStats?.requirements) {
-      const warnings: string[] = [];
       const rejections: string[] = [];
 
       // Check for warnings (non-blocking issues)
@@ -370,7 +370,7 @@ ANALYSIS APPROACH:
    - Branding elements (logos, text)
    - Overall visual fidelity
    
-IMPORTANT: Be slightly more tolerant across all aspects. Account for lighting/exposure/white‑balance and shadow differences between renders and references. Be reasonably tolerant of transparency, reflections, finish, and minor color shifts. Lens decals/branding (e.g., small logos on lenses) may vary—do not penalize unless clearly wrong or missing where critical. Focus primarily on shape and proportions; penalize materials only for clear, noticeable mismatches.
+IMPORTANT: Be very tolerant and lenient across all aspects. Account for lighting/exposure/white‑balance and shadow differences between renders and references. Be very tolerant of transparency, reflections, finish, and minor color shifts. Lens decals/branding (e.g., small logos on lenses) may vary—do not penalize unless clearly wrong or missing where critical. Focus primarily on shape and proportions; only penalize materials for major, obvious mismatches. Approve models that are generally correct, even with minor variations.
 
 SUMMARY PHRASING:
 - If status is "Approved", phrase the summary as a list of constructive feedback points. Start with a positive statement as the first item in the list.
@@ -382,12 +382,11 @@ SCORING SYSTEM:
 - Color/Material: Color accuracy, material appearance, textures (0-100%)
 - Overall: Weighted average considering all factors (0-100%)
 
-APPROVAL CRITERIA - SLIGHTLY MORE LENIENT:
-- If overall score ≥ 60% AND no individual score < 55% → status = "Approved"
-- If overall score < 60% OR any individual score < 55% → status = "Not Approved"
-- If you mention "significant discrepancies" in your summary → status = "Not Approved"
-  - If Color/Material score < 50% → status = "Not Approved"
-  - If Silhouette score < 55% → status = "Not Approved"
+APPROVAL CRITERIA - SIMPLIFIED AND LENIENT:
+- If overall score ≥ 50% AND no individual score < 40% → status = "Approved"
+- Only reject if overall score < 50% OR any individual score < 40% → status = "Not Approved"
+- Be generous - approve models that are generally correct even with minor issues
+- Only reject for major problems like completely wrong shapes, significantly incorrect proportions, or completely missing/incorrect materials
 
 OUTPUT FORMAT:
 {
@@ -623,16 +622,16 @@ INTELLIGENT COMPARISON APPROACH:
 CRITICAL RULES:
 * **NO DUPLICATE ISSUES**: Report each unique issue **ONLY ONCE**. Choose the clearest view to report it in.
 * **SPECIFICITY**: Each issue must state: what's in the 3D Model, what's in the reference, and the exact difference.
-* **TOLERANCE**: Be reasonably tolerant of **transparency, reflections, metallic finishes, and gloss levels**. Minor variations are acceptable. Only deduct for clearly incorrect base colors, missing textures, or major material type mismatches. Be tolerant of subtle lens logo/branding shifts due to shading.
+* **HIGH TOLERANCE**: Be very tolerant and lenient. Accept minor differences in **transparency, reflections, metallic finishes, gloss levels, lighting, shadows, and color variations**. Only flag major issues like completely wrong shapes, significantly incorrect proportions, or completely missing/incorrect materials. Be very forgiving of minor variations - focus on approving models that are generally correct rather than finding small issues.
 
 **SUMMARY PHRASING**:
 *   If status is "Approved", phrase the summary as a list of constructive feedback points. Start with a positive statement as the first item in the list.
 *   If status is "Not Approved", the summary should be a list of the critical issues.
 
-SCORING - BE PRECISE AND METHODICAL:
-* **SILHOUETTE**: Compare overall shape, outline, and form. (0-100%)
-* **PROPORTION**: Compare relative sizes and dimensions of parts. (0-100%)
-* **COLOR/MATERIAL**: Compare base colors and primary textures. Be tolerant of finish differences. (0-100%)
+SCORING - BE GENEROUS AND LENIENT:
+* **SILHOUETTE**: Compare overall shape, outline, and form. Be generous - only deduct for major shape errors. (0-100%)
+* **PROPORTION**: Compare relative sizes and dimensions of parts. Accept minor proportion differences. (0-100%)
+* **COLOR/MATERIAL**: Compare base colors and primary textures. Be very tolerant - only deduct for completely wrong colors or missing major materials. (0-100%)
 * **OVERALL**: Must be the weighted average of the other scores.
 
 **CRITICAL CALCULATION RULE:**
@@ -774,18 +773,26 @@ CRITICAL: Output **ONLY** valid JSON. Do not wrap in markdown code blocks. Do no
         }
       }
 
-      const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: geminiContents,
-        config: {
-          temperature: 0,
-          topP: 0,
-          topK: 1,
-          thinkingConfig: {
-            thinkingBudget: 0, // Disables thinking
+      let response;
+      try {
+        response = await ai.models.generateContent({
+          model: "gemini-2.5-flash",
+          contents: geminiContents,
+          config: {
+            temperature: 0,
+            topP: 0,
+            topK: 1,
+            thinkingConfig: {
+              thinkingBudget: 0, // Disables thinking
+            },
           },
-        },
-      });
+        });
+      } catch (apiError: any) {
+        console.error("Gemini API error:", apiError);
+        throw new Error(
+          `Failed to call Gemini API: ${apiError?.message || apiError?.toString() || "Unknown error"}. Please check your GEMINI_API_KEY and network connection.`
+        );
+      }
 
       const raw = response.text || "";
 
@@ -848,12 +855,13 @@ CRITICAL: Output **ONLY** valid JSON. Do not wrap in markdown code blocks. Do no
     // 3. CALCULATE DETERMINISTIC STATUS (Overwriting the model's suggested status)
     let finalStatus = "Not Approved";
 
-    // Applying your specified lenient approval criteria
+    // Simplified and more lenient approval criteria
+    // Approve if overall score is reasonable, with lower individual thresholds
     const isApproved =
-      overall >= 62 &&
-      silhouette >= 57 &&
-      proportion >= 57 &&
-      colorMaterial >= 52;
+      overall >= 50 &&
+      silhouette >= 45 &&
+      proportion >= 45 &&
+      colorMaterial >= 40;
 
     if (isApproved) {
       finalStatus = "Approved";
@@ -861,7 +869,11 @@ CRITICAL: Output **ONLY** valid JSON. Do not wrap in markdown code blocks. Do no
 
     qaResults.status = finalStatus;
 
-    // TODO: Add warnings based on severity levels if needed
+    // Add technical warnings (size, polycount, material count, mesh count) to results
+    // These are non-blocking - model continues to Gemini QA analysis
+    if (warnings.length > 0) {
+      qaResults.warnings = warnings;
+    }
 
     await supabaseAdmin
       .from("qa_jobs")
@@ -925,16 +937,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (
-      !Array.isArray(references) ||
-      references.length < 1 ||
-      references.length > 5
-    ) {
+    if (!Array.isArray(references) || references.length < 1) {
       return NextResponse.json(
-        { error: "Must send 1-5 reference images" },
+        { error: "Must send at least 1 reference image" },
         { status: 400 }
       );
     }
+
+    // If more than 5 images, use only the first 5
+    const validReferences = references.slice(0, 5);
 
     const jobId = uuidv4();
     const { error: insertError } = await supabaseAdmin
@@ -956,7 +967,7 @@ export async function POST(request: NextRequest) {
     }
 
     const queue = QAJobQueue.getInstance();
-    await queue.addJob(jobId, renders, references, modelStats);
+    await queue.addJob(jobId, renders, validReferences, modelStats);
 
     const queueStatus = queue.getQueueStatus();
     const position = queue.getJobPosition(jobId);

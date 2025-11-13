@@ -79,6 +79,7 @@ const ScreenshotCapture: React.FC<ScreenshotCaptureProps> = ({
   // Pre-AI validation function
   const validateModelRequirements = (stats: ModelStats): ValidationResult => {
     const issues: string[] = [];
+    const blockingIssues: string[] = [];
 
     // Use requirements from stats if available, otherwise use defaults
     const requirements = stats.requirements || {
@@ -88,46 +89,56 @@ const ScreenshotCapture: React.FC<ScreenshotCaptureProps> = ({
       maxFileSize: 15 * 1024 * 1024, // 15MB in bytes
     };
 
-    // Polycount check
+    // Double-sided materials check (BLOCKING - outright reject)
+    if (stats.doubleSidedCount > 0) {
+      blockingIssues.push(
+        `Double sided material found: ${stats.doubleSidedCount} material(s) are double-sided`
+      );
+    }
+
+    // Polycount check (WARNING - continue with QA)
     if (stats.triangles > requirements.maxTriangles) {
       issues.push(
         `Polycount: ${stats.triangles.toLocaleString()} triangles exceeds maximum ${requirements.maxTriangles.toLocaleString()}`
       );
     }
 
-    // Material count check
+    // Material count check (WARNING - continue with QA)
     if (stats.materialCount > requirements.maxMaterials) {
       issues.push(
         `Material count: ${stats.materialCount} exceeds maximum ${requirements.maxMaterials}`
       );
     }
 
-    // Mesh count check
+    // Mesh count check (WARNING - continue with QA)
     if (stats.meshCount > requirements.maxMeshes) {
       issues.push(
         `Mesh count: ${stats.meshCount} exceeds maximum ${requirements.maxMeshes}`
       );
     }
 
-    // File size check
+    // File size check (WARNING - continue with QA)
     if (stats.fileSize > requirements.maxFileSize + 1024) { // Add 1KB tolerance
       const actualMB = (stats.fileSize / (1024 * 1024)).toFixed(1);
       const maxMB = (requirements.maxFileSize / (1024 * 1024)).toFixed(1);
       issues.push(`File size: ${actualMB}MB exceeds maximum ${maxMB}MB`);
     }
 
+    // Combine blocking issues with warnings for display
+    const allIssues = [...blockingIssues, ...issues];
+
     return {
-      valid: issues.length === 0,
-      issues,
+      valid: blockingIssues.length === 0, // Only invalid if there are blocking issues
+      issues: allIssues,
     };
   };
 
   const cameraAngles = [
-    { name: "Front View", cameraOrbit: "0deg 90deg 1.5m" },
-    { name: "Back View", cameraOrbit: "180deg 90deg 1.5m" },
-    { name: "Left Side", cameraOrbit: "90deg 90deg 1.5m" },
-    { name: "Right Side", cameraOrbit: "270deg 90deg 1.5m" },
-    { name: "Top View", cameraOrbit: "0deg 0deg 1.5m" },
+    { name: "Front View", cameraOrbit: "0deg 90deg 2.5m" },
+    { name: "Back View", cameraOrbit: "180deg 90deg 2.5m" },
+    { name: "Left Side", cameraOrbit: "90deg 90deg 2.5m" },
+    { name: "Right Side", cameraOrbit: "270deg 90deg 2.5m" },
+    { name: "Top View", cameraOrbit: "0deg 0deg 2.5m" },
   ];
 
   const captureScreenshot = useCallback(
@@ -400,14 +411,17 @@ const ScreenshotCapture: React.FC<ScreenshotCaptureProps> = ({
 
       setValidationResult(validation);
 
+      // Only block if there are blocking issues (double-sided materials)
+      // Size, polycount, material count, mesh count are warnings only - continue with QA
       if (!validation.valid) {
-
-        // Model doesn't meet requirements - show issues to user but don't auto-complete
-        // The user can see the issues and decide whether to proceed anyway
+        // validation.valid is false only if there are blocking issues (double-sided materials)
+        // Stop here for blocking issues
         setIsCapturing(false);
-
         return;
       }
+
+      // For other issues (size, polycount, etc.), show warnings but continue with QA
+      // The warnings will be displayed in the UI, but QA will proceed to Gemini analysis
 
 
       // Capture screenshots from different angles (preserve order by index)

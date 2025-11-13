@@ -1211,13 +1211,12 @@ export default function BatchDetailPage() {
         result = await response.json();
       }
 
-      // Update the asset with the new GLB link but keep status as in_progress for QA
+      // Update the asset with the new GLB link but keep status unchanged - QA will set it to delivered_by_artist after approval
       const { error: updateError } = await supabase
         .from("onboarding_assets")
         .update({
           glb_link: result.url, // Use result.url instead of result.file_url
-          status: "delivered_by_artist",
-          // Don't change status to delivered_by_artist - let QA handle that
+          // Don't change status - let QA handle that after approval
         })
         .eq("id", assetId);
 
@@ -1261,7 +1260,7 @@ export default function BatchDetailPage() {
               ? {
                   ...a,
                   glb_link: result.url, // Use result.url instead of result.file_url
-                  status: "delivered_by_artist",
+                  // Keep existing status - don't change to delivered_by_artist yet
                 }
               : a
           ),
