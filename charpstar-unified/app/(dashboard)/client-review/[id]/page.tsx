@@ -97,6 +97,7 @@ interface Annotation {
 interface Hotspot {
   id: string;
   position: { x: number; y: number; z: number };
+  normal: Vector3;
   comment: string;
   image_url?: string;
   visible: boolean;
@@ -309,6 +310,26 @@ const getViewerLabel = (viewerType?: string | null): string => {
     default:
       return "Default Viewer";
   }
+};
+
+type Vector3 = { x: number; y: number; z: number };
+
+const DEFAULT_NORMAL: Vector3 = { x: 0, y: 1, z: 0 };
+
+const formatVector3 = (vector: Vector3): string =>
+  `${vector.x.toFixed(6)} ${vector.y.toFixed(6)} ${vector.z.toFixed(6)}`;
+
+const parseVector3 = (value?: string | null): Vector3 => {
+  if (!value) return DEFAULT_NORMAL;
+  const parts = value
+    .trim()
+    .split(/\s+/)
+    .map((part) => Number(part));
+
+  if (parts.length === 3 && parts.every((num) => Number.isFinite(num))) {
+    return { x: parts[0], y: parts[1], z: parts[2] };
+  }
+  return DEFAULT_NORMAL;
 };
 
 const parseMeasurements = (
@@ -937,6 +958,38 @@ export default function ReviewPage() {
   const [showApprovalConfirmDialog, setShowApprovalConfirmDialog] =
     useState(false);
 
+  const userClientKey = useMemo(() => {
+    const clientMeta = user?.metadata?.client;
+    if (!clientMeta) return "";
+    if (Array.isArray(clientMeta)) {
+      return clientMeta.slice().sort().join("|");
+    }
+    if (typeof clientMeta === "string") {
+      return clientMeta;
+    }
+    return JSON.stringify(clientMeta);
+  }, [user?.metadata?.client]);
+
+  const clientFilterValues = useMemo(() => {
+    const clientMeta = user?.metadata?.client;
+    if (!clientMeta) return [];
+    if (Array.isArray(clientMeta)) {
+      return clientMeta
+        .map((value) => (value != null ? String(value) : ""))
+        .filter((value) => value.length > 0);
+    }
+    return [String(clientMeta)];
+  }, [userClientKey]);
+
+  const userId = user?.id ?? null;
+  const canBypassClientFilter =
+    normalizedUserRole === "admin" || normalizedUserRole === "qa";
+
+  const latestAssetIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    latestAssetIdRef.current = asset?.id ?? null;
+  }, [asset?.id]);
+
   // Function to handle back navigation based on where user came from
   const handleBackNavigation = () => {
     const from = searchParams.get("from");
@@ -1012,6 +1065,7 @@ export default function ReviewPage() {
         y: parseFloat(annotation.position.split(" ")[1]),
         z: parseFloat(annotation.position.split(" ")[2]),
       },
+      normal: parseVector3(annotation.normal),
       comment: annotation.comment,
       image_url: annotation.image_url,
       visible: true,
@@ -1019,147 +1073,163 @@ export default function ReviewPage() {
 
   // Fetch asset data
   useEffect(() => {
+    let isCancelled = false;
+
     async function fetchAsset() {
-      if (!assetId) return;
+      if (!assetId || !userId) return;
 
-      // For admin and QA users, don't require client metadata
-      if (
-        !user?.metadata?.client &&
-        user?.metadata?.role !== "admin" &&
-        user?.metadata?.role !== "qa"
-      )
-        return;
+      if (!canBypassClientFilter && clientFilterValues.length === 0) return;
 
-      setLoading(true);
+      const shouldShowLoading =
+        !latestAssetIdRef.current || latestAssetIdRef.current !== assetId;
 
-      let query = supabase
-        .from("onboarding_assets")
-        .select("*")
-        .eq("id", assetId);
-
-      // Only filter by client if user is not admin or QA
-      if (user?.metadata?.role !== "admin" && user?.metadata?.role !== "qa") {
-        if (
-          Array.isArray(user.metadata.client) &&
-          user.metadata.client.length > 0
-        ) {
-          query = query.in("client", user.metadata.client);
-        }
+      if (shouldShowLoading) {
+        setLoading(true);
       }
 
-      // Hide transferred assets for client users
-      if (user?.metadata?.role === "client") {
-        query = query.eq("transferred", false);
-      }
-
-      const { data, error } = await query.single();
-
-      if (error) {
-        console.error("Error fetching asset:", error);
-        toast.error("Failed to load asset");
-        return;
-      }
-
-      const articleIds = normalizeArticleIds(
-        (data as any).article_id,
-        (data as any).article_ids
-      );
-
-      setAsset({
-        ...(data as any),
-        article_ids: articleIds,
-        article_id: articleIds[0] || (data as any).article_id,
-      });
-
-      // Fetch client's viewer type through service-backed API (case-insensitive)
       try {
-        const clientName = (data as any)?.client ?? "";
-        const clientId =
-          typeof (data as any)?.client_id === "string"
-            ? ((data as any)?.client_id as string)
-            : null;
+        let query = supabase
+          .from("onboarding_assets")
+          .select("*")
+          .eq("id", assetId);
 
-        const params = new URLSearchParams();
-        if (clientId) {
-          params.set("id", clientId);
-        } else if (clientName) {
-          params.set("name", clientName);
+        if (!canBypassClientFilter && clientFilterValues.length > 0) {
+          query = query.in("client", clientFilterValues);
         }
 
-        if (params.size > 0) {
-          const response = await fetch(
-            `/api/clients/viewer-type?${params.toString()}`,
-            { cache: "no-store" }
-          );
+        if (normalizedUserRole === "client") {
+          query = query.eq("transferred", false);
+        }
 
-          if (response.ok) {
-            const payload = await response.json();
-            setClientViewerType(payload.viewerType ?? null);
-          } else {
+        const { data, error } = await query.single();
+
+        if (error) {
+          console.error("Error fetching asset:", error);
+          toast.error("Failed to load asset");
+          return;
+        }
+
+        const articleIds = normalizeArticleIds(
+          (data as any).article_id,
+          (data as any).article_ids
+        );
+
+        if (!isCancelled) {
+          setAsset({
+            ...(data as any),
+            article_ids: articleIds,
+            article_id: articleIds[0] || (data as any).article_id,
+          });
+          latestAssetIdRef.current = assetId;
+        }
+
+        try {
+          const clientName = (data as any)?.client ?? "";
+          const clientId =
+            typeof (data as any)?.client_id === "string"
+              ? ((data as any)?.client_id as string)
+              : null;
+
+          const params = new URLSearchParams();
+          if (clientId) {
+            params.set("id", clientId);
+          } else if (clientName) {
+            params.set("name", clientName);
+          }
+
+          if (params.size > 0) {
+            const response = await fetch(
+              `/api/clients/viewer-type?${params.toString()}`,
+              { cache: "no-store" }
+            );
+
+            if (response.ok) {
+              const payload = await response.json();
+              if (!isCancelled) {
+                setClientViewerType(payload.viewerType ?? null);
+              }
+            } else if (!isCancelled) {
+              setClientViewerType(null);
+            }
+          } else if (!isCancelled) {
             setClientViewerType(null);
           }
-        } else {
-          setClientViewerType(null);
+        } catch (error) {
+          console.error("Error fetching client viewer type:", error);
+          if (!isCancelled) {
+            setClientViewerType(null);
+          }
         }
-      } catch (error) {
-        console.error("Error fetching client viewer type:", error);
-        setClientViewerType(null);
-      }
 
-      // Set revision count - fallback to revision history if asset record is outdated
-      let finalRevisionCount = data.revision_count || 0;
+        let finalRevisionCount = data.revision_count || 0;
 
-      // If revision count is 0 but there might be revision history, check the database
-      if (finalRevisionCount === 0) {
-        const { data: revisionHistory } = await supabase
-          .from("revision_history")
-          .select("revision_number")
-          .eq("asset_id", assetId)
-          .order("revision_number", { ascending: false })
-          .limit(1);
+        if (finalRevisionCount === 0) {
+          const { data: revisionHistory } = await supabase
+            .from("revision_history")
+            .select("revision_number")
+            .eq("asset_id", assetId)
+            .order("revision_number", { ascending: false })
+            .limit(1);
 
-        if (revisionHistory && revisionHistory.length > 0) {
-          finalRevisionCount = revisionHistory[0].revision_number;
+          if (revisionHistory && revisionHistory.length > 0) {
+            finalRevisionCount = revisionHistory[0].revision_number;
 
-          // Update the asset record to fix the mismatch
-          await supabase
-            .from("onboarding_assets")
-            .update({ revision_count: finalRevisionCount })
-            .eq("id", assetId);
+            await supabase
+              .from("onboarding_assets")
+              .update({ revision_count: finalRevisionCount })
+              .eq("id", assetId);
+          }
+        }
+
+        if (!isCancelled) {
+          setRevisionCount(finalRevisionCount);
+        }
+
+        const clientReferenceValues = parseReferenceValues(data.reference);
+        const clientMedia = categorizeReferenceMedia(clientReferenceValues);
+        if (!isCancelled) {
+          setReferenceImages(clientMedia.images);
+          setReferenceFiles(clientMedia.files);
+          setSelectedReferenceIndex(clientMedia.images.length > 0 ? 0 : null);
+        }
+
+        if (!isClient && !isCancelled) {
+          const internalReferenceValues = parseReferenceValues(
+            (data as any).internal_reference
+          );
+          const internalMedia = categorizeReferenceMedia(
+            internalReferenceValues
+          );
+          setInternalReferenceImages(internalMedia.images);
+          setInternalReferenceFiles(internalMedia.files);
+          setSelectedInternalReferenceIndex(
+            internalMedia.images.length > 0 ? 0 : null
+          );
+        } else if (!isCancelled) {
+          setInternalReferenceImages([]);
+          setInternalReferenceFiles([]);
+          setSelectedInternalReferenceIndex(null);
+        }
+      } finally {
+        if (!isCancelled && shouldShowLoading) {
+          setLoading(false);
         }
       }
-
-      setRevisionCount(finalRevisionCount);
-
-      // Parse client references
-      const clientReferenceValues = parseReferenceValues(data.reference);
-      const clientMedia = categorizeReferenceMedia(clientReferenceValues);
-      setReferenceImages(clientMedia.images);
-      setReferenceFiles(clientMedia.files);
-      setSelectedReferenceIndex(clientMedia.images.length > 0 ? 0 : null);
-
-      // Parse internal references for non-client roles
-      if (!isClient) {
-        const internalReferenceValues = parseReferenceValues(
-          (data as any).internal_reference
-        );
-        const internalMedia = categorizeReferenceMedia(internalReferenceValues);
-        setInternalReferenceImages(internalMedia.images);
-        setInternalReferenceFiles(internalMedia.files);
-        setSelectedInternalReferenceIndex(
-          internalMedia.images.length > 0 ? 0 : null
-        );
-      } else {
-        setInternalReferenceImages([]);
-        setInternalReferenceFiles([]);
-        setSelectedInternalReferenceIndex(null);
-      }
-
-      setLoading(false);
     }
 
     fetchAsset();
-  }, [assetId, user?.metadata?.client]);
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [
+    assetId,
+    canBypassClientFilter,
+    clientFilterValues,
+    normalizedUserRole,
+    userClientKey,
+    userId,
+  ]);
 
   // Fetch annotations
   useEffect(() => {
@@ -1186,7 +1256,7 @@ export default function ReviewPage() {
   // Fetch comments
   useEffect(() => {
     async function fetchComments() {
-      if (!assetId || !user) return;
+      if (!assetId || !userId) return;
 
       try {
         let query = supabase
@@ -1204,12 +1274,9 @@ export default function ReviewPage() {
           .eq("asset_id", assetId)
           .not("comment", "like", "NOTE:%");
 
-        // Apply role-based filtering for comments
-        if (user.metadata?.role === "client") {
-          // Clients can only see their own comments
-          query = query.eq("created_by", user.id);
+        if (normalizedUserRole === "client") {
+          query = query.eq("created_by", userId);
         }
-        // QA, modelers, admin, and production can see all comments (no additional filter needed)
 
         const { data, error } = await query.order("created_at", {
           ascending: false,
@@ -1226,7 +1293,7 @@ export default function ReviewPage() {
     }
 
     fetchComments();
-  }, [assetId, user]);
+  }, [assetId, normalizedUserRole, userId]);
 
   // Fetch notes (using asset_comments with a special prefix)
   useEffect(() => {
@@ -1424,17 +1491,16 @@ export default function ReviewPage() {
   };
 
   // Handle hotspot creation
-  const handleHotspotCreate = (position: {
-    x: number;
-    y: number;
-    z: number;
-  }) => {
+  const handleHotspotCreate = (
+    position: Vector3,
+    normal: Vector3 = DEFAULT_NORMAL
+  ) => {
     // Create a temporary annotation that appears instantly
     const tempAnnotation: Annotation = {
       id: `temp-${Date.now()}`, // Temporary ID
       asset_id: assetId,
-      position: `${position.x} ${position.y} ${position.z}`,
-      normal: "0 1 0", // Default normal
+      position: formatVector3(position),
+      normal: formatVector3(normal),
       comment: "",
       created_by: user?.id || "",
       created_at: new Date().toISOString(),
@@ -4692,12 +4758,34 @@ export default function ReviewPage() {
                         event.clientY
                       );
 
-                    if (positionData) {
-                      handleHotspotCreate({
-                        x: positionData.position.x,
-                        y: positionData.position.y,
-                        z: positionData.position.z,
-                      });
+                    if (positionData?.position) {
+                      const positionVector: Vector3 = {
+                        x: Number(positionData.position.x ?? 0),
+                        y: Number(positionData.position.y ?? 0),
+                        z: Number(positionData.position.z ?? 0),
+                      };
+
+                      const hasValidNormal =
+                        positionData.normal &&
+                        ["x", "y", "z"].every((axis) =>
+                          Number.isFinite(
+                            Number(
+                              (positionData.normal as Record<string, unknown>)[
+                                axis
+                              ]
+                            )
+                          )
+                        );
+
+                      const normalVector: Vector3 = hasValidNormal
+                        ? {
+                            x: Number(positionData.normal.x),
+                            y: Number(positionData.normal.y),
+                            z: Number(positionData.normal.z),
+                          }
+                        : DEFAULT_NORMAL;
+
+                      handleHotspotCreate(positionVector, normalVector);
                     }
                   }}
                 >
@@ -4707,8 +4795,8 @@ export default function ReviewPage() {
                         <div
                           key={hotspot.id}
                           slot={`hotspot-${hotspot.id}`}
-                          data-position={`${hotspot.position.x} ${hotspot.position.y} ${hotspot.position.z}`}
-                          data-normal="0 1 0"
+                          data-position={formatVector3(hotspot.position)}
+                          data-normal={formatVector3(hotspot.normal)}
                           className={`hotspot-annotation ${
                             selectedHotspotId === hotspot.id ? "selected" : ""
                           }`}

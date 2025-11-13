@@ -84,6 +84,7 @@ interface Annotation {
 interface Hotspot {
   id: string;
   position: { x: number; y: number; z: number };
+  normal: Vector3;
   comment: string;
   image_url?: string;
   visible: boolean;
@@ -135,6 +136,26 @@ const getStatusLabelText = (status: string): string => {
     default:
       return status;
   }
+};
+
+type Vector3 = { x: number; y: number; z: number };
+
+const DEFAULT_NORMAL: Vector3 = { x: 0, y: 1, z: 0 };
+
+const formatVector3 = (vector: Vector3): string =>
+  `${vector.x.toFixed(6)} ${vector.y.toFixed(6)} ${vector.z.toFixed(6)}`;
+
+const parseVector3 = (value?: string | null): Vector3 => {
+  if (!value) return DEFAULT_NORMAL;
+  const parts = value
+    .trim()
+    .split(/\s+/)
+    .map((part) => Number(part));
+
+  if (parts.length === 3 && parts.every((num) => Number.isFinite(num))) {
+    return { x: parts[0], y: parts[1], z: parts[2] };
+  }
+  return DEFAULT_NORMAL;
 };
 
 const parseMeasurements = (
@@ -317,6 +338,21 @@ const getViewerParameters = (viewerType?: string | null) => {
         exposure: "1.2",
         toneMapping: "aces",
       };
+  }
+};
+
+const getViewerDisplayName = (viewerType?: string | null) => {
+  switch (viewerType) {
+    case "v6_aces":
+      return "V6 ACES Tester";
+    case "v5_tester":
+      return "V5 Default";
+    case "synsam":
+      return "Synsam Default";
+    case "v2":
+      return "V2 Default";
+    default:
+      return "Default (V6 ACES Tester)";
   }
 };
 
@@ -797,6 +833,7 @@ export default function ModelerReviewPage() {
         y: parseFloat(annotation.position.split(" ")[1]),
         z: parseFloat(annotation.position.split(" ")[2]),
       },
+      normal: parseVector3(annotation.normal),
       comment: annotation.comment,
       image_url: annotation.image_url,
       visible: true,
@@ -2668,6 +2705,9 @@ export default function ModelerReviewPage() {
                       <span className="text-xs sm:text-sm text-muted-foreground font-medium">
                         {asset?.article_id}
                       </span>
+                      <Badge variant="outline" className="text-xs">
+                        Viewer: {getViewerDisplayName(clientViewerType)}
+                      </Badge>
                       {asset?.revision_count > 0 && (
                         <Badge
                           variant="outline"
@@ -2933,8 +2973,8 @@ export default function ModelerReviewPage() {
                         <div
                           key={hotspot.id}
                           slot={`hotspot-${hotspot.id}`}
-                          data-position={`${hotspot.position.x} ${hotspot.position.y} ${hotspot.position.z}`}
-                          data-normal="0 1 0"
+                          data-position={formatVector3(hotspot.position)}
+                          data-normal={formatVector3(hotspot.normal)}
                           className={`hotspot-annotation ${
                             selectedHotspotId === hotspot.id ? "selected" : ""
                           }`}
@@ -2986,16 +3026,6 @@ export default function ModelerReviewPage() {
                                 .findIndex((a) => a.id === hotspot.id) + 1}
                             </div>
                           </div>
-
-                          {hotspot.comment && hotspot.comment.trim() && (
-                            <div className="hotspot-comment">
-                              <div className="comment-bubble">
-                                <div className="comment-text">
-                                  {hotspot.comment}
-                                </div>
-                              </div>
-                            </div>
-                          )}
                         </div>
                       )
                   )}

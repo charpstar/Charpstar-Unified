@@ -270,12 +270,12 @@ export default function AppSidebar({
             ],
           },
           {
-            title: "Scene Render",
+            title: "CharpstAR Studio AI",
             url: "/scene-render",
-            icon: Palette,
+            icon: Sparkles,
           },
           {
-            title: "Product Render",
+            title: "Image Studio",
             url: "/product-render",
             icon: Monitor,
           },
@@ -391,8 +391,8 @@ export default function AppSidebar({
     "Add Products": 15,
     "Client Review": 20,
     "Integration Guide": 22,
-    "Scene Render": 25,
-    "Product Render": 26,
+    "CharpstAR Studio AI": 25,
+    "Image Studio": 26,
     "Modular 3D Creator": 27,
     // Modeler
     "My Assignments": 10,

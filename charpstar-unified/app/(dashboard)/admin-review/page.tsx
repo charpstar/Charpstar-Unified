@@ -75,6 +75,17 @@ import {
 import { ViewReferencesDialog } from "@/components/ui/containers/ViewReferencesDialog";
 import { AddReferenceDialog } from "@/components/ui/containers/AddReferenceDialog";
 
+const arraysAreEqual = <T,>(a: T[], b: T[]): boolean => {
+  if (a === b) return true;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i += 1) {
+    if (a[i] !== b[i]) {
+      return false;
+    }
+  }
+  return true;
+};
+
 // Pricing options for admin price management
 interface PricingOption {
   id: string;
@@ -464,7 +475,25 @@ const getArticleIdsTooltip = (articleIds: string[]): string | null => {
   return articleIds.join(", ");
 };
 
-const PAGE_SIZE = 200;
+const PAGE_SIZE = 30;
+
+interface AllocationListAssignmentEntry {
+  assignment: any;
+  asset: any;
+  assetId: string;
+  isVariation: boolean;
+  isParent: boolean;
+  articleIds: string[];
+  additionalArticleIds: string[];
+  articleIdsTooltip: string | null;
+  visibleReferenceCount: number;
+}
+
+interface AllocationListRenderEntry {
+  list: any;
+  processedAssignments: AllocationListAssignmentEntry[];
+  assetIds: string[];
+}
 
 const getStatusIcon = (status: string) => {
   switch (status) {
@@ -835,7 +864,18 @@ export default function AdminReviewPage() {
   >({});
 
   // Get URL parameters for client and batch filtering
-  const urlClient = searchParams.get("client");
+  const decodeSearchParam = useCallback((value: string | null) => {
+    if (!value) return null;
+    const normalized = value.replace(/\+/g, " ");
+    try {
+      return decodeURIComponent(normalized);
+    } catch {
+      return normalized;
+    }
+  }, []);
+
+  const rawClientParam = searchParams.get("client");
+  const urlClient = decodeSearchParam(rawClientParam);
   const urlBatch = searchParams.get("batch");
 
   // Debug URL parameters
@@ -901,6 +941,42 @@ export default function AdminReviewPage() {
   const [listDeadlineSaving, setListDeadlineSaving] = useState<Set<string>>(
     new Set()
   );
+
+  const modelerOptions = useMemo(() => {
+    if (showAllocationLists) {
+      const listModelerIds = new Set<string>();
+      allocationLists.forEach((list) => {
+        const listModelerId = list?.user_id;
+        if (typeof listModelerId === "string" && listModelerId.length > 0) {
+          listModelerIds.add(listModelerId);
+        }
+      });
+      if (listModelerIds.size === 0) {
+        return modelers;
+      }
+      return modelers.filter((modeler) => listModelerIds.has(modeler.id));
+    }
+
+    const assetModelerIds = new Set<string>();
+    filtered.forEach((asset) => {
+      const assigned = assignedAssets.get(asset.id);
+      if (assigned?.id) {
+        assetModelerIds.add(assigned.id);
+      }
+    });
+
+    if (assetModelerIds.size === 0) {
+      return modelers;
+    }
+
+    return modelers.filter((modeler) => assetModelerIds.has(modeler.id));
+  }, [
+    allocationLists,
+    assignedAssets,
+    filtered,
+    modelers,
+    showAllocationLists,
+  ]);
   const [selectedQAForLists, setSelectedQAForLists] = useState<
     Record<string, string>
   >({});
@@ -1815,7 +1891,7 @@ export default function AdminReviewPage() {
   };
 
   // Toggle asset selection for reallocation
-  const toggleAssetSelection = (assetId: string) => {
+  const toggleAssetSelection = useCallback((assetId: string) => {
     setSelectedAssetsForReallocation((prev) => {
       const next = new Set(prev);
       if (next.has(assetId)) {
@@ -1825,7 +1901,7 @@ export default function AdminReviewPage() {
       }
       return next;
     });
-  };
+  }, []);
 
   // Select all assets in current view
   const selectAllAssetsForReallocation = () => {
@@ -2288,51 +2364,55 @@ export default function AdminReviewPage() {
 
   // Handle URL parameters for client, batch, modeler, and status filters
   useEffect(() => {
-    const clientParam = searchParams.get("client");
+    const clientParamRaw = searchParams.get("client");
+    const clientParam = decodeSearchParam(clientParamRaw);
     const batchParam = searchParams.get("batch");
     const modelerParam = searchParams.get("modeler");
     const statusParam = searchParams.get("status");
     const emailParam = searchParams.get("email");
 
-    if (clientParam) {
-      setClientFilters(
-        clientParam
+    const nextClientFilters = clientParam
+      ? clientParam
           .split(",")
           .map((c) => c.trim())
           .filter((c) => c.length > 0)
-      );
-    }
+      : [];
+    setClientFilters((prev) =>
+      arraysAreEqual(prev, nextClientFilters) ? prev : nextClientFilters
+    );
 
-    if (batchParam) {
-      setBatchFilters(
-        batchParam
+    const nextBatchFilters = batchParam
+      ? batchParam
           .split(",")
           .map((b) => parseInt(b.trim()))
           .filter((n) => !Number.isNaN(n))
-      );
-    }
+      : [];
+    setBatchFilters((prev) =>
+      arraysAreEqual(prev, nextBatchFilters) ? prev : nextBatchFilters
+    );
 
-    if (modelerParam) {
-      setModelerFilters(
-        modelerParam
+    const nextModelerFilters = modelerParam
+      ? modelerParam
           .split(",")
           .map((m) => m.trim())
           .filter((m) => m.length > 0)
-      );
-    }
+      : [];
+    setModelerFilters((prev) =>
+      arraysAreEqual(prev, nextModelerFilters) ? prev : nextModelerFilters
+    );
 
-    if (statusParam) {
-      setStatusFilters(
-        statusParam
+    const nextStatusFilters = statusParam
+      ? statusParam
           .split(",")
           .map((s) => s.trim())
           .filter((s) => s.length > 0)
-      );
-    }
+      : [];
+    setStatusFilters((prev) =>
+      arraysAreEqual(prev, nextStatusFilters) ? prev : nextStatusFilters
+    );
 
-    if (emailParam) {
-      setModelerEmail(emailParam);
-    }
+    const nextEmail = emailParam ?? "";
+    setModelerEmail((prev) => (prev === nextEmail ? prev : nextEmail));
 
     // Fetch user role and decide what to show when both modeler and email are provided
     if (modelerParam && emailParam) {
@@ -2364,7 +2444,7 @@ export default function AdminReviewPage() {
       setShowQAAssets(false);
       setViewedUserRole("");
     }
-  }, [searchParams]);
+  }, [decodeSearchParam, searchParams]);
 
   useEffect(() => {
     if (
@@ -2732,7 +2812,6 @@ export default function AdminReviewPage() {
     refreshTrigger,
     urlClient,
     urlBatch,
-    searchParams,
   ]);
 
   // Fetch annotation counts for assets
@@ -3300,6 +3379,76 @@ export default function AdminReviewPage() {
     () => currencyFormatter.format(selectedPricingSummary.total),
     [currencyFormatter, selectedPricingSummary.total]
   );
+
+  const allocationListRenderData = useMemo<AllocationListRenderEntry[]>(() => {
+    if (!showAllocationLists) return [];
+
+    return paged.map((list: any): AllocationListRenderEntry => {
+      const assignments = Array.isArray(list?.asset_assignments)
+        ? list.asset_assignments
+        : [];
+
+      const parentIds = new Set<string>();
+      assignments.forEach((assignment: any) => {
+        const parentId =
+          assignment?.onboarding_assets?.parent_asset_id ??
+          assignment?.parent_asset_id;
+        if (parentId) {
+          parentIds.add(String(parentId));
+        }
+      });
+
+      const processedAssignments: AllocationListAssignmentEntry[] =
+        assignments.map((assignment: any) => {
+          const asset = (assignment?.onboarding_assets ?? {}) as any;
+          const assetId = String(asset?.id ?? assignment?.asset_id ?? "");
+
+          const rawArticleIds = Array.isArray(asset?.article_ids)
+            ? (asset.article_ids as unknown[])
+            : normalizeArticleIds(asset?.article_id, asset?.article_ids);
+
+          const articleIds = rawArticleIds.filter(
+            (id): id is string => typeof id === "string" && id.trim() !== ""
+          );
+
+          const additionalArticleIds = getAdditionalArticleIds({
+            ...asset,
+            article_ids: articleIds,
+          });
+
+          const articleIdsTooltip = getArticleIdsTooltip(articleIds);
+          const visibleReferences = getVisibleReferences(asset);
+          const visibleReferenceCount =
+            visibleReferences.length + (asset?.glb_link ? 1 : 0);
+
+          return {
+            assignment,
+            asset,
+            assetId,
+            isVariation: asset?.is_variation === true,
+            isParent: parentIds.has(assetId),
+            articleIds,
+            additionalArticleIds,
+            articleIdsTooltip,
+            visibleReferenceCount,
+          };
+        });
+
+      const assetIds = Array.from(
+        new Set<string>(
+          processedAssignments
+            .map((entry) => entry.assetId)
+            .filter((value) => value.length > 0)
+        )
+      );
+
+      return {
+        list,
+        processedAssignments,
+        assetIds,
+      };
+    });
+  }, [paged, showAllocationLists]);
 
   useEffect(() => {
     if (!showAllocationLists) return;
@@ -4880,7 +5029,7 @@ export default function AdminReviewPage() {
 
             {/* Modeler Filter - Combobox */}
             <ModelerCombobox
-              modelers={modelers}
+              modelers={modelerOptions}
               value={
                 modelerFilters.length === 1 ? modelerFilters[0] : undefined
               }
@@ -4896,7 +5045,13 @@ export default function AdminReviewPage() {
                 modelerFilters.length === 0
                   ? "All modelers"
                   : modelerFilters.length === 1
-                    ? modelers.find((m) => m.id === modelerFilters[0])?.name ||
+                    ? modelerOptions.find((m) => m.id === modelerFilters[0])
+                        ?.name ||
+                      modelerOptions.find((m) => m.id === modelerFilters[0])
+                        ?.title ||
+                      modelerOptions.find((m) => m.id === modelerFilters[0])
+                        ?.email ||
+                      modelers.find((m) => m.id === modelerFilters[0])?.name ||
                       modelers.find((m) => m.id === modelerFilters[0])?.title ||
                       modelers.find((m) => m.id === modelerFilters[0])?.email
                     : `${modelerFilters.length} selected`
@@ -5054,7 +5209,7 @@ export default function AdminReviewPage() {
                 </div>
               </div>
             )}
-            {paged.length === 0 ? (
+            {allocationListRenderData.length === 0 ? (
               <Card className="p-8 text-center">
                 <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                 <h3 className="text-lg font-semibold mb-2">
@@ -5065,991 +5220,953 @@ export default function AdminReviewPage() {
                 </p>
               </Card>
             ) : (
-              paged.map((list) => {
-                const stats = calculateListStats(list);
-                const isExpanded = expandedLists.has(list.id);
-                const listModelerId =
-                  typeof list.user_id === "string" && list.user_id.length > 0
-                    ? list.user_id
-                    : modelerFilters.length === 1
-                      ? modelerFilters[0]
-                      : undefined;
-                const qasForModeler:
-                  | {
-                      id: string;
-                      email: string | null;
-                      title?: string | null;
-                    }[]
-                  | [] =
-                  (listModelerId && modelerQAAssignments[listModelerId]) || [];
-                return (
-                  <Card
-                    key={list.id}
-                    className={`cursor-pointer transition-all duration-200 ease-in-out hover:shadow-md ${
-                      activeListId === String(list.id)
-                        ? "border-primary/60 bg-primary/10 dark:bg-primary/20 shadow-lg shadow-primary/20 highlighted-status"
-                        : "border-border"
-                    }`}
-                    tabIndex={0}
-                    onMouseDownCapture={() => setActiveListId(String(list.id))}
-                    onFocusCapture={() => setActiveListId(String(list.id))}
-                    onClick={() => handleListCardClick(list.id)}
-                  >
-                    <CardHeader className="p-4 sm:p-6">
-                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
-                        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
-                          <div className="flex items-center gap-2">
-                            {getStatusIcon(list.status)}
-                            <Badge
-                              variant="outline"
-                              className={`text-xs ${getStatusLabelClass(list.status)}`}
-                            >
-                              {list.status === "in_progress"
-                                ? "In Progress"
-                                : list.status === "pending"
-                                  ? "Pending"
-                                  : list.status}
-                            </Badge>
-                          </div>
-                          <h3 className="text-sm sm:text-md font-medium text-foreground">
-                            <span className="hidden sm:inline">
-                              Allocation {list.number} -{" "}
-                            </span>
-                            <span className="sm:hidden">#{list.number} - </span>
-                            {new Date(
-                              list.deadline
-                            ).toLocaleDateString()} - {stats.totalAssets} assets
-                          </h3>
-                          <div className="flex items-center gap-1 text-muted-foreground">
-                            {isExpanded ? (
-                              <ChevronUp className="h-3 w-3 sm:h-4 sm:w-4 transition-transform duration-200" />
-                            ) : (
-                              <ChevronDown className="h-3 w-3 sm:h-4 sm:w-4 transition-transform duration-200" />
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-xs sm:text-sm text-muted-foreground">
-                          <div className="flex items-center gap-1">
-                            <span className="truncate">{modelerEmail}</span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <span
-                              className={
-                                isOverdue(list.deadline)
-                                  ? "text-error font-medium"
-                                  : ""
-                              }
-                            >
-                              {new Date(list.deadline).toLocaleDateString()}
-                            </span>
-                          </div>
-                          <div className="flex flex-wrap items-center gap-1 sm:gap-2">
-                            <span className="text-muted-foreground">QA:</span>
-                            {qasForModeler.length > 0 ? (
-                              qasForModeler.map((qa) => {
-                                const label = qa.title?.trim()
-                                  ? qa.title
-                                  : qa.email || "QA";
-                                return (
-                                  <Badge
-                                    key={`${list.id}-${qa.id}`}
-                                    variant="outline"
-                                    className="text-[11px]"
-                                  >
-                                    {label}
-                                  </Badge>
-                                );
-                              })
-                            ) : (
-                              <span className="italic text-muted-foreground">
-                                None assigned
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Summary stats always visible */}
-                      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 sm:gap-4 pt-3 sm:pt-4">
-                        <div className="text-center">
-                          <p className="text-xs sm:text-sm font-medium text-muted-foreground">
-                            Assets
-                          </p>
-                          <p className="text-lg sm:text-2xl font-medium">
-                            {stats.approvedAssets}/{stats.totalAssets}
-                          </p>
-                        </div>
-                        <div className="text-center">
-                          <p className="text-xs sm:text-sm font-medium text-muted-foreground">
-                            Progress
-                          </p>
-                          <p className="text-lg sm:text-2xl font-medium text-info">
-                            {stats.completionPercentage}%
-                          </p>
-                        </div>
-                        <div className="text-center">
-                          <p className="text-xs sm:text-sm font-medium text-muted-foreground">
-                            Base Price
-                          </p>
-                          <p className="text-lg sm:text-2xl font-medium text-success">
-                            €{stats.basePrice.toFixed(2)}
-                          </p>
-                        </div>
-                        <div className="text-center">
-                          <p className="text-xs sm:text-sm font-medium text-muted-foreground">
-                            Total w/ Bonus
-                          </p>
-                          <p className="text-lg sm:text-2xl font-medium text-primary">
-                            €{stats.potentialEarnings.toFixed(2)}
-                          </p>
-                        </div>
-                        <div className="text-center flex flex-col items-center gap-2">
-                          <div>
-                            <p className="text-xs sm:text-sm font-medium text-muted-foreground">
-                              Corrections
-                            </p>
-                            <p className="text-lg sm:text-2xl font-medium text-orange-600">
-                              €{stats.correctionAmount.toFixed(2)}
-                            </p>
-                          </div>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="text-xs h-7 px-2"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedListForCorrection(list.id);
-                              setCorrectionAmount(
-                                stats.correctionAmount > 0
-                                  ? stats.correctionAmount.toString()
-                                  : ""
-                              );
-                              setShowCorrectionDialog(true);
-                            }}
-                          >
-                            Add Correction
-                          </Button>
-                        </div>
-                      </div>
-                    </CardHeader>
-
-                    {/* Down arrow indicator for collapsed state */}
-                    {!isExpanded && (
-                      <div className="flex justify-center">
-                        <div className="flex items-center gap-2 text-muted-foreground text-xs sm:text-sm">
-                          <span>Click to view more details</span>
-                          <ChevronDown className="h-3 w-3 sm:h-4 sm:w-4" />
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Collapsible content with smooth transition */}
-                    <div
-                      className={`overflow-hidden transition-all duration-300 ease-in-out ${
-                        isExpanded
-                          ? "max-h-[2000px] opacity-100"
-                          : "max-h-0 opacity-0"
+              allocationListRenderData.map(
+                ({ list, processedAssignments, assetIds }) => {
+                  const stats = calculateListStats(list);
+                  const isExpanded = expandedLists.has(list.id);
+                  const listModelerId =
+                    typeof list.user_id === "string" && list.user_id.length > 0
+                      ? list.user_id
+                      : modelerFilters.length === 1
+                        ? modelerFilters[0]
+                        : undefined;
+                  const qasForModeler:
+                    | {
+                        id: string;
+                        email: string | null;
+                        title?: string | null;
+                      }[]
+                    | [] =
+                    (listModelerId && modelerQAAssignments[listModelerId]) ||
+                    [];
+                  return (
+                    <Card
+                      key={list.id}
+                      className={`cursor-pointer transition-all duration-200 ease-in-out hover:shadow-md ${
+                        activeListId === String(list.id)
+                          ? "border-primary/60 bg-primary/10 dark:bg-primary/20 shadow-lg shadow-primary/20 highlighted-status"
+                          : "border-border"
                       }`}
+                      tabIndex={0}
+                      onMouseDownCapture={() =>
+                        setActiveListId(String(list.id))
+                      }
+                      onFocusCapture={() => setActiveListId(String(list.id))}
+                      onClick={() => handleListCardClick(list.id)}
                     >
-                      <CardContent
-                        className="p-4 sm:p-6"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        {(() => {
-                          const listOverrides =
-                            listQAAssignments[list.id] || [];
-                          const selectedListQA =
-                            selectedQAForLists[list.id] || "";
-                          const isListLoading = listQaLoading.has(list.id);
-                          const currentDeadline = normalizeListDeadline(
-                            list.deadline
-                          );
-                          const draftDeadline =
-                            listDeadlineDrafts[list.id] !== undefined
-                              ? listDeadlineDrafts[list.id]
-                              : currentDeadline;
-                          const isSavingDeadline = listDeadlineSaving.has(
-                            list.id
-                          );
-                          const hasDeadlineChanged =
-                            draftDeadline !== "" &&
-                            draftDeadline !== currentDeadline;
-
-                          return (
-                            <div className="mb-4 rounded-lg border border-border bg-muted/40 p-4 space-y-4">
-                              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                                <div className="space-y-1">
-                                  <p className="text-sm font-medium text-foreground">
-                                    List Deadline
-                                  </p>
-                                  <p className="text-xs text-muted-foreground max-w-xl">
-                                    Update the deadline for this allocation list
-                                    only. QA and modeler assignments for other
-                                    lists stay unchanged.
-                                  </p>
-                                </div>
-                                <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                                  <Popover>
-                                    <PopoverTrigger asChild>
-                                      <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="h-8 px-3 text-xs sm:text-sm"
-                                        onClick={(event) =>
-                                          event.stopPropagation()
-                                        }
-                                      >
-                                        <CalendarIcon className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
-                                        {draftDeadline
-                                          ? format(
-                                              new Date(draftDeadline),
-                                              "PPP"
-                                            )
-                                          : "Select deadline"}
-                                      </Button>
-                                    </PopoverTrigger>
-                                    <PopoverContent
-                                      className="w-auto p-0"
-                                      align="start"
-                                    >
-                                      <Calendar
-                                        mode="single"
-                                        selected={
-                                          draftDeadline
-                                            ? new Date(draftDeadline)
-                                            : undefined
-                                        }
-                                        onSelect={(date) => {
-                                          handleListDeadlineSelect(
-                                            list.id,
-                                            date || undefined
-                                          );
-                                        }}
-                                        initialFocus
-                                      />
-                                    </PopoverContent>
-                                  </Popover>
-                                  <Button
-                                    size="sm"
-                                    onClick={(event) => {
-                                      event.stopPropagation();
-                                      handleSaveListDeadline(list);
-                                    }}
-                                    disabled={
-                                      isSavingDeadline || !hasDeadlineChanged
-                                    }
-                                    className="text-xs sm:text-sm h-8 px-3 whitespace-nowrap"
-                                  >
-                                    {isSavingDeadline ? "Saving..." : "Save"}
-                                  </Button>
-                                </div>
-                              </div>
-                              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                                <div className="space-y-2">
-                                  <div className="flex items-center gap-2">
-                                    <p className="text-sm font-medium text-foreground">
-                                      List QA Override
-                                    </p>
+                      <CardHeader className="p-4 sm:p-6">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+                          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+                            <div className="flex items-center gap-2">
+                              {getStatusIcon(list.status)}
+                              <Badge
+                                variant="outline"
+                                className={`text-xs ${getStatusLabelClass(list.status)}`}
+                              >
+                                {list.status === "in_progress"
+                                  ? "In Progress"
+                                  : list.status === "pending"
+                                    ? "Pending"
+                                    : list.status}
+                              </Badge>
+                            </div>
+                            <h3 className="text-sm sm:text-md font-medium text-foreground">
+                              <span className="hidden sm:inline">
+                                Allocation {list.number} -{" "}
+                              </span>
+                              <span className="sm:hidden">
+                                #{list.number} -{" "}
+                              </span>
+                              {new Date(list.deadline).toLocaleDateString()} -{" "}
+                              {stats.totalAssets} assets
+                            </h3>
+                            <div className="flex items-center gap-1 text-muted-foreground">
+                              {isExpanded ? (
+                                <ChevronUp className="h-3 w-3 sm:h-4 sm:w-4 transition-transform duration-200" />
+                              ) : (
+                                <ChevronDown className="h-3 w-3 sm:h-4 sm:w-4 transition-transform duration-200" />
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-xs sm:text-sm text-muted-foreground">
+                            <div className="flex items-center gap-1">
+                              <span className="truncate">{modelerEmail}</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <span
+                                className={
+                                  isOverdue(list.deadline)
+                                    ? "text-error font-medium"
+                                    : ""
+                                }
+                              >
+                                {new Date(list.deadline).toLocaleDateString()}
+                              </span>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-1 sm:gap-2">
+                              <span className="text-muted-foreground">QA:</span>
+                              {qasForModeler.length > 0 ? (
+                                qasForModeler.map((qa) => {
+                                  const label = qa.title?.trim()
+                                    ? qa.title
+                                    : qa.email || "QA";
+                                  return (
                                     <Badge
+                                      key={`${list.id}-${qa.id}`}
                                       variant="outline"
                                       className="text-[11px]"
                                     >
-                                      Optional
+                                      {label}
                                     </Badge>
-                                  </div>
-                                  {listOverrides.length > 0 ? (
-                                    <div className="flex flex-wrap gap-2">
-                                      {listOverrides.map((qa) => (
-                                        <Badge
-                                          key={`${list.id}-${qa.id}`}
-                                          variant="outline"
-                                          className="flex items-center gap-1.5 text-xs px-2.5 py-1 bg-blue-50 text-blue-700 border-blue-200"
-                                        >
-                                          <span>
-                                            {qa.title?.trim() ||
-                                              qa.email ||
-                                              "QA"}
-                                          </span>
-                                          <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            disabled={isListLoading}
-                                            onClick={(event) => {
-                                              event.stopPropagation();
-                                              handleRemoveListQA(list);
-                                            }}
-                                            className="h-4 w-4 p-0 text-destructive hover:text-destructive"
-                                            title="Remove QA override"
-                                          >
-                                            <X className="h-3 w-3" />
-                                          </Button>
-                                        </Badge>
-                                      ))}
-                                    </div>
-                                  ) : (
-                                    <p className="text-xs text-muted-foreground">
-                                      No override set. The modeler&apos;s
-                                      default QA will be used.
-                                    </p>
-                                  )}
-                                </div>
-                                <div className="flex w-full sm:w-auto gap-2">
-                                  <Select
-                                    value={selectedListQA}
-                                    onValueChange={(value) =>
-                                      setSelectedQAForLists((prev) => ({
-                                        ...prev,
-                                        [list.id]: value,
-                                      }))
-                                    }
-                                    disabled={
-                                      isListLoading || availableQAs.length === 0
-                                    }
-                                  >
-                                    <SelectTrigger className="h-8 text-xs sm:text-sm w-full sm:w-48">
-                                      <SelectValue placeholder="Select QA" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      {availableQAs.length === 0 ? (
-                                        <SelectItem value="" disabled>
-                                          No QA users available
-                                        </SelectItem>
-                                      ) : (
-                                        availableQAs.map((qa) => (
-                                          <SelectItem key={qa.id} value={qa.id}>
-                                            {qa.title?.trim() ||
-                                              qa.email ||
-                                              "QA"}
-                                          </SelectItem>
-                                        ))
-                                      )}
-                                    </SelectContent>
-                                  </Select>
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={(event) => {
-                                      event.stopPropagation();
-                                      handleAssignQAForList(list);
-                                    }}
-                                    disabled={
-                                      isListLoading ||
-                                      !selectedListQA ||
-                                      availableQAs.length === 0
-                                    }
-                                    className="text-xs sm:text-sm h-8 px-3 whitespace-nowrap"
-                                  >
-                                    {isListLoading ? "Saving..." : "Assign QA"}
-                                  </Button>
-                                </div>
-                              </div>
+                                  );
+                                })
+                              ) : (
+                                <span className="italic text-muted-foreground">
+                                  None assigned
+                                </span>
+                              )}
                             </div>
-                          );
-                        })()}
-                        <div className="overflow-x-auto">
-                          <Table>
-                            <TableHeader>
-                              <TableRow>
-                                <TableHead className="w-8 text-xs sm:text-sm mx-auto">
-                                  <Checkbox
-                                    className="mx-auto pl-6"
-                                    checked={
-                                      selectedAssetsForReallocation.size > 0 &&
-                                      list.asset_assignments.every(
-                                        (assignment: any) =>
-                                          selectedAssetsForReallocation.has(
-                                            assignment.onboarding_assets.id
-                                          )
-                                      )
-                                    }
-                                    onCheckedChange={(checked) => {
-                                      if (checked) {
-                                        // Select all assets in this list
-                                        const assetIds =
-                                          list.asset_assignments.map(
-                                            (assignment: any) =>
-                                              assignment.onboarding_assets.id
-                                          );
-                                        setSelectedAssetsForReallocation(
-                                          (prev) => {
-                                            const next = new Set(prev);
-                                            assetIds.forEach((id: string) =>
-                                              next.add(id)
-                                            );
-                                            return next;
-                                          }
-                                        );
-                                      } else {
-                                        // Deselect all assets in this list
-                                        const assetIds =
-                                          list.asset_assignments.map(
-                                            (assignment: any) =>
-                                              assignment.onboarding_assets.id
-                                          );
-                                        setSelectedAssetsForReallocation(
-                                          (prev) => {
-                                            const next = new Set(prev);
-                                            assetIds.forEach((id: string) =>
-                                              next.delete(id)
-                                            );
-                                            return next;
-                                          }
-                                        );
-                                      }
-                                    }}
-                                    onClick={(e) => e.stopPropagation()}
-                                  />
-                                </TableHead>
-                                <TableHead className="text-xs sm:text-sm text-left">
-                                  Product Name
-                                </TableHead>
-                                <TableHead className="w-32 text-xs sm:text-sm text-left">
-                                  Article ID
-                                </TableHead>
-                                <TableHead className="w-24 text-xs sm:text-sm text-left">
-                                  Priority
-                                </TableHead>
-                                <TableHead className="w-24 text-xs sm:text-sm text-left">
-                                  Price
-                                </TableHead>
-                                <TableHead className="w-32 text-xs sm:text-sm text-left">
-                                  Status
-                                </TableHead>
-                                <TableHead className="w-32 text-xs sm:text-sm text-left">
-                                  References
-                                </TableHead>
-                                <TableHead className="w-40 text-xs sm:text-sm text-left">
-                                  Product Link
-                                </TableHead>
-                                <TableHead className="w-12 text-xs sm:text-sm text-left">
-                                  Actions
-                                </TableHead>
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {list.asset_assignments.map((assignment: any) => {
-                                const asset = assignment.onboarding_assets;
-                                const isVariation = asset.is_variation === true;
-                                const isParent = list.asset_assignments.some(
-                                  (a: any) =>
-                                    a.onboarding_assets.parent_asset_id ===
-                                    asset.id
+                          </div>
+                        </div>
+
+                        {/* Summary stats always visible */}
+                        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 sm:gap-4 pt-3 sm:pt-4">
+                          <div className="text-center">
+                            <p className="text-xs sm:text-sm font-medium text-muted-foreground">
+                              Assets
+                            </p>
+                            <p className="text-lg sm:text-2xl font-medium">
+                              {stats.approvedAssets}/{stats.totalAssets}
+                            </p>
+                          </div>
+                          <div className="text-center">
+                            <p className="text-xs sm:text-sm font-medium text-muted-foreground">
+                              Progress
+                            </p>
+                            <p className="text-lg sm:text-2xl font-medium text-info">
+                              {stats.completionPercentage}%
+                            </p>
+                          </div>
+                          <div className="text-center">
+                            <p className="text-xs sm:text-sm font-medium text-muted-foreground">
+                              Base Price
+                            </p>
+                            <p className="text-lg sm:text-2xl font-medium text-success">
+                              €{stats.basePrice.toFixed(2)}
+                            </p>
+                          </div>
+                          <div className="text-center">
+                            <p className="text-xs sm:text-sm font-medium text-muted-foreground">
+                              Total w/ Bonus
+                            </p>
+                            <p className="text-lg sm:text-2xl font-medium text-primary">
+                              €{stats.potentialEarnings.toFixed(2)}
+                            </p>
+                          </div>
+                          <div className="text-center flex flex-col items-center gap-2">
+                            <div>
+                              <p className="text-xs sm:text-sm font-medium text-muted-foreground">
+                                Corrections
+                              </p>
+                              <p className="text-lg sm:text-2xl font-medium text-orange-600">
+                                €{stats.correctionAmount.toFixed(2)}
+                              </p>
+                            </div>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-xs h-7 px-2"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedListForCorrection(list.id);
+                                setCorrectionAmount(
+                                  stats.correctionAmount > 0
+                                    ? stats.correctionAmount.toString()
+                                    : ""
                                 );
-                                const articleIds = Array.isArray(
-                                  asset.article_ids
-                                )
-                                  ? asset.article_ids
-                                  : normalizeArticleIds(
-                                      asset.article_id,
-                                      asset.article_ids
-                                    );
-                                const additionalArticleIds =
-                                  getAdditionalArticleIds({
-                                    ...asset,
-                                    article_ids: articleIds,
-                                  });
-                                const articleIdsTooltip =
-                                  getArticleIdsTooltip(articleIds);
-                                return (
-                                  <TableRow
-                                    key={assignment.asset_id}
-                                    className={`${getStatusRowClass(
-                                      asset.status
-                                    )} transition-all duration-200 dark:border-border dark:hover:bg-muted/20 ${
-                                      isVariation
-                                        ? "bg-slate-50/50 dark:bg-slate-900/20 border-l-2 border-l-slate-300 dark:border-l-slate-600"
-                                        : isParent
-                                          ? "bg-amber-50/30 dark:bg-amber-950/10 border-l-2 border-l-black-400 dark:border-l-amber-600 border-t-4 border-t-amber-500 dark:border-t-amber-600"
-                                          : ""
-                                    } ${
-                                      activeAssetRowId ===
-                                      String(asset?.id ?? assignment.asset_id)
-                                        ? "highlighted-status"
-                                        : ""
-                                    }`}
-                                    onMouseDownCapture={() =>
-                                      setActiveAssetRowId(
-                                        String(asset?.id ?? assignment.asset_id)
-                                      )
-                                    }
-                                    onFocusCapture={() =>
-                                      setActiveAssetRowId(
-                                        String(asset?.id ?? assignment.asset_id)
-                                      )
-                                    }
-                                  >
-                                    <TableCell className="text-left">
-                                      <Checkbox
-                                        checked={selectedAssetsForReallocation.has(
-                                          assignment.onboarding_assets.id
-                                        )}
-                                        onCheckedChange={() =>
-                                          toggleAssetSelection(
-                                            assignment.onboarding_assets.id
-                                          )
-                                        }
-                                        onClick={(e) => e.stopPropagation()}
-                                      />
-                                    </TableCell>
-                                    <TableCell className="text-left">
-                                      <div className="flex items-center gap-1.5">
-                                        {isVariation && (
-                                          <ChevronRight className="h-3 w-3 text-slate-500 dark:text-slate-400 flex-shrink-0" />
-                                        )}
-                                        {isParent && !isVariation && (
-                                          <Package className="h-3 w-3 text-amber-600 dark:text-amber-500 flex-shrink-0" />
-                                        )}
-                                        <div
-                                          className={`font-medium cursor-help text-sm sm:text-base truncate ${
-                                            isVariation
-                                              ? "text-slate-600 dark:text-slate-400"
-                                              : isParent
-                                                ? "text-amber-700 dark:text-amber-500"
-                                                : ""
-                                          }`}
-                                          title={asset.product_name}
-                                        >
-                                          {asset.product_name.length > 20
-                                            ? asset.product_name.substring(
-                                                0,
-                                                20
-                                              ) + "..."
-                                            : asset.product_name}
-                                        </div>
-                                        {isParent && !isVariation && (
-                                          <Badge
-                                            variant="outline"
-                                            className="text-xs text-amber-700 dark:text-amber-500 border-amber-300 dark:border-amber-700 bg-amber-50/50 dark:bg-amber-950/20 px-1.5 py-0 ml-1"
-                                          >
-                                            Parent
-                                          </Badge>
-                                        )}
-                                        {isVariation &&
-                                          asset.variation_index && (
-                                            <Badge
-                                              variant="outline"
-                                              className="text-xs text-slate-600 dark:text-slate-400 border-slate-300 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/20 px-1.5 py-0 ml-1"
-                                            >
-                                              V{asset.variation_index}
-                                            </Badge>
-                                          )}
-                                      </div>
-                                    </TableCell>
-                                    <TableCell className="max-w-[140px] text-left text-xs sm:text-sm font-mono">
-                                      <div className="flex items-start gap-1.5 min-w-0">
-                                        {isVariation && (
-                                          <ChevronRight className="h-3 w-3 text-slate-500 dark:text-slate-400 flex-shrink-0" />
-                                        )}
-                                        {isParent && !isVariation && (
-                                          <Package className="h-3 w-3 text-amber-600 dark:text-amber-500 flex-shrink-0" />
-                                        )}
-                                        <div className="flex flex-col gap-1 min-w-0">
-                                          <span
-                                            className={`truncate ${
-                                              isVariation
-                                                ? "text-slate-600 dark:text-slate-400"
-                                                : isParent
-                                                  ? "text-amber-700 dark:text-amber-500"
-                                                  : ""
-                                            }`}
-                                            title={
-                                              articleIdsTooltip || undefined
-                                            }
-                                          >
-                                            {asset.article_id}
-                                          </span>
-                                          {additionalArticleIds.length > 0 && (
-                                            <div className="flex flex-wrap gap-1">
-                                              {additionalArticleIds.map(
-                                                (id) => (
-                                                  <Badge
-                                                    key={`${asset.id}-${id}`}
-                                                    variant="outline"
-                                                    className="px-1.5 py-0 text-[10px] uppercase tracking-wide text-muted-foreground dark:text-muted-foreground/80 border-border/60 dark:border-border/60"
-                                                    title={id}
-                                                  >
-                                                    {id}
-                                                  </Badge>
-                                                )
-                                              )}
-                                            </div>
-                                          )}
-                                        </div>
-                                      </div>
-                                    </TableCell>
-                                    <TableCell className="text-left">
-                                      <Select
-                                        value={(
-                                          assignment.onboarding_assets
-                                            .priority || 2
-                                        ).toString()}
-                                        onValueChange={(value) =>
-                                          handlePriorityUpdate(
-                                            assignment.onboarding_assets.id,
-                                            parseInt(value)
-                                          )
-                                        }
-                                        disabled={updatingPriorities.has(
-                                          assignment.onboarding_assets.id
-                                        )}
-                                      >
-                                        <SelectTrigger className="border-0 shadow-none bg-transparent dark:bg-transparent p-0  hover:bg-transparent [&>svg]:hidden justify-center w-full h-fit">
-                                          <span
-                                            className={`px-1.5 sm:px-2 py-0.5 sm:py-1 rounded text-xs font-semibold ${getPriorityClass(
-                                              assignment.onboarding_assets
-                                                .priority || 2,
-                                              assignment.onboarding_assets
-                                                .client
-                                            )}`}
-                                          >
-                                            {getPriorityLabelForClient(
-                                              assignment.onboarding_assets
-                                                .priority || 2,
-                                              assignment.onboarding_assets
-                                                .client
-                                            )}
-                                          </span>
-                                          {updatingPriorities.has(
-                                            assignment.onboarding_assets.id
-                                          ) ? (
-                                            <div className="ml-1 sm:ml-2 animate-spin rounded-full h-2.5 w-2.5 sm:h-3 sm:w-3 border-b-2 border-blue-600" />
-                                          ) : null}
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                          {/* Show AJ priority options only when asset client is AJ (not based on user role) */}
-                                          {(() => {
-                                            const assignmentClient =
-                                              assignment.onboarding_assets
-                                                .client;
-                                            const assignmentClientUpper =
-                                              assignmentClient?.toUpperCase();
-                                            const isAssetAJ =
-                                              assignmentClientUpper === "AJ";
-                                            const shouldShowAJOptions =
-                                              isAssetAJ; // Only check asset client, not user role
-                                            return shouldShowAJOptions;
-                                          })() ? (
-                                            <>
-                                              <SelectItem value="1">
-                                                Low
-                                              </SelectItem>
-                                              <SelectItem value="2">
-                                                Medium
-                                              </SelectItem>
-                                              <SelectItem value="3">
-                                                High
-                                              </SelectItem>
-                                              <SelectItem value="4">
-                                                Flex
-                                              </SelectItem>
-                                              <SelectItem value="5">
-                                                Express
-                                              </SelectItem>
-                                            </>
-                                          ) : (
-                                            <>
-                                              <SelectItem value="1">
-                                                High
-                                              </SelectItem>
-                                              <SelectItem value="2">
-                                                Medium
-                                              </SelectItem>
-                                              <SelectItem value="3">
-                                                Low
-                                              </SelectItem>
-                                            </>
-                                          )}
-                                        </SelectContent>
-                                      </Select>
-                                    </TableCell>
-                                    <TableCell className="text-left">
-                                      <div className="flex items-center gap-1">
-                                        <span className="font-medium text-sm sm:text-base">
-                                          €
-                                          {assignment.onboarding_assets.price?.toFixed(
-                                            2
-                                          ) || "0.00"}
-                                        </span>
-                                        <Popover>
-                                          <PopoverTrigger asChild>
-                                            <Button
-                                              variant="ghost"
-                                              size="sm"
-                                              className="h-4 w-4 p-0 hover:bg-muted"
-                                            >
-                                              <StickyNote
-                                                className={`h-3 w-3 ${
-                                                  pricingComments[
-                                                    assignment.onboarding_assets
-                                                      .id
-                                                  ]
-                                                    ? "text-blue-600 hover:text-blue-700"
-                                                    : "text-muted-foreground hover:text-foreground"
-                                                }`}
-                                              />
-                                            </Button>
-                                          </PopoverTrigger>
-                                          <PopoverContent className="w-80 p-3">
-                                            <div className="space-y-3">
-                                              <h4 className="font-medium text-sm">
-                                                Pricing Note
-                                              </h4>
-                                              <Textarea
-                                                placeholder="Add pricing note..."
-                                                value={
-                                                  pricingComments[
-                                                    assignment.onboarding_assets
-                                                      .id
-                                                  ] || ""
-                                                }
-                                                onChange={(e) => {
-                                                  setPricingComments(
-                                                    (prev) => ({
-                                                      ...prev,
-                                                      [assignment
-                                                        .onboarding_assets.id]:
-                                                        e.target.value,
-                                                    })
-                                                  );
-                                                }}
-                                                onBlur={() => {
-                                                  if (
-                                                    pricingComments[
-                                                      assignment
-                                                        .onboarding_assets.id
-                                                    ] !== undefined
-                                                  ) {
-                                                    handlePricingCommentUpdate(
-                                                      assignment
-                                                        .onboarding_assets.id,
-                                                      pricingComments[
-                                                        assignment
-                                                          .onboarding_assets.id
-                                                      ]
-                                                    );
-                                                  }
-                                                }}
-                                                className="min-h-[60px] max-h-[120px] resize-none text-xs"
-                                                rows={3}
-                                              />
-                                            </div>
-                                          </PopoverContent>
-                                        </Popover>
-                                      </div>
-                                    </TableCell>
-                                    <TableCell className="text-left">
-                                      <Badge
-                                        variant="outline"
-                                        className={`text-xs ${getStatusLabelClass(assignment.onboarding_assets.status)}`}
-                                      >
-                                        {assignment.onboarding_assets.status ===
-                                        "delivered_by_artist"
-                                          ? "Delivered by Artist"
-                                          : assignment.onboarding_assets
-                                                .status === "in_production"
-                                            ? "In Progress"
-                                            : assignment.onboarding_assets
-                                                  .status === "revisions" ||
-                                                assignment.onboarding_assets
-                                                  .status === "client_revision"
-                                              ? "Sent for Revision"
-                                              : assignment.onboarding_assets
-                                                    .status === "approved"
-                                                ? "New Upload"
-                                                : assignment.onboarding_assets
-                                                    .status}
-                                      </Badge>
-                                    </TableCell>
-                                    <TableCell className="text-left">
-                                      <div className="flex flex-col items-center gap-1">
+                                setShowCorrectionDialog(true);
+                              }}
+                            >
+                              Add Correction
+                            </Button>
+                          </div>
+                        </div>
+                      </CardHeader>
+
+                      {/* Down arrow indicator for collapsed state */}
+                      {!isExpanded && (
+                        <div className="flex justify-center">
+                          <div className="flex items-center gap-2 text-muted-foreground text-xs sm:text-sm">
+                            <span>Click to view more details</span>
+                            <ChevronDown className="h-3 w-3 sm:h-4 sm:w-4" />
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Collapsible content with smooth transition */}
+                      <div
+                        className={`overflow-hidden transition-all duration-300 ease-in-out ${
+                          isExpanded
+                            ? "max-h-[2000px] opacity-100"
+                            : "max-h-0 opacity-0"
+                        }`}
+                      >
+                        <CardContent
+                          className="p-4 sm:p-6"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {(() => {
+                            const listOverrides =
+                              listQAAssignments[list.id] || [];
+                            const selectedListQA =
+                              selectedQAForLists[list.id] || "";
+                            const isListLoading = listQaLoading.has(list.id);
+                            const currentDeadline = normalizeListDeadline(
+                              list.deadline
+                            );
+                            const draftDeadline =
+                              listDeadlineDrafts[list.id] !== undefined
+                                ? listDeadlineDrafts[list.id]
+                                : currentDeadline;
+                            const isSavingDeadline = listDeadlineSaving.has(
+                              list.id
+                            );
+                            const hasDeadlineChanged =
+                              draftDeadline !== "" &&
+                              draftDeadline !== currentDeadline;
+
+                            return (
+                              <div className="mb-4 rounded-lg border border-border bg-muted/40 p-4 space-y-4">
+                                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                                  <div className="space-y-1">
+                                    <p className="text-sm font-medium text-foreground">
+                                      List Deadline
+                                    </p>
+                                    <p className="text-xs text-muted-foreground max-w-xl">
+                                      Update the deadline for this allocation
+                                      list only. QA and modeler assignments for
+                                      other lists stay unchanged.
+                                    </p>
+                                  </div>
+                                  <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                                    <Popover>
+                                      <PopoverTrigger asChild>
                                         <Button
                                           variant="outline"
                                           size="sm"
-                                          className="text-xs px-2 sm:px-3 py-1 h-6 sm:h-7"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            setSelectedAssetForView(
-                                              assignment.onboarding_assets
-                                            );
-                                            setShowViewDialog(true);
-                                          }}
-                                        >
-                                          <FileText className="mr-1 h-3 w-3" />
-                                          <span className="hidden sm:inline">
-                                            Ref
-                                          </span>
-                                          <span className="sm:hidden"> </span>
-                                          {(() => {
-                                            const visibleRefs =
-                                              getVisibleReferences(
-                                                assignment.onboarding_assets
-                                              );
-                                            return (
-                                              visibleRefs.length +
-                                              (assignment.onboarding_assets
-                                                .glb_link
-                                                ? 1
-                                                : 0)
-                                            );
-                                          })()}
-                                        </Button>
-                                      </div>
-                                    </TableCell>
-
-                                    <TableCell className="text-left">
-                                      {assignment.onboarding_assets
-                                        .product_link ? (
-                                        <a
-                                          href={
-                                            assignment.onboarding_assets
-                                              .product_link
+                                          className="h-8 px-3 text-xs sm:text-sm"
+                                          onClick={(event) =>
+                                            event.stopPropagation()
                                           }
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          className="text-blue-600 underline break-all text-xs sm:text-sm"
-                                          onClick={(e) => e.stopPropagation()}
                                         >
-                                          <span className="hidden sm:inline">
-                                            Product Link
-                                          </span>
-                                          <span className="sm:hidden">
-                                            Link
-                                          </span>
-                                        </a>
-                                      ) : (
-                                        <span className="text-xs sm:text-sm text-muted-foreground">
-                                          —
-                                        </span>
-                                      )}
-                                    </TableCell>
-
-                                    <TableCell className="text-left">
-                                      <div className="flex items-center gap-1">
-                                        <Button
-                                          variant="ghost"
-                                          size="icon"
-                                          className="cursor-pointer h-8 w-8 sm:h-10 sm:w-10"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            // Preserve current filter parameters when navigating to asset detail
-                                            const params =
-                                              new URLSearchParams();
-                                            params.set("from", "admin-review");
-                                            if (clientFilters.length > 0) {
-                                              params.set(
-                                                "client",
-                                                clientFilters.join(",")
-                                              );
-                                            }
-                                            if (batchFilters.length > 0) {
-                                              params.set(
-                                                "batch",
-                                                batchFilters.join(",")
-                                              );
-                                            }
-                                            if (modelerFilters.length > 0) {
-                                              params.set(
-                                                "modeler",
-                                                modelerFilters.join(",")
-                                              );
-                                            }
-                                            if (modelerEmail) {
-                                              params.set("email", modelerEmail);
-                                            }
-                                            router.push(
-                                              `/client-review/${assignment.onboarding_assets.id}?${params.toString()}`
+                                          <CalendarIcon className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+                                          {draftDeadline
+                                            ? format(
+                                                new Date(draftDeadline),
+                                                "PPP"
+                                              )
+                                            : "Select deadline"}
+                                        </Button>
+                                      </PopoverTrigger>
+                                      <PopoverContent
+                                        className="w-auto p-0"
+                                        align="start"
+                                      >
+                                        <Calendar
+                                          mode="single"
+                                          selected={
+                                            draftDeadline
+                                              ? new Date(draftDeadline)
+                                              : undefined
+                                          }
+                                          onSelect={(date) => {
+                                            handleListDeadlineSelect(
+                                              list.id,
+                                              date || undefined
                                             );
                                           }}
-                                        >
-                                          <Eye className="h-4 w-4 sm:h-5 sm:w-5" />
-                                        </Button>
-                                        <Dialog>
-                                          <DialogTrigger asChild>
+                                          initialFocus
+                                        />
+                                      </PopoverContent>
+                                    </Popover>
+                                    <Button
+                                      size="sm"
+                                      onClick={(event) => {
+                                        event.stopPropagation();
+                                        handleSaveListDeadline(list);
+                                      }}
+                                      disabled={
+                                        isSavingDeadline || !hasDeadlineChanged
+                                      }
+                                      className="text-xs sm:text-sm h-8 px-3 whitespace-nowrap"
+                                    >
+                                      {isSavingDeadline ? "Saving..." : "Save"}
+                                    </Button>
+                                  </div>
+                                </div>
+                                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                                  <div className="space-y-2">
+                                    <div className="flex items-center gap-2">
+                                      <p className="text-sm font-medium text-foreground">
+                                        List QA Override
+                                      </p>
+                                      <Badge
+                                        variant="outline"
+                                        className="text-[11px]"
+                                      >
+                                        Optional
+                                      </Badge>
+                                    </div>
+                                    {listOverrides.length > 0 ? (
+                                      <div className="flex flex-wrap gap-2">
+                                        {listOverrides.map((qa) => (
+                                          <Badge
+                                            key={`${list.id}-${qa.id}`}
+                                            variant="outline"
+                                            className="flex items-center gap-1.5 text-xs px-2.5 py-1 bg-blue-50 text-blue-700 border-blue-200"
+                                          >
+                                            <span>
+                                              {qa.title?.trim() ||
+                                                qa.email ||
+                                                "QA"}
+                                            </span>
                                             <Button
                                               variant="ghost"
-                                              size="icon"
-                                              className="cursor-pointer text-error hover:text-error hover:bg-error/10 h-8 w-8 sm:h-10 sm:w-10"
+                                              size="sm"
+                                              disabled={isListLoading}
+                                              onClick={(event) => {
+                                                event.stopPropagation();
+                                                handleRemoveListQA(list);
+                                              }}
+                                              className="h-4 w-4 p-0 text-destructive hover:text-destructive"
+                                              title="Remove QA override"
+                                            >
+                                              <X className="h-3 w-3" />
+                                            </Button>
+                                          </Badge>
+                                        ))}
+                                      </div>
+                                    ) : (
+                                      <p className="text-xs text-muted-foreground">
+                                        No override set. The modeler&apos;s
+                                        default QA will be used.
+                                      </p>
+                                    )}
+                                  </div>
+                                  <div className="flex w-full sm:w-auto gap-2">
+                                    <Select
+                                      value={selectedListQA}
+                                      onValueChange={(value) =>
+                                        setSelectedQAForLists((prev) => ({
+                                          ...prev,
+                                          [list.id]: value,
+                                        }))
+                                      }
+                                      disabled={
+                                        isListLoading ||
+                                        availableQAs.length === 0
+                                      }
+                                    >
+                                      <SelectTrigger className="h-8 text-xs sm:text-sm w-full sm:w-48">
+                                        <SelectValue placeholder="Select QA" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {availableQAs.length === 0 ? (
+                                          <SelectItem value="" disabled>
+                                            No QA users available
+                                          </SelectItem>
+                                        ) : (
+                                          availableQAs.map((qa) => (
+                                            <SelectItem
+                                              key={qa.id}
+                                              value={qa.id}
+                                            >
+                                              {qa.title?.trim() ||
+                                                qa.email ||
+                                                "QA"}
+                                            </SelectItem>
+                                          ))
+                                        )}
+                                      </SelectContent>
+                                    </Select>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={(event) => {
+                                        event.stopPropagation();
+                                        handleAssignQAForList(list);
+                                      }}
+                                      disabled={
+                                        isListLoading ||
+                                        !selectedListQA ||
+                                        availableQAs.length === 0
+                                      }
+                                      className="text-xs sm:text-sm h-8 px-3 whitespace-nowrap"
+                                    >
+                                      {isListLoading
+                                        ? "Saving..."
+                                        : "Assign QA"}
+                                    </Button>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })()}
+                          <div className="overflow-x-auto">
+                            <Table>
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead className="w-8 text-xs sm:text-sm mx-auto">
+                                    <Checkbox
+                                      className="mx-auto pl-6"
+                                      checked={
+                                        assetIds.length > 0 &&
+                                        assetIds.every((id) =>
+                                          selectedAssetsForReallocation.has(id)
+                                        )
+                                      }
+                                      onCheckedChange={(checked) => {
+                                        const shouldSelectAll =
+                                          checked === true;
+                                        setSelectedAssetsForReallocation(
+                                          (prev) => {
+                                            const next = new Set(prev);
+                                            assetIds.forEach((id) => {
+                                              if (shouldSelectAll) {
+                                                next.add(id);
+                                              } else {
+                                                next.delete(id);
+                                              }
+                                            });
+                                            return next;
+                                          }
+                                        );
+                                      }}
+                                      onClick={(e) => e.stopPropagation()}
+                                    />
+                                  </TableHead>
+                                  <TableHead className="text-xs sm:text-sm text-left">
+                                    Product Name
+                                  </TableHead>
+                                  <TableHead className="w-32 text-xs sm:text-sm text-left">
+                                    Article ID
+                                  </TableHead>
+                                  <TableHead className="w-24 text-xs sm:text-sm text-left">
+                                    Priority
+                                  </TableHead>
+                                  <TableHead className="w-24 text-xs sm:text-sm text-left">
+                                    Price
+                                  </TableHead>
+                                  <TableHead className="w-32 text-xs sm:text-sm text-left">
+                                    Status
+                                  </TableHead>
+                                  <TableHead className="w-32 text-xs sm:text-sm text-left">
+                                    References
+                                  </TableHead>
+                                  <TableHead className="w-40 text-xs sm:text-sm text-left">
+                                    Product Link
+                                  </TableHead>
+                                  <TableHead className="w-12 text-xs sm:text-sm text-left">
+                                    Actions
+                                  </TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {processedAssignments.map(
+                                  (
+                                    {
+                                      assignment,
+                                      asset,
+                                      assetId,
+                                      isVariation,
+                                      isParent,
+
+                                      additionalArticleIds,
+                                      articleIdsTooltip,
+                                      visibleReferenceCount,
+                                    },
+                                    index
+                                  ) => {
+                                    const rowKey =
+                                      assetId || `${list.id}-${index}`;
+                                    const displayAssetId =
+                                      assetId ||
+                                      String(
+                                        assignment?.asset_id ??
+                                          `${list.id}-${index}`
+                                      );
+
+                                    return (
+                                      <TableRow
+                                        key={rowKey}
+                                        className={`${getStatusRowClass(
+                                          asset.status
+                                        )} transition-all duration-200 dark:border-border dark:hover:bg-muted/20 ${
+                                          isVariation
+                                            ? "bg-slate-50/50 dark:bg-slate-900/20 border-l-2 border-l-slate-300 dark:border-l-slate-600"
+                                            : isParent
+                                              ? "bg-amber-50/30 dark:bg-amber-950/10 border-l-2 border-l-black-400 dark:border-l-amber-600 border-t-4 border-t-amber-500 dark:border-t-amber-600"
+                                              : ""
+                                        } ${
+                                          activeAssetRowId === displayAssetId
+                                            ? "highlighted-status"
+                                            : ""
+                                        }`}
+                                        onMouseDownCapture={() =>
+                                          setActiveAssetRowId(displayAssetId)
+                                        }
+                                        onFocusCapture={() =>
+                                          setActiveAssetRowId(displayAssetId)
+                                        }
+                                      >
+                                        <TableCell className="text-left">
+                                          <Checkbox
+                                            checked={selectedAssetsForReallocation.has(
+                                              displayAssetId
+                                            )}
+                                            onCheckedChange={() =>
+                                              toggleAssetSelection(
+                                                displayAssetId
+                                              )
+                                            }
+                                            onClick={(e) => e.stopPropagation()}
+                                          />
+                                        </TableCell>
+                                        <TableCell className="text-left">
+                                          <div className="flex items-center gap-1.5">
+                                            {isVariation && (
+                                              <ChevronRight className="h-3 w-3 text-slate-500 dark:text-slate-400 flex-shrink-0" />
+                                            )}
+                                            {isParent && !isVariation && (
+                                              <Package className="h-3 w-3 text-amber-600 dark:text-amber-500 flex-shrink-0" />
+                                            )}
+                                            <div
+                                              className={`font-medium cursor-help text-sm sm:text-base truncate ${
+                                                isVariation
+                                                  ? "text-slate-600 dark:text-slate-400"
+                                                  : isParent
+                                                    ? "text-amber-700 dark:text-amber-500"
+                                                    : ""
+                                              }`}
+                                              title={asset.product_name}
+                                            >
+                                              {asset.product_name.length > 20
+                                                ? asset.product_name.substring(
+                                                    0,
+                                                    20
+                                                  ) + "..."
+                                                : asset.product_name}
+                                            </div>
+                                            {isParent && !isVariation && (
+                                              <Badge
+                                                variant="outline"
+                                                className="text-xs text-amber-700 dark:text-amber-500 border-amber-300 dark:border-amber-700 bg-amber-50/50 dark:bg-amber-950/20 px-1.5 py-0 ml-1"
+                                              >
+                                                Parent
+                                              </Badge>
+                                            )}
+                                            {isVariation &&
+                                              asset.variation_index && (
+                                                <Badge
+                                                  variant="outline"
+                                                  className="text-xs text-slate-600 dark:text-slate-400 border-slate-300 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/20 px-1.5 py-0 ml-1"
+                                                >
+                                                  V{asset.variation_index}
+                                                </Badge>
+                                              )}
+                                          </div>
+                                        </TableCell>
+                                        <TableCell className="max-w-[140px] text-left text-xs sm:text-sm font-mono">
+                                          <div className="flex items-start gap-1.5 min-w-0">
+                                            {isVariation && (
+                                              <ChevronRight className="h-3 w-3 text-slate-500 dark:text-slate-400 flex-shrink-0" />
+                                            )}
+                                            {isParent && !isVariation && (
+                                              <Package className="h-3 w-3 text-amber-600 dark:text-amber-500 flex-shrink-0" />
+                                            )}
+                                            <div className="flex flex-col gap-1 min-w-0">
+                                              <span
+                                                className={`truncate ${
+                                                  isVariation
+                                                    ? "text-slate-600 dark:text-slate-400"
+                                                    : isParent
+                                                      ? "text-amber-700 dark:text-amber-500"
+                                                      : ""
+                                                }`}
+                                                title={
+                                                  articleIdsTooltip || undefined
+                                                }
+                                              >
+                                                {asset.article_id}
+                                              </span>
+                                              {additionalArticleIds.length >
+                                                0 && (
+                                                <div className="flex flex-wrap gap-1">
+                                                  {additionalArticleIds.map(
+                                                    (id) => (
+                                                      <Badge
+                                                        key={`${assetId}-${id}`}
+                                                        variant="outline"
+                                                        className="px-1.5 py-0 text-[10px] uppercase tracking-wide text-muted-foreground dark:text-muted-foreground/80 border-border/60 dark:border-border/60"
+                                                        title={id}
+                                                      >
+                                                        {id}
+                                                      </Badge>
+                                                    )
+                                                  )}
+                                                </div>
+                                              )}
+                                            </div>
+                                          </div>
+                                        </TableCell>
+                                        <TableCell className="text-left">
+                                          <Select
+                                            value={(
+                                              asset.priority || 2
+                                            ).toString()}
+                                            onValueChange={(value) =>
+                                              handlePriorityUpdate(
+                                                displayAssetId,
+                                                parseInt(value)
+                                              )
+                                            }
+                                            disabled={updatingPriorities.has(
+                                              displayAssetId
+                                            )}
+                                          >
+                                            <SelectTrigger className="border-0 shadow-none bg-transparent dark:bg-transparent p-0  hover:bg-transparent [&>svg]:hidden justify-center w-full h-fit">
+                                              <span
+                                                className={`px-1.5 sm:px-2 py-0.5 sm:py-1 rounded text-xs font-semibold ${getPriorityClass(
+                                                  asset.priority || 2,
+                                                  asset.client
+                                                )}`}
+                                              >
+                                                {getPriorityLabelForClient(
+                                                  asset.priority || 2,
+                                                  asset.client
+                                                )}
+                                              </span>
+                                              {updatingPriorities.has(
+                                                displayAssetId
+                                              ) ? (
+                                                <div className="ml-1 sm:ml-2 animate-spin rounded-full h-2.5 w-2.5 sm:h-3 sm:w-3 border-b-2 border-blue-600" />
+                                              ) : null}
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                              {(() => {
+                                                const assignmentClient =
+                                                  asset.client;
+                                                const assignmentClientUpper =
+                                                  assignmentClient?.toUpperCase();
+                                                const isAssetAJ =
+                                                  assignmentClientUpper ===
+                                                  "AJ";
+                                                return isAssetAJ;
+                                              })() ? (
+                                                <>
+                                                  <SelectItem value="1">
+                                                    Low
+                                                  </SelectItem>
+                                                  <SelectItem value="2">
+                                                    Medium
+                                                  </SelectItem>
+                                                  <SelectItem value="3">
+                                                    High
+                                                  </SelectItem>
+                                                  <SelectItem value="4">
+                                                    Flex
+                                                  </SelectItem>
+                                                  <SelectItem value="5">
+                                                    Express
+                                                  </SelectItem>
+                                                </>
+                                              ) : (
+                                                <>
+                                                  <SelectItem value="1">
+                                                    High
+                                                  </SelectItem>
+                                                  <SelectItem value="2">
+                                                    Medium
+                                                  </SelectItem>
+                                                  <SelectItem value="3">
+                                                    Low
+                                                  </SelectItem>
+                                                </>
+                                              )}
+                                            </SelectContent>
+                                          </Select>
+                                        </TableCell>
+                                        <TableCell className="text-left">
+                                          <div className="flex items-center gap-1">
+                                            <span className="font-medium text-sm sm:text-base">
+                                              €
+                                              {asset.price?.toFixed(2) ||
+                                                "0.00"}
+                                            </span>
+                                            <Popover>
+                                              <PopoverTrigger asChild>
+                                                <Button
+                                                  variant="ghost"
+                                                  size="sm"
+                                                  className="h-4 w-4 p-0 hover:bg-muted"
+                                                >
+                                                  <StickyNote
+                                                    className={`h-3 w-3 ${
+                                                      pricingComments[
+                                                        displayAssetId
+                                                      ]
+                                                        ? "text-blue-600 hover:text-blue-700"
+                                                        : "text-muted-foreground hover:text-foreground"
+                                                    }`}
+                                                  />
+                                                </Button>
+                                              </PopoverTrigger>
+                                              <PopoverContent className="w-80 p-3">
+                                                <div className="space-y-3">
+                                                  <h4 className="font-medium text-sm">
+                                                    Pricing Note
+                                                  </h4>
+                                                  <Textarea
+                                                    placeholder="Add pricing note..."
+                                                    value={
+                                                      pricingComments[
+                                                        displayAssetId
+                                                      ] || ""
+                                                    }
+                                                    onChange={(e) => {
+                                                      setPricingComments(
+                                                        (prev) => ({
+                                                          ...prev,
+                                                          [displayAssetId]:
+                                                            e.target.value,
+                                                        })
+                                                      );
+                                                    }}
+                                                    onBlur={() => {
+                                                      if (
+                                                        pricingComments[
+                                                          displayAssetId
+                                                        ] !== undefined
+                                                      ) {
+                                                        handlePricingCommentUpdate(
+                                                          displayAssetId,
+                                                          pricingComments[
+                                                            displayAssetId
+                                                          ]
+                                                        );
+                                                      }
+                                                    }}
+                                                    className="min-h-[60px] max-h-[120px] resize-none text-xs"
+                                                    rows={3}
+                                                  />
+                                                </div>
+                                              </PopoverContent>
+                                            </Popover>
+                                          </div>
+                                        </TableCell>
+                                        <TableCell className="text-left">
+                                          <Badge
+                                            variant="outline"
+                                            className={`text-xs ${getStatusLabelClass(asset.status)}`}
+                                          >
+                                            {asset.status ===
+                                            "delivered_by_artist"
+                                              ? "Delivered by Artist"
+                                              : asset.status === "in_production"
+                                                ? "In Progress"
+                                                : asset.status ===
+                                                      "revisions" ||
+                                                    asset.status ===
+                                                      "client_revision"
+                                                  ? "Sent for Revision"
+                                                  : asset.status === "approved"
+                                                    ? "New Upload"
+                                                    : asset.status}
+                                          </Badge>
+                                        </TableCell>
+                                        <TableCell className="text-left">
+                                          <div className="flex flex-col items-center gap-1">
+                                            <Button
+                                              variant="outline"
+                                              size="sm"
+                                              className="text-xs px-2 sm:px-3 py-1 h-6 sm:h-7"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                setSelectedAssetForView(asset);
+                                                setShowViewDialog(true);
+                                              }}
+                                            >
+                                              <FileText className="mr-1 h-3 w-3" />
+                                              <span className="hidden sm:inline">
+                                                Ref
+                                              </span>
+                                              <span className="sm:hidden">
+                                                {" "}
+                                              </span>
+                                              {visibleReferenceCount}
+                                            </Button>
+                                          </div>
+                                        </TableCell>
+
+                                        <TableCell className="text-left">
+                                          {asset.product_link ? (
+                                            <a
+                                              href={asset.product_link}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              className="text-blue-600 underline break-all text-xs sm:text-sm"
                                               onClick={(e) =>
                                                 e.stopPropagation()
                                               }
-                                              disabled={
-                                                deletingAsset ===
-                                                assignment.onboarding_assets.id
-                                              }
                                             >
-                                              {deletingAsset ===
-                                              assignment.onboarding_assets
-                                                .id ? (
-                                                <div className="animate-spin rounded-full h-3 w-3 sm:h-4 sm:w-4 border-b-2 border-error" />
-                                              ) : (
-                                                <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
-                                              )}
+                                              <span className="hidden sm:inline">
+                                                Product Link
+                                              </span>
+                                              <span className="sm:hidden">
+                                                Link
+                                              </span>
+                                            </a>
+                                          ) : (
+                                            <span className="text-xs sm:text-sm text-muted-foreground">
+                                              —
+                                            </span>
+                                          )}
+                                        </TableCell>
+
+                                        <TableCell className="text-left">
+                                          <div className="flex items-center gap-1">
+                                            <Button
+                                              variant="ghost"
+                                              size="icon"
+                                              className="cursor-pointer h-8 w-8 sm:h-10 sm:w-10"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                const params =
+                                                  new URLSearchParams();
+                                                params.set(
+                                                  "from",
+                                                  "admin-review"
+                                                );
+                                                if (clientFilters.length > 0) {
+                                                  params.set(
+                                                    "client",
+                                                    clientFilters.join(",")
+                                                  );
+                                                }
+                                                if (batchFilters.length > 0) {
+                                                  params.set(
+                                                    "batch",
+                                                    batchFilters.join(",")
+                                                  );
+                                                }
+                                                if (modelerFilters.length > 0) {
+                                                  params.set(
+                                                    "modeler",
+                                                    modelerFilters.join(",")
+                                                  );
+                                                }
+                                                if (modelerEmail) {
+                                                  params.set(
+                                                    "email",
+                                                    modelerEmail
+                                                  );
+                                                }
+                                                router.push(
+                                                  `/client-review/${displayAssetId}?${params.toString()}`
+                                                );
+                                              }}
+                                            >
+                                              <Eye className="h-4 w-4 sm:h-5 sm:w-5" />
                                             </Button>
-                                          </DialogTrigger>
-                                          <DialogContent className="w-[95vw] sm:w-full max-w-md h-fit overflow-y-auto">
-                                            <DialogHeader className="pb-3 sm:pb-4">
-                                              <DialogTitle className="text-base sm:text-lg">
-                                                Delete Asset
-                                              </DialogTitle>
-                                              <DialogDescription className="text-xs sm:text-sm">
-                                                Are you sure you want to delete
-                                                this asset? This action cannot
-                                                be undone and will permanently
-                                                delete:
-                                                <ul className="list-disc list-inside mt-2 space-y-1">
-                                                  <li>The asset itself</li>
-                                                  <li>
-                                                    All assignments and comments
-                                                  </li>
-                                                  <li>All revision history</li>
-                                                  <li>All QA approvals</li>
-                                                  <li>
-                                                    Any empty allocation lists
-                                                    (only if this was the last
-                                                    asset in the list)
-                                                  </li>
-                                                </ul>
-                                              </DialogDescription>
-                                            </DialogHeader>
-                                            <DialogFooter className="flex flex-col sm:flex-row gap-2 sm:gap-3">
-                                              <Button
-                                                variant="destructive"
-                                                className="w-full sm:w-auto text-sm sm:text-base"
-                                                onClick={() =>
-                                                  deleteAsset(
-                                                    assignment.onboarding_assets
-                                                      .id
-                                                  )
-                                                }
-                                                disabled={
-                                                  deletingAsset ===
-                                                  assignment.onboarding_assets
-                                                    .id
-                                                }
-                                              >
-                                                {deletingAsset ===
-                                                assignment.onboarding_assets
-                                                  .id ? (
-                                                  <div className="animate-spin rounded-full h-3 w-3 sm:h-4 sm:w-4 border-b-2 border-white mr-1 sm:mr-2" />
-                                                ) : null}
-                                                Delete Asset
-                                              </Button>
-                                            </DialogFooter>
-                                          </DialogContent>
-                                        </Dialog>
-                                      </div>
-                                    </TableCell>
-                                  </TableRow>
-                                );
-                              })}
-                            </TableBody>
-                          </Table>
-                        </div>
-                      </CardContent>
-                    </div>
-                  </Card>
-                );
-              })
+                                            <Dialog>
+                                              <DialogTrigger asChild>
+                                                <Button
+                                                  variant="ghost"
+                                                  size="icon"
+                                                  className="cursor-pointer text-error hover:text-error hover:bg-error/10 h-8 w-8 sm:h-10 sm:w-10"
+                                                  onClick={(e) =>
+                                                    e.stopPropagation()
+                                                  }
+                                                  disabled={
+                                                    deletingAsset ===
+                                                    displayAssetId
+                                                  }
+                                                >
+                                                  {deletingAsset ===
+                                                  displayAssetId ? (
+                                                    <div className="animate-spin rounded-full h-3 w-3 sm:h-4 sm:w-4 border-b-2 border-error" />
+                                                  ) : (
+                                                    <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
+                                                  )}
+                                                </Button>
+                                              </DialogTrigger>
+                                              <DialogContent className="w-[95vw] sm:w-full max-w-md h-fit overflow-y-auto">
+                                                <DialogHeader className="pb-3 sm:pb-4">
+                                                  <DialogTitle className="text-base sm:text-lg">
+                                                    Delete Asset
+                                                  </DialogTitle>
+                                                  <DialogDescription className="text-xs sm:text-sm">
+                                                    Are you sure you want to
+                                                    delete this asset? This
+                                                    action cannot be undone and
+                                                    will permanently delete:
+                                                    <ul className="list-disc list-inside mt-2 space-y-1">
+                                                      <li>The asset itself</li>
+                                                      <li>
+                                                        All assignments and
+                                                        comments
+                                                      </li>
+                                                      <li>
+                                                        All revision history
+                                                      </li>
+                                                      <li>All QA approvals</li>
+                                                      <li>
+                                                        Any empty allocation
+                                                        lists (only if this was
+                                                        the last asset in the
+                                                        list)
+                                                      </li>
+                                                    </ul>
+                                                  </DialogDescription>
+                                                </DialogHeader>
+                                                <DialogFooter className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+                                                  <Button
+                                                    variant="destructive"
+                                                    className="w-full sm:w-auto text-sm sm:text-base"
+                                                    onClick={() =>
+                                                      deleteAsset(
+                                                        displayAssetId
+                                                      )
+                                                    }
+                                                    disabled={
+                                                      deletingAsset ===
+                                                      displayAssetId
+                                                    }
+                                                  >
+                                                    {deletingAsset ===
+                                                    displayAssetId ? (
+                                                      <div className="animate-spin rounded-full h-3 w-3 sm:h-4 sm:w-4 border-b-2 border-white mr-1 sm:mr-2" />
+                                                    ) : null}
+                                                    Delete Asset
+                                                  </Button>
+                                                </DialogFooter>
+                                              </DialogContent>
+                                            </Dialog>
+                                          </div>
+                                        </TableCell>
+                                      </TableRow>
+                                    );
+                                  }
+                                )}
+                              </TableBody>
+                            </Table>
+                          </div>
+                        </CardContent>
+                      </div>
+                    </Card>
+                  );
+                }
+              )
             )}
           </div>
         ) : showQAAssets ? (
@@ -6925,12 +7042,6 @@ export default function AdminReviewPage() {
                                   <span className="text-xs text-muted-foreground">
                                     {commentCounts[asset.id] || 0} comments
                                   </span>
-                                  <span className="text-xs text-slate-500 hidden sm:inline">
-                                    •
-                                  </span>
-                                  <Badge variant="outline" className="text-xs">
-                                    B{asset.batch || 1}
-                                  </Badge>
                                 </div>
                               </div>
                             </TableCell>
@@ -7320,42 +7431,57 @@ export default function AdminReviewPage() {
 
                             <TableCell className="text-center">
                               <div className="flex items-center justify-center gap-1">
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="cursor-pointer h-8 w-8 sm:h-10 sm:w-10"
-                                  onClick={() => {
-                                    // Preserve current filter parameters when navigating to asset detail
-                                    const params = new URLSearchParams();
-                                    params.set("from", "admin-review");
-                                    if (clientFilters.length > 0) {
-                                      params.set(
-                                        "client",
-                                        clientFilters.join(",")
-                                      );
-                                    }
-                                    if (batchFilters.length > 0) {
-                                      params.set(
-                                        "batch",
-                                        batchFilters.join(",")
-                                      );
-                                    }
-                                    if (modelerFilters.length > 0) {
-                                      params.set(
-                                        "modeler",
-                                        modelerFilters.join(",")
-                                      );
-                                    }
-                                    if (modelerEmail) {
-                                      params.set("email", modelerEmail);
-                                    }
-                                    router.push(
-                                      `/client-review/${asset.id}?${params.toString()}`
-                                    );
-                                  }}
-                                >
-                                  <Eye className="h-4 w-4 sm:h-5 sm:w-5" />
-                                </Button>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="cursor-pointer h-8 w-8 sm:h-10 sm:w-10"
+                                      onClick={(event) => {
+                                        event.stopPropagation();
+                                        // Preserve current filter parameters when navigating to asset detail
+                                        const params = new URLSearchParams();
+                                        params.set("from", "admin-review");
+                                        if (clientFilters.length > 0) {
+                                          params.set(
+                                            "client",
+                                            clientFilters.join(",")
+                                          );
+                                        }
+                                        if (batchFilters.length > 0) {
+                                          params.set(
+                                            "batch",
+                                            batchFilters.join(",")
+                                          );
+                                        }
+                                        if (modelerFilters.length > 0) {
+                                          params.set(
+                                            "modeler",
+                                            modelerFilters.join(",")
+                                          );
+                                        }
+                                        if (modelerEmail) {
+                                          params.set("email", modelerEmail);
+                                        }
+                                        const url = `/client-review/${asset.id}?${params.toString()}`;
+                                        if (event.ctrlKey || event.metaKey) {
+                                          window.open(
+                                            url,
+                                            "_blank",
+                                            "noopener,noreferrer"
+                                          );
+                                        } else {
+                                          router.push(url);
+                                        }
+                                      }}
+                                    >
+                                      <Eye className="h-4 w-4 sm:h-5 sm:w-5" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top">
+                                    Ctrl + click to open in separate tab
+                                  </TooltipContent>
+                                </Tooltip>
                                 <Dialog>
                                   <DialogTrigger asChild>
                                     <Button

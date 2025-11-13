@@ -117,6 +117,7 @@ export async function callTencentHunyuan3D<T = unknown>(
 
   try {
     data = JSON.parse(rawText) as T;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
   } catch (error) {
     throw new Error(
       `Unexpected response format from Tencent API. Status: ${response.status}, Body: ${rawText}`
