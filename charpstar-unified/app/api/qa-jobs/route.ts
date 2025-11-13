@@ -275,7 +275,7 @@ async function processQAJob(
     }
 
     // Technical requirements check
-    let warnings: string[] = [];
+    const warnings: string[] = [];
     if (modelStats?.requirements) {
       const rejections: string[] = [];
 

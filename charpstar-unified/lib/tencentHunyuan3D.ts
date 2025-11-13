@@ -117,7 +117,7 @@ export async function callTencentHunyuan3D<T = unknown>(
 
   try {
     data = JSON.parse(rawText) as T;
-  } catch (error) {
+  } catch {
     throw new Error(
       `Unexpected response format from Tencent API. Status: ${response.status}, Body: ${rawText}`
     );

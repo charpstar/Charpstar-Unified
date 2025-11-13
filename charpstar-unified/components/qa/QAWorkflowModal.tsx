@@ -157,7 +157,6 @@ const QAWorkflowModal: React.FC<QAWorkflowModalProps> = ({
       }, 300);
       return () => clearTimeout(timer);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, autoStart, qaState, glbUrl, currentReferenceImages.length]);
 
   const handleScreenshotsCaptured = async (
