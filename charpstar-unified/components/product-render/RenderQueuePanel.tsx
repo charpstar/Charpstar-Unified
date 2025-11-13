@@ -205,6 +205,7 @@ const RenderQueuePanel: React.FC<{ clientName: string }> = ({ clientName }) => {
                       {isCompleted && images.slice(0, 8).map((img, i) => (
                         <div key={`${it.jobId}-img-${i}`} className="group relative">
                           <a href={img.url} target="_blank" rel="noreferrer" className="block">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img 
                               src={img.url} 
                               alt={`${img.view || 'render'} thumbnail`} 

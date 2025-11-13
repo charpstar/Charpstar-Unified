@@ -4,7 +4,7 @@ import { cookies } from 'next/headers';
 
 export const runtime = 'nodejs';
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     // Authenticate user
     const supabase = createRouteHandlerClient({ cookies });
