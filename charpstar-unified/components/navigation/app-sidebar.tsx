@@ -22,6 +22,7 @@ import {
   UserPlus,
   Monitor,
   Ticket,
+  Upload,
 } from "lucide-react";
 
 import NavMain from "@/components/navigation/nav-main";
@@ -251,6 +252,12 @@ export default function AppSidebar({
                 title: "Users",
                 url: "/users",
                 icon: Users,
+              },
+
+              {
+                title: "Upload client asset",
+                url: "/admin/upload",
+                icon: Upload,
               },
               {
                 title: "Invoice Review",
