@@ -19,6 +19,8 @@ import {
   X,
   Play,
   Sparkles,
+  Upload,
+  Image as ImageIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import ScreenshotCapture from "./ScreenshotCapture";
@@ -32,6 +34,9 @@ interface QAWorkflowModalProps {
   referenceImages: string[];
   modelViewerRef: React.RefObject<any>;
   onComplete?: (results: any) => void;
+  autoStart?: boolean;
+  onReferenceImagesUpdate?: (newImages: string[]) => void;
+  clientName?: string;
 }
 
 type QAState = "idle" | "capturing" | "analyzing" | "complete" | "error";
@@ -44,14 +49,78 @@ const QAWorkflowModal: React.FC<QAWorkflowModalProps> = ({
   referenceImages,
   modelViewerRef,
   onComplete,
+  autoStart = false,
+  onReferenceImagesUpdate,
+  clientName,
 }) => {
   const [qaState, setQaState] = useState<QAState>("idle");
   const [qaJobId, setQaJobId] = useState<string | null>(null);
   const [qaResults, setQaResults] = useState<any>(null);
+  const [uploadingReferences, setUploadingReferences] = useState(false);
+  const [currentReferenceImages, setCurrentReferenceImages] = useState<string[]>(referenceImages);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  // Update local state when referenceImages prop changes
+  React.useEffect(() => {
+    setCurrentReferenceImages(referenceImages);
+  }, [referenceImages]);
+
+  const handleUploadReferenceImages = async (files: FileList) => {
+    if (!files || files.length === 0) return;
+
+    setUploadingReferences(true);
+    try {
+      const uploadPromises = Array.from(files).map(async (file) => {
+        // Check if file is an image
+        if (!file.type.startsWith("image/")) {
+          throw new Error(`${file.name} is not an image file`);
+        }
+
+        // Always use direct upload for reference images (handles both small and large files)
+        // This automatically saves to the database via upload-large-file API
+        const { DirectFileUploader } = await import("@/lib/directUpload");
+        const uploader = new DirectFileUploader();
+        const result = await uploader.uploadFile(
+          file,
+          assetId,
+          "reference",
+          clientName
+        );
+
+        if (!result.success) {
+          throw new Error(result.error || "Upload failed");
+        }
+
+        return result.cdnUrl || "";
+      });
+
+      const uploadedUrls = await Promise.all(uploadPromises);
+      const newReferenceImages = [...currentReferenceImages, ...uploadedUrls];
+      
+      setCurrentReferenceImages(newReferenceImages);
+      
+      // Notify parent component to update reference images
+      if (onReferenceImagesUpdate) {
+        onReferenceImagesUpdate(newReferenceImages);
+      }
+
+      toast.success(`${uploadedUrls.length} reference image(s) uploaded successfully!`);
+    } catch (error) {
+      console.error("Error uploading reference images:", error);
+      toast.error(error instanceof Error ? error.message : "Failed to upload reference images");
+    } finally {
+      setUploadingReferences(false);
+    }
+  };
 
   const startQA = async () => {
     if (!glbUrl) {
       toast.error("No GLB file available for QA analysis");
+      return;
+    }
+
+    if (currentReferenceImages.length === 0) {
+      toast.error("Please upload at least one reference image before starting QA");
       return;
     }
 
@@ -68,6 +137,28 @@ const QAWorkflowModal: React.FC<QAWorkflowModalProps> = ({
       setQaState("error");
     }
   };
+
+  // Auto-start QA when modal opens and autoStart is true
+  React.useEffect(() => {
+    console.log("🎯 QA Modal auto-start check:", {
+      isOpen,
+      autoStart,
+      qaState,
+      hasGlbUrl: !!glbUrl,
+      referenceImagesCount: currentReferenceImages.length,
+    });
+
+    if (isOpen && autoStart && qaState === "idle" && glbUrl && currentReferenceImages.length > 0) {
+      console.log("✅ QA Modal: All conditions met, starting QA...");
+      // Small delay to ensure modal is fully rendered
+      const timer = setTimeout(() => {
+        console.log("🚀 QA Modal: Calling startQA()");
+        startQA();
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, autoStart, qaState, glbUrl, currentReferenceImages.length]);
 
   const handleScreenshotsCaptured = async (
     screenshots: string[],
@@ -87,7 +178,7 @@ const QAWorkflowModal: React.FC<QAWorkflowModalProps> = ({
     try {
       const requestBody = {
         renders: screenshots,
-        references: referenceImages,
+        references: currentReferenceImages,
         modelStats: stats,
       };
 
@@ -249,12 +340,118 @@ const QAWorkflowModal: React.FC<QAWorkflowModalProps> = ({
                 </p>
               </div>
 
+              {/* Reference Images Section */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold">Reference Images</h3>
+                  <span className="text-sm text-muted-foreground">
+                    {currentReferenceImages.length} image{currentReferenceImages.length !== 1 ? "s" : ""}
+                  </span>
+                </div>
+
+                {currentReferenceImages.length === 0 ? (
+                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 bg-gray-50">
+                    <div className="text-center space-y-4">
+                      <ImageIcon className="h-12 w-12 text-gray-400 mx-auto" />
+                      <div>
+                        <h4 className="text-base font-semibold mb-2">
+                          No Reference Images Found
+                        </h4>
+                        <p className="text-sm text-muted-foreground mb-4">
+                          Upload reference images to compare against your 3D model
+                        </p>
+                      </div>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        className="hidden"
+                        onChange={(e) => {
+                          if (e.target.files) {
+                            handleUploadReferenceImages(e.target.files);
+                          }
+                        }}
+                      />
+                      <Button
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={uploadingReferences}
+                        variant="outline"
+                        className="w-full"
+                      >
+                        {uploadingReferences ? (
+                          <>
+                            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                            Uploading...
+                          </>
+                        ) : (
+                          <>
+                            <Upload className="h-4 w-4 mr-2" />
+                            Upload Reference Images
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {/* Display uploaded reference images */}
+                    <div className="grid grid-cols-3 gap-3">
+                      {currentReferenceImages.map((url, index) => (
+                        <div
+                          key={index}
+                          className="relative aspect-square rounded-lg overflow-hidden border border-gray-200 bg-gray-100"
+                        >
+                          <img
+                            src={url}
+                            alt={`Reference ${index + 1}`}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                    {/* Add more button */}
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      className="hidden"
+                      onChange={(e) => {
+                        if (e.target.files) {
+                          handleUploadReferenceImages(e.target.files);
+                        }
+                      }}
+                    />
+                    <Button
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploadingReferences}
+                      variant="outline"
+                      className="w-full"
+                    >
+                      {uploadingReferences ? (
+                        <>
+                          <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                          Uploading...
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="h-4 w-4 mr-2" />
+                          Add More Reference Images
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                )}
+              </div>
+
               {/* Action Button */}
               <div className="text-center space-y-4">
                 <Button
                   onClick={startQA}
                   className="h-12 px-8 text-lg"
                   size="lg"
+                  disabled={currentReferenceImages.length === 0 || uploadingReferences}
                 >
                   <Play className="h-5 w-5 mr-2" />
                   Start QA Analysis
@@ -262,8 +459,8 @@ const QAWorkflowModal: React.FC<QAWorkflowModalProps> = ({
 
                 <div className="flex items-center justify-center gap-6 text-sm text-muted-foreground">
                   <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
-                    <span>Reference Images: {referenceImages.length}</span>
+                    <div className={`w-2 h-2 rounded-full ${currentReferenceImages.length > 0 ? "bg-gray-400" : "bg-red-500"}`}></div>
+                    <span>Reference Images: {currentReferenceImages.length}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <div
@@ -366,7 +563,7 @@ const QAWorkflowModal: React.FC<QAWorkflowModalProps> = ({
         <div className="pt-4 border-t">
           <div className="flex items-center justify-between text-sm text-muted-foreground">
             <span>
-              Asset ID: {assetId} | Reference Images: {referenceImages.length}
+              Asset ID: {assetId} | Reference Images: {currentReferenceImages.length}
             </span>
           </div>
         </div>

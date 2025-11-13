@@ -100,6 +100,8 @@ const getStatusLabelClass = (status: string): string => {
       return "status-approved";
     case "approved_by_client":
       return "status-approved-by-client";
+    case "auto_qa_approved":
+      return "status-approved"; // Use approved styling for auto QA
     case "delivered_by_artist":
       return "status-delivered-by-artist";
     case "not_started":
@@ -124,6 +126,8 @@ const getStatusLabelText = (status: string): string => {
       return "Approved";
     case "approved_by_client":
       return "Approved by Client";
+    // "auto_qa_approved" is now handled by "approved" status with qaApproved state
+    // UI will show "Auto QA Approved" when qaApproved === true && status === "approved"
     case "delivered_by_artist":
       return "Delivered by Artist";
     case "not_started":
@@ -413,6 +417,8 @@ export default function ModelerReviewPage() {
   const [showStaleGlbDialog, setShowStaleGlbDialog] = useState(false);
   const [isDialogDragOver, setIsDialogDragOver] = useState(false);
   const currentGlbUrlRef = useRef<string | null>(null);
+  const [modelLoaded, setModelLoaded] = useState(false);
+  const [autoQATriggered, setAutoQATriggered] = useState(false);
 
   // Update the ref whenever asset.glb_link changes
   useEffect(() => {
@@ -422,8 +428,110 @@ export default function ModelerReviewPage() {
       const currentBaseUrl = currentGlbUrlRef.current?.split("?")[0];
       if (baseUrl !== currentBaseUrl) {
         currentGlbUrlRef.current = asset.glb_link;
+        // Reset model loaded state when GLB URL changes
+        setModelLoaded(false);
+        // Only reset auto-trigger if this is a new upload (status not already delivered)
+        if (asset?.status !== "delivered_by_artist") {
+          setAutoQATriggered(false);
+        }
       }
     }
+  }, [asset?.glb_link, asset?.status]);
+
+  // Auto-trigger QA when model loads (after redirect from upload)
+  useEffect(() => {
+    console.log("🔍 Auto QA trigger check:", {
+      modelLoaded,
+      autoQATriggered,
+      hasGlbLink: !!asset?.glb_link,
+      referenceImagesCount: referenceImages.length,
+      qaApproved,
+      showQADialog,
+      assetStatus: asset?.status,
+    });
+
+    // Trigger auto QA if:
+    // 1. Model is loaded
+    // 2. Haven't triggered yet
+    // 3. Has GLB link
+    // 4. QA not already approved/rejected
+    // 5. Dialog not already open
+    // 6. Status is not already delivered_by_artist (meaning it's a new upload)
+    // Note: Reference images are optional - user can upload them in the QA modal
+    const shouldTrigger = 
+      modelLoaded &&
+      !autoQATriggered &&
+      asset?.glb_link &&
+      qaApproved === null &&
+      !showQADialog &&
+      asset?.status !== "delivered_by_artist";
+
+    if (shouldTrigger) {
+      console.log("✅ All conditions met, triggering auto QA...");
+      // Small delay to ensure model is fully rendered
+      const timer = setTimeout(() => {
+        console.log("🚀 Opening QA dialog and setting auto-triggered");
+        setUploadedGlbUrl(asset.glb_link);
+        setShowQADialog(true);
+        setAutoQATriggered(true);
+      }, 500);
+      return () => clearTimeout(timer);
+    } else if (modelLoaded && asset?.glb_link && referenceImages.length === 0) {
+      console.log("⏳ Waiting for reference images to load...");
+    }
+  }, [
+    modelLoaded,
+    autoQATriggered,
+    asset?.glb_link,
+    asset?.status,
+    referenceImages.length,
+    qaApproved,
+    showQADialog,
+  ]);
+
+  // Also listen to model-viewer load event via ref (when model-viewer element exists)
+  useEffect(() => {
+    if (!asset?.glb_link) return;
+
+    let cleanup: (() => void) | null = null;
+
+    // Wait a bit for model-viewer to be rendered
+    const timer = setTimeout(() => {
+      const modelViewer = modelViewerRef.current;
+      if (!modelViewer) {
+        console.log("⚠️ Model-viewer ref not available yet");
+        return;
+      }
+
+      console.log("🎯 Setting up model-viewer event listeners");
+
+      const handleLoad = () => {
+        console.log("📦 Model-viewer load event fired via addEventListener");
+        setModelLoaded(true);
+      };
+
+      // Listen to model-viewer specific events
+      modelViewer.addEventListener("load", handleLoad);
+      modelViewer.addEventListener("model-loaded", handleLoad);
+      modelViewer.addEventListener("loaded", handleLoad);
+
+      // Also check if already loaded
+      if ((modelViewer as any).loaded) {
+        console.log("📦 Model already loaded, setting modelLoaded");
+        setModelLoaded(true);
+      }
+
+      cleanup = () => {
+        modelViewer.removeEventListener("load", handleLoad);
+        modelViewer.removeEventListener("model-loaded", handleLoad);
+        modelViewer.removeEventListener("loaded", handleLoad);
+      };
+    }, 1000);
+
+    return () => {
+      clearTimeout(timer);
+      if (cleanup) cleanup();
+    };
   }, [asset?.glb_link]);
 
   //eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -1150,14 +1258,18 @@ export default function ModelerReviewPage() {
   }, [fetchVersionHistory]);
 
   // Sync qaApproved state with asset status on load
+  // For "approved" status, we need to check if it was from Auto QA or manual approval
+  // We'll assume if status is "approved" and there's a GLB link, it might be from Auto QA
+  // But we'll be conservative and only set qaApproved=true for delivered_by_artist
   useEffect(() => {
     if (asset?.status) {
       if (
-        ["delivered_by_artist", "approved", "approved_by_client"].includes(
-          asset.status
-        )
+        ["delivered_by_artist", "approved_by_client"].includes(asset.status)
       ) {
         setQaApproved(true);
+      } else if (asset.status === "approved") {
+        // For "approved" status, keep qaApproved as is (don't auto-set to true)
+        // This allows the Auto QA flow to set it when it approves
       } else {
         // If status is anything else, it implies QA hasn't been passed for delivery yet.
         // We can reset it to null, but let's be careful not to override an active failed state.
@@ -1750,22 +1862,24 @@ export default function ModelerReviewPage() {
 
   const updateAssetStatus = async (
     newStatus: string,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     options?: { qaStatus?: boolean | null }
   ) => {
     if (!asset) return;
 
     // Warn and block if trying to deliver without correct GLB naming
     if (newStatus === "delivered_by_artist") {
+      // Check qaStatus from options first (for Auto QA), then fall back to state
+      const isQAApproved = options?.qaStatus !== undefined ? options.qaStatus : qaApproved;
+      
       // Block delivery if QA is not approved
-      if (qaApproved === false) {
+      if (isQAApproved === false) {
         toast.error(
           "Cannot deliver: Model not approved by QA. Please run QA analysis and address any issues."
         );
         return;
       }
 
-      if (qaApproved === null) {
+      if (isQAApproved === null || isQAApproved === undefined) {
         toast.error(
           "Cannot deliver: Please run QA analysis first to ensure model quality."
         );
@@ -1817,13 +1931,20 @@ export default function ModelerReviewPage() {
           updated_at: new Date().toISOString(), // Set updated_at timestamp
         };
 
-        const { error: updateError } = await supabase
+        const { error: updateError, data: updateDataResult } = await supabase
           .from("onboarding_assets")
           .update(updateData)
-          .eq("id", asset.id);
+          .eq("id", asset.id)
+          .select();
 
         if (updateError) {
-          throw new Error(`Failed to update status: ${updateError.message}`);
+          console.error("Supabase update error:", updateError);
+          throw new Error(`Failed to update status: ${updateError.message || updateError.code || "Unknown error"}`);
+        }
+        
+        // Log success for debugging
+        if (updateDataResult && updateDataResult.length > 0) {
+          console.log("Status updated successfully:", updateDataResult[0].status);
         }
 
         // Create a mock response object for consistency
@@ -1864,7 +1985,24 @@ export default function ModelerReviewPage() {
         }
       }
 
+      // Update local asset state immediately
       setAsset((prev) => (prev ? { ...prev, status: newStatus } : null));
+      
+      // Also refetch from database to ensure consistency
+      try {
+        const { data: refreshedAsset, error: refreshError } = await supabase
+          .from("onboarding_assets")
+          .select("*")
+          .eq("id", asset.id)
+          .single();
+        
+        if (!refreshError && refreshedAsset) {
+          setAsset(refreshedAsset);
+        }
+      } catch (refreshErr) {
+        console.error("Error refreshing asset after status update:", refreshErr);
+        // Continue anyway - local state is already updated
+      }
 
       // Refresh annotations if status changed to revisions (annotations marked as old)
       if (newStatus === "revisions") {
@@ -1953,9 +2091,18 @@ export default function ModelerReviewPage() {
       }
     } catch (error) {
       console.error("Error updating status:", error);
-      toast.error("Failed to update status");
+      const errorMessage = error instanceof Error ? error.message : "Failed to update status";
+      toast.error(errorMessage);
+      setStatusUpdating(false);
+      // Re-throw error so calling code can handle it
+      throw error;
     } finally {
       setStatusUpdating(false);
+    }
+    
+    // If status is delivered_by_artist, also update qaApproved state
+    if (newStatus === "delivered_by_artist") {
+      setQaApproved(true);
     }
   };
 
@@ -2772,10 +2919,9 @@ export default function ModelerReviewPage() {
                             console.error("Error starting QA:", error);
                             toast.error("Failed to start QA analysis");
                           }
-                        } else if (qaApproved === true) {
-                          // Deliver the model
-                          updateAssetStatus("delivered_by_artist");
                         }
+                        // Note: If Auto QA approves, status is automatically set to delivered_by_artist
+                        // So this button should only show "Run Auto QA" or be disabled if already delivered
                       }}
                       disabled={
                         asset?.status === "delivered_by_artist" ||
@@ -2815,7 +2961,11 @@ export default function ModelerReviewPage() {
                         <CheckCircle className="h-3 w-3" />
                       )}
                       <span className="hidden sm:inline ml-1">
-                        {qaApproved === null ? "Run Auto QA" : "Delivered"}
+                        {qaApproved === null 
+                          ? "Run Auto QA" 
+                          : asset?.status === "delivered_by_artist"
+                          ? "Delivered"
+                          : "Delivered"}
                       </span>
                     </Button>
 
@@ -2925,7 +3075,10 @@ export default function ModelerReviewPage() {
                     height: "100%",
                     backgroundColor: "#fafafa",
                   }}
-                  onLoad={() => {}}
+                  onLoad={() => {
+                    console.log("📦 Model-viewer onLoad prop fired");
+                    setModelLoaded(true);
+                  }}
                 >
                   {hotspots.map(
                     (hotspot) =>
@@ -4200,18 +4353,37 @@ export default function ModelerReviewPage() {
           assetId={assetId}
           referenceImages={referenceImages}
           modelViewerRef={modelViewerRef}
-          onComplete={(results) => {
-            setQaApproved(results?.status === "Approved");
-            setShowQADialog(false);
+          autoStart={autoQATriggered && referenceImages.length > 0}
+          clientName={asset?.client}
+          onReferenceImagesUpdate={async (newImages) => {
+            // Update local state
+            setReferenceImages(newImages);
+            // Refresh reference images from database
+            await fetchReferenceImages();
+          }}
+          onComplete={async (results) => {
             const isApproved = results?.status === "Approved";
             setQaApproved(isApproved);
+            setShowQADialog(false);
             toast.info(`QA Analysis Complete: ${results?.status}`);
-            // If approved, automatically trigger delivery
+            
+            // If approved, set status directly to delivered_by_artist (Auto QA automatically delivers)
             if (isApproved) {
-              // Use the fresh 'isApproved' value, not the stale state
-              updateAssetStatus("delivered_by_artist", {
-                qaStatus: true,
-              });
+              try {
+                // Auto QA approved - set status directly to delivered_by_artist
+                await updateAssetStatus("delivered_by_artist", {
+                  qaStatus: true,
+                });
+                // Reset auto-trigger flag to prevent re-triggering
+                setAutoQATriggered(true);
+                toast.success("Model approved by Auto QA and delivered!");
+              } catch (error) {
+                console.error("Error updating status to delivered_by_artist:", error);
+                toast.error("QA approved but failed to update status. Please try again.");
+              }
+            } else {
+              // If not approved, reset auto-trigger so user can try again
+              setAutoQATriggered(false);
             }
           }}
         />

@@ -1,0 +1,922 @@
+/**
+ * ⚠️ DEPRECATED - THIS PAGE IS NO LONGER USED
+ *
+ * This onboarding page has been merged into the Users page (/users).
+ * All invitation management functionality is now available through the "Invitations"
+ * button in the Users page, accessible as a dialog.
+ *
+ * This file is kept for reference only and should not be accessed directly.
+ * Navigation to this page has been removed from the sidebar.
+ */
+
+"use client";
+
+import { useState, useEffect, useCallback } from "react";
+import { useUser } from "@/contexts/useUser";
+import { useRouter } from "next/navigation";
+
+import { useLoading } from "@/contexts/LoadingContext";
+import { Button, Label } from "@/components/ui/display";
+import { Input } from "@/components/ui/inputs";
+import { Badge } from "@/components/ui/feedback";
+import { Card } from "@/components/ui/containers";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/display";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/containers";
+import {
+  Mail,
+  X,
+  CheckCircle,
+  Clock,
+  UserPlus,
+  AlertCircle,
+  Copy,
+  Trash2,
+} from "lucide-react";
+import { useToast } from "@/components/ui/utilities";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/inputs/select";
+
+interface Invitation {
+  id: string;
+  email: string;
+  client_name: string;
+  role: string;
+  status: "pending" | "accepted" | "expired" | "cancelled";
+  invited_by: string;
+  invited_at: string;
+  accepted_at?: string;
+  expires_at: string;
+  invitation_link: string;
+}
+
+export default function OnboardingPage() {
+  const user = useUser();
+  const router = useRouter();
+  const { toast } = useToast();
+  const { startLoading } = useLoading();
+  const [invitations, setInvitations] = useState<Invitation[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [sendingInvite, setSendingInvite] = useState(false);
+  const [newInviteDialog, setNewInviteDialog] = useState(false);
+  const [newInviteData, setNewInviteData] = useState({
+    email: "",
+    client_name: "",
+    role: "client",
+    onboarding: true, // Hidden field, always true for new invitations
+  });
+  const [deleteDialog, setDeleteDialog] = useState<{
+    open: boolean;
+    invitation: Invitation | null;
+  }>({ open: false, invitation: null });
+  const [clearHistoryDialog, setClearHistoryDialog] = useState(false);
+  const [createUserDialog, setCreateUserDialog] = useState(false);
+  const [createUserData, setCreateUserData] = useState({
+    email: "",
+    client_name: "",
+    role: "client",
+  });
+  const [creatingUser, setCreatingUser] = useState(false);
+
+  // Check if user is admin
+  useEffect(() => {
+    if (user && user.metadata?.role !== "admin") {
+      startLoading(); // Start loading before redirect
+      router.push("/dashboard");
+      toast({
+        title: "Access Denied",
+        description: "Only administrators can access this page.",
+        variant: "destructive",
+      });
+    }
+  }, [user, router, toast, startLoading]);
+
+  const fetchInvitations = useCallback(async () => {
+    try {
+      const response = await fetch("/api/admin/invitations");
+      if (response.ok) {
+        const data = await response.json();
+        setInvitations(data.invitations || []);
+      }
+    } catch (error) {
+      console.error("Error fetching invitations:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load invitations.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [toast]);
+
+  // Fetch invitations
+  useEffect(() => {
+    if (user?.metadata?.role === "admin") {
+      fetchInvitations();
+    }
+  }, [user, fetchInvitations]);
+
+  const sendInvitation = async () => {
+    if (!newInviteData.email || !newInviteData.client_name) {
+      toast({
+        title: "Validation Error",
+        description: "Please fill in all required fields.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setSendingInvite(true);
+    try {
+      const response = await fetch("/api/admin/invitations", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(newInviteData),
+      });
+
+      if (response.ok) {
+        toast({
+          title: "Invitation Sent",
+          description: `Invitation sent to ${newInviteData.email}`,
+        });
+        setNewInviteDialog(false);
+        setNewInviteData({
+          email: "",
+          client_name: "",
+          role: "client",
+          onboarding: true,
+        });
+        fetchInvitations(); // Refresh the list
+      } else {
+        const error = await response.json();
+        throw new Error(error.message || "Failed to send invitation");
+      }
+    } catch (error) {
+      console.error("Error sending invitation:", error);
+      toast({
+        title: "Error",
+        description:
+          error instanceof Error ? error.message : "Failed to send invitation.",
+        variant: "destructive",
+      });
+    } finally {
+      setSendingInvite(false);
+    }
+  };
+
+  const deleteInvitation = async (invitationId: string) => {
+    try {
+      const response = await fetch(
+        `/api/admin/invitations?id=${invitationId}`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      if (response.ok) {
+        toast({
+          title: "Invitation Deleted",
+          description: "The invitation has been permanently deleted.",
+        });
+        fetchInvitations(); // Refresh the list
+        setDeleteDialog({ open: false, invitation: null });
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to delete invitation");
+      }
+    } catch (error) {
+      console.error("Error deleting invitation:", error);
+      toast({
+        title: "Error",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Failed to delete invitation.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const cancelInvitation = async (invitationId: string) => {
+    // For now, we'll use the same delete functionality
+    // In the future, you might want to add a "cancelled" status instead of deletion
+    try {
+      const response = await fetch(
+        `/api/admin/invitations?id=${invitationId}`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      if (response.ok) {
+        toast({
+          title: "Invitation Cancelled",
+          description: "The invitation has been cancelled.",
+        });
+        fetchInvitations(); // Refresh the list
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to cancel invitation");
+      }
+    } catch (error) {
+      console.error("Error cancelling invitation:", error);
+      toast({
+        title: "Error",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Failed to cancel invitation.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const clearHistory = async () => {
+    try {
+      // Get all non-accepted invitations
+      const nonAcceptedInvitations = invitations.filter(
+        (inv) => inv.status !== "accepted"
+      );
+
+      if (nonAcceptedInvitations.length === 0) {
+        toast({
+          title: "No Invitations to Clear",
+          description:
+            "All invitations are accepted or there are no invitations to clear.",
+        });
+        setClearHistoryDialog(false);
+        return;
+      }
+
+      // Delete each non-accepted invitation
+      const deletePromises = nonAcceptedInvitations.map((inv) =>
+        fetch(`/api/admin/invitations?id=${inv.id}`, { method: "DELETE" })
+      );
+
+      const results = await Promise.allSettled(deletePromises);
+      const successful = results.filter(
+        (result) => result.status === "fulfilled"
+      ).length;
+      const failed = results.length - successful;
+
+      if (successful > 0) {
+        toast({
+          title: "History Cleared",
+          description: `Successfully deleted ${successful} invitation(s).${failed > 0 ? ` ${failed} failed.` : ""}`,
+        });
+        fetchInvitations(); // Refresh the list
+      } else {
+        throw new Error("Failed to delete any invitations");
+      }
+    } catch (error) {
+      console.error("Error clearing history:", error);
+      toast({
+        title: "Error",
+        description: "Failed to clear invitation history.",
+        variant: "destructive",
+      });
+    } finally {
+      setClearHistoryDialog(false);
+    }
+  };
+
+  const copyInvitationLink = async (link: string) => {
+    try {
+      await navigator.clipboard.writeText(link);
+      toast({
+        title: "Link Copied",
+        description: "Invitation link copied to clipboard.",
+      });
+    } catch (error) {
+      console.error("Error copying link:", error);
+      toast({
+        title: "Error",
+        description: "Failed to copy link.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const createUser = async () => {
+    if (!createUserData.email || !createUserData.client_name) {
+      toast({
+        title: "Validation Error",
+        description: "Please fill in all required fields.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setCreatingUser(true);
+    try {
+      const response = await fetch("/api/admin/users", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(createUserData),
+      });
+
+      if (response.ok) {
+        toast({
+          title: "User Created",
+          description: `User account created for ${createUserData.email}`,
+        });
+        setCreateUserDialog(false);
+        setCreateUserData({
+          email: "",
+          client_name: "",
+          role: "client",
+        });
+        fetchInvitations(); // Refresh the list
+      } else {
+        const error = await response.json();
+        throw new Error(
+          error.details || error.message || "Failed to create user"
+        );
+      }
+    } catch (error) {
+      console.error("Error creating user:", error);
+      toast({
+        title: "Error",
+        description:
+          error instanceof Error ? error.message : "Failed to create user.",
+        variant: "destructive",
+      });
+    } finally {
+      setCreatingUser(false);
+    }
+  };
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case "pending":
+        return (
+          <Badge variant="secondary" className="gap-1">
+            <Clock className="h-3 w-3" />
+            Pending
+          </Badge>
+        );
+      case "accepted":
+        return (
+          <Badge variant="default" className="gap-1">
+            <CheckCircle className="h-3 w-3" />
+            Accepted
+          </Badge>
+        );
+      case "expired":
+        return (
+          <Badge variant="destructive" className="gap-1">
+            <AlertCircle className="h-3 w-3" />
+            Expired
+          </Badge>
+        );
+      case "cancelled":
+        return (
+          <Badge variant="outline" className="gap-1">
+            <X className="h-3 w-3" />
+            Cancelled
+          </Badge>
+        );
+      default:
+        return <Badge variant="secondary">{status}</Badge>;
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  // Show loading state while user context is initializing
+  if (user === null) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show access denied only after user context has loaded and user doesn't have access
+  if (user?.metadata?.role !== "admin") {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold mb-4">Access Denied</h1>
+          <p className="text-muted-foreground">
+            Only administrators can access this page.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="container mx-auto p-6 space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold">Client onboarding</h1>
+          <p className="text-muted-foreground">
+            Manage client invitations and track onboarding progress
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Dialog open={newInviteDialog} onOpenChange={setNewInviteDialog}>
+            <DialogTrigger asChild>
+              <Button className="gap-2 cursor-pointer">
+                <UserPlus className="h-4 w-4" />
+                Send Invitation
+              </Button>
+            </DialogTrigger>
+            <DialogContent className=" max-h-[85vh] h-fit overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Send Client Invitation</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <Label
+                    className="text-sm font-medium mb-1"
+                    htmlFor="invite_email"
+                  >
+                    Email Address
+                  </Label>
+                  <Input
+                    id="invite_email"
+                    type="email"
+                    placeholder="client@company.com"
+                    value={newInviteData.email}
+                    onChange={(e) =>
+                      setNewInviteData((prev) => ({
+                        ...prev,
+                        email: e.target.value,
+                      }))
+                    }
+                  />
+                </div>
+                {newInviteData.role === "client" ? (
+                  <div>
+                    <Label
+                      htmlFor="client_name"
+                      className="block text-sm font-medium mb-1"
+                    >
+                      Client Name
+                    </Label>
+                    <Input
+                      id="client_name"
+                      type="text"
+                      placeholder="Enter client name"
+                      value={newInviteData.client_name}
+                      onChange={(e) =>
+                        setNewInviteData({
+                          ...newInviteData,
+                          client_name: e.target.value,
+                        })
+                      }
+                      required
+                    />
+                  </div>
+                ) : (
+                  <div>
+                    <Label
+                      htmlFor="client_name"
+                      className="block text-sm font-medium mb-1"
+                    >
+                      Name
+                    </Label>
+                    <Input
+                      id="client_name"
+                      type="text"
+                      placeholder="Enter name"
+                      value={newInviteData.client_name}
+                      onChange={(e) =>
+                        setNewInviteData({
+                          ...newInviteData,
+                          client_name: e.target.value,
+                        })
+                      }
+                      required
+                    />
+                  </div>
+                )}
+                <div>
+                  <Label className="text-sm font-medium mb-1">Role</Label>
+                  <Select
+                    value={newInviteData.role}
+                    onValueChange={(value) =>
+                      setNewInviteData((prev) => ({ ...prev, role: value }))
+                    }
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select a role" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="client">client</SelectItem>
+                      <SelectItem value="modeler">3D Modeler</SelectItem>
+                      <SelectItem value="qa">Quality Assurance</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    onClick={sendInvitation}
+                    disabled={sendingInvite}
+                    className="flex-1 cursor-pointer"
+                  >
+                    {sendingInvite ? "Sending..." : "Send Invitation"}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => setNewInviteDialog(false)}
+                    className="cursor-pointer"
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+          <Dialog open={createUserDialog} onOpenChange={setCreateUserDialog}>
+            <DialogTrigger asChild>
+              <Button variant="outline" className="gap-2 cursor-pointer">
+                <UserPlus className="h-4 w-4" />
+                Create User
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="min-h-[85vh] h-fit overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Create User Account</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <Label
+                    className="text-sm font-medium mb-1"
+                    htmlFor="create_email"
+                  >
+                    Email Address
+                  </Label>
+                  <Input
+                    id="create_email"
+                    type="email"
+                    placeholder="user@company.com"
+                    value={createUserData.email}
+                    onChange={(e) =>
+                      setCreateUserData((prev) => ({
+                        ...prev,
+                        email: e.target.value,
+                      }))
+                    }
+                  />
+                </div>
+                <div>
+                  <Label
+                    htmlFor="create_client_name"
+                    className="block text-sm font-medium mb-1"
+                  >
+                    {createUserData.role === "client" ? "Client Name" : "Name"}
+                  </Label>
+                  <Input
+                    id="create_client_name"
+                    type="text"
+                    placeholder={
+                      createUserData.role === "client"
+                        ? "Enter client name"
+                        : "Enter name"
+                    }
+                    value={createUserData.client_name}
+                    onChange={(e) =>
+                      setCreateUserData({
+                        ...createUserData,
+                        client_name: e.target.value,
+                      })
+                    }
+                    required
+                  />
+                </div>
+                <div>
+                  <Label className="text-sm font-medium mb-1">Role</Label>
+                  <Select
+                    value={createUserData.role}
+                    onValueChange={(value) =>
+                      setCreateUserData((prev) => ({ ...prev, role: value }))
+                    }
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select a role" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="client">Client</SelectItem>
+                      <SelectItem value="modeler">3D Modeler</SelectItem>
+                      <SelectItem value="qa">Quality Assurance</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    onClick={createUser}
+                    disabled={creatingUser}
+                    className="flex-1 cursor-pointer"
+                  >
+                    {creatingUser ? "Creating..." : "Create User"}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => setCreateUserDialog(false)}
+                    className="cursor-pointer"
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
+      </div>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog
+        open={deleteDialog.open}
+        onOpenChange={(open) => setDeleteDialog({ open, invitation: null })}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Invitation</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-muted-foreground">
+              Are you sure you want to permanently delete the invitation for{" "}
+              <span className="font-medium">
+                {deleteDialog.invitation?.email}
+              </span>
+              ?
+            </p>
+            <p className="text-sm text-muted-foreground">
+              This action cannot be undone. The invitation will be permanently
+              removed from the system.
+            </p>
+            <div className="flex gap-2 pt-4">
+              <Button
+                variant="destructive"
+                onClick={() =>
+                  deleteDialog.invitation &&
+                  deleteInvitation(deleteDialog.invitation.id)
+                }
+                className="flex-1 cursor-pointer"
+              >
+                Delete Permanently
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() =>
+                  setDeleteDialog({ open: false, invitation: null })
+                }
+                className="cursor-pointer"
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Clear History Dialog */}
+      <Dialog open={clearHistoryDialog} onOpenChange={setClearHistoryDialog}>
+        <DialogContent className="max-h-[85vh] h-fit overflow-y-auto">
+          <DialogHeader className="pb-0">
+            <DialogTitle className="pb-0 mb-0">
+              Clear Invitation History
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-muted-foreground">
+              Are you sure you want to permanently delete all non-accepted
+              invitations?
+            </p>
+            <p className="text-sm text-muted-foreground">
+              This will delete all pending, expired, and cancelled invitations.
+              Accepted invitations will be preserved. This action cannot be
+              undone.
+            </p>
+            <div className="flex gap-2 pt-4">
+              <Button
+                variant="destructive"
+                onClick={clearHistory}
+                className="flex-1 cursor-pointer"
+              >
+                Clear History
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setClearHistoryDialog(false)}
+                className="cursor-pointer"
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card className="p-4">
+          <div className="flex items-center gap-4">
+            <Mail className="h-5 w-5 text-blue-500" />
+            <div>
+              <p className="text-sm text-muted-foreground">Total Invitations</p>
+              <p className="text-2xl font-bold">{invitations.length}</p>
+            </div>
+          </div>
+        </Card>
+        <Card className="p-4">
+          <div className="flex items-center gap-4">
+            <Clock className="h-5 w-5 text-yellow-500" />
+            <div>
+              <p className="text-sm text-muted-foreground">Pending</p>
+              <p className="text-2xl font-bold">
+                {invitations.filter((i) => i.status === "pending").length}
+              </p>
+            </div>
+          </div>
+        </Card>
+        <Card className="p-4">
+          <div className="flex items-center gap-4">
+            <CheckCircle className="h-5 w-5 text-green-500" />
+            <div>
+              <p className="text-sm text-muted-foreground">Accepted</p>
+              <p className="text-2xl font-bold">
+                {invitations.filter((i) => i.status === "accepted").length}
+              </p>
+            </div>
+          </div>
+        </Card>
+        <Card className="p-4">
+          <div className="flex items-center gap-4">
+            <AlertCircle className="h-5 w-5 text-red-500" />
+            <div>
+              <p className="text-sm text-muted-foreground">Expired/Cancelled</p>
+              <p className="text-2xl font-bold">
+                {
+                  invitations.filter(
+                    (i) => i.status === "expired" || i.status === "cancelled"
+                  ).length
+                }
+              </p>
+            </div>
+          </div>
+        </Card>
+      </div>
+
+      {/* Invitations Table */}
+      <Card>
+        <div className="p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold">Invitation History</h2>
+            {invitations.length > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setClearHistoryDialog(true)}
+                className="text-error hover:text-error/80 hover:bg-error-muted cursor-pointer"
+                title={`Delete ${invitations.filter((inv) => inv.status !== "accepted").length} non-accepted invitations`}
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Clear History
+                <span className="ml-1 text-xs">
+                  (
+                  {
+                    invitations.filter((inv) => inv.status !== "accepted")
+                      .length
+                  }
+                  )
+                </span>
+              </Button>
+            )}
+          </div>
+          {loading ? (
+            <div className="space-y-2">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="h-12 bg-muted animate-pulse rounded" />
+              ))}
+            </div>
+          ) : invitations.length === 0 ? (
+            <div className="text-center py-8">
+              <Mail className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <p className="text-muted-foreground">No invitations sent yet.</p>
+              <p className="text-sm text-muted-foreground">
+                Send your first invitation to get started.
+              </p>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="text-left">Email</TableHead>
+                  <TableHead className="text-left">Client</TableHead>
+                  <TableHead className="text-left">Role</TableHead>
+                  <TableHead className="text-left">Status</TableHead>
+                  <TableHead className="text-left">Invited</TableHead>
+                  <TableHead className="text-left">Expires</TableHead>
+                  <TableHead className="text-left">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {invitations.map((invitation) => (
+                  <TableRow key={invitation.id}>
+                    <TableCell className="font-medium text-left">
+                      {invitation.email}
+                    </TableCell>
+                    <TableCell className="text-left">
+                      {invitation.client_name}
+                    </TableCell>
+                    <TableCell className="text-left">
+                      <Badge variant="outline">{invitation.role}</Badge>
+                    </TableCell>
+                    <TableCell className="text-left">
+                      {getStatusBadge(invitation.status)}
+                    </TableCell>
+                    <TableCell className="text-left">
+                      {formatDate(invitation.invited_at)}
+                    </TableCell>
+                    <TableCell className="text-left">
+                      {formatDate(invitation.expires_at)}
+                    </TableCell>
+                    <TableCell className="text-left">
+                      <div className=" gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() =>
+                            copyInvitationLink(invitation.invitation_link)
+                          }
+                          title="Copy invitation link"
+                          className="cursor-pointer"
+                        >
+                          <Copy className="h-4 w-4" />
+                        </Button>
+                        {invitation.status === "pending" && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => cancelInvitation(invitation.id)}
+                            title="Cancel invitation"
+                            className="cursor-pointer"
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        )}
+
+                        {/* Delete button for non-accepted invitations */}
+                        {invitation.status !== "accepted" && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() =>
+                              setDeleteDialog({ open: true, invitation })
+                            }
+                            title="Delete invitation"
+                            className="text-red-500 hover:text-red-700 hover:bg-red-50 cursor-pointer"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </div>
+      </Card>
+    </div>
+  );
+}
