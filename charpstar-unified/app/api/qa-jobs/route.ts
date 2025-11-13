@@ -937,16 +937,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (
-      !Array.isArray(references) ||
-      references.length < 1 ||
-      references.length > 5
-    ) {
+    if (!Array.isArray(references) || references.length < 1) {
       return NextResponse.json(
-        { error: "Must send 1-5 reference images" },
+        { error: "Must send at least 1 reference image" },
         { status: 400 }
       );
     }
+
+    // If more than 5 images, use only the first 5
+    const validReferences = references.slice(0, 5);
 
     const jobId = uuidv4();
     const { error: insertError } = await supabaseAdmin
@@ -968,7 +967,7 @@ export async function POST(request: NextRequest) {
     }
 
     const queue = QAJobQueue.getInstance();
-    await queue.addJob(jobId, renders, references, modelStats);
+    await queue.addJob(jobId, renders, validReferences, modelStats);
 
     const queueStatus = queue.getQueueStatus();
     const position = queue.getJobPosition(jobId);
