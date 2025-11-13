@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Eye } from 'lucide-react';
 import RenderOptionsPanel from '@/components/product-render/RenderOptionsPanel';
 import ModularAssetPanel from '@/components/modular/ModularAssetPanel';

@@ -26,10 +26,6 @@ export async function GET(request: NextRequest) {
       : profile?.client;
     const client = rawClient && String(rawClient).trim().length > 0 ? String(rawClient) : 'Shared';
     
-    const { searchParams } = new URL(request.url);
-    const limitParam = searchParams.get('limit');
-    const limit = limitParam ? parseInt(limitParam, 10) : 100; // Default limit 100
-
     const prepBase = process.env.RENDER_PREP_WORKER_URL;
     const prepToken = process.env.RENDER_WORKER_API_TOKEN;
     if (!prepBase || !prepToken) {

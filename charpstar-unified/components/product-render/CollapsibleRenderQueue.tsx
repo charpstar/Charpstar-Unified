@@ -316,6 +316,7 @@ const CollapsibleRenderQueue: React.FC<{ clientName: string }> = ({ clientName }
                           return (
                             <div key={`${it.jobId}-img-${i}`} className="group relative">
                               <a href={img.url} target="_blank" rel="noreferrer" className="block">
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
                                 <img 
                                   src={thumbnailUrl} 
                                   alt={`${img.view || 'render'} thumbnail`} 

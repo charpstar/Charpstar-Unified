@@ -10,7 +10,6 @@ import {
 import { Input } from "@/components/ui/inputs";
 import { Button } from "@/components/ui/display";
 import { Badge } from "@/components/ui/feedback";
-import { ScrollArea } from "@/components/ui/interactive";
 import {
   Popover,
   PopoverContent,

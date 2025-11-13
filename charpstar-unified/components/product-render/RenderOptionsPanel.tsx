@@ -27,9 +27,7 @@ type AspectRatio = 'square' | 'rectangle';
 const RenderOptionsPanel: React.FC<RenderOptionsPanelProps> = ({ 
   modelViewerRef, 
   modelFilename, 
-  selectedVariants,
   isModularMode = false,
-  modularViewerRef,
   modularConfig,
   sourceGlbUrl,
   selectedAssets = [],

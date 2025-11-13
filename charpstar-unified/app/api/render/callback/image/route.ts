@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
 
     // RunPod uploads directly to BunnyCDN and sends us image data
     const body = await request.json();
-    const { images, imageUrl, client, modelName, variantName, view, background, resolution, format } = body || {};
+    const { images, imageUrl, client, modelName, variantName, view, format } = body || {};
 
     // Support both NEW multi-image format and OLD single-image format (backward compatible)
     let imageArray: Array<{ url: string; view?: string; format?: string }> = [];
