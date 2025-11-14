@@ -62340,7 +62340,7 @@ visibility: visible;
       }
 
       updateSourceProgress(1.0);
-      this.setPlaneGrid();
+      // this.setPlaneGrid();
       // Call setup when component is initialized
       setupUVCheckButton.call(this);
       this.uvCheckActive = false;

@@ -59,6 +59,28 @@ const QAWorkflowModal: React.FC<QAWorkflowModalProps> = ({
   const [uploadingReferences, setUploadingReferences] = useState(false);
   const [currentReferenceImages, setCurrentReferenceImages] = useState<string[]>(referenceImages);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const previousGlbUrlRef = React.useRef<string>(glbUrl);
+
+  // Reset QA state when modal closes or GLB URL changes (new model uploaded)
+  React.useEffect(() => {
+    if (!isOpen) {
+      // Reset when modal closes
+      setQaState("idle");
+      setQaJobId(null);
+      setQaResults(null);
+    }
+  }, [isOpen]);
+
+  // Reset QA state when GLB URL changes (new model uploaded)
+  React.useEffect(() => {
+    if (glbUrl !== previousGlbUrlRef.current) {
+      // GLB URL changed - reset all QA state for new model
+      setQaState("idle");
+      setQaJobId(null);
+      setQaResults(null);
+      previousGlbUrlRef.current = glbUrl;
+    }
+  }, [glbUrl]);
 
   // Update local state when referenceImages prop changes
   React.useEffect(() => {

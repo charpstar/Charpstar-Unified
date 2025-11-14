@@ -466,9 +466,10 @@ export default function ModelerReviewPage() {
         currentGlbUrlRef.current = asset.glb_link;
         // Reset model loaded state when GLB URL changes
         setModelLoaded(false);
-        // Only reset auto-trigger if this is a new upload (status not already delivered)
+        // Only reset auto-trigger and QA approval state if this is a new upload (status not already delivered)
         if (asset?.status !== "delivered_by_artist") {
           setAutoQATriggered(false);
+          setQaApproved(null); // Reset QA approval state for new model
         }
       }
     }
@@ -4378,7 +4379,14 @@ export default function ModelerReviewPage() {
         {/* Automated QA Modal */}
         <QAWorkflowModal
           isOpen={showQADialog}
-          onClose={() => setShowQADialog(false)}
+          onClose={() => {
+            setShowQADialog(false);
+            // Reset QA approval state when modal closes without delivering
+            // This allows new QA to run when a new model is uploaded
+            if (asset?.status !== "delivered_by_artist") {
+              setQaApproved(null);
+            }
+          }}
           glbUrl={uploadedGlbUrl || asset?.glb_link || ""}
           assetId={assetId}
           referenceImages={referenceImages}
