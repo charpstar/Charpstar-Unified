@@ -3318,6 +3318,49 @@ export default function AdminReviewPage() {
     setPage(1);
   }, [showAllocationLists, showQAAssets]);
 
+  // Helper function to parse references
+  function parseReferences(
+    referenceImages: string[] | string | null
+  ): string[] {
+    if (!referenceImages) return [];
+    if (Array.isArray(referenceImages)) return referenceImages;
+
+    // Check if it's a string with ||| separator
+    if (
+      typeof referenceImages === "string" &&
+      referenceImages.includes("|||")
+    ) {
+      return referenceImages
+        .split("|||")
+        .map((ref) => ref.trim())
+        .filter(Boolean);
+    }
+
+    try {
+      return JSON.parse(referenceImages);
+    } catch {
+      return [referenceImages];
+    }
+  }
+
+  function getVisibleReferences(
+    asset:
+      | {
+          reference?: string[] | string | null;
+          internal_reference?: string[] | string | null;
+        }
+      | null
+      | undefined
+  ): string[] {
+    if (!asset) return [];
+    const clientRefs = parseReferences(asset.reference ?? null);
+    if (isClient) {
+      return clientRefs;
+    }
+    const internalRefs = parseReferences(asset.internal_reference ?? null);
+    return [...clientRefs, ...internalRefs];
+  }
+
   // Pagination
   const paged = useMemo(() => {
     const start = (page - 1) * PAGE_SIZE;
@@ -3685,7 +3728,7 @@ export default function AdminReviewPage() {
       const { data, error } = await query;
 
       if (error) {
-        console.error("Error fetching assigned assets:", error);
+        console.error("Error fetching assigned assets:", error.message || error);
         return;
       }
 
@@ -3739,7 +3782,8 @@ export default function AdminReviewPage() {
 
       setAssignedAssets(assignedAssetsMap);
     } catch (error) {
-      console.error("Error fetching assigned assets:", error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error("Error fetching assigned assets:", errorMessage, error);
     }
   };
 
@@ -4641,49 +4685,6 @@ export default function AdminReviewPage() {
   }
 
   // Reference management functions are handled by reusable dialogs below
-
-  // Helper function to parse references
-  const parseReferences = (
-    referenceImages: string[] | string | null
-  ): string[] => {
-    if (!referenceImages) return [];
-    if (Array.isArray(referenceImages)) return referenceImages;
-
-    // Check if it's a string with ||| separator
-    if (
-      typeof referenceImages === "string" &&
-      referenceImages.includes("|||")
-    ) {
-      return referenceImages
-        .split("|||")
-        .map((ref) => ref.trim())
-        .filter(Boolean);
-    }
-
-    try {
-      return JSON.parse(referenceImages);
-    } catch {
-      return [referenceImages];
-    }
-  };
-
-  const getVisibleReferences = (
-    asset:
-      | {
-          reference?: string[] | string | null;
-          internal_reference?: string[] | string | null;
-        }
-      | null
-      | undefined
-  ): string[] => {
-    if (!asset) return [];
-    const clientRefs = parseReferences(asset.reference ?? null);
-    if (isClient) {
-      return clientRefs;
-    }
-    const internalRefs = parseReferences(asset.internal_reference ?? null);
-    return [...clientRefs, ...internalRefs];
-  };
 
   // Helper function to separate GLB files from reference images
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
