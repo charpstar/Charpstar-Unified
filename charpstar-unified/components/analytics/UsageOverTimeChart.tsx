@@ -14,6 +14,7 @@ interface UsageOverTimeChartProps {
     date: string;
     renders: number;
     saves: number;
+    downloads: number;
   }>;
 }
 
@@ -44,6 +45,18 @@ export function UsageOverTimeChart({ data }: UsageOverTimeChartProps) {
               <stop
                 offset="95%"
                 stopColor="hsl(var(--chart-2))"
+                stopOpacity={0.1}
+              />
+            </linearGradient>
+            <linearGradient id="fillDownloads" x1="0" y1="0" x2="0" y2="1">
+              <stop
+                offset="5%"
+                stopColor="hsl(var(--chart-3))"
+                stopOpacity={0.8}
+              />
+              <stop
+                offset="95%"
+                stopColor="hsl(var(--chart-3))"
                 stopOpacity={0.1}
               />
             </linearGradient>
@@ -87,8 +100,14 @@ export function UsageOverTimeChart({ data }: UsageOverTimeChartProps) {
                             style={{ backgroundColor: entry.color }}
                           />
                           <span className="text-sm font-medium">
-                            {entry.name === "renders" ? "Renders" : "Saves"}:{" "}
-                            {entry.value}
+                            {entry.name === "renders"
+                              ? "Renders"
+                              : entry.name === "saves"
+                                ? "Saves"
+                                : entry.name === "downloads"
+                                  ? "Downloads"
+                                  : entry.name}
+                            : {entry.value}
                           </span>
                         </div>
                       ))}
@@ -114,6 +133,15 @@ export function UsageOverTimeChart({ data }: UsageOverTimeChartProps) {
             stroke="hsl(var(--chart-2))"
             strokeWidth={2}
             fill="url(#fillSaves)"
+            fillOpacity={0.4}
+            activeDot={{ r: 6, strokeWidth: 0 }}
+          />
+          <Area
+            type="monotone"
+            dataKey="downloads"
+            stroke="hsl(var(--chart-3))"
+            strokeWidth={2}
+            fill="url(#fillDownloads)"
             fillOpacity={0.4}
             activeDot={{ r: 6, strokeWidth: 0 }}
           />

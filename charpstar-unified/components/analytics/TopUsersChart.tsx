@@ -6,6 +6,7 @@ interface TopUsersChartProps {
     email: string;
     renders: number;
     saves: number;
+    downloads: number;
     conversionRate: number;
   }>;
 }
@@ -83,6 +84,14 @@ export function TopUsersChart({ data }: TopUsersChartProps) {
               </div>
               <div className="text-xs text-muted-foreground uppercase tracking-wide">
                 Saves
+              </div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-foreground">
+                {user.downloads}
+              </div>
+              <div className="text-xs text-muted-foreground uppercase tracking-wide">
+                Downloads
               </div>
             </div>
             <div className="text-center min-w-[60px]">

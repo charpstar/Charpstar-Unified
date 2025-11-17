@@ -8,6 +8,7 @@ type SceneRenderAnalyticsRow = {
   user_email: string | null;
   user_id: string | null;
   saved_to_library: boolean | null;
+  downloaded: boolean | null;
   status: string | null;
   object_type: string | null;
   image_format: string | null;
@@ -100,6 +101,7 @@ export async function GET(request: NextRequest) {
         summary: {
           totalRenders: 0,
           totalSaves: 0,
+          totalDownloads: 0,
           conversionRate: 0,
           averageGenerationTime: 0,
           successRate: 0,
@@ -150,6 +152,7 @@ export async function GET(request: NextRequest) {
             current: {
               totalRenders: 0,
               totalSaves: 0,
+              totalDownloads: 0,
               conversionRate: 0,
               uniqueClients: 0,
               averageGenerationTime: 0,
@@ -157,11 +160,18 @@ export async function GET(request: NextRequest) {
             previous: {
               totalRenders: 0,
               totalSaves: 0,
+              totalDownloads: 0,
               conversionRate: 0,
               uniqueClients: 0,
               averageGenerationTime: 0,
             },
-            growth: { renders: 0, saves: 0, conversionRate: 0, clients: 0 },
+            growth: {
+              renders: 0,
+              saves: 0,
+              downloads: 0,
+              conversionRate: 0,
+              clients: 0,
+            },
           },
           platformAverages: null,
         },
@@ -172,6 +182,9 @@ export async function GET(request: NextRequest) {
     const totalRenders = analyticsData.length;
     const totalSaves = analyticsData.filter(
       (item) => item.saved_to_library
+    ).length;
+    const totalDownloads = analyticsData.filter(
+      (item) => item.downloaded
     ).length;
     const conversionRate =
       totalRenders > 0 ? (totalSaves / totalRenders) * 100 : 0;
@@ -230,15 +243,21 @@ export async function GET(request: NextRequest) {
       (acc, item) => {
         const date = new Date(item.created_at).toISOString().split("T")[0];
         if (!acc[date]) {
-          acc[date] = { renders: 0, saves: 0 };
+          acc[date] = { renders: 0, saves: 0, downloads: 0 };
         }
         acc[date].renders++;
         if (item.saved_to_library) {
           acc[date].saves++;
         }
+        if (item.downloaded) {
+          acc[date].downloads++;
+        }
         return acc;
       },
-      {} as Record<string, { renders: number; saves: number }>
+      {} as Record<
+        string,
+        { renders: number; saves: number; downloads: number }
+      >
     );
 
     // Fill in all dates in the range
@@ -247,6 +266,7 @@ export async function GET(request: NextRequest) {
       date,
       renders: usageByDate[date]?.renders || 0,
       saves: usageByDate[date]?.saves || 0,
+      downloads: usageByDate[date]?.downloads || 0,
     }));
 
     // Top users by render count
@@ -257,6 +277,7 @@ export async function GET(request: NextRequest) {
           acc[clientKey] = {
             renders: 0,
             saves: 0,
+            downloads: 0,
             email: item.user_email ?? "",
           };
         }
@@ -264,15 +285,21 @@ export async function GET(request: NextRequest) {
         if (item.saved_to_library) {
           acc[clientKey].saves += 1;
         }
+        if (item.downloaded) {
+          acc[clientKey].downloads += 1;
+        }
         return acc;
       },
-      {} as Record<string, { renders: number; saves: number; email: string }>
+      {} as Record<
+        string,
+        { renders: number; saves: number; downloads: number; email: string }
+      >
     );
 
     const topUsers = (
       Object.entries(userStats) as [
         string,
-        { renders: number; saves: number; email: string },
+        { renders: number; saves: number; downloads: number; email: string },
       ][]
     )
       .map(([client, stats]) => ({
@@ -280,6 +307,7 @@ export async function GET(request: NextRequest) {
         email: stats.email,
         renders: stats.renders,
         saves: stats.saves,
+        downloads: stats.downloads,
         conversionRate:
           stats.renders > 0 ? (stats.saves / stats.renders) * 100 : 0,
       }))
@@ -467,6 +495,9 @@ export async function GET(request: NextRequest) {
         : 0;
     const previousSavedCount = previousData.filter(
       (item) => !!item.saved_to_library
+    ).length;
+    const previousDownloadCount = previousData.filter(
+      (item) => !!item.downloaded
     ).length;
     const previousGenerationTimes = previousData
       .filter(
@@ -767,6 +798,7 @@ export async function GET(request: NextRequest) {
       current: {
         totalRenders,
         totalSaves,
+        totalDownloads,
         conversionRate,
         uniqueClients,
         averageGenerationTime,
@@ -774,6 +806,7 @@ export async function GET(request: NextRequest) {
       previous: {
         totalRenders: previousPeriodRenders,
         totalSaves: previousSavedCount,
+        totalDownloads: previousDownloadCount,
         conversionRate:
           previousPeriodRenders > 0
             ? (previousSavedCount / previousPeriodRenders) * 100
@@ -787,6 +820,14 @@ export async function GET(request: NextRequest) {
           previousSavedCount > 0
             ? ((totalSaves - previousSavedCount) / previousSavedCount) * 100
             : totalSaves > 0
+              ? 100
+              : 0,
+        downloads:
+          previousDownloadCount > 0
+            ? ((totalDownloads - previousDownloadCount) /
+                previousDownloadCount) *
+              100
+            : totalDownloads > 0
               ? 100
               : 0,
         conversionRate: 0, // Will calculate below
@@ -836,6 +877,7 @@ export async function GET(request: NextRequest) {
       summary: {
         totalRenders,
         totalSaves,
+        totalDownloads,
         conversionRate: Math.round(conversionRate * 100) / 100,
         averageGenerationTime: Math.round(averageGenerationTime),
         successRate: Math.round(successRate * 100) / 100,

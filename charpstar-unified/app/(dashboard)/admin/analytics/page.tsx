@@ -81,6 +81,7 @@ interface AnalyticsData {
   sceneRenderSummary: {
     totalRenders: number;
     totalSaves: number;
+    totalDownloads: number;
     conversionRate: number;
     averageGenerationTime: number;
     successRate: number;
@@ -89,12 +90,14 @@ interface AnalyticsData {
     date: string;
     renders: number;
     saves: number;
+    downloads: number;
   }>;
   topUsers: Array<{
     client: string;
     email: string;
     renders: number;
     saves: number;
+    downloads: number;
     conversionRate: number;
   }>;
   formatDistribution: Array<{
@@ -1632,6 +1635,12 @@ export default function AdminAnalyticsPage() {
                     description="Scenes saved to library"
                   />
                   <SceneRenderStats
+                    title="Total Downloads"
+                    value={analyticsData.sceneRenderSummary.totalDownloads}
+                    icon={Download}
+                    description="Scenes downloaded"
+                  />
+                  <SceneRenderStats
                     title="Conversion Rate"
                     value={`${analyticsData.sceneRenderSummary.conversionRate}%`}
                     icon={TrendingUp}
@@ -1661,7 +1670,7 @@ export default function AdminAnalyticsPage() {
                     <CardHeader>
                       <CardTitle> Scene Render Usage Over Time</CardTitle>
                       <CardDescription>
-                        Renders and saves over the last 30 days
+                        Renders, saves, and downloads over the last 30 days
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
@@ -2171,7 +2180,8 @@ export default function AdminAnalyticsPage() {
                     <CardHeader>
                       <CardTitle>Usage Over Time</CardTitle>
                       <CardDescription>
-                        Renders and saves over the selected time period
+                        Renders, saves, and downloads over the selected time
+                        period
                       </CardDescription>
                     </CardHeader>
                     <CardContent>

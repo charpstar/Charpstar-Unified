@@ -136,6 +136,27 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
     };
   }, [isModalOpen]);
 
+  const trackDownload = async () => {
+    try {
+      const supabase = createClient();
+      const session = await supabase.auth.getSession();
+      const user_id = session.data.session?.user?.id;
+
+      if (user_id) {
+        // Track download in analytics (non-blocking)
+        fetch("/api/analytics/scene-render/track-download", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ user_id }),
+        }).catch((error) => {
+          console.warn("Failed to track download analytics:", error);
+        });
+      }
+    } catch (error) {
+      console.warn("Error tracking download:", error);
+    }
+  };
+
   const handleDownloadOriginal = async () => {
     try {
       // Fetch the image as a blob and create a download
@@ -156,6 +177,9 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
 
       // Clean up the object URL
       window.URL.revokeObjectURL(url);
+
+      // Track download in analytics
+      await trackDownload();
 
       toast.success("Original image downloaded successfully!");
     } catch (error) {
@@ -186,6 +210,9 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
 
         // Clean up the object URL
         window.URL.revokeObjectURL(url);
+
+        // Track download in analytics
+        await trackDownload();
 
         toast.success("Upscaled image downloaded successfully!");
       } else {
@@ -278,6 +305,13 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
       setIsImageLoading(true);
     }
   }, [showComparison, upscaledImageUrl]);
+
+  // Reset loading state when base image changes
+  useEffect(() => {
+    if (activeImageUrl || baseEditedUrl) {
+      setIsImageLoading(true);
+    }
+  }, [activeImageUrl, baseEditedUrl]);
 
   const handleImageLoad = () => {
     setIsImageLoading(false);
@@ -381,18 +415,36 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
             role="button"
             aria-label="View image fullscreen"
           >
+            {/* Loading overlay */}
+            {isImageLoading && (
+              <div className="absolute inset-0 bg-muted/50 flex items-center justify-center z-10">
+                <div className="flex flex-col items-center gap-3">
+                  <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+                  <span className="text-sm text-muted-foreground">
+                    Rendering image...
+                  </span>
+                </div>
+              </div>
+            )}
+
             <Image
               key={`main-image-${imageUpdateKey}`}
               src={activeImageUrl || baseEditedUrl}
               alt="Generated product scene"
-              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+              className={`w-full h-full object-cover transition-transform duration-300 group-hover:scale-105 ${
+                isImageLoading ? "opacity-0" : "opacity-100"
+              }`}
               fill
               unoptimized
+              onLoad={handleImageLoad}
+              onError={handleImageError}
             />
-            <div className="absolute top-2 right-2 bg-black/50 text-white px-2 py-1 rounded-md text-xs backdrop-blur-sm">
-              <Maximize2 className="h-3 w-3 inline mr-1" />
-              Click to enlarge
-            </div>
+            {!isImageLoading && (
+              <div className="absolute top-2 right-2 bg-black/50 text-white px-2 py-1 rounded-md text-xs backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity">
+                <Maximize2 className="h-3 w-3 inline mr-1" />
+                Click to enlarge
+              </div>
+            )}
           </div>
         ) : (
           // Loading state while calculating aspect ratio
