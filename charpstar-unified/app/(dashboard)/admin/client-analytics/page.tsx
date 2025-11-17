@@ -54,6 +54,7 @@ interface AnalyticsData {
   sceneRenderSummary: {
     totalRenders: number;
     totalSaves: number;
+    totalDownloads: number;
     conversionRate: number;
     averageGenerationTime: number;
     successRate: number;
@@ -62,12 +63,14 @@ interface AnalyticsData {
     date: string;
     renders: number;
     saves: number;
+    downloads: number;
   }>;
   topUsers: Array<{
     client: string;
     email: string;
     renders: number;
     saves: number;
+    downloads: number;
     conversionRate: number;
   }>;
   formatDistribution: Array<{
