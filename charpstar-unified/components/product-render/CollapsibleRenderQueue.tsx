@@ -2,7 +2,9 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/display';
-import { Loader2, CheckCircle, XCircle, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
+import { Loader2, CheckCircle, XCircle, Trash2, ChevronDown, ChevronUp, Download, ChevronLeft, ChevronRight } from 'lucide-react';
+import Image from 'next/image';
+import { toast } from 'sonner';
 
 interface QueueItemMeta {
   jobId: string;
@@ -39,6 +41,28 @@ const CollapsibleRenderQueue: React.FC<{ clientName: string }> = ({ clientName }
   const [visible, setVisible] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
+  
+  // Modal state
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<{ url: string; view?: string; resolution?: number; format?: string; filename?: string } | null>(null);
+  const [selectedImageGroup, setSelectedImageGroup] = useState<Array<{ url: string; view?: string; resolution?: number; format?: string; filename?: string }>>([]);
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+
+  // Format view names for display
+  const formatViewName = (view?: string): string => {
+    if (!view) return 'Render';
+    const viewMap: Record<string, string> = {
+      'default': 'Ang Right',
+      'angledright': 'Ang Right',
+      'angledleft': 'Ang Left',
+      'front': 'Front',
+      'back': 'Back',
+      'side': 'Side',
+      'top': 'Top',
+      'table': 'Table',
+    };
+    return viewMap[view.toLowerCase()] || view;
+  };
 
   useEffect(() => {
     const load = async () => {
@@ -99,6 +123,85 @@ const CollapsibleRenderQueue: React.FC<{ clientName: string }> = ({ clientName }
       try { window.removeEventListener('charpstar:renderJobStarted', onStarted as EventListener); } catch {}
     };
   }, [clientName]);
+
+  // Handle keyboard navigation in modal
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (!isModalOpen) return;
+      
+      if (event.key === 'Escape') {
+        setIsModalOpen(false);
+      } else if (event.key === 'ArrowLeft') {
+        // Navigate to previous image
+        setSelectedImageIndex(prev => {
+          const newIndex = prev > 0 ? prev - 1 : selectedImageGroup.length - 1;
+          setSelectedImage(selectedImageGroup[newIndex] || null);
+          return newIndex;
+        });
+      } else if (event.key === 'ArrowRight') {
+        // Navigate to next image
+        setSelectedImageIndex(prev => {
+          const newIndex = prev < selectedImageGroup.length - 1 ? prev + 1 : 0;
+          setSelectedImage(selectedImageGroup[newIndex] || null);
+          return newIndex;
+        });
+      }
+    };
+    
+    if (isModalOpen) {
+      window.addEventListener('keydown', handleKeyDown);
+    }
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isModalOpen, selectedImageGroup]);
+
+  // Handle image download
+  const handleDownloadImage = async () => {
+    if (!selectedImage) return;
+    
+    try {
+      const response = await fetch(selectedImage.url);
+      if (!response.ok) {
+        throw new Error('Failed to fetch image');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = selectedImage.filename || `render-${Date.now()}.${selectedImage.format || 'png'}`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      window.URL.revokeObjectURL(url);
+
+      toast.success('Image downloaded successfully!');
+    } catch (error) {
+      console.error('Error downloading image:', error);
+      toast.error('Failed to download image');
+    }
+  };
+
+  // Navigate to previous image
+  const handlePrevImage = () => {
+    setSelectedImageIndex(prev => {
+      const newIndex = prev > 0 ? prev - 1 : selectedImageGroup.length - 1;
+      setSelectedImage(selectedImageGroup[newIndex] || null);
+      return newIndex;
+    });
+  };
+
+  // Navigate to next image
+  const handleNextImage = () => {
+    setSelectedImageIndex(prev => {
+      const newIndex = prev < selectedImageGroup.length - 1 ? prev + 1 : 0;
+      setSelectedImage(selectedImageGroup[newIndex] || null);
+      return newIndex;
+    });
+  };
 
   useEffect(() => {
     let localPrevStatuses = prevStatuses;
@@ -315,7 +418,29 @@ const CollapsibleRenderQueue: React.FC<{ clientName: string }> = ({ clientName }
                             : `${img.url}?width=80&height=80`;
                           return (
                             <div key={`${it.jobId}-img-${i}`} className="group relative">
-                              <a href={img.url} target="_blank" rel="noreferrer" className="block">
+                              <button
+                                onClick={() => {
+                                  const imageGroup = images.map(img => ({
+                                    url: img.url,
+                                    view: img.view,
+                                    resolution: it.resolution,
+                                    format: img.format,
+                                    filename: `render-${img.view || 'image'}-${it.resolution}px.${img.format || 'png'}`
+                                  }));
+                                  const imageIndex = images.findIndex(imgItem => imgItem.url === img.url);
+                                  setSelectedImageGroup(imageGroup);
+                                  setSelectedImageIndex(imageIndex);
+                                  setSelectedImage({
+                                    url: img.url,
+                                    view: img.view,
+                                    resolution: it.resolution,
+                                    format: img.format
+                                  });
+                                  setIsModalOpen(true);
+                                }}
+                                className="block cursor-zoom-in"
+                                title="Click to view fullscreen"
+                              >
                                 {/* eslint-disable-next-line @next/next/no-img-element */}
                                 <img 
                                   src={thumbnailUrl} 
@@ -325,10 +450,10 @@ const CollapsibleRenderQueue: React.FC<{ clientName: string }> = ({ clientName }
                                   className="w-[40px] h-[40px] object-cover rounded border border-gray-300 hover:border-black hover:scale-105 transition-all" 
                                   loading="lazy" 
                                 />
-                              </a>
+                              </button>
                               {img.view && (
                                 <div className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 px-0.5 py-0.5 bg-black text-white text-[8px] font-medium rounded whitespace-nowrap leading-none">
-                                  {img.view}
+                                  {formatViewName(img.view)}
                                 </div>
                               )}
                             </div>
@@ -352,6 +477,79 @@ const CollapsibleRenderQueue: React.FC<{ clientName: string }> = ({ clientName }
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Fullscreen Image Modal */}
+      {isModalOpen && selectedImage && (
+        <div
+          className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in p-4"
+          onClick={() => setIsModalOpen(false)}
+          role="dialog"
+          aria-modal="true"
+        >
+          <button
+            onClick={() => setIsModalOpen(false)}
+            className="absolute top-4 right-4 text-white text-4xl hover:text-gray-300 transition-colors z-10"
+            aria-label="Close fullscreen view"
+          >
+            &times;
+          </button>
+          
+          {/* Navigation arrows - only show if there are multiple images */}
+          {selectedImageGroup.length > 1 && (
+            <>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handlePrevImage();
+                }}
+                className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-2 sm:p-3 rounded-full transition-all z-10"
+                aria-label="Previous image"
+              >
+                <ChevronLeft className="h-6 w-6 sm:h-8 sm:w-8" />
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleNextImage();
+                }}
+                className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-2 sm:p-3 rounded-full transition-all z-10"
+                aria-label="Next image"
+              >
+                <ChevronRight className="h-6 w-6 sm:h-8 sm:w-8" />
+              </button>
+            </>
+          )}
+          
+          <div className="relative max-w-[90vw] max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
+            <Image
+              src={selectedImage.url}
+              alt={`${formatViewName(selectedImage.view)} preview`}
+              className="max-h-[90vh] max-w-[90vw] object-contain rounded-lg shadow-2xl"
+              width={selectedImage.resolution || 2048}
+              height={selectedImage.resolution || 2048}
+              unoptimized
+            />
+            
+            {/* Image counter - show current position */}
+            {selectedImageGroup.length > 1 && (
+              <div className="absolute top-2 sm:top-4 left-1/2 transform -translate-x-1/2 bg-black/50 text-white px-3 py-1 rounded-full text-xs sm:text-sm">
+                {selectedImageIndex + 1} / {selectedImageGroup.length}
+              </div>
+            )}
+            
+            <div className="absolute bottom-2 sm:bottom-4 left-1/2 transform -translate-x-1/2 flex gap-1 sm:gap-2">
+              <Button
+                onClick={handleDownloadImage}
+                className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg text-xs sm:text-sm"
+                size="sm"
+              >
+                <Download className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                Download
+              </Button>
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -15,6 +15,7 @@ interface StartBody {
   resolution: number;
   aspectRatio?: 'square' | 'rectangle'; // 'square' or 'rectangle' (16:9)
   format?: 'png' | 'jpg' | 'webp';
+  shadows?: boolean; // Enable/disable shadows (default: true)
   isModularUpload?: boolean; // Flag for pre-uploaded modular GLB
   tempGLBPath?: string; // Path to pre-uploaded GLB on BunnyCDN
   sourceGlbUrl?: string; // Direct URL to source GLB file
@@ -48,7 +49,7 @@ export async function POST(request: NextRequest) {
     }
     
     const body = await request.json() as StartBody;
-    const { modelFilename, modelName, variantName, views, background, resolution, aspectRatio, format, isModularUpload, tempGLBPath, sourceGlbUrl } = body || ({} as StartBody);
+    const { modelFilename, modelName, variantName, views, background, resolution, aspectRatio, format, shadows, isModularUpload, tempGLBPath, sourceGlbUrl } = body || ({} as StartBody);
     if (!modelFilename || !modelName || !views || !Array.isArray(views) || views.length === 0 || !background || !resolution) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
@@ -146,6 +147,7 @@ export async function POST(request: NextRequest) {
       resolution,
       aspectRatio: aspectRatio || 'square',
       format: format || 'png',
+      shadows: shadows !== undefined ? shadows : true, // Default to true if not provided
       isModularUpload: isModularUpload || false,
       tempGLBPath: tempGLBPath || null,
       bunnyConfig, // OPTIONAL: client-specific Bunny config (null for backward compatibility)
