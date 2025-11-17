@@ -3422,50 +3422,6 @@ export default function AdminReviewPage() {
     () => currencyFormatter.format(selectedPricingSummary.total),
     [currencyFormatter, selectedPricingSummary.total]
   );
-
-  // Helper function to parse references
-  const parseReferences = (
-    referenceImages: string[] | string | null
-  ): string[] => {
-    if (!referenceImages) return [];
-    if (Array.isArray(referenceImages)) return referenceImages;
-
-    // Check if it's a string with ||| separator
-    if (
-      typeof referenceImages === "string" &&
-      referenceImages.includes("|||")
-    ) {
-      return referenceImages
-        .split("|||")
-        .map((ref) => ref.trim())
-        .filter(Boolean);
-    }
-
-    try {
-      return JSON.parse(referenceImages);
-    } catch {
-      return [referenceImages];
-    }
-  };
-
-  const getVisibleReferences = (
-    asset:
-      | {
-          reference?: string[] | string | null;
-          internal_reference?: string[] | string | null;
-        }
-      | null
-      | undefined
-  ): string[] => {
-    if (!asset) return [];
-    const clientRefs = parseReferences(asset.reference ?? null);
-    if (isClient) {
-      return clientRefs;
-    }
-    const internalRefs = parseReferences(asset.internal_reference ?? null);
-    return [...clientRefs, ...internalRefs];
-  };
-
   const allocationListRenderData = useMemo<AllocationListRenderEntry[]>(() => {
     if (!showAllocationLists) return [];
 
@@ -3771,7 +3727,10 @@ export default function AdminReviewPage() {
       const { data, error } = await query;
 
       if (error) {
-        console.error("Error fetching assigned assets:", error.message || error);
+        console.error(
+          "Error fetching assigned assets:",
+          error.message || error
+        );
         return;
       }
 
@@ -3825,7 +3784,8 @@ export default function AdminReviewPage() {
 
       setAssignedAssets(assignedAssetsMap);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       console.error("Error fetching assigned assets:", errorMessage, error);
     }
   };
