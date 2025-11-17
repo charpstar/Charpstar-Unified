@@ -3380,6 +3380,49 @@ export default function AdminReviewPage() {
     [currencyFormatter, selectedPricingSummary.total]
   );
 
+  // Helper function to parse references
+  const parseReferences = (
+    referenceImages: string[] | string | null
+  ): string[] => {
+    if (!referenceImages) return [];
+    if (Array.isArray(referenceImages)) return referenceImages;
+
+    // Check if it's a string with ||| separator
+    if (
+      typeof referenceImages === "string" &&
+      referenceImages.includes("|||")
+    ) {
+      return referenceImages
+        .split("|||")
+        .map((ref) => ref.trim())
+        .filter(Boolean);
+    }
+
+    try {
+      return JSON.parse(referenceImages);
+    } catch {
+      return [referenceImages];
+    }
+  };
+
+  const getVisibleReferences = (
+    asset:
+      | {
+          reference?: string[] | string | null;
+          internal_reference?: string[] | string | null;
+        }
+      | null
+      | undefined
+  ): string[] => {
+    if (!asset) return [];
+    const clientRefs = parseReferences(asset.reference ?? null);
+    if (isClient) {
+      return clientRefs;
+    }
+    const internalRefs = parseReferences(asset.internal_reference ?? null);
+    return [...clientRefs, ...internalRefs];
+  };
+
   const allocationListRenderData = useMemo<AllocationListRenderEntry[]>(() => {
     if (!showAllocationLists) return [];
 
@@ -4642,49 +4685,6 @@ export default function AdminReviewPage() {
 
   // Reference management functions are handled by reusable dialogs below
 
-  // Helper function to parse references
-  const parseReferences = (
-    referenceImages: string[] | string | null
-  ): string[] => {
-    if (!referenceImages) return [];
-    if (Array.isArray(referenceImages)) return referenceImages;
-
-    // Check if it's a string with ||| separator
-    if (
-      typeof referenceImages === "string" &&
-      referenceImages.includes("|||")
-    ) {
-      return referenceImages
-        .split("|||")
-        .map((ref) => ref.trim())
-        .filter(Boolean);
-    }
-
-    try {
-      return JSON.parse(referenceImages);
-    } catch {
-      return [referenceImages];
-    }
-  };
-
-  const getVisibleReferences = (
-    asset:
-      | {
-          reference?: string[] | string | null;
-          internal_reference?: string[] | string | null;
-        }
-      | null
-      | undefined
-  ): string[] => {
-    if (!asset) return [];
-    const clientRefs = parseReferences(asset.reference ?? null);
-    if (isClient) {
-      return clientRefs;
-    }
-    const internalRefs = parseReferences(asset.internal_reference ?? null);
-    return [...clientRefs, ...internalRefs];
-  };
-
   // Helper function to separate GLB files from reference images
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const separateReferences = (referenceImages: string[] | string | null) => {
@@ -5612,7 +5612,7 @@ export default function AdminReviewPage() {
                               </div>
                             );
                           })()}
-                          <div className="overflow-x-auto">
+                          <div className="overflow-x-auto rounded-lg border border-border bg-card">
                             <Table>
                               <TableHeader>
                                 <TableRow>
@@ -5645,28 +5645,28 @@ export default function AdminReviewPage() {
                                       onClick={(e) => e.stopPropagation()}
                                     />
                                   </TableHead>
-                                  <TableHead className="text-xs sm:text-sm text-left">
+                                  <TableHead className="min-w-[200px] max-w-[300px] text-xs sm:text-sm text-left font-semibold">
                                     Product Name
                                   </TableHead>
-                                  <TableHead className="w-32 text-xs sm:text-sm text-left">
+                                  <TableHead className="w-32 text-xs sm:text-sm text-left font-semibold">
                                     Article ID
                                   </TableHead>
-                                  <TableHead className="w-24 text-xs sm:text-sm text-left">
+                                  <TableHead className="w-24 text-xs sm:text-sm text-left font-semibold">
                                     Priority
                                   </TableHead>
-                                  <TableHead className="w-24 text-xs sm:text-sm text-left">
+                                  <TableHead className="w-24 text-xs sm:text-sm text-left font-semibold">
                                     Price
                                   </TableHead>
-                                  <TableHead className="w-32 text-xs sm:text-sm text-left">
+                                  <TableHead className="w-32 text-xs sm:text-sm text-left font-semibold">
                                     Status
                                   </TableHead>
-                                  <TableHead className="w-32 text-xs sm:text-sm text-left">
+                                  <TableHead className="w-32 text-xs sm:text-sm text-left font-semibold">
                                     References
                                   </TableHead>
-                                  <TableHead className="w-40 text-xs sm:text-sm text-left">
+                                  <TableHead className="w-40 text-xs sm:text-sm text-left font-semibold">
                                     Product Link
                                   </TableHead>
-                                  <TableHead className="w-12 text-xs sm:text-sm text-left">
+                                  <TableHead className="w-12 text-xs sm:text-sm text-left font-semibold">
                                     Actions
                                   </TableHead>
                                 </TableRow>
@@ -5687,21 +5687,21 @@ export default function AdminReviewPage() {
                                     },
                                     index
                                   ) => {
-                                    const rowKey =
-                                      assetId || `${list.id}-${index}`;
                                     const displayAssetId =
                                       assetId ||
                                       String(
                                         assignment?.asset_id ??
                                           `${list.id}-${index}`
                                       );
+                                    // Create unique key by combining list ID and asset ID
+                                    const rowKey = `${list.id}-${displayAssetId}-${index}`;
 
                                     return (
                                       <TableRow
                                         key={rowKey}
                                         className={`${getStatusRowClass(
                                           asset.status
-                                        )} transition-all duration-200 dark:border-border dark:hover:bg-muted/20 ${
+                                        )} transition-all duration-200 dark:border-border hover:bg-muted/40 dark:hover:bg-muted/30 ${
                                           isVariation
                                             ? "bg-slate-50/50 dark:bg-slate-900/20 border-l-2 border-l-slate-300 dark:border-l-slate-600"
                                             : isParent
@@ -5709,7 +5709,7 @@ export default function AdminReviewPage() {
                                               : ""
                                         } ${
                                           activeAssetRowId === displayAssetId
-                                            ? "highlighted-status"
+                                            ? "highlighted-status bg-muted/60 dark:bg-muted/40"
                                             : ""
                                         }`}
                                         onMouseDownCapture={() =>
@@ -5719,7 +5719,7 @@ export default function AdminReviewPage() {
                                           setActiveAssetRowId(displayAssetId)
                                         }
                                       >
-                                        <TableCell className="text-left">
+                                        <TableCell className="text-left py-3">
                                           <Checkbox
                                             checked={selectedAssetsForReallocation.has(
                                               displayAssetId
@@ -5732,51 +5732,64 @@ export default function AdminReviewPage() {
                                             onClick={(e) => e.stopPropagation()}
                                           />
                                         </TableCell>
-                                        <TableCell className="text-left">
-                                          <div className="flex items-center gap-1.5">
+                                        <TableCell className="text-left py-3">
+                                          <div className="flex items-center gap-2 min-w-0">
                                             {isVariation && (
-                                              <ChevronRight className="h-3 w-3 text-slate-500 dark:text-slate-400 flex-shrink-0" />
+                                              <ChevronRight className="h-4 w-4 text-slate-500 dark:text-slate-400 flex-shrink-0 mt-0.5" />
                                             )}
                                             {isParent && !isVariation && (
-                                              <Package className="h-3 w-3 text-amber-600 dark:text-amber-500 flex-shrink-0" />
+                                              <Package className="h-4 w-4 text-amber-600 dark:text-amber-500 flex-shrink-0 mt-0.5" />
                                             )}
-                                            <div
-                                              className={`font-medium cursor-help text-sm sm:text-base truncate ${
-                                                isVariation
-                                                  ? "text-slate-600 dark:text-slate-400"
-                                                  : isParent
-                                                    ? "text-amber-700 dark:text-amber-500"
-                                                    : ""
-                                              }`}
-                                              title={asset.product_name}
-                                            >
-                                              {asset.product_name.length > 20
-                                                ? asset.product_name.substring(
-                                                    0,
-                                                    20
-                                                  ) + "..."
-                                                : asset.product_name}
-                                            </div>
-                                            {isParent && !isVariation && (
-                                              <Badge
-                                                variant="outline"
-                                                className="text-xs text-amber-700 dark:text-amber-500 border-amber-300 dark:border-amber-700 bg-amber-50/50 dark:bg-amber-950/20 px-1.5 py-0 ml-1"
-                                              >
-                                                Parent
-                                              </Badge>
-                                            )}
-                                            {isVariation &&
-                                              asset.variation_index && (
+                                            <Tooltip>
+                                              <TooltipTrigger asChild>
+                                                <div className="min-w-0 flex-1">
+                                                  <div
+                                                    className={` text-sm sm:text-base leading-tight break-words ${
+                                                      isVariation
+                                                        ? "text-slate-600 dark:text-slate-400"
+                                                        : isParent
+                                                          ? "text-amber-700 dark:text-amber-500"
+                                                          : "text-foreground"
+                                                    }`}
+                                                  >
+                                                    {asset.product_name}
+                                                  </div>
+                                                </div>
+                                              </TooltipTrigger>
+                                              {asset.product_name.length >
+                                                30 && (
+                                                <TooltipContent
+                                                  side="top"
+                                                  className="max-w-xs"
+                                                >
+                                                  <p className="text-sm">
+                                                    {asset.product_name}
+                                                  </p>
+                                                </TooltipContent>
+                                              )}
+                                            </Tooltip>
+                                            <div className="flex items-center gap-1.5 flex-shrink-0">
+                                              {isParent && !isVariation && (
                                                 <Badge
                                                   variant="outline"
-                                                  className="text-xs text-slate-600 dark:text-slate-400 border-slate-300 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/20 px-1.5 py-0 ml-1"
+                                                  className="text-xs text-amber-700 dark:text-amber-500 border-amber-300 dark:border-amber-700 bg-amber-50/50 dark:bg-amber-950/20 px-2 py-0.5"
                                                 >
-                                                  V{asset.variation_index}
+                                                  Parent
                                                 </Badge>
                                               )}
+                                              {isVariation &&
+                                                asset.variation_index && (
+                                                  <Badge
+                                                    variant="outline"
+                                                    className="text-xs text-slate-600 dark:text-slate-400 border-slate-300 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/20 px-2 py-0.5"
+                                                  >
+                                                    V{asset.variation_index}
+                                                  </Badge>
+                                                )}
+                                            </div>
                                           </div>
                                         </TableCell>
-                                        <TableCell className="max-w-[140px] text-left text-xs sm:text-sm font-mono">
+                                        <TableCell className="max-w-[140px] text-left text-xs sm:text-sm font-mono py-3">
                                           <div className="flex items-start gap-1.5 min-w-0">
                                             {isVariation && (
                                               <ChevronRight className="h-3 w-3 text-slate-500 dark:text-slate-400 flex-shrink-0" />
@@ -5819,7 +5832,7 @@ export default function AdminReviewPage() {
                                             </div>
                                           </div>
                                         </TableCell>
-                                        <TableCell className="text-left">
+                                        <TableCell className="text-left py-3">
                                           <Select
                                             value={(
                                               asset.priority || 2
@@ -5896,7 +5909,7 @@ export default function AdminReviewPage() {
                                             </SelectContent>
                                           </Select>
                                         </TableCell>
-                                        <TableCell className="text-left">
+                                        <TableCell className="text-left py-3">
                                           <div className="flex items-center gap-1">
                                             <span className="font-medium text-sm sm:text-base">
                                               €
@@ -5964,7 +5977,7 @@ export default function AdminReviewPage() {
                                             </Popover>
                                           </div>
                                         </TableCell>
-                                        <TableCell className="text-left">
+                                        <TableCell className="text-left py-3">
                                           <Badge
                                             variant="outline"
                                             className={`text-xs ${getStatusLabelClass(asset.status)}`}
@@ -5984,7 +5997,7 @@ export default function AdminReviewPage() {
                                                     : asset.status}
                                           </Badge>
                                         </TableCell>
-                                        <TableCell className="text-left">
+                                        <TableCell className="text-left py-3">
                                           <div className="flex flex-col items-center gap-1">
                                             <Button
                                               variant="outline"
@@ -6008,13 +6021,13 @@ export default function AdminReviewPage() {
                                           </div>
                                         </TableCell>
 
-                                        <TableCell className="text-left">
+                                        <TableCell className="text-left py-3">
                                           {asset.product_link ? (
                                             <a
                                               href={asset.product_link}
                                               target="_blank"
                                               rel="noopener noreferrer"
-                                              className="text-blue-600 underline break-all text-xs sm:text-sm"
+                                              className="text-blue-600 underline break-all text-xs sm:text-sm hover:text-blue-700"
                                               onClick={(e) =>
                                                 e.stopPropagation()
                                               }
@@ -6033,7 +6046,7 @@ export default function AdminReviewPage() {
                                           )}
                                         </TableCell>
 
-                                        <TableCell className="text-left">
+                                        <TableCell className="text-left py-3">
                                           <div className="flex items-center gap-1">
                                             <Button
                                               variant="ghost"

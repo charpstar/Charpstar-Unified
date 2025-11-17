@@ -13,6 +13,13 @@ import { Button } from "@/components/ui/display";
 import { Textarea, Input } from "@/components/ui/inputs";
 import { Badge } from "@/components/ui/feedback";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/inputs";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -92,6 +99,7 @@ interface Annotation {
   };
   parent_id?: string;
   is_old_annotation?: boolean;
+  revision_number?: number | null;
 }
 
 interface Hotspot {
@@ -615,19 +623,6 @@ export default function ReviewPage() {
     "feedback"
   );
 
-  // Filter out old annotations for 3D viewer hotspots only
-  const filteredAnnotations = annotations.filter(
-    (annotation) => !annotation.is_old_annotation
-  );
-
-  // Keep all annotations for comment sections (including old ones for context)
-  const allAnnotations = annotations;
-  const clientReferenceCount = referenceImages.length + referenceFiles.length;
-  const internalReferenceCount =
-    internalReferenceImages.length + internalReferenceFiles.length;
-  const totalReferenceCount =
-    clientReferenceCount + (isClient ? 0 : internalReferenceCount);
-
   const handleRemoveClientImage = async (index: number) => {
     if (!assetId) return;
     try {
@@ -922,11 +917,87 @@ export default function ReviewPage() {
   const [showSecondRevisionDialog, setShowSecondRevisionDialog] =
     useState(false);
   const [revisionCount, setRevisionCount] = useState(0);
+  const [activeRevision, setActiveRevision] = useState(0);
   const [revisionHistory, setRevisionHistory] = useState<any[]>([]);
   const [showHistoryDropdown, setShowHistoryDropdown] = useState(false);
   const [showRevisionDetailsDialog, setShowRevisionDetailsDialog] =
     useState(false);
   const [selectedRevision, setSelectedRevision] = useState<any>(null);
+  const maxRevisionFromHistory = useMemo(
+    () =>
+      revisionHistory.reduce(
+        (max, rev) =>
+          typeof rev?.revision_number === "number"
+            ? Math.max(max, rev.revision_number)
+            : max,
+        0
+      ),
+    [revisionHistory]
+  );
+  const latestRevision = Math.max(revisionCount, maxRevisionFromHistory);
+  useEffect(() => {
+    setActiveRevision((prev) =>
+      typeof prev === "number" && prev === latestRevision
+        ? prev
+        : latestRevision
+    );
+  }, [latestRevision]);
+  const revisionNumbers = useMemo(
+    () => Array.from({ length: latestRevision + 1 }, (_, i) => i),
+    [latestRevision]
+  );
+  const viewingCurrentRevision = activeRevision === latestRevision;
+  useEffect(() => {
+    setSelectedHotspotId(null);
+    setSelectedAnnotation(null);
+    setReplyingTo(null);
+  }, [activeRevision, latestRevision]);
+  useEffect(() => {
+    if (annotationMode && activeRevision !== latestRevision) {
+      setAnnotationMode(false);
+    }
+  }, [annotationMode, activeRevision, latestRevision]);
+  const getAnnotationRevision = (annotation: Annotation) => {
+    if (typeof annotation.revision_number === "number") {
+      return annotation.revision_number;
+    }
+    if (annotation.is_old_annotation) {
+      return Math.max(0, latestRevision - 1);
+    }
+    return latestRevision;
+  };
+  const getCommentRevision = (comment: { revision_number?: number | null }) => {
+    if (typeof comment?.revision_number === "number") {
+      return comment.revision_number;
+    }
+    return latestRevision;
+  };
+  const annotationsForActiveRevision = useMemo(
+    () =>
+      annotations.filter((annotation) => {
+        if (activeRevision === latestRevision && annotation.is_old_annotation) {
+          return false;
+        }
+        return getAnnotationRevision(annotation) === activeRevision;
+      }),
+    [annotations, activeRevision, latestRevision]
+  );
+  const commentsForActiveRevision = useMemo(
+    () =>
+      comments.filter(
+        (comment) => getCommentRevision(comment) === activeRevision
+      ),
+    [comments, activeRevision, latestRevision]
+  );
+  const filteredAnnotations = annotationsForActiveRevision;
+  const allAnnotations = annotations;
+  const displayedAnnotations = filteredAnnotations;
+  const displayedComments = commentsForActiveRevision;
+  const clientReferenceCount = referenceImages.length + referenceFiles.length;
+  const internalReferenceCount =
+    internalReferenceImages.length + internalReferenceFiles.length;
+  const totalReferenceCount =
+    clientReferenceCount + (isClient ? 0 : internalReferenceCount);
 
   const modelViewerRef = useRef<any>(null);
   //eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -1595,6 +1666,7 @@ export default function ReviewPage() {
       surface: selectedAnnotation.surface,
       comment: newComment.trim() || "",
       image_url: newImageUrl.trim() || null,
+      revision_number: revisionCount,
     };
 
     try {
@@ -3252,6 +3324,9 @@ export default function ReviewPage() {
 
   // Check if functionality should be disabled
   const isFunctionalityDisabled = () => {
+    if (!viewingCurrentRevision) {
+      return true;
+    }
     return (
       (asset?.status === "revisions" || asset?.status === "client_revision") &&
       revisionCount >= 1
@@ -3259,34 +3334,6 @@ export default function ReviewPage() {
   };
 
   // Function to determine which revision an item was added in
-  const getRevisionForItem = (createdAt: string) => {
-    if (revisionHistory.length === 0) return 0;
-
-    const itemDate = new Date(createdAt);
-
-    // Items created before the first revision are from revision 0 (original)
-    const firstRevisionDate = new Date(revisionHistory[0].created_at);
-    if (itemDate < firstRevisionDate) {
-      return 0;
-    }
-
-    // Find which revision this item belongs to
-    // An item belongs to revision N if it was created after revision N-1 and before revision N+1
-    for (let i = 0; i < revisionHistory.length; i++) {
-      const currentRevisionDate = new Date(revisionHistory[i].created_at);
-      const nextRevisionDate =
-        i < revisionHistory.length - 1
-          ? new Date(revisionHistory[i + 1].created_at)
-          : new Date(Date.now() + 86400000); // Far future date for latest revision
-
-      if (itemDate >= currentRevisionDate && itemDate < nextRevisionDate) {
-        return revisionHistory[i].revision_number;
-      }
-    }
-
-    // If item was created after all revisions, it belongs to the latest revision
-    return revisionHistory[revisionHistory.length - 1].revision_number;
-  };
 
   // Function to open revision details dialog
   const openRevisionDetails = (revision: any) => {
@@ -3354,6 +3401,10 @@ export default function ReviewPage() {
             created_by: annotation.created_by,
             created_at: annotation.created_at,
             is_old_annotation: false, // Restored annotations are not old
+            revision_number:
+              typeof annotation.revision_number === "number"
+                ? annotation.revision_number
+                : revisionNumber,
           });
 
         if (restoreAnnotationError) {
@@ -3367,11 +3418,15 @@ export default function ReviewPage() {
           .from("asset_comments")
           .insert({
             asset_id: assetId,
-            content: comment.content,
+            comment: comment.comment ?? comment.content,
             created_by: comment.created_by,
             created_at: comment.created_at,
             parent_id: comment.parent_id,
             priority: comment.priority,
+            revision_number:
+              typeof comment.revision_number === "number"
+                ? comment.revision_number
+                : revisionNumber,
           });
 
         if (restoreCommentError) {
@@ -3471,10 +3526,6 @@ export default function ReviewPage() {
 
   // Function to get comments for selected annotation
   // Comments should be independent of annotations - show all comments for the asset
-  const getAllComments = () => {
-    return comments;
-  };
-
   // Filter annotations and comments for a specific revision using stored snapshots
   const getRevisionItems = (revisionNumber: number) => {
     if (revisionNumber === 0) {
@@ -3589,6 +3640,7 @@ export default function ReviewPage() {
           asset_id: assetId,
           comment: newCommentText.trim(),
           created_by: user?.id,
+          revision_number: revisionCount,
         })
         .select(
           `
@@ -3732,6 +3784,7 @@ export default function ReviewPage() {
           asset_id: assetId,
           comment: `NOTE: ${newNote.trim()}`,
           created_by: user.id,
+          revision_number: revisionCount,
         })
         .select(
           `
@@ -3882,6 +3935,7 @@ export default function ReviewPage() {
             position: parent.position,
             normal: parent.normal,
             surface: parent.surface || null,
+            revision_number: revisionCount,
           }),
         });
         const data = await response.json();
@@ -3929,6 +3983,7 @@ export default function ReviewPage() {
               parentCommentId: replyingTo.id,
               replyText: replyText.trim(),
               createdBy: user.id,
+              revisionNumber: revisionCount,
             }),
           });
 
@@ -3949,6 +4004,7 @@ export default function ReviewPage() {
               comment: replyText.trim(),
               parent_id: replyingTo.id,
               created_by: user.id,
+              revision_number: revisionCount,
             })
             .select(`*, profiles:created_by (title, role, email)`)
             .single();
@@ -4048,8 +4104,8 @@ export default function ReviewPage() {
     }
     return map;
   };
-  const annotationRepliesMap = groupByParent(annotations as any);
-  const commentRepliesMap = groupByParent(comments as any);
+  const annotationRepliesMap = groupByParent(filteredAnnotations as any);
+  const commentRepliesMap = groupByParent(commentsForActiveRevision as any);
 
   const cacheBustedGlbLink = useMemo(() => {
     if (!asset?.glb_link) return null;
@@ -4320,12 +4376,12 @@ export default function ReviewPage() {
                           </PopoverContent>
                         </Popover>
                       )}
-                      {revisionCount > 0 && (
+                      {latestRevision > 0 && (
                         <Badge
                           variant="outline"
-                          className={`text-xs font-semibold ${getRevisionBadgeColors(revisionCount)}`}
+                          className={`text-xs font-semibold ${getRevisionBadgeColors(latestRevision)}`}
                         >
-                          R{revisionCount}
+                          R{latestRevision}
                         </Badge>
                       )}
                     </div>
@@ -4372,12 +4428,24 @@ export default function ReviewPage() {
                   </div>
                 </div>
               )}
+            {!viewingCurrentRevision && (
+              <div className="bg-blue-50 border border-blue-200 rounded px-2 py-1 mt-2">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="h-3 w-3 text-blue-600" />
+                  <p className="text-xs text-blue-800">
+                    Viewing revision {activeRevision}. Feedback tools are
+                    disabled. Switch to revision {latestRevision} to add new
+                    comments or annotations.
+                  </p>
+                </div>
+              </div>
+            )}
 
             <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
               <div className="flex items-center gap-3 sm:gap-4">
                 <div className="text-center">
                   <div className="text-sm sm:text-lg font-bold text-foreground">
-                    {filteredAnnotations.length}
+                    {displayedAnnotations.length}
                   </div>
                   <div className="text-xs text-muted-foreground">
                     Annotations
@@ -4386,7 +4454,7 @@ export default function ReviewPage() {
                 <div className="w-px h-6 sm:h-8 bg-border"></div>
                 <div className="text-center">
                   <div className="text-sm sm:text-lg font-bold text-foreground">
-                    {comments.length}
+                    {displayedComments.length}
                   </div>
                   <div className="text-xs text-muted-foreground">Comments</div>
                 </div>
@@ -4506,10 +4574,10 @@ export default function ReviewPage() {
                     <AlertCircle className="h-3 w-3 mr-1" />
                   )}
                   <span className="hidden sm:inline">
-                    Revision {revisionCount > 0 && `(${revisionCount})`}
+                    Revision {latestRevision > 0 && `(${latestRevision})`}
                   </span>
                   <span className="sm:hidden">
-                    Rev {revisionCount > 0 && revisionCount}
+                    Rev {latestRevision > 0 && latestRevision}
                   </span>
                 </Button>
 
@@ -4933,10 +5001,12 @@ export default function ReviewPage() {
                 <div className="flex items-center gap-1 sm:gap-2">
                   <MessageCircle className="h-3 w-3 sm:h-4 sm:w-4" />
                   <span className="hidden sm:inline">
-                    Feedback ({allAnnotations.length + comments.length})
+                    Feedback (
+                    {displayedAnnotations.length + displayedComments.length})
                   </span>
                   <span className="sm:hidden">
-                    Feedback ({allAnnotations.length + comments.length})
+                    Feedback (
+                    {displayedAnnotations.length + displayedComments.length})
                   </span>
                 </div>
               </button>
@@ -5008,8 +5078,8 @@ export default function ReviewPage() {
                         <p className="text-xs text-yellow-700 dark:text-yellow-300">
                           Annotations and comments are disabled during revision
                           mode.
-                          {revisionCount >= 3 &&
-                            ` This is revision #${revisionCount} - additional costs may apply.`}
+                          {latestRevision >= 3 &&
+                            ` This is revision #${latestRevision} - additional costs may apply.`}
                         </p>
                       </div>
                     </div>
@@ -5102,6 +5172,51 @@ export default function ReviewPage() {
                       </div>
                     </div>
 
+                    {revisionNumbers.length > 1 && (
+                      <div className="mb-3 sm:mb-4 space-y-2">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-3">
+                          <div>
+                            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                              Viewing Revision
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              Switch between historical rounds of feedback.
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {!viewingCurrentRevision && (
+                              <Badge variant="secondary" className="text-xs">
+                                Latest: R{latestRevision}
+                              </Badge>
+                            )}
+                            <Select
+                              value={String(activeRevision)}
+                              onValueChange={(value) =>
+                                setActiveRevision(Number(value))
+                              }
+                            >
+                              <SelectTrigger className="h-9 w-full sm:w-[220px] text-sm">
+                                <SelectValue
+                                  placeholder={`Revision ${activeRevision}`}
+                                />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {revisionNumbers.map((rev) => (
+                                  <SelectItem key={rev} value={String(rev)}>
+                                    {rev === latestRevision
+                                      ? `Revision ${rev} (Current)`
+                                      : rev === 0
+                                        ? "Revision 0 (Original)"
+                                        : `Revision ${rev}`}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
                     {isFunctionalityDisabled() && (
                       <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 sm:p-4 dark:bg-yellow-950/20 dark:border-yellow-800/30 mb-3 sm:mb-4">
                         <div className="flex items-center gap-2">
@@ -5127,7 +5242,11 @@ export default function ReviewPage() {
                             isFunctionalityDisabled()
                               ? "Comments disabled during revision"
                               : selectedHotspotId
-                                ? `Add a comment about annotation ${allAnnotations.findIndex((a) => a.id === selectedHotspotId) + 1}...`
+                                ? `Add a comment about annotation ${
+                                    displayedAnnotations.findIndex(
+                                      (a) => a.id === selectedHotspotId
+                                    ) + 1
+                                  }...`
                                 : "Add a comment about this asset..."
                           }
                           value={newCommentText}
@@ -5189,13 +5308,13 @@ export default function ReviewPage() {
                 <div className="p-2">
                   <div className="space-y-4">
                     {[
-                      ...allAnnotations
+                      ...displayedAnnotations
                         .filter((a: any) => !a.parent_id)
                         .map((a) => ({
                           ...a,
                           type: "annotation" as const,
                         })),
-                      ...getAllComments()
+                      ...displayedComments
                         .filter((c: any) => !c.parent_id)
                         .map((c) => ({
                           ...c,
@@ -5243,9 +5362,13 @@ export default function ReviewPage() {
                                   </div>
                                   {/* Annotation Number Badge */}
                                   <div
-                                    className={`absolute -top-1 -right-1 sm:-top-2 sm:-right-2 w-4 h-4 sm:w-5 sm:h-5 rounded-full flex items-center justify-center text-white text-xs font-bold ${getAnnotationNumberColor(allAnnotations.findIndex((a) => a.id === item.id))}`}
+                                    className={`absolute -top-1 -right-1 sm:-top-2 sm:-right-2 w-4 h-4 sm:w-5 sm:h-5 rounded-full flex items-center justify-center text-white text-xs font-bold ${getAnnotationNumberColor(
+                                      displayedAnnotations.findIndex(
+                                        (a) => a.id === item.id
+                                      )
+                                    )}`}
                                   >
-                                    {allAnnotations.findIndex(
+                                    {displayedAnnotations.findIndex(
                                       (a) => a.id === item.id
                                     ) + 1}
                                   </div>
@@ -5256,12 +5379,27 @@ export default function ReviewPage() {
                                       {item.profiles?.email || "Unknown"}
                                     </span>
                                     <div className="flex items-center gap-1 sm:gap-2">
-                                      <Badge
-                                        variant="outline"
-                                        className={`text-xs px-1.5 sm:px-2 py-0.5 w-fit ${getRevisionBadgeColors(getRevisionForItem(item.created_at))}`}
-                                      >
-                                        R{getRevisionForItem(item.created_at)}
-                                      </Badge>
+                                      {(() => {
+                                        const annotationRevision =
+                                          getAnnotationRevision(item);
+                                        const displayRevision =
+                                          item.is_old_annotation
+                                            ? Math.min(
+                                                annotationRevision,
+                                                Math.max(0, latestRevision - 1)
+                                              )
+                                            : annotationRevision;
+                                        return (
+                                          <Badge
+                                            variant="outline"
+                                            className={`text-xs px-1.5 sm:px-2 py-0.5 w-fit ${getRevisionBadgeColors(
+                                              displayRevision
+                                            )}`}
+                                          >
+                                            R{displayRevision}
+                                          </Badge>
+                                        );
+                                      })()}
                                       <Badge
                                         variant="outline"
                                         className="text-xs px-1.5 sm:px-2 py-0.5"
@@ -5787,9 +5925,11 @@ export default function ReviewPage() {
                                     </span>
                                     <Badge
                                       variant="outline"
-                                      className={`text-xs px-2 py-0.5 w-fit ${getRevisionBadgeColors(getRevisionForItem(item.created_at))}`}
+                                      className={`text-xs px-2 py-0.5 w-fit ${getRevisionBadgeColors(
+                                        getCommentRevision(item)
+                                      )}`}
                                     >
-                                      R{getRevisionForItem(item.created_at)}
+                                      R{getCommentRevision(item)}
                                     </Badge>
                                     <Badge
                                       variant="secondary"
@@ -6044,7 +6184,8 @@ export default function ReviewPage() {
                         )
                       )}
 
-                    {allAnnotations.length + getAllComments().length === 0 && (
+                    {displayedAnnotations.length + displayedComments.length ===
+                      0 && (
                       <div className="text-center py-12">
                         <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
                           <MessageCircle className="h-8 w-8 text-muted-foreground" />

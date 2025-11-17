@@ -4,7 +4,7 @@ const endpoint = "https://hunyuan.intl.tencentcloudapi.com";
 const host = "hunyuan.intl.tencentcloudapi.com";
 const service = "ai3d";
 const region = "ap-singapore";
-const version = "2025-05-13";
+const version = "2025-09-01";
 
 export type TencentRequestPayload = Record<string, unknown>;
 

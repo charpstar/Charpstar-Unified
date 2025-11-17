@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import Image from "next/image";
 import {
   Dialog,
   DialogContent,
@@ -401,9 +402,11 @@ const QAWorkflowModal: React.FC<QAWorkflowModalProps> = ({
                           key={index}
                           className="relative aspect-square rounded-lg overflow-hidden border border-gray-200 bg-gray-100"
                         >
-                          <img
+                          <Image
                             src={url}
                             alt={`Reference ${index + 1}`}
+                            width={200}
+                            height={200}
                             className="w-full h-full object-cover"
                           />
                         </div>

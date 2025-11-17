@@ -131,7 +131,7 @@ export async function POST(
     }
 
     const body = await request.json();
-    const { asset_id, comment, parent_id } = body;
+    const { asset_id, comment, parent_id, revision_number } = body;
 
     if (!asset_id || !comment) {
       return NextResponse.json(
@@ -160,12 +160,58 @@ export async function POST(
       );
     }
 
+    let revisionNumber =
+      typeof revision_number === "number" ? revision_number : null;
+
+    if (parent_id) {
+      const { data: parentComment, error: parentError } = await supabaseAdmin
+        .from("asset_comments")
+        .select("asset_id, revision_number")
+        .eq("id", parent_id)
+        .single();
+
+      if (parentError || !parentComment) {
+        return NextResponse.json(
+          { error: "Invalid parent comment" },
+          { status: 400 }
+        );
+      }
+
+      if (parentComment.asset_id !== asset_id) {
+        return NextResponse.json(
+          { error: "Parent comment does not match asset" },
+          { status: 400 }
+        );
+      }
+
+      revisionNumber =
+        typeof parentComment.revision_number === "number"
+          ? parentComment.revision_number
+          : revisionNumber;
+    }
+
+    if (revisionNumber === null || revisionNumber === undefined) {
+      const { data: assetRow, error: assetError } = await supabaseAdmin
+        .from("onboarding_assets")
+        .select("revision_count")
+        .eq("id", asset_id)
+        .single();
+
+      if (assetError) {
+        console.error("Error fetching asset revision count:", assetError);
+        revisionNumber = 0;
+      } else {
+        revisionNumber = assetRow?.revision_count ?? 0;
+      }
+    }
+
     const commentData = {
       asset_id,
       comment: comment.trim(),
       parent_id: parent_id || null,
       created_by: invitation.created_by, // Use invitation creator (same as annotations)
       created_at: new Date().toISOString(),
+      revision_number: revisionNumber ?? 0,
       // Note: metadata column doesn't exist in asset_comments table
       // External reviewer info is identified by created_by + asset_id + timestamp
     };

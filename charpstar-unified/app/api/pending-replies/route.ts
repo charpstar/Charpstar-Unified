@@ -4,7 +4,7 @@ import { notificationService } from "@/lib/notificationService";
 
 export async function POST(request: NextRequest) {
   try {
-    const { assetId, parentCommentId, replyText, createdBy } =
+    const { assetId, parentCommentId, replyText, createdBy, revisionNumber } =
       await request.json();
 
     if (!assetId || !parentCommentId || !replyText || !createdBy) {
@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
     // Check if the asset exists
     const { data: assets, error: assetError } = await supabaseAdmin
       .from("onboarding_assets")
-      .select("id")
+      .select("id, revision_count")
       .eq("id", assetId);
 
     if (assetError) {
@@ -40,6 +40,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const assetRevisionCount = assets[0]?.revision_count ?? 0;
+    const pendingRevisionNumber =
+      typeof revisionNumber === "number" ? revisionNumber : assetRevisionCount;
+
     // Insert pending reply
     const { data: pendingReply, error } = await supabaseAdmin
       .from("pending_replies")
@@ -49,6 +53,7 @@ export async function POST(request: NextRequest) {
         reply_text: replyText,
         created_by: createdBy,
         status: "pending",
+        revision_number: pendingRevisionNumber,
       })
       .select("*")
       .single();

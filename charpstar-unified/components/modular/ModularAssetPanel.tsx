@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, type DragEvent } from "react";
 import {
   Card,
   CardContent,
@@ -22,6 +22,7 @@ import {
   ChevronsUpDown,
   ChevronRight,
   ChevronLeft,
+  UploadCloud,
 } from "lucide-react";
 import {
   Command,
@@ -38,12 +39,12 @@ import { cn } from "@/lib/utils";
 
 interface ModularAssetPanelProps {
   onAssetSelect?: (asset: any) => void; // toggle select
-  onAssetOpen?: (asset: any) => void;   // open/view without selecting
+  onAssetOpen?: (asset: any) => void; // open/view without selecting
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
   selectedAssets?: any[];
   showCollapseButton?: boolean;
-  selectionMode?: 'card' | 'checkbox'; // default 'card' preserves legacy behavior
+  selectionMode?: "card" | "checkbox"; // default 'card' preserves legacy behavior
   onClearSelection?: () => void;
 }
 
@@ -54,15 +55,13 @@ export default function ModularAssetPanel({
   onToggleCollapse,
   selectedAssets = [],
   showCollapseButton = true,
-  selectionMode = 'card',
+  selectionMode = "card",
   onClearSelection,
 }: ModularAssetPanelProps) {
-  const {
-    assets,
-    loading,
-    filteredAssets,
-    filterOptions,
-  } = useAssets(1, 30000); // Fetch up to 30,000 assets at once
+  const { assets, loading, filteredAssets, filterOptions } = useAssets(
+    1,
+    30000
+  ); // Fetch up to 30,000 assets at once
 
   const user = useUser();
   const isAdmin = user?.metadata?.role === "admin";
@@ -74,6 +73,67 @@ export default function ModularAssetPanel({
   const [selectedClient, setSelectedClient] = useState<string>("all");
   const [showInactive, setShowInactive] = useState<boolean>(false);
   const [imageErrors, setImageErrors] = useState<Set<string>>(new Set());
+
+  const enableDragAndDrop = typeof onAssetSelect === "function";
+  const [isDropZoneActive, setIsDropZoneActive] = useState(false);
+
+  const handleCardDragStart = (
+    event: DragEvent<HTMLButtonElement>,
+    asset: any
+  ) => {
+    if (!enableDragAndDrop) return;
+    try {
+      event.dataTransfer.setData("application/json", JSON.stringify(asset));
+    } catch (error) {
+      console.error("Unable to serialize asset for drag-and-drop:", error);
+    }
+    event.dataTransfer.effectAllowed = "copy";
+    setIsDropZoneActive(true);
+  };
+
+  const handleCardDragEnd = () => {
+    if (!enableDragAndDrop) return;
+    setIsDropZoneActive(false);
+  };
+
+  const handleDropZoneDragOver = (event: DragEvent<HTMLDivElement>) => {
+    if (!enableDragAndDrop) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "copy";
+    if (!isDropZoneActive) {
+      setIsDropZoneActive(true);
+    }
+  };
+
+  const handleDropZoneDragEnter = (event: DragEvent<HTMLDivElement>) => {
+    if (!enableDragAndDrop) return;
+    event.preventDefault();
+    setIsDropZoneActive(true);
+  };
+
+  const handleDropZoneDragLeave = (event: DragEvent<HTMLDivElement>) => {
+    if (!enableDragAndDrop) return;
+    event.preventDefault();
+    const relatedTarget = event.relatedTarget as Node | null;
+    if (!relatedTarget || !event.currentTarget.contains(relatedTarget)) {
+      setIsDropZoneActive(false);
+    }
+  };
+
+  const handleDropZoneDrop = (event: DragEvent<HTMLDivElement>) => {
+    if (!enableDragAndDrop) return;
+    event.preventDefault();
+    setIsDropZoneActive(false);
+    const data = event.dataTransfer.getData("application/json");
+    if (data) {
+      try {
+        const droppedAsset = JSON.parse(data);
+        onAssetSelect?.(droppedAsset);
+      } catch (error) {
+        console.error("Failed to parse dropped asset:", error);
+      }
+    }
+  };
 
   // Combobox open states
   const [clientOpen, setClientOpen] = useState(false);
@@ -204,7 +264,7 @@ export default function ModularAssetPanel({
   // If collapsed, show minimal UI
   if (isCollapsed) {
     return (
-      <Card className="h-full max-h-[calc(90vh-100px)] flex flex-col overflow-hidden surface-elevated border border-light shadow-md items-center py-2 sm:py-4 px-1 sm:px-2 gap-2 sm:gap-4 transition-all duration-500 ease-out rounded-none">
+      <Card className="h-full max-h-[calc(90vh-100px)] flex flex-col overflow-hidden surface-elevated border border-light shadow-md items-center py-2 sm:py-4 px-1 sm:px-2 gap-2 sm:gap-4 transition-all duration-500 ease-out ">
         {/* Expand Button - at the top */}
         <Button
           variant="ghost"
@@ -311,12 +371,12 @@ export default function ModularAssetPanel({
   }
 
   return (
-    <Card className={cn(
-      "h-full max-h-full flex flex-col overflow-hidden transition-all duration-500 ease-out border-0 shadow-none p-0 space-y-0 rounded-none",
-      showCollapseButton 
-        ? "" 
-        : ""
-    )}>
+    <Card
+      className={cn(
+        "h-full max-h-full flex flex-col overflow-hidden transition-all duration-500 ease-out border-0 shadow-none p-0 space-y-0 ",
+        showCollapseButton ? "" : ""
+      )}
+    >
       {showCollapseButton && (
         <CardHeader className="pb-2 sm:pb-3 pt-3 px-4 flex-none transition-all duration-500 ease-out border-b border-gray-200 dark:border-gray-800">
           <div className="flex items-center justify-between gap-2">
@@ -332,16 +392,17 @@ export default function ModularAssetPanel({
                 )}
               </p>
             </div>
-            {typeof onClearSelection === 'function' && (selectedAssets?.length || 0) > 0 && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={onClearSelection}
-                className="h-8 px-2 text-xs"
-              >
-                Clear Selection ({selectedAssets.length})
-              </Button>
-            )}
+            {typeof onClearSelection === "function" &&
+              (selectedAssets?.length || 0) > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={onClearSelection}
+                  className="h-8 px-2 text-xs"
+                >
+                  Clear Selection ({selectedAssets.length})
+                </Button>
+              )}
             <Button
               variant="ghost"
               size="sm"
@@ -354,23 +415,27 @@ export default function ModularAssetPanel({
         </CardHeader>
       )}
 
-      <CardContent className={cn(
-        "flex-1 min-h-0 overflow-hidden transition-all duration-500 ease-out flex flex-col pb-0",
-        showCollapseButton ? "pt-3 sm:pt-4 px-3 sm:px-4" : "pt-2 px-4"
-      )}>
+      <CardContent
+        className={cn(
+          "flex-1 min-h-0 overflow-hidden transition-all duration-500 ease-out flex flex-col pb-0",
+          showCollapseButton ? "pt-3 sm:pt-4 px-3 sm:px-4" : "pt-2 px-4"
+        )}
+      >
         {/* Search */}
         <div className="relative transition-all duration-300 flex-none mb-2">
-          <Search className={cn(
-            "absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground transition-colors duration-200",
-            showCollapseButton ? "h-4 w-4" : "h-3.5 w-3.5 left-2.5"
-          )} />
+          <Search
+            className={cn(
+              "absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground transition-colors duration-200",
+              showCollapseButton ? "h-4 w-4" : "h-3.5 w-3.5 left-2.5"
+            )}
+          />
           <Input
             type="text"
             placeholder="Search assets..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className={cn(
-              "text-sm transition-all duration-200 focus:ring-2 focus:ring-primary/20 rounded-none",
+              "text-sm transition-all duration-200 focus:ring-2 focus:ring-primary/20 ",
               showCollapseButton ? "pl-10 h-8 sm:h-9" : "pl-8 h-8 text-xs"
             )}
           />
@@ -378,405 +443,461 @@ export default function ModularAssetPanel({
 
         {/* Responsive Filter Dropdown */}
         <div className="flex-none mb-2">
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button
-              variant="outline"
-              className={cn(
-                "w-full justify-between transition-colors duration-200 hover:bg-primary/5 hover:border-primary/20 rounded-none",
-                showCollapseButton ? "h-8 sm:h-9" : "h-7"
-              )}
-            >
-              <span className="flex items-center gap-1 sm:gap-2">
-                <Filter className={cn(showCollapseButton ? "h-3 w-3 sm:h-4 sm:w-4" : "h-3 w-3")} />
-                <span className={cn(showCollapseButton ? "text-xs sm:text-sm" : "text-xs")}>
-                  Filters
-                  {(selectedClient !== "all" ||
-                    selectedCategory !== "all" ||
-                    sortBy !== "name" ||
-                    sortOrder !== "asc" ||
-                    !showInactive) && (
-                    <Badge
-                      variant="secondary"
-                      className={cn(
-                        "text-xs",
-                        showCollapseButton ? "ml-1 sm:ml-2 h-4 sm:h-5 px-1 sm:px-1.5" : "ml-1 h-4 px-1"
-                      )}
-                    >
-                      {
-                        [
-                          selectedClient !== "all" && "Client",
-                          selectedCategory !== "all" && "Category",
-                          (sortBy !== "name" || sortOrder !== "asc") && "Sort",
-                          !showInactive && "Inactive",
-                        ].filter(Boolean).length
-                      }
-                    </Badge>
-                  )}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                className={cn(
+                  "w-full justify-between transition-colors duration-200 hover:bg-primary/5 hover:border-primary/20 ",
+                  showCollapseButton ? "h-8 sm:h-9" : "h-7"
+                )}
+              >
+                <span className="flex items-center gap-1 sm:gap-2">
+                  <Filter
+                    className={cn(
+                      showCollapseButton ? "h-3 w-3 sm:h-4 sm:w-4" : "h-3 w-3"
+                    )}
+                  />
+                  <span
+                    className={cn(
+                      showCollapseButton ? "text-xs sm:text-sm" : "text-xs"
+                    )}
+                  >
+                    Filters
+                    {(selectedClient !== "all" ||
+                      selectedCategory !== "all" ||
+                      sortBy !== "name" ||
+                      sortOrder !== "asc" ||
+                      !showInactive) && (
+                      <Badge
+                        variant="secondary"
+                        className={cn(
+                          "text-xs",
+                          showCollapseButton
+                            ? "ml-1 sm:ml-2 h-4 sm:h-5 px-1 sm:px-1.5"
+                            : "ml-1 h-4 px-1"
+                        )}
+                      >
+                        {
+                          [
+                            selectedClient !== "all" && "Client",
+                            selectedCategory !== "all" && "Category",
+                            (sortBy !== "name" || sortOrder !== "asc") &&
+                              "Sort",
+                            !showInactive && "Inactive",
+                          ].filter(Boolean).length
+                        }
+                      </Badge>
+                    )}
+                  </span>
                 </span>
-              </span>
-              <ChevronsUpDown className={cn(showCollapseButton ? "h-3 w-3 sm:h-4 sm:w-4" : "h-3 w-3", "opacity-50")} />
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent
-            className="w-72 sm:w-80 p-3 sm:p-4 animate-in slide-in-from-top-2 duration-200"
-            align="start"
-          >
-            <div className="space-y-3 sm:space-y-4">
-              {/* Client Filter - Only for Admins */}
-              {isAdmin && (
+                <ChevronsUpDown
+                  className={cn(
+                    showCollapseButton ? "h-3 w-3 sm:h-4 sm:w-4" : "h-3 w-3",
+                    "opacity-50"
+                  )}
+                />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent
+              className="w-72 sm:w-80 p-3 sm:p-4 animate-in slide-in-from-top-2 duration-200"
+              align="start"
+            >
+              <div className="space-y-3 sm:space-y-4">
+                {/* Client Filter - Only for Admins */}
+                {isAdmin && (
+                  <div className="space-y-2">
+                    <label className="text-xs sm:text-sm font-medium">
+                      Client
+                    </label>
+                    <Popover
+                      open={clientOpen}
+                      onOpenChange={setClientOpen}
+                      modal={false}
+                    >
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          aria-expanded={clientOpen}
+                          className="w-full justify-between h-8 sm:h-9 text-xs sm:text-sm"
+                        >
+                          {selectedClient === "all"
+                            ? "All Clients"
+                            : filterOptions.clients.find(
+                                (c) => c.id === selectedClient
+                              )?.name || "All Clients"}
+                          <ChevronsUpDown className="ml-2 h-3 w-3 sm:h-4 sm:w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[--radix-popover-trigger-width] p-0 pointer-events-auto z-[100000]">
+                        <Command>
+                          <CommandInput placeholder="Search clients..." />
+                          <CommandList className="max-h-[300px] overflow-y-auto">
+                            <CommandEmpty>No client found.</CommandEmpty>
+                            <CommandGroup>
+                              <CommandItem
+                                value="all"
+                                onSelect={() => {
+                                  setSelectedClient("all");
+                                  setClientOpen(false);
+                                }}
+                              >
+                                <Check
+                                  className={cn(
+                                    "mr-2 h-4 w-4",
+                                    selectedClient === "all"
+                                      ? "opacity-100"
+                                      : "opacity-0"
+                                  )}
+                                />
+                                All Clients
+                              </CommandItem>
+                              {filterOptions.clients
+                                .sort((a, b) => a.name.localeCompare(b.name))
+                                .map((client) => (
+                                  <CommandItem
+                                    key={client.id}
+                                    value={client.id}
+                                    onSelect={() => {
+                                      setSelectedClient(client.id);
+                                      setClientOpen(false);
+                                    }}
+                                  >
+                                    <Check
+                                      className={cn(
+                                        "mr-2 h-4 w-4",
+                                        selectedClient === client.id
+                                          ? "opacity-100"
+                                          : "opacity-0"
+                                      )}
+                                    />
+                                    {client.name}
+                                  </CommandItem>
+                                ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                )}
+
+                {/* Category Filter */}
                 <div className="space-y-2">
                   <label className="text-xs sm:text-sm font-medium">
-                    Client
+                    Category
+                    {isAdmin && selectedClient !== "all" && (
+                      <span className="text-xs text-muted-foreground ml-1 sm:ml-2">
+                        (for{" "}
+                        {
+                          filterOptions.clients.find(
+                            (c) => c.id === selectedClient
+                          )?.name
+                        }
+                        )
+                      </span>
+                    )}
                   </label>
                   <Popover
-                    open={clientOpen}
-                    onOpenChange={setClientOpen}
+                    open={categoryOpen}
+                    onOpenChange={setCategoryOpen}
                     modal={false}
                   >
                     <PopoverTrigger asChild>
                       <Button
                         variant="outline"
                         role="combobox"
-                        aria-expanded={clientOpen}
+                        aria-expanded={categoryOpen}
                         className="w-full justify-between h-8 sm:h-9 text-xs sm:text-sm"
                       >
-                        {selectedClient === "all"
-                          ? "All Clients"
-                          : filterOptions.clients.find(
-                              (c) => c.id === selectedClient
-                            )?.name || "All Clients"}
+                        {selectedCategory === "all"
+                          ? "All Categories"
+                          : availableCategories.find(
+                              (c) => c.id === selectedCategory
+                            )?.name || "All Categories"}
                         <ChevronsUpDown className="ml-2 h-3 w-3 sm:h-4 sm:w-4 shrink-0 opacity-50" />
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-[--radix-popover-trigger-width] p-0 pointer-events-auto z-[100000]">
                       <Command>
-                        <CommandInput placeholder="Search clients..." />
+                        <CommandInput placeholder="Search categories..." />
                         <CommandList className="max-h-[300px] overflow-y-auto">
-                          <CommandEmpty>No client found.</CommandEmpty>
+                          <CommandEmpty>No category found.</CommandEmpty>
                           <CommandGroup>
                             <CommandItem
                               value="all"
                               onSelect={() => {
-                                setSelectedClient("all");
-                                setClientOpen(false);
-                              }}
-                            >
-                              <Check
-                                className={cn(
-                                  "mr-2 h-4 w-4",
-                                  selectedClient === "all"
-                                    ? "opacity-100"
-                                    : "opacity-0"
-                                )}
-                              />
-                              All Clients
-                            </CommandItem>
-                            {filterOptions.clients
-                              .sort((a, b) => a.name.localeCompare(b.name))
-                              .map((client) => (
-                                <CommandItem
-                                  key={client.id}
-                                  value={client.id}
-                                  onSelect={() => {
-                                    setSelectedClient(client.id);
-                                    setClientOpen(false);
-                                  }}
-                                >
-                                  <Check
-                                    className={cn(
-                                      "mr-2 h-4 w-4",
-                                      selectedClient === client.id
-                                        ? "opacity-100"
-                                        : "opacity-0"
-                                    )}
-                                  />
-                                  {client.name}
-                                </CommandItem>
-                              ))}
-                          </CommandGroup>
-                        </CommandList>
-                      </Command>
-                    </PopoverContent>
-                  </Popover>
-                </div>
-              )}
-
-              {/* Category Filter */}
-              <div className="space-y-2">
-                <label className="text-xs sm:text-sm font-medium">
-                  Category
-                  {isAdmin && selectedClient !== "all" && (
-                    <span className="text-xs text-muted-foreground ml-1 sm:ml-2">
-                      (for{" "}
-                      {
-                        filterOptions.clients.find(
-                          (c) => c.id === selectedClient
-                        )?.name
-                      }
-                      )
-                    </span>
-                  )}
-                </label>
-                <Popover
-                  open={categoryOpen}
-                  onOpenChange={setCategoryOpen}
-                  modal={false}
-                >
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      role="combobox"
-                      aria-expanded={categoryOpen}
-                      className="w-full justify-between h-8 sm:h-9 text-xs sm:text-sm"
-                    >
-                      {selectedCategory === "all"
-                        ? "All Categories"
-                        : availableCategories.find(
-                            (c) => c.id === selectedCategory
-                          )?.name || "All Categories"}
-                      <ChevronsUpDown className="ml-2 h-3 w-3 sm:h-4 sm:w-4 shrink-0 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0 pointer-events-auto z-[100000]">
-                    <Command>
-                      <CommandInput placeholder="Search categories..." />
-                      <CommandList className="max-h-[300px] overflow-y-auto">
-                        <CommandEmpty>No category found.</CommandEmpty>
-                        <CommandGroup>
-                          <CommandItem
-                            value="all"
-                            onSelect={() => {
-                              setSelectedCategory("all");
-                              setCategoryOpen(false);
-                            }}
-                          >
-                            <Check
-                              className={cn(
-                                "mr-2 h-4 w-4",
-                                selectedCategory === "all"
-                                  ? "opacity-100"
-                                  : "opacity-0"
-                              )}
-                            />
-                            All Categories
-                          </CommandItem>
-                          {availableCategories.map((cat) => (
-                            <CommandItem
-                              key={cat.id}
-                              value={cat.id}
-                              onSelect={() => {
-                                setSelectedCategory(cat.id);
+                                setSelectedCategory("all");
                                 setCategoryOpen(false);
                               }}
                             >
                               <Check
                                 className={cn(
                                   "mr-2 h-4 w-4",
-                                  selectedCategory === cat.id
+                                  selectedCategory === "all"
                                     ? "opacity-100"
                                     : "opacity-0"
                                 )}
                               />
-                              {cat.name}
+                              All Categories
                             </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
-              </div>
+                            {availableCategories.map((cat) => (
+                              <CommandItem
+                                key={cat.id}
+                                value={cat.id}
+                                onSelect={() => {
+                                  setSelectedCategory(cat.id);
+                                  setCategoryOpen(false);
+                                }}
+                              >
+                                <Check
+                                  className={cn(
+                                    "mr-2 h-4 w-4",
+                                    selectedCategory === cat.id
+                                      ? "opacity-100"
+                                      : "opacity-0"
+                                  )}
+                                />
+                                {cat.name}
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                </div>
 
-              {/* Sort Options */}
-              <div className="space-y-2">
-                <label className="text-xs sm:text-sm font-medium">
-                  Sort By
-                </label>
-                <Popover
-                  open={sortOpen}
-                  onOpenChange={setSortOpen}
-                  modal={false}
-                >
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      role="combobox"
-                      aria-expanded={sortOpen}
-                      className="w-full justify-between h-8 sm:h-9 text-xs sm:text-sm"
-                    >
-                      <span className="capitalize">
-                        {sortBy} ({sortOrder})
-                      </span>
-                      <ChevronsUpDown className="ml-2 h-3 w-3 sm:h-4 sm:w-4 shrink-0 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0 pointer-events-auto z-[100000]">
-                    <Command>
-                      <CommandList className="max-h-[300px] overflow-y-auto">
-                        <CommandGroup>
-                          <CommandItem
-                            value="name-asc"
-                            onSelect={() => {
-                              setSortBy("name");
-                              setSortOrder("asc");
-                              setSortOpen(false);
-                            }}
-                          >
-                            <Check
-                              className={cn(
-                                "mr-2 h-4 w-4",
-                                sortBy === "name" && sortOrder === "asc"
-                                  ? "opacity-100"
-                                  : "opacity-0"
-                              )}
-                            />
-                            Name (A → Z)
-                          </CommandItem>
-                          <CommandItem
-                            value="name-desc"
-                            onSelect={() => {
-                              setSortBy("name");
-                              setSortOrder("desc");
-                              setSortOpen(false);
-                            }}
-                          >
-                            <Check
-                              className={cn(
-                                "mr-2 h-4 w-4",
-                                sortBy === "name" && sortOrder === "desc"
-                                  ? "opacity-100"
-                                  : "opacity-0"
-                              )}
-                            />
-                            Name (Z → A)
-                          </CommandItem>
-                          <CommandItem
-                            value="date-asc"
-                            onSelect={() => {
-                              setSortBy("date");
-                              setSortOrder("asc");
-                              setSortOpen(false);
-                            }}
-                          >
-                            <Check
-                              className={cn(
-                                "mr-2 h-4 w-4",
-                                sortBy === "date" && sortOrder === "asc"
-                                  ? "opacity-100"
-                                  : "opacity-0"
-                              )}
-                            />
-                            Date (Oldest)
-                          </CommandItem>
-                          <CommandItem
-                            value="date-desc"
-                            onSelect={() => {
-                              setSortBy("date");
-                              setSortOrder("desc");
-                              setSortOpen(false);
-                            }}
-                          >
-                            <Check
-                              className={cn(
-                                "mr-2 h-4 w-4",
-                                sortBy === "date" && sortOrder === "desc"
-                                  ? "opacity-100"
-                                  : "opacity-0"
-                              )}
-                            />
-                            Date (Newest)
-                          </CommandItem>
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
-              </div>
+                {/* Sort Options */}
+                <div className="space-y-2">
+                  <label className="text-xs sm:text-sm font-medium">
+                    Sort By
+                  </label>
+                  <Popover
+                    open={sortOpen}
+                    onOpenChange={setSortOpen}
+                    modal={false}
+                  >
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={sortOpen}
+                        className="w-full justify-between h-8 sm:h-9 text-xs sm:text-sm"
+                      >
+                        <span className="capitalize">
+                          {sortBy} ({sortOrder})
+                        </span>
+                        <ChevronsUpDown className="ml-2 h-3 w-3 sm:h-4 sm:w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0 pointer-events-auto z-[100000]">
+                      <Command>
+                        <CommandList className="max-h-[300px] overflow-y-auto">
+                          <CommandGroup>
+                            <CommandItem
+                              value="name-asc"
+                              onSelect={() => {
+                                setSortBy("name");
+                                setSortOrder("asc");
+                                setSortOpen(false);
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  sortBy === "name" && sortOrder === "asc"
+                                    ? "opacity-100"
+                                    : "opacity-0"
+                                )}
+                              />
+                              Name (A → Z)
+                            </CommandItem>
+                            <CommandItem
+                              value="name-desc"
+                              onSelect={() => {
+                                setSortBy("name");
+                                setSortOrder("desc");
+                                setSortOpen(false);
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  sortBy === "name" && sortOrder === "desc"
+                                    ? "opacity-100"
+                                    : "opacity-0"
+                                )}
+                              />
+                              Name (Z → A)
+                            </CommandItem>
+                            <CommandItem
+                              value="date-asc"
+                              onSelect={() => {
+                                setSortBy("date");
+                                setSortOrder("asc");
+                                setSortOpen(false);
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  sortBy === "date" && sortOrder === "asc"
+                                    ? "opacity-100"
+                                    : "opacity-0"
+                                )}
+                              />
+                              Date (Oldest)
+                            </CommandItem>
+                            <CommandItem
+                              value="date-desc"
+                              onSelect={() => {
+                                setSortBy("date");
+                                setSortOrder("desc");
+                                setSortOpen(false);
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  sortBy === "date" && sortOrder === "desc"
+                                    ? "opacity-100"
+                                    : "opacity-0"
+                                )}
+                              />
+                              Date (Newest)
+                            </CommandItem>
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                </div>
 
-              {/* Show Inactive Assets Toggle */}
-              <div className="flex items-center justify-between">
-                <label className="text-xs sm:text-sm font-medium">
-                  Show Inactive Assets
-                </label>
-                <Button
-                  variant={showInactive ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setShowInactive(!showInactive)}
-                  className="h-7 sm:h-8 px-2 sm:px-3 text-xs"
-                >
-                  {showInactive ? "Yes" : "No"}
-                </Button>
-              </div>
+                {/* Show Inactive Assets Toggle */}
+                <div className="flex items-center justify-between">
+                  <label className="text-xs sm:text-sm font-medium">
+                    Show Inactive Assets
+                  </label>
+                  <Button
+                    variant={showInactive ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setShowInactive(!showInactive)}
+                    className="h-7 sm:h-8 px-2 sm:px-3 text-xs"
+                  >
+                    {showInactive ? "Yes" : "No"}
+                  </Button>
+                </div>
 
-              {/* Clear Filters */}
-              {(selectedClient !== "all" ||
-                selectedCategory !== "all" ||
-                sortBy !== "name" ||
-                sortOrder !== "asc" ||
-                !showInactive) && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setSelectedClient("all");
-                    setSelectedCategory("all");
-                    setSortBy("name");
-                    setSortOrder("asc");
-                    setShowInactive(true);
-                  }}
-                  className="w-full h-7 sm:h-8 text-xs"
-                >
-                  Clear All Filters
-                </Button>
-              )}
-            </div>
-          </PopoverContent>
-        </Popover>
+                {/* Clear Filters */}
+                {(selectedClient !== "all" ||
+                  selectedCategory !== "all" ||
+                  sortBy !== "name" ||
+                  sortOrder !== "asc" ||
+                  !showInactive) && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setSelectedClient("all");
+                      setSelectedCategory("all");
+                      setSortBy("name");
+                      setSortOrder("asc");
+                      setShowInactive(true);
+                    }}
+                    className="w-full h-7 sm:h-8 text-xs"
+                  >
+                    Clear All Filters
+                  </Button>
+                )}
+              </div>
+            </PopoverContent>
+          </Popover>
         </div>
+
+        {enableDragAndDrop && selectedAssets.length > 0 && (
+          <div className="flex-none mb-3">
+            <div
+              className={cn(
+                "rounded-xl border-2 border-dashed p-4 sm:p-5 transition-all duration-200 bg-background/40",
+                isDropZoneActive
+                  ? "border-primary bg-primary/10 shadow-lg shadow-primary/10"
+                  : "border-border/60 hover:border-primary/40"
+              )}
+              onDragOver={handleDropZoneDragOver}
+              onDragEnter={handleDropZoneDragEnter}
+              onDragLeave={handleDropZoneDragLeave}
+              onDrop={handleDropZoneDrop}
+            >
+              <div className="flex items-start gap-3">
+                <div className="rounded-full bg-primary/15 text-primary p-2 flex items-center justify-center">
+                  <UploadCloud className="h-5 w-5" />
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm font-semibold text-foreground">
+                    Drag & drop assets here
+                  </p>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    Drag any card into this box to add it to your selection, or
+                    click cards below to toggle them.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Assets Grid */}
         <div className="flex-1 min-h-0 overflow-y-auto">
           {loading ? (
-                <div className={cn(
-                  "flex flex-wrap content-start",
-                  showCollapseButton ? "gap-2 sm:gap-3 p-1" : "gap-3 px-4 py-2"
-                )}>
-                  {[...Array(8)].map((_, i) => (
-                  <Card
-                    key={i}
-                    className="animate-pulse overflow-hidden transition-all duration-300 w-[calc(25%-9px)]"
-                  >
-                    <div className="aspect-square bg-muted transition-colors duration-300" />
-                    <div className="p-2 space-y-2">
-                      <div className="h-3 bg-muted w-3/4 transition-colors duration-300" />
-                      <div className="h-2 bg-muted w-1/2 transition-colors duration-300" />
-                    </div>
-                  </Card>
-                ))}
-              </div>
-            ) : displayedAssets.length === 0 ? (
-              <div className={cn(
+            <div
+              className={cn(
+                "flex flex-wrap content-start",
+                showCollapseButton ? "gap-3 p-1" : "gap-3 px-4 py-2"
+              )}
+            >
+              {[...Array(8)].map((_, i) => (
+                <Card
+                  key={i}
+                  className="animate-pulse overflow-hidden transition-all duration-300 rounded-xl w-full sm:w-[calc(33.333%-12px)]"
+                >
+                  <div className="aspect-square bg-muted transition-colors duration-300 rounded-xl rounded-b-none" />
+                  <div className="p-3 space-y-2">
+                    <div className="h-3 bg-muted w-3/4 transition-colors duration-300 rounded-full" />
+                    <div className="h-2 bg-muted w-1/2 transition-colors duration-300 rounded-full" />
+                  </div>
+                </Card>
+              ))}
+            </div>
+          ) : displayedAssets.length === 0 ? (
+            <div
+              className={cn(
                 "text-center transition-all duration-300",
                 showCollapseButton ? "py-8 sm:py-12" : "py-6 px-4"
-              )}>
-                <p className="text-xs sm:text-sm text-muted-foreground transition-colors duration-300">
-                  No assets found
-                </p>
-              </div>
-            ) : (
-              <>
-                <div className={cn(
+              )}
+            >
+              <p className="text-xs sm:text-sm text-muted-foreground transition-colors duration-300">
+                No assets found
+              </p>
+            </div>
+          ) : (
+            <>
+              <div
+                className={cn(
                   "flex flex-wrap content-start pb-4",
-                  showCollapseButton ? "gap-3 pt-4 px-4" : "gap-3 px-4 pt-2"
-                )}>
+                  showCollapseButton ? "gap-4 pt-4 px-4" : "gap-4 px-4 pt-2"
+                )}
+              >
                 {paginatedAssets.map((asset) => {
-                  const isSelected = selectedAssets.some((a) => a.id === asset.id);
+                  const isSelected = selectedAssets.some(
+                    (a) => a.id === asset.id
+                  );
                   return (
                     <button
                       key={asset.id}
                       onClick={() => {
-                        if (selectionMode === 'checkbox') {
+                        if (selectionMode === "checkbox") {
                           // primary action: open/view without toggling selection
                           onAssetOpen?.(asset);
                         } else {
@@ -784,15 +905,18 @@ export default function ModularAssetPanel({
                         }
                       }}
                       className={cn(
-                        "group relative text-left border bg-gradient-to-br from-card to-card/50 hover:from-card hover:to-card transition-all duration-300 overflow-hidden hover:shadow-lg hover:-translate-y-1 active:scale-[0.98] w-[calc(25%-9px)]",
+                        "group relative text-left border bg-gradient-to-br from-card to-card/50 hover:from-card hover:to-card cursor-pointer transition-all duration-300 overflow-hidden hover:shadow-lg hover:-translate-y-1 active:scale-[0.98] rounded-xl w-full sm:w-[calc(33.333%-12px)]",
                         isSelected
                           ? "border-primary ring-2 ring-primary/30 shadow-md shadow-primary/10 bg-gradient-to-br from-primary/10 to-primary/5"
                           : "border-border/40 hover:border-primary/50 shadow-sm"
                       )}
                       title={asset.product_name}
+                      draggable={enableDragAndDrop}
+                      onDragStart={(event) => handleCardDragStart(event, asset)}
+                      onDragEnd={handleCardDragEnd}
                     >
                       {/* Image Container */}
-                      <div className="relative aspect-square bg-gradient-to-br from-muted/20 via-muted/10 to-transparent overflow-hidden">
+                      <div className="relative aspect-square bg-gradient-to-br from-muted/20 via-muted/10 to-transparent overflow-hidden rounded-xl rounded-b-none">
                         {asset.preview_image && !imageErrors.has(asset.id) ? (
                           <Image
                             src={
@@ -806,7 +930,9 @@ export default function ModularAssetPanel({
                             sizes="200px"
                             priority={false}
                             onError={() => {
-                              setImageErrors((prev) => new Set(prev).add(asset.id));
+                              setImageErrors((prev) =>
+                                new Set(prev).add(asset.id)
+                              );
                             }}
                           />
                         ) : (
@@ -816,16 +942,19 @@ export default function ModularAssetPanel({
                         )}
                         {/* Enhanced Hover Overlay */}
                         <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-black/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                        
+
                         {/* Selection Checkbox/Indicator */}
-                        {selectionMode === 'checkbox' ? (
+                        {selectionMode === "checkbox" && (
                           <div
                             className={cn(
                               "absolute top-2 right-2 w-6 h-6 bg-white/90 text-black border border-gray-300 items-center justify-center shadow-md cursor-pointer",
                               isSelected ? "flex" : "hidden group-hover:flex"
                             )}
-                            onClick={(e) => { e.stopPropagation(); onAssetSelect?.(asset); }}
-                            title={isSelected ? 'Unselect' : 'Select'}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onAssetSelect?.(asset);
+                            }}
+                            title={isSelected ? "Unselect" : "Select"}
                           >
                             {isSelected ? (
                               <Check className="w-4 h-4" />
@@ -833,17 +962,11 @@ export default function ModularAssetPanel({
                               <div className="w-3 h-3 border border-gray-400" />
                             )}
                           </div>
-                        ) : (
-                          isSelected && (
-                            <div className="absolute top-2 right-2 w-6 h-6 bg-primary flex items-center justify-center shadow-lg animate-in zoom-in-50 duration-200">
-                              <Check className="w-4 h-4 text-primary-foreground" />
-                            </div>
-                          )
                         )}
                       </div>
 
                       {/* Info */}
-                      <div className="p-2.5 space-y-1 bg-gradient-to-b from-transparent to-muted/5">
+                      <div className="p-3 space-y-1.5 bg-gradient-to-b from-transparent to-muted/5 rounded-xl rounded-t-none">
                         <div className="text-xs font-semibold line-clamp-2 leading-tight group-hover:text-primary transition-colors duration-200">
                           {asset.product_name}
                         </div>
@@ -863,14 +986,16 @@ export default function ModularAssetPanel({
                 })}
               </div>
 
-                {/* Pagination Controls - Only show if there are multiple pages */}
-                {totalPages > 1 && (
-                <div className={cn(
-                  "sticky bottom-0 pt-2 pb-2 px-4",
-                  showCollapseButton 
-                    ? "bg-background/95 backdrop-blur-sm" 
-                    : "bg-gradient-to-t from-background/80 via-background/50 to-transparent backdrop-blur-md"
-                )}>
+              {/* Pagination Controls - Only show if there are multiple pages */}
+              {totalPages > 1 && (
+                <div
+                  className={cn(
+                    "sticky bottom-0 pt-2 pb-2 px-4",
+                    showCollapseButton
+                      ? "bg-background/95 backdrop-blur-sm"
+                      : "bg-gradient-to-t from-background/80 via-background/50 to-transparent backdrop-blur-md"
+                  )}
+                >
                   <div className="flex flex-col xs:flex-row xs:items-center justify-between gap-2">
                     <div className="text-[10px] sm:text-xs text-muted-foreground text-center xs:text-left order-2 xs:order-1">
                       Page {currentPage} of {totalPages}
@@ -903,9 +1028,9 @@ export default function ModularAssetPanel({
                     </div>
                   </div>
                 </div>
-                )}
-              </>
-            )}
+              )}
+            </>
+          )}
         </div>
       </CardContent>
     </Card>

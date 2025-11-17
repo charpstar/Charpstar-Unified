@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useUser } from "@/contexts/useUser";
 import { supabase } from "@/lib/supabaseClient";
@@ -8,6 +8,13 @@ import { notificationService } from "@/lib/notificationService";
 import { Card } from "@/components/ui/containers";
 import { Button } from "@/components/ui/display";
 import { Textarea } from "@/components/ui/inputs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/inputs";
 import { Badge } from "@/components/ui/feedback";
 
 import {
@@ -79,6 +86,7 @@ interface Annotation {
   };
   parent_id?: string;
   is_old_annotation?: boolean;
+  revision_number?: number | null;
 }
 
 interface Hotspot {
@@ -392,6 +400,7 @@ export default function ModelerReviewPage() {
     string[]
   >([]);
   const [comments, setComments] = useState<any[]>([]);
+  const [activeRevision, setActiveRevision] = useState(0);
   const [rightPanelTab, setRightPanelTab] = useState<"feedback" | "images">(
     "feedback"
   );
@@ -455,6 +464,11 @@ export default function ModelerReviewPage() {
   const currentGlbUrlRef = useRef<string | null>(null);
   const [modelLoaded, setModelLoaded] = useState(false);
   const [autoQATriggered, setAutoQATriggered] = useState(false);
+  useEffect(() => {
+    if (typeof asset?.revision_count === "number") {
+      setActiveRevision(asset.revision_count);
+    }
+  }, [asset?.revision_count]);
 
   // Update the ref whenever asset.glb_link changes
   useEffect(() => {
@@ -494,7 +508,7 @@ export default function ModelerReviewPage() {
     // 5. Dialog not already open
     // 6. Status is not already delivered_by_artist (meaning it's a new upload)
     // Note: Reference images are optional - user can upload them in the QA modal
-    const shouldTrigger = 
+    const shouldTrigger =
       modelLoaded &&
       !autoQATriggered &&
       asset?.glb_link &&
@@ -838,6 +852,50 @@ export default function ModelerReviewPage() {
     );
   };
 
+  const getAnnotationRevisionNumber = (annotation: Annotation) => {
+    if (typeof annotation.revision_number === "number") {
+      return annotation.revision_number;
+    }
+    if (annotation.is_old_annotation) {
+      return Math.max(0, (asset?.revision_count ?? 1) - 1);
+    }
+    return asset?.revision_count ?? 0;
+  };
+
+  const getCommentRevisionNumber = (comment: {
+    revision_number?: number | null;
+  }) => {
+    if (typeof comment?.revision_number === "number") {
+      return comment.revision_number;
+    }
+    return asset?.revision_count ?? 0;
+  };
+
+  const annotationsForActiveRevision = useMemo(
+    () =>
+      annotations.filter((annotation: Annotation) => {
+        if (
+          activeRevision === (asset?.revision_count ?? 0) &&
+          annotation.is_old_annotation
+        ) {
+          return false;
+        }
+        return getAnnotationRevisionNumber(annotation) === activeRevision;
+      }),
+    [annotations, activeRevision, asset?.revision_count]
+  );
+  const commentsForActiveRevision = useMemo(
+    () =>
+      comments.filter(
+        (comment: any) => getCommentRevisionNumber(comment) === activeRevision
+      ),
+    [comments, activeRevision]
+  );
+  const filteredAnnotations = annotationsForActiveRevision;
+
+  const displayedAnnotations = filteredAnnotations;
+  const displayedComments = commentsForActiveRevision;
+
   // Build a parent->children map for comments and annotations
   const groupByParent = <T extends { id: string; parent_id?: string | null }>(
     items: T[]
@@ -851,8 +909,10 @@ export default function ModelerReviewPage() {
     }
     return map;
   };
-  const annotationRepliesMap = groupByParent(annotations as any);
-  const commentRepliesMap = groupByParent(comments as any);
+  const annotationRepliesMap = groupByParent(
+    annotationsForActiveRevision as any
+  );
+  const commentRepliesMap = groupByParent(commentsForActiveRevision as any);
 
   const handleBackNavigation = () => {
     const from = searchParams.get("from");
@@ -924,12 +984,24 @@ export default function ModelerReviewPage() {
     }
   };
 
-  // Filter annotations for different display contexts
-  const filteredAnnotations = annotations.filter(
-    (annotation: any) => !annotation.is_old_annotation
-  );
-
-  const allAnnotations = annotations; // All annotations for comment sections
+  const revisionNumbers = useMemo(() => {
+    const set = new Set<number>();
+    const currentRevision = asset?.revision_count ?? 0;
+    set.add(0);
+    set.add(currentRevision);
+    annotations.forEach((annotation) => {
+      const rev = getAnnotationRevisionNumber(annotation);
+      if (typeof rev === "number") set.add(rev);
+    });
+    comments.forEach((comment) => {
+      const rev = getCommentRevisionNumber(comment);
+      if (typeof rev === "number") set.add(rev);
+    });
+    return Array.from(set).sort((a, b) => a - b);
+  }, [annotations, comments, asset?.revision_count]);
+  const viewingCurrentRevision =
+    activeRevision === (asset?.revision_count ?? 0);
+  const feedbackLocked = !viewingCurrentRevision;
 
   // Convert annotations to hotspots format (exclude old annotations from model viewer)
   const hotspots: Hotspot[] = filteredAnnotations
@@ -1906,8 +1978,9 @@ export default function ModelerReviewPage() {
     // Warn and block if trying to deliver without correct GLB naming
     if (newStatus === "delivered_by_artist") {
       // Check qaStatus from options first (for Auto QA), then fall back to state
-      const isQAApproved = options?.qaStatus !== undefined ? options.qaStatus : qaApproved;
-      
+      const isQAApproved =
+        options?.qaStatus !== undefined ? options.qaStatus : qaApproved;
+
       // Block delivery if QA is not approved
       if (isQAApproved === false) {
         toast.error(
@@ -1976,12 +2049,17 @@ export default function ModelerReviewPage() {
 
         if (updateError) {
           console.error("Supabase update error:", updateError);
-          throw new Error(`Failed to update status: ${updateError.message || updateError.code || "Unknown error"}`);
+          throw new Error(
+            `Failed to update status: ${updateError.message || updateError.code || "Unknown error"}`
+          );
         }
-        
+
         // Log success for debugging
         if (updateDataResult && updateDataResult.length > 0) {
-          console.log("Status updated successfully:", updateDataResult[0].status);
+          console.log(
+            "Status updated successfully:",
+            updateDataResult[0].status
+          );
         }
 
         // Create a mock response object for consistency
@@ -2024,7 +2102,7 @@ export default function ModelerReviewPage() {
 
       // Update local asset state immediately
       setAsset((prev) => (prev ? { ...prev, status: newStatus } : null));
-      
+
       // Also refetch from database to ensure consistency
       try {
         const { data: refreshedAsset, error: refreshError } = await supabase
@@ -2032,12 +2110,15 @@ export default function ModelerReviewPage() {
           .select("*")
           .eq("id", asset.id)
           .single();
-        
+
         if (!refreshError && refreshedAsset) {
           setAsset(refreshedAsset);
         }
       } catch (refreshErr) {
-        console.error("Error refreshing asset after status update:", refreshErr);
+        console.error(
+          "Error refreshing asset after status update:",
+          refreshErr
+        );
         // Continue anyway - local state is already updated
       }
 
@@ -2128,7 +2209,8 @@ export default function ModelerReviewPage() {
       }
     } catch (error) {
       console.error("Error updating status:", error);
-      const errorMessage = error instanceof Error ? error.message : "Failed to update status";
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to update status";
       toast.error(errorMessage);
       setStatusUpdating(false);
       // Re-throw error so calling code can handle it
@@ -2136,7 +2218,7 @@ export default function ModelerReviewPage() {
     } finally {
       setStatusUpdating(false);
     }
-    
+
     // If status is delivered_by_artist, also update qaApproved state
     if (newStatus === "delivered_by_artist") {
       setQaApproved(true);
@@ -2154,6 +2236,7 @@ export default function ModelerReviewPage() {
           asset_id: assetId,
           comment: newCommentText.trim(),
           created_by: user?.id,
+          revision_number: asset?.revision_count ?? 0,
         })
         .select(
           `
@@ -2200,6 +2283,7 @@ export default function ModelerReviewPage() {
           asset_id: assetId,
           comment: `NOTE: ${newNote.trim()}`,
           created_by: user.id,
+          revision_number: asset?.revision_count ?? 0,
         })
         .select(
           `
@@ -2484,6 +2568,7 @@ export default function ModelerReviewPage() {
             comment: replyText.trim(),
             parent_id: replyingTo.id,
             created_by: user.id,
+            revision_number: asset?.revision_count ?? 0,
           })
           .select(`*, profiles:created_by (title, role, email)`)
           .single();
@@ -2890,10 +2975,19 @@ export default function ModelerReviewPage() {
                 </div>
               </div>
               <div className="flex items-center gap-3 sm:gap-4">
+                {!viewingCurrentRevision && (
+                  <div className="bg-blue-50 border border-blue-200 rounded px-2 py-1 text-xs text-blue-800 flex items-center gap-2">
+                    <AlertTriangle className="h-3 w-3" />
+                    <span>
+                      Viewing revision {activeRevision}. Switch to revision{" "}
+                      {asset?.revision_count ?? 0} to add or edit feedback.
+                    </span>
+                  </div>
+                )}
                 <div className="flex items-center gap-2 sm:gap-3">
                   <div className="text-center">
                     <div className="text-sm sm:text-lg font-bold text-foreground">
-                      {filteredAnnotations.length}
+                      {displayedAnnotations.length}
                     </div>
                     <div className="text-xs text-muted-foreground">
                       <span className="hidden sm:inline">Annotations</span>
@@ -2903,7 +2997,7 @@ export default function ModelerReviewPage() {
                   <div className="w-px h-6 sm:h-8 bg-border"></div>
                   <div className="text-center">
                     <div className="text-sm sm:text-lg font-bold text-foreground">
-                      {comments.length}
+                      {displayedComments.length}
                     </div>
                     <div className="text-xs text-muted-foreground">
                       <span className="hidden sm:inline">Comments</span>
@@ -3001,11 +3095,11 @@ export default function ModelerReviewPage() {
                         <CheckCircle className="h-3 w-3" />
                       )}
                       <span className="hidden sm:inline ml-1">
-                        {qaApproved === null 
-                          ? "Run Auto QA" 
+                        {qaApproved === null
+                          ? "Run Auto QA"
                           : asset?.status === "delivered_by_artist"
-                          ? "Delivered"
-                          : "Delivered"}
+                            ? "Delivered"
+                            : "Delivered"}
                       </span>
                     </Button>
 
@@ -3147,7 +3241,7 @@ export default function ModelerReviewPage() {
                             data-annotation={
                               filteredAnnotations
                                 .sort(
-                                  (a, b) =>
+                                  (a: Annotation, b: Annotation) =>
                                     new Date(a.created_at).getTime() -
                                     new Date(b.created_at).getTime()
                                 )
@@ -3172,7 +3266,7 @@ export default function ModelerReviewPage() {
                             <div className="hotspot-number">
                               {filteredAnnotations
                                 .sort(
-                                  (a, b) =>
+                                  (a: Annotation, b: Annotation) =>
                                     new Date(a.created_at).getTime() -
                                     new Date(b.created_at).getTime()
                                 )
@@ -3244,10 +3338,12 @@ export default function ModelerReviewPage() {
                 <div className="flex items-center gap-1 sm:gap-2">
                   <MessageCircle className="h-3 w-3 sm:h-4 sm:w-4" />
                   <span className="hidden sm:inline">
-                    Feedback ({allAnnotations.length + comments.length})
+                    Feedback (
+                    {displayedAnnotations.length + displayedComments.length})
                   </span>
                   <span className="sm:hidden">
-                    Feedback ({allAnnotations.length + comments.length})
+                    Feedback (
+                    {displayedAnnotations.length + displayedComments.length})
                   </span>
                 </div>
               </button>
@@ -3774,6 +3870,60 @@ export default function ModelerReviewPage() {
                     Feedback
                   </h4>
                 </div>
+                {revisionNumbers.length > 1 && (
+                  <div className="mb-4 sm:mb-6 space-y-2">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-3">
+                      <div>
+                        <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                          Viewing Revision
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Switch between revision rounds to see associated
+                          feedback.
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {activeRevision !== (asset?.revision_count ?? 0) && (
+                          <Badge variant="secondary" className="text-xs">
+                            Latest: R{asset?.revision_count ?? 0}
+                          </Badge>
+                        )}
+                        <Select
+                          value={String(activeRevision)}
+                          onValueChange={(value) =>
+                            setActiveRevision(Number(value))
+                          }
+                        >
+                          <SelectTrigger className="h-9 w-full sm:w-[220px] text-sm">
+                            <SelectValue
+                              placeholder={`Revision ${activeRevision}`}
+                            />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {revisionNumbers.map((rev) => (
+                              <SelectItem key={rev} value={String(rev)}>
+                                {rev === (asset?.revision_count ?? 0)
+                                  ? `Revision ${rev} (Current)`
+                                  : rev === 0
+                                    ? "Revision 0 (Original)"
+                                    : `Revision ${rev}`}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    {!viewingCurrentRevision && (
+                      <div className="bg-blue-50 border border-blue-200 rounded px-2 py-1 text-xs text-blue-800 flex items-center gap-2">
+                        <AlertTriangle className="h-3 w-3" />
+                        <span>
+                          Viewing revision {activeRevision}. Switch to revision{" "}
+                          {asset?.revision_count ?? 0} to reply to feedback.
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Comment Section with Min Height */}
                 <div className="min-h-[300px] sm:min-h-[400px] flex flex-col">
@@ -3785,12 +3935,19 @@ export default function ModelerReviewPage() {
                         value={newCommentText}
                         onChange={(e) => setNewCommentText(e.target.value)}
                         onKeyDown={handleNewCommentKeyDown}
-                        className="min-h-[80px] sm:min-h-[100px] border-border focus:border-primary focus:ring-primary text-xs sm:text-sm"
+                        disabled={feedbackLocked}
+                        className={`min-h-[80px] sm:min-h-[100px] border-border focus:border-primary focus:ring-primary text-xs sm:text-sm ${
+                          feedbackLocked ? "opacity-50 cursor-not-allowed" : ""
+                        }`}
                         rows={3}
                       />
                       <div className="flex gap-2 text-xs text-muted-foreground">
                         <span>
-                          Press Enter to send, Shift+Enter for new line
+                          {feedbackLocked
+                            ? `Switch to revision ${
+                                asset?.revision_count ?? 0
+                              } to add new comments.`
+                            : "Press Enter to send, Shift+Enter for new line"}
                         </span>
                       </div>
                     </div>
@@ -3800,13 +3957,13 @@ export default function ModelerReviewPage() {
                   <div className="flex-1 overflow-y-auto">
                     <div className="space-y-3 sm:space-y-4">
                       {[
-                        ...allAnnotations
+                        ...displayedAnnotations
                           .filter((a: any) => !a.parent_id)
                           .map((a) => ({
                             ...a,
                             type: "annotation" as const,
                           })),
-                        ...comments
+                        ...displayedComments
                           .filter((c: any) => !c.parent_id)
                           .map((c) => ({
                             ...c,
@@ -3814,7 +3971,7 @@ export default function ModelerReviewPage() {
                           })),
                       ]
                         .sort(
-                          (a, b) =>
+                          (a: any, b: any) =>
                             new Date(a.created_at).getTime() -
                             new Date(b.created_at).getTime()
                         )
@@ -3837,9 +3994,9 @@ export default function ModelerReviewPage() {
                                       <MessageCircle className="h-3 w-3 sm:h-4 sm:w-4 text-primary" />
                                     </div>
                                     <div className="absolute -top-1 -right-1 sm:-top-2 sm:-right-2 w-4 h-4 sm:w-5 sm:h-5 rounded-full flex items-center justify-center text-white text-xs font-bold bg-amber-500">
-                                      {allAnnotations
+                                      {displayedAnnotations
                                         .sort(
-                                          (a, b) =>
+                                          (a: any, b: any) =>
                                             new Date(a.created_at).getTime() -
                                             new Date(b.created_at).getTime()
                                         )
@@ -3862,6 +4019,27 @@ export default function ModelerReviewPage() {
                                         {item.is_old_annotation
                                           ? "Old Annotation"
                                           : "Annotation"}
+                                      </Badge>
+                                      <Badge
+                                        variant="outline"
+                                        className="text-[10px] leading-tight flex-shrink-0"
+                                      >
+                                        {(() => {
+                                          const annotationRevision =
+                                            getAnnotationRevisionNumber(item);
+                                          const displayRevision =
+                                            item.is_old_annotation
+                                              ? Math.min(
+                                                  annotationRevision,
+                                                  Math.max(
+                                                    0,
+                                                    (asset?.revision_count ??
+                                                      0) - 1
+                                                  )
+                                                )
+                                              : annotationRevision;
+                                          return <>R{displayRevision}</>;
+                                        })()}
                                       </Badge>
                                       {item.is_old_annotation && (
                                         <Badge
@@ -4097,6 +4275,12 @@ export default function ModelerReviewPage() {
                                       >
                                         Comment
                                       </Badge>
+                                      <Badge
+                                        variant="outline"
+                                        className="text-[10px] leading-tight"
+                                      >
+                                        R{getCommentRevisionNumber(item)}
+                                      </Badge>
                                     </div>
                                     {item.profiles?.title && (
                                       <Badge
@@ -4245,7 +4429,9 @@ export default function ModelerReviewPage() {
                           )
                         )}
 
-                      {allAnnotations.length + comments.length === 0 && (
+                      {displayedAnnotations.length +
+                        displayedComments.length ===
+                        0 && (
                         <div className="text-center py-12">
                           <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
                             <MessageCircle className="h-8 w-8 text-muted-foreground" />
@@ -4396,7 +4582,7 @@ export default function ModelerReviewPage() {
             setQaApproved(isApproved);
             setShowQADialog(false);
             toast.info(`QA Analysis Complete: ${results?.status}`);
-            
+
             // If approved, set status directly to delivered_by_artist (Auto QA automatically delivers)
             if (isApproved) {
               try {
@@ -4408,8 +4594,13 @@ export default function ModelerReviewPage() {
                 setAutoQATriggered(true);
                 toast.success("Model approved by Auto QA and delivered!");
               } catch (error) {
-                console.error("Error updating status to delivered_by_artist:", error);
-                toast.error("QA approved but failed to update status. Please try again.");
+                console.error(
+                  "Error updating status to delivered_by_artist:",
+                  error
+                );
+                toast.error(
+                  "QA approved but failed to update status. Please try again."
+                );
               }
             } else {
               // If not approved, reset auto-trigger so user can try again

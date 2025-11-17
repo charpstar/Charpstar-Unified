@@ -109,6 +109,7 @@ export async function POST(request: NextRequest) {
       comment,
       image_url,
       parent_id,
+      revision_number,
     } = body;
 
     // For replies (when parent_id is provided) we don't require position/normal
@@ -124,28 +125,50 @@ export async function POST(request: NextRequest) {
     let effectiveNormal: string | null = normal || null;
     let effectiveSurface: string | null = surface || null;
 
+    let revisionNumber =
+      typeof revision_number === "number" ? revision_number : null;
+
     if (parent_id) {
+      const { data: parent, error: parentError } = await supabase
+        .from("asset_annotations")
+        .select("asset_id, position, normal, surface, revision_number")
+        .eq("id", parent_id)
+        .single();
+      if (parentError || !parent) {
+        return NextResponse.json(
+          { error: "Invalid parent annotation" },
+          { status: 400 }
+        );
+      }
+      if (parent.asset_id !== asset_id) {
+        return NextResponse.json(
+          { error: "Parent annotation does not match asset" },
+          { status: 400 }
+        );
+      }
       if (!effectivePosition || !effectiveNormal) {
-        const { data: parent, error: parentError } = await supabase
-          .from("asset_annotations")
-          .select("asset_id, position, normal, surface")
-          .eq("id", parent_id)
-          .single();
-        if (parentError || !parent) {
-          return NextResponse.json(
-            { error: "Invalid parent annotation" },
-            { status: 400 }
-          );
-        }
-        if (parent.asset_id !== asset_id) {
-          return NextResponse.json(
-            { error: "Parent annotation does not match asset" },
-            { status: 400 }
-          );
-        }
         effectivePosition = effectivePosition || parent.position;
         effectiveNormal = effectiveNormal || parent.normal;
         effectiveSurface = effectiveSurface || parent.surface || null;
+      }
+      revisionNumber =
+        typeof parent.revision_number === "number"
+          ? parent.revision_number
+          : revisionNumber;
+    }
+
+    if (revisionNumber === null || revisionNumber === undefined) {
+      const { data: assetRow, error: assetError } = await supabase
+        .from("onboarding_assets")
+        .select("revision_count")
+        .eq("id", asset_id)
+        .single();
+
+      if (assetError) {
+        console.error("Error fetching asset revision count:", assetError);
+        revisionNumber = 0;
+      } else {
+        revisionNumber = assetRow?.revision_count ?? 0;
       }
     }
 
@@ -159,6 +182,7 @@ export async function POST(request: NextRequest) {
       parent_id: parent_id || null,
       created_by: session.user.id,
       created_at: new Date().toISOString(),
+      revision_number: revisionNumber ?? 0,
     };
 
     const { data, error } = await supabase

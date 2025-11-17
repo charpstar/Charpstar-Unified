@@ -56,6 +56,16 @@ export async function PATCH(
 
     if (action === "approve") {
       // Insert the reply as a regular comment
+      let resolvedRevisionNumber = pendingReply.revision_number;
+      if (typeof resolvedRevisionNumber !== "number") {
+        const { data: assetRow } = await supabaseAdmin
+          .from("onboarding_assets")
+          .select("revision_count")
+          .eq("id", pendingReply.asset_id)
+          .single();
+        resolvedRevisionNumber = assetRow?.revision_count ?? 0;
+      }
+
       const { data: newComment, error: commentError } = await supabaseAdmin
         .from("asset_comments")
         .insert({
@@ -63,6 +73,7 @@ export async function PATCH(
           comment: pendingReply.reply_text,
           parent_id: pendingReply.parent_comment_id,
           created_by: pendingReply.created_by,
+          revision_number: resolvedRevisionNumber ?? 0,
         })
         .select(`*, profiles:created_by (title, role, email)`)
         .single();

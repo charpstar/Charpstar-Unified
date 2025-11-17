@@ -51,6 +51,7 @@ import {
   X,
   Eye,
   AlertTriangle,
+  AlertCircle,
   FileText,
   Link as LinkIcon,
   Trash2,
@@ -77,6 +78,13 @@ interface ProductForm {
   parent_article_id?: string; // For variations only
   variation_index?: number; // Index for variations
   additional_article_ids?: string[];
+}
+
+interface ReferenceLibraryItem {
+  id: string;
+  type: "url" | "file";
+  label: string;
+  value: string;
 }
 
 const STORAGE_KEY = "add-products-cache";
@@ -180,13 +188,15 @@ const loadFromStorage = () => {
 // Helper to save to localStorage
 const saveToStorage = (
   products: ProductForm[],
-  expandedVariations: Set<number>
+  expandedVariations: Set<number>,
+  referenceLibrary: ReferenceLibraryItem[]
 ) => {
   if (typeof window === "undefined") return;
   try {
     const data = {
       products: serializeProducts(products),
       expandedVariations: Array.from(expandedVariations),
+      referenceLibrary,
       timestamp: Date.now(),
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
@@ -211,6 +221,12 @@ export default function AddProductsPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [currentBatch, setCurrentBatch] = useState<number>(1);
+  const primaryClientName =
+    typeof user?.metadata?.client === "string"
+      ? user.metadata.client
+      : Array.isArray(user?.metadata?.client)
+        ? (user?.metadata?.client[0] ?? "")
+        : "";
 
   // Initialize products from localStorage if available
   const getInitialProducts = (): ProductForm[] => {
@@ -267,29 +283,53 @@ export default function AddProductsPage() {
     ];
   };
 
+  const getInitialReferenceLibrary = (): ReferenceLibraryItem[] => {
+    if (typeof window === "undefined") {
+      return [];
+    }
+    const cached = loadFromStorage();
+    if (cached && Array.isArray(cached.referenceLibrary)) {
+      return cached.referenceLibrary;
+    }
+    return [];
+  };
+
   const [products, setProducts] = useState<ProductForm[]>(getInitialProducts);
   const hasRestoredRef = useRef(false);
+  const [referenceLibrary, setReferenceLibrary] = useState<
+    ReferenceLibraryItem[]
+  >(getInitialReferenceLibrary);
+  const [selectedRowIds, setSelectedRowIds] = useState<Set<number>>(new Set());
+  const [selectedLibraryIds, setSelectedLibraryIds] = useState<Set<string>>(
+    new Set()
+  );
+  const [libraryUrlInput, setLibraryUrlInput] = useState("");
+  const [libraryUploading, setLibraryUploading] = useState(false);
+  const libraryFileInputRef = useRef<HTMLInputElement>(null);
 
   // Check if we initialized from cache
   useEffect(() => {
     const cached = loadFromStorage();
-    if (cached && cached.products && cached.products.length > 0) {
+    if (cached) {
       const cacheAge = Date.now() - (cached.timestamp || 0);
       const maxAge = 24 * 60 * 60 * 1000;
       if (cacheAge < maxAge) {
-        const hasData = cached.products.some(
-          (p: ProductForm) =>
-            p.article_id.trim() ||
-            p.product_name.trim() ||
-            p.product_link.trim() ||
-            p.references.length > 0
-        );
-        if (hasData) {
+        const hasProductData =
+          cached.products &&
+          cached.products.some(
+            (p: ProductForm) =>
+              p.article_id.trim() ||
+              p.product_name.trim() ||
+              p.product_link.trim() ||
+              p.references.length > 0
+          );
+        const hasLibraryData =
+          cached.referenceLibrary && cached.referenceLibrary.length > 0;
+        if (hasProductData || hasLibraryData) {
           hasRestoredRef.current = true;
         }
       }
     }
-    // Set to true after initial check to allow saving
     setTimeout(() => {
       hasRestoredRef.current = true;
     }, 100);
@@ -373,6 +413,10 @@ export default function AddProductsPage() {
   >(null);
   const [variationsCount, setVariationsCount] = useState<string>("1");
 
+  useEffect(() => {
+    setSelectedRowIds(new Set());
+  }, [products.length]);
+
   // Show restore notification if data was loaded from cache
   useEffect(() => {
     if (!pageLoading && !hasRestoredRef.current) {
@@ -405,13 +449,8 @@ export default function AddProductsPage() {
 
   // Save to localStorage whenever products or expandedVariations change
   useEffect(() => {
-    // Skip saving during initial restore
     if (!hasRestoredRef.current) return;
 
-    // Skip initial empty state
-    if (products.length === 0) return;
-
-    // Check if there's any actual data to save
     const hasData = products.some(
       (p) =>
         p.article_id.trim() ||
@@ -421,13 +460,14 @@ export default function AddProductsPage() {
         (p.variations && p.variations.length > 0)
     );
 
-    if (hasData) {
-      saveToStorage(products, expandedVariations);
+    const shouldSave = hasData || referenceLibrary.length > 0;
+
+    if (shouldSave) {
+      saveToStorage(products, expandedVariations, referenceLibrary);
     } else {
-      // Clear storage if form is empty
       clearStorage();
     }
-  }, [products, expandedVariations]);
+  }, [products, expandedVariations, referenceLibrary]);
 
   // Fetch client variation contract status
   useEffect(() => {
@@ -582,6 +622,169 @@ export default function AddProductsPage() {
       setCollectingImages(false);
     }
   };
+
+  const addReferenceLibraryItem = (item: ReferenceLibraryItem) => {
+    setReferenceLibrary((prev) => {
+      if (prev.some((existing) => existing.value === item.value)) {
+        return prev;
+      }
+      return [...prev, item];
+    });
+  };
+
+  const handleAddLibraryUrl = () => {
+    const url = libraryUrlInput.trim();
+    if (!url) return;
+    addReferenceLibraryItem({
+      id: `lib-${Date.now()}`,
+      type: "url",
+      label: url,
+      value: url,
+    });
+    setLibraryUrlInput("");
+    toast.success("Reference added to library");
+  };
+
+  const handleLibraryFileUpload = async (file: File) => {
+    if (!file) return;
+    if (!primaryClientName) {
+      toast.error("Client information missing. Please re-login.");
+      return;
+    }
+    setLibraryUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("client_name", primaryClientName);
+
+      const response = await fetch("/api/assets/upload-file", {
+        method: "POST",
+        body: formData,
+        credentials: "include",
+      });
+
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+
+      const data = await response.json();
+      if (data?.url) {
+        addReferenceLibraryItem({
+          id: `lib-${Date.now()}`,
+          type: "file",
+          label: file.name,
+          value: data.url,
+        });
+        toast.success(`Uploaded ${file.name}`);
+      }
+    } catch (error) {
+      console.error("Error uploading reference:", error);
+      toast.error("Failed to upload reference file");
+    } finally {
+      setLibraryUploading(false);
+      if (libraryFileInputRef.current) {
+        libraryFileInputRef.current.value = "";
+      }
+    }
+  };
+
+  const handleLibraryFileChange = (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      void handleLibraryFileUpload(file);
+    }
+  };
+
+  const removeLibraryItem = (id: string) => {
+    setReferenceLibrary((prev) => prev.filter((item) => item.id !== id));
+    setSelectedLibraryIds((prev) => {
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+  };
+
+  const handleRowSelectionChange = (index: number, checked: boolean) => {
+    setSelectedRowIds((prev) => {
+      const next = new Set(prev);
+      if (checked) {
+        next.add(index);
+      } else {
+        next.delete(index);
+      }
+      return next;
+    });
+  };
+
+  const handleSelectAllRows = (checked: boolean) => {
+    if (checked) {
+      setSelectedRowIds(new Set(products.map((_, idx) => idx)));
+    } else {
+      setSelectedRowIds(new Set());
+    }
+  };
+
+  const handleLibrarySelectionChange = (id: string, checked: boolean) => {
+    setSelectedLibraryIds((prev) => {
+      const next = new Set(prev);
+      if (checked) {
+        next.add(id);
+      } else {
+        next.delete(id);
+      }
+      return next;
+    });
+  };
+
+  const applyReferencesToSelectedRows = () => {
+    if (!selectedRowIds.size || !selectedLibraryIds.size) {
+      toast.error("Select rows and references before applying");
+      return;
+    }
+
+    const selectedReferences = referenceLibrary.filter((item) =>
+      selectedLibraryIds.has(item.id)
+    );
+
+    if (selectedReferences.length === 0) {
+      toast.error("No references selected");
+      return;
+    }
+
+    setProducts((prev) =>
+      prev.map((product, index) => {
+        if (!selectedRowIds.has(index)) return product;
+        const existingReferences = product.references || [];
+        const existingValues = new Set(
+          existingReferences.map((ref) => ref.value)
+        );
+        const newReferences = [
+          ...existingReferences,
+          ...selectedReferences
+            .filter((ref) => !existingValues.has(ref.value))
+            .map((ref) => ({
+              type: "url" as const,
+              value: ref.value,
+            })),
+        ];
+        return {
+          ...product,
+          references: newReferences,
+        };
+      })
+    );
+
+    toast.success(
+      `Applied ${selectedReferences.length} reference${
+        selectedReferences.length === 1 ? "" : "s"
+      } to ${selectedRowIds.size} row${selectedRowIds.size === 1 ? "" : "s"}`
+    );
+  };
+
+  const selectedRowsCount = selectedRowIds.size;
+  const selectedLibraryCount = selectedLibraryIds.size;
 
   // Fetch current batch number for this client
   useEffect(() => {
@@ -1941,6 +2144,18 @@ export default function AddProductsPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-[36px] text-center text-xs">
+                        <Checkbox
+                          aria-label="Select all rows"
+                          checked={
+                            products.length > 0 &&
+                            selectedRowIds.size === products.length
+                          }
+                          onCheckedChange={(checked) =>
+                            handleSelectAllRows(checked === true)
+                          }
+                        />
+                      </TableHead>
                       <TableHead className="w-[40px] text-xs">#</TableHead>
                       {isVariationContracted && (
                         <TableHead className="w-[50px] text-xs">
@@ -1996,6 +2211,18 @@ export default function AddProductsPage() {
                             key={index}
                             className={product.is_parent ? "bg-primary/5" : ""}
                           >
+                            <TableCell className="p-2 align-top text-center">
+                              <Checkbox
+                                aria-label={`Select row ${index + 1}`}
+                                checked={selectedRowIds.has(index)}
+                                onCheckedChange={(checked) =>
+                                  handleRowSelectionChange(
+                                    index,
+                                    checked === true
+                                  )
+                                }
+                              />
+                            </TableCell>
                             <TableCell className="font-medium text-xs">
                               {index + 1}
                             </TableCell>
@@ -2317,6 +2544,7 @@ export default function AddProductsPage() {
                                 key={`${index}-var-${vIndex}`}
                                 className="bg-muted/30"
                               >
+                                <TableCell className="p-2" />
                                 <TableCell className="font-medium text-muted-foreground text-xs p-2">
                                   <div className="flex items-center gap-1">
                                     <ChevronRight className="h-3 w-3" />V
@@ -2573,6 +2801,169 @@ export default function AddProductsPage() {
 
         {/* Sidebar */}
         <div className="w-80 space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5" />
+                Reference Library
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      className="text-muted-foreground hover:text-foreground"
+                      aria-label="How to use reference library"
+                    >
+                      <AlertCircle className="h-4 w-4" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent className="text-xs max-w-[220px]">
+                    1) Add URLs or upload files once. <br />
+                    2) Select rows in the table. <br />
+                    3) Check the references to reuse and click &quot;Apply
+                    Selected References&quot; to attach them to all selected
+                    rows.
+                  </TooltipContent>
+                </Tooltip>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="text-xs text-muted-foreground space-y-1">
+                <p>
+                  Selected rows:{" "}
+                  <span className="font-semibold text-foreground">
+                    {selectedRowsCount}
+                  </span>
+                </p>
+                <p>
+                  Selected references:{" "}
+                  <span className="font-semibold text-foreground">
+                    {selectedLibraryCount}
+                  </span>
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-xs font-medium text-muted-foreground">
+                  Add reference URL
+                </Label>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="https://example.com/reference.jpg"
+                    value={libraryUrlInput}
+                    onChange={(e) => setLibraryUrlInput(e.target.value)}
+                    className="h-8 text-xs"
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 cursor-pointer"
+                    disabled={!libraryUrlInput.trim()}
+                    onClick={handleAddLibraryUrl}
+                  >
+                    Add URL
+                  </Button>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-xs font-medium text-muted-foreground">
+                  Upload reference file
+                </Label>
+                <div className="flex gap-2">
+                  <input
+                    ref={libraryFileInputRef}
+                    type="file"
+                    className="hidden"
+                    accept="image/*,.pdf"
+                    onChange={handleLibraryFileChange}
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 cursor-pointer"
+                    onClick={() => libraryFileInputRef.current?.click()}
+                    disabled={libraryUploading}
+                  >
+                    {libraryUploading ? (
+                      <>
+                        <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                        Uploading
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="h-3 w-3 mr-1" />
+                        Upload File
+                      </>
+                    )}
+                  </Button>
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  Supports images and PDF files. Uploaded files are stored once
+                  and can be applied to multiple rows.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-xs font-medium text-muted-foreground">
+                  Library Items ({referenceLibrary.length})
+                </Label>
+                <div className="max-h-48 overflow-y-auto border rounded-lg divide-y">
+                  {referenceLibrary.length === 0 ? (
+                    <div className="text-xs text-muted-foreground p-3 text-center">
+                      No references yet. Add URLs or upload files to reuse them
+                      across rows.
+                    </div>
+                  ) : (
+                    referenceLibrary.map((item) => (
+                      <div
+                        className="flex items-center gap-2 p-2"
+                        key={item.id}
+                      >
+                        <Checkbox
+                          checked={selectedLibraryIds.has(item.id)}
+                          onCheckedChange={(checked) =>
+                            handleLibrarySelectionChange(
+                              item.id,
+                              checked === true
+                            )
+                          }
+                          aria-label={`Select reference ${item.label}`}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium truncate">
+                            {item.label}
+                          </p>
+                          <p className="text-[11px] text-muted-foreground truncate">
+                            {item.type === "file"
+                              ? "Uploaded file"
+                              : item.value}
+                          </p>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                          onClick={() => removeLibraryItem(item.id)}
+                          aria-label="Remove reference"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              <Button
+                onClick={applyReferencesToSelectedRows}
+                disabled={selectedRowsCount === 0 || selectedLibraryCount === 0}
+                className="w-full cursor-pointer"
+              >
+                Apply Selected References
+              </Button>
+            </CardContent>
+          </Card>
+
           {/* CSV Upload */}
           <Card>
             <CardHeader>

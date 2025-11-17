@@ -83,6 +83,7 @@ interface Annotation {
   };
   parent_id?: string;
   is_old_annotation?: boolean;
+  revision_number?: number | null;
 }
 
 interface Hotspot {
