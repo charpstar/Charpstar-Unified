@@ -88,6 +88,25 @@ export async function POST(request: NextRequest) {
     // Skip verification for speed - let the actual upload fail if there's an issue
     // Storage zone validation was too slow (added ~5-10 seconds to every upload)
 
+    // For reference images, fetch article_id to include in path
+    let articleId = null;
+    if (fileType === "reference") {
+      try {
+        const { data: assetData } = await supabase
+          .from("onboarding_assets")
+          .select("article_id")
+          .eq("id", assetId)
+          .single();
+
+        if (assetData?.article_id) {
+          articleId = assetData.article_id.toString().replace(/[^a-zA-Z0-9._-]/g, "_");
+        }
+      } catch (error) {
+        console.error("Error fetching article_id for reference upload:", error);
+        // Continue without article_id if fetch fails
+      }
+    }
+
     // Determine storage path based on file type
     let storagePath = "";
     if (useCustomStructure) {
@@ -95,7 +114,12 @@ export async function POST(request: NextRequest) {
       if (fileType === "glb") {
         storagePath = `QC/${baseFileName}`;
       } else if (fileType === "reference") {
-        storagePath = `reference/${baseFileName}`;
+        // For custom structure, include article_id if available
+        if (articleId) {
+          storagePath = `${articleId}/reference/${baseFileName}`;
+        } else {
+          storagePath = `reference/${baseFileName}`;
+        }
       } else {
         storagePath = `assets/${baseFileName}`;
       }
@@ -104,7 +128,13 @@ export async function POST(request: NextRequest) {
       if (fileType === "glb") {
         storagePath = `${sanitizedClientName}/QC/${baseFileName}`;
       } else if (fileType === "reference") {
-        storagePath = `${sanitizedClientName}/reference/${baseFileName}`;
+        // Include article_id in path: client-name/article-id/reference/filename
+        if (articleId) {
+          storagePath = `${sanitizedClientName}/${articleId}/reference/${baseFileName}`;
+        } else {
+          // Fallback to old structure if article_id not available
+          storagePath = `${sanitizedClientName}/reference/${baseFileName}`;
+        }
       } else {
         storagePath = `${sanitizedClientName}/assets/${baseFileName}`;
       }
