@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Card,
@@ -442,36 +442,6 @@ export default function AdminAnalyticsPage() {
   const user = useUser();
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-  
-  // Date range for Generator and Render analytics (last 30 days by default)
-  const dateRange = {
-    from: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
-    to: new Date(),
-  };
-
-  // Fetch Generator analytics
-  const { data: generatorData, isLoading: isGeneratorLoading } = useSWR(
-    dateRange.from && dateRange.to
-      ? `/api/analytics/generator?startDate=${dateRange.from.toISOString()}&endDate=${dateRange.to.toISOString()}`
-      : null,
-    fetcher,
-    {
-      revalidateOnFocus: false,
-      refreshInterval: 5 * 60 * 1000,
-    }
-  );
-
-  // Fetch Product Render analytics
-  const { data: renderData, isLoading: isRenderLoading } = useSWR(
-    dateRange.from && dateRange.to
-      ? `/api/analytics/product-render?startDate=${dateRange.from.toISOString()}&endDate=${dateRange.to.toISOString()}`
-      : null,
-    fetcher,
-    {
-      revalidateOnFocus: false,
-      refreshInterval: 5 * 60 * 1000,
-    }
-  );
 
   // Get current tab from URL params, default to "overview"
   const currentTab = searchParams.get("tab") || "overview";
@@ -486,6 +456,49 @@ export default function AdminAnalyticsPage() {
     "qa-statistics",
   ];
   const activeTab = validTabs.includes(currentTab) ? currentTab : "overview";
+
+  // Date range for Generator and Render analytics (last 30 days by default)
+  // Memoized to prevent infinite re-renders
+  const dateRange = useMemo(() => {
+    const from = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const to = new Date();
+    return {
+      from: from.toISOString(),
+      to: to.toISOString(),
+    };
+  }, []); // Empty deps - only calculate once
+
+  // Only fetch when on the relevant tab to prevent unnecessary calls
+  const shouldFetchGenerator = activeTab === "generator";
+  const shouldFetchRender = activeTab === "product-render";
+
+  // Fetch Generator analytics - only when tab is active
+  const { data: generatorData, isLoading: isGeneratorLoading } = useSWR(
+    shouldFetchGenerator
+      ? `/api/analytics/generator?startDate=${dateRange.from}&endDate=${dateRange.to}`
+      : null,
+    fetcher,
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: false,
+      refreshInterval: 0, // Disable auto-refresh to prevent spam
+      dedupingInterval: 60000, // Cache for 1 minute
+    }
+  );
+
+  // Fetch Product Render analytics - only when tab is active
+  const { data: renderData, isLoading: isRenderLoading } = useSWR(
+    shouldFetchRender
+      ? `/api/analytics/product-render?startDate=${dateRange.from}&endDate=${dateRange.to}`
+      : null,
+    fetcher,
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: false,
+      refreshInterval: 0, // Disable auto-refresh to prevent spam
+      dedupingInterval: 60000, // Cache for 1 minute
+    }
+  );
 
   // Handler to update URL when tab changes
   const handleTabChange = (value: string) => {
@@ -4460,9 +4473,9 @@ export default function AdminAnalyticsPage() {
               </p>
             </div>
           </div>
-          <GeneratorAnalytics 
-            data={generatorData} 
-            isLoading={isGeneratorLoading} 
+          <GeneratorAnalytics
+            data={generatorData}
+            isLoading={isGeneratorLoading}
           />
         </TabsContent>
 
@@ -4476,9 +4489,9 @@ export default function AdminAnalyticsPage() {
               </p>
             </div>
           </div>
-          <ProductRenderAnalytics 
-            data={renderData} 
-            isLoading={isRenderLoading} 
+          <ProductRenderAnalytics
+            data={renderData}
+            isLoading={isRenderLoading}
           />
         </TabsContent>
 
