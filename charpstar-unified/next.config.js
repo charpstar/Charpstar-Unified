@@ -1,11 +1,20 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   transpilePackages: ["@radix-ui/react-select", "@radix-ui/react-popover"],
-  webpack: (config) => {
+  webpack: (config, { isServer }) => {
     config.resolve.fallback = {
       ...config.resolve.fallback,
       fs: false,
     };
+    
+    // Exclude google-auth-library from client-side bundle
+    if (!isServer) {
+      config.resolve.alias = {
+        ...config.resolve.alias,
+        'google-auth-library': false,
+      };
+    }
+    
     return config;
   },
   images: {

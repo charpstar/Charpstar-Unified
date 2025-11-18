@@ -48,6 +48,7 @@ const TITLES = {
   "/admin/clients": "Client Information",
   "/admin/bug-reports": "Bug Reports",
   "/scene-render": "Scene Render",
+  "/video-gen": "Video Gen AI",
   "/texture-library": "Texture Library",
   "/faq": "FAQ",
   "/modular-3d-creator": "Modular 3D Creator",

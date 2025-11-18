@@ -23,6 +23,7 @@ import {
   Monitor,
   Ticket,
   Upload,
+  Film,
 } from "lucide-react";
 
 import NavMain from "@/components/navigation/nav-main";
@@ -282,6 +283,11 @@ export default function AppSidebar({
             icon: Sparkles,
           },
           {
+            title: "Video Gen AI",
+            url: "/video-gen",
+            icon: Film,
+          },
+          {
             title: "Image Studio",
             url: "/product-render",
             icon: Monitor,
@@ -399,8 +405,9 @@ export default function AppSidebar({
     "Client Review": 20,
     "Integration Guide": 22,
     "CharpstAR Studio AI": 25,
-    "Image Studio": 26,
-    "Modular 3D Creator": 27,
+    "Video Gen AI": 26,
+    "Image Studio": 27,
+    "Modular 3D Creator": 28,
     // Modeler
     "My Assignments": 10,
     "3D Generator": 12,
@@ -433,6 +440,11 @@ export default function AppSidebar({
             title: "Scene Render",
             url: "/scene-render",
             icon: Palette,
+          },
+          {
+            title: "Video Gen AI",
+            url: "/video-gen",
+            icon: Film,
           },
           {
             title: "Product Render",
