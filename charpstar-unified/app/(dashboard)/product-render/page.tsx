@@ -25,6 +25,7 @@ export default function RenderPage() {
   const [hoverOrbit, setHoverOrbit] = useState<string | null>(null);
   const [pendingModels, setPendingModels] = useState<Set<string>>(new Set());
   const [isDragging, setIsDragging] = useState(false);
+  const [viewerBackgroundColor, setViewerBackgroundColor] = useState<string>('#F8F9FA');
 
   const getAssetModelName = (asset: any) => {
     const file = (asset?.glb_link?.split('/').pop() || asset?.product_name || '').trim();
@@ -82,6 +83,9 @@ export default function RenderPage() {
     setCurrentModelUrl(asset.glb_link);
   };
 
+  const handleBackgroundColorChange = (color: string, isTransparent: boolean) => {
+    setViewerBackgroundColor(isTransparent ? 'transparent' : color);
+  };
 
   return (
     <div className="bg-gray-50">      
@@ -164,6 +168,7 @@ export default function RenderPage() {
                 <ModelViewer 
                   modelUrl={currentModelUrl}
                   cameraAngle={hoverOrbit || undefined}
+                  backgroundColor={viewerBackgroundColor}
                 />
               )}
 
@@ -194,6 +199,7 @@ export default function RenderPage() {
               sourceGlbUrl={currentModelUrl || null}
               selectedAssets={selectedAssets}
               onPreviewOrbitChange={(orbit) => setHoverOrbit(orbit)}
+              onBackgroundColorChange={handleBackgroundColorChange}
             />
           </div>
         </div>
