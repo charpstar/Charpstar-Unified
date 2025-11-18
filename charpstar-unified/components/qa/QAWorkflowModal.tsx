@@ -94,10 +94,12 @@ const QAWorkflowModal: React.FC<QAWorkflowModalProps> = ({
     setUploadingReferences(true);
     try {
       const uploadPromises = Array.from(files).map(async (file) => {
-        // Check if file is an image
+        // Check if file is an image (including AVIF)
         if (!file.type.startsWith("image/")) {
           throw new Error(`${file.name} is not an image file`);
         }
+
+        console.log(`📤 Uploading reference image: ${file.name} (${file.type}, ${(file.size / 1024).toFixed(2)}KB)`);
 
         // Always use direct upload for reference images (handles both small and large files)
         // This automatically saves to the database via upload-large-file API
@@ -111,14 +113,30 @@ const QAWorkflowModal: React.FC<QAWorkflowModalProps> = ({
         );
 
         if (!result.success) {
-          throw new Error(result.error || "Upload failed");
+          console.error(`❌ Upload failed for ${file.name}:`, result.error);
+          throw new Error(result.error || `Upload failed for ${file.name}`);
         }
 
-        return result.cdnUrl || "";
+        if (!result.cdnUrl || result.cdnUrl.trim().length === 0) {
+          console.error(`❌ Upload succeeded but no CDN URL returned for ${file.name}`);
+          throw new Error(`Upload succeeded but no URL returned for ${file.name}`);
+        }
+
+        console.log(`✅ Upload successful for ${file.name}: ${result.cdnUrl}`);
+        return result.cdnUrl;
       });
 
       const uploadedUrls = await Promise.all(uploadPromises);
-      const newReferenceImages = [...currentReferenceImages, ...uploadedUrls];
+      // Filter out any empty URLs that might have slipped through
+      const validUploadedUrls = uploadedUrls.filter(
+        (url) => url && typeof url === "string" && url.trim().length > 0
+      );
+      
+      if (validUploadedUrls.length === 0) {
+        throw new Error("All uploads failed or returned empty URLs");
+      }
+
+      const newReferenceImages = [...currentReferenceImages, ...validUploadedUrls];
       
       setCurrentReferenceImages(newReferenceImages);
       
@@ -198,9 +216,24 @@ const QAWorkflowModal: React.FC<QAWorkflowModalProps> = ({
     setQaState("analyzing");
 
     try {
+      // Filter out any empty or invalid reference image URLs
+      const validReferences = currentReferenceImages.filter(
+        (url) => url && typeof url === "string" && url.trim().length > 0
+      );
+
+      if (validReferences.length === 0) {
+        throw new Error("No valid reference images found. Please upload at least one reference image.");
+      }
+
+      console.log("📤 Sending QA job request:", {
+        rendersCount: screenshots.length,
+        referencesCount: validReferences.length,
+        references: validReferences,
+      });
+
       const requestBody = {
         renders: screenshots,
-        references: currentReferenceImages,
+        references: validReferences,
         modelStats: stats,
       };
 

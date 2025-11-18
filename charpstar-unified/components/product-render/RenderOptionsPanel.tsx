@@ -18,6 +18,7 @@ interface RenderOptionsPanelProps {
   sourceGlbUrl?: string | null;
   selectedAssets?: any[]; // from asset library multiple selection
   onPreviewOrbitChange?: (orbit: string | null) => void;
+  onBackgroundColorChange?: (color: string, isTransparent: boolean) => void;
 }
 
 type BackgroundMode = 'transparent' | 'color';
@@ -31,7 +32,8 @@ const RenderOptionsPanel: React.FC<RenderOptionsPanelProps> = ({
   modularConfig,
   sourceGlbUrl,
   selectedAssets = [],
-  onPreviewOrbitChange
+  onPreviewOrbitChange,
+  onBackgroundColorChange
 }) => {
   const user = useUser();
   const rawClient = Array.isArray(user?.metadata?.client) 
@@ -191,6 +193,13 @@ const RenderOptionsPanel: React.FC<RenderOptionsPanelProps> = ({
       localStorage.setItem('charpstar:renderSettings:shadows', String(shadows));
     } catch {}
   }, [shadows]);
+
+  // Notify parent of background color changes for live preview
+  React.useEffect(() => {
+    if (onBackgroundColorChange) {
+      onBackgroundColorChange(backgroundColor, backgroundMode === 'transparent');
+    }
+  }, [backgroundColor, backgroundMode, onBackgroundColorChange]);
 
   // When JPG is selected, switch to color mode if transparent
   React.useEffect(() => {

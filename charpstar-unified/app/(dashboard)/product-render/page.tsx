@@ -28,6 +28,8 @@ export default function RenderPage() {
   const [hoverOrbit, setHoverOrbit] = useState<string | null>(null);
   const [pendingModels, setPendingModels] = useState<Set<string>>(new Set());
   const [isDragging, setIsDragging] = useState(false);
+  const [viewerBackgroundColor, setViewerBackgroundColor] =
+    useState<string>("#F8F9FA");
 
   const getAssetModelName = (asset: any) => {
     const file = (
@@ -108,6 +110,12 @@ export default function RenderPage() {
   const handleAssetOpen = (asset: any) => {
     setSelectedModel(asset.product_name);
     setCurrentModelUrl(asset.glb_link);
+  };
+  const handleBackgroundColorChange = (
+    color: string,
+    isTransparent: boolean
+  ) => {
+    setViewerBackgroundColor(isTransparent ? "transparent" : color);
   };
 
   return (
@@ -191,6 +199,7 @@ export default function RenderPage() {
                 <ModelViewer
                   modelUrl={currentModelUrl}
                   cameraAngle={hoverOrbit || undefined}
+                  backgroundColor={viewerBackgroundColor}
                 />
               )}
 
@@ -214,29 +223,26 @@ export default function RenderPage() {
             </div>
           </div>
 
-          {/* Render Options Card - Enhanced with depth */}
-          <div className="flex-[2] bg-card rounded-xl border border-border/40 shadow-[0_2px_8px_rgba(0,0,0,0.04),0_1px_2px_rgba(0,0,0,0.06)] overflow-hidden">
-            <div className="h-full overflow-y-auto custom-scrollbar">
-              <RenderOptionsPanel
-                modelViewerRef={modelViewerRef}
-                modelFilename={
-                  currentModelUrl
-                    ? currentModelUrl.split("/").pop() || null
-                    : null
-                }
-                selectedVariants={selectedVariants}
-                isModularMode={false}
-                modularViewerRef={undefined}
-                modularConfig={null}
-                sourceGlbUrl={currentModelUrl || null}
-                selectedAssets={selectedAssets}
-                onPreviewOrbitChange={(orbit) => setHoverOrbit(orbit)}
-              />
-            </div>
+          {/* Render Panel - 45% height */}
+          <div className="h-[45%] bg-gray-50">
+            <RenderOptionsPanel
+              modelViewerRef={modelViewerRef}
+              modelFilename={
+                currentModelUrl
+                  ? currentModelUrl.split("/").pop() || null
+                  : null
+              }
+              selectedVariants={selectedVariants}
+              isModularMode={false}
+              modularViewerRef={undefined}
+              modularConfig={null}
+              sourceGlbUrl={currentModelUrl || null}
+              selectedAssets={selectedAssets}
+              onPreviewOrbitChange={(orbit) => setHoverOrbit(orbit)}
+              onBackgroundColorChange={handleBackgroundColorChange}
+            />
           </div>
         </div>
-
-        {/* Middle Column - Saved Packshots (appears when asset selected) */}
 
         {/* Right Column - Asset Library */}
         <div

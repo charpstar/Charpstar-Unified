@@ -5,9 +5,10 @@ import { useEffect, useRef } from "react";
 interface ModelViewerProps {
   modelUrl: string;
   cameraAngle?: string;
+  backgroundColor?: string;
 }
 
-export function ModelViewer({ modelUrl, cameraAngle }: ModelViewerProps) {
+export function ModelViewer({ modelUrl, cameraAngle, backgroundColor }: ModelViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const modelViewerRef = useRef<any>(null);
 
@@ -109,7 +110,10 @@ export function ModelViewer({ modelUrl, cameraAngle }: ModelViewerProps) {
   }
 
   return (
-    <div className="relative w-full h-full overflow-hidden">
+    <div 
+      className="relative w-full h-full overflow-hidden transition-colors duration-300"
+      style={{ backgroundColor: backgroundColor || '#F8F9FA' }}
+    >
       <div ref={containerRef} className="w-full h-full overflow-hidden" />
     </div>
   );

@@ -257,6 +257,56 @@ function extractSimilarityScores(summary: string) {
   return scores;
 }
 
+// Retry wrapper for Gemini API calls
+async function callGeminiWithRetry<T>(
+  apiCall: () => Promise<T>,
+  maxRetries: number = 5,
+  baseDelay: number = 2000
+): Promise<T> {
+  let lastError: any;
+  
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      return await apiCall();
+    } catch (error: any) {
+      lastError = error;
+      
+      // Extract error details (handle both direct errors and nested error objects)
+      const errorCode = error?.code || error?.error?.code || error?.status;
+      const errorMessage = error?.message || error?.error?.message || String(error);
+      const errorStatus = error?.status || error?.error?.status;
+      
+      // Check if error is retryable (503, 429, or network errors)
+      const isRetryable = 
+        errorCode === 503 ||
+        errorCode === 429 ||
+        errorStatus === 503 ||
+        errorStatus === 429 ||
+        errorStatus === "UNAVAILABLE" ||
+        errorMessage?.includes("overloaded") ||
+        errorMessage?.includes("rate limit") ||
+        errorMessage?.includes("UNAVAILABLE") ||
+        errorMessage?.includes("try again later");
+      
+      if (!isRetryable || attempt === maxRetries - 1) {
+        throw error;
+      }
+      
+      // Exponential backoff with jitter (increases delay with each retry)
+      // Delay increases: 2s, 4s, 8s, 16s, 32s (with random jitter)
+      const delay = baseDelay * Math.pow(2, attempt) + Math.random() * 1000;
+      const delaySeconds = (delay / 1000).toFixed(1);
+      console.warn(
+        `⚠️ Gemini API error (attempt ${attempt + 1}/${maxRetries}), retrying in ${delaySeconds}s:`,
+        errorMessage || errorStatus || errorCode || "Unknown error"
+      );
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
+  
+  throw lastError;
+}
+
 // Process QA job function
 async function processQAJob(
   jobId: string,
@@ -494,6 +544,10 @@ CRITICAL: Output ONLY valid JSON. Do not wrap in markdown code blocks. Do not in
                     imageUrl.includes(".jpeg")
                   ) {
                     mimeType = "image/jpeg";
+                  } else if (imageUrl.includes(".avif")) {
+                    mimeType = "image/avif";
+                  } else if (imageUrl.includes(".webp")) {
+                    mimeType = "image/webp";
                   }
                 }
 
@@ -517,17 +571,19 @@ CRITICAL: Output ONLY valid JSON. Do not wrap in markdown code blocks. Do not in
         }
       }
 
-      const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: geminiContents,
-        config: {
-          temperature: 0, // Force determinism
-          topP: 0,
-          topK: 1,
-          thinkingConfig: {
-            thinkingBudget: 0, // Disables thinking
+      const response = await callGeminiWithRetry(async () => {
+        return await ai.models.generateContent({
+          model: "gemini-2.5-flash",
+          contents: geminiContents,
+          config: {
+            temperature: 0, // Force determinism
+            topP: 0,
+            topK: 1,
+            thinkingConfig: {
+              thinkingBudget: 0, // Enable thinking for Pro model
+            },
           },
-        },
+        });
       });
 
       const raw = response.text || "";
@@ -750,6 +806,10 @@ CRITICAL: Output **ONLY** valid JSON. Do not wrap in markdown code blocks. Do no
                     imageUrl.includes(".jpeg")
                   ) {
                     mimeType = "image/jpeg";
+                  } else if (imageUrl.includes(".avif")) {
+                    mimeType = "image/avif";
+                  } else if (imageUrl.includes(".webp")) {
+                    mimeType = "image/webp";
                   }
                 }
 
@@ -773,9 +833,8 @@ CRITICAL: Output **ONLY** valid JSON. Do not wrap in markdown code blocks. Do no
         }
       }
 
-      let response;
-      try {
-        response = await ai.models.generateContent({
+      const response = await callGeminiWithRetry(async () => {
+        return await ai.models.generateContent({
           model: "gemini-2.5-flash",
           contents: geminiContents,
           config: {
@@ -783,16 +842,11 @@ CRITICAL: Output **ONLY** valid JSON. Do not wrap in markdown code blocks. Do no
             topP: 0,
             topK: 1,
             thinkingConfig: {
-              thinkingBudget: 0, // Disables thinking
+              thinkingBudget: 0, // Enable thinking for Pro model
             },
           },
         });
-      } catch (apiError: any) {
-        console.error("Gemini API error:", apiError);
-        throw new Error(
-          `Failed to call Gemini API: ${apiError?.message || apiError?.toString() || "Unknown error"}. Please check your GEMINI_API_KEY and network connection.`
-        );
-      }
+      });
 
       const raw = response.text || "";
 
