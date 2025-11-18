@@ -522,7 +522,7 @@ CRITICAL: Output ONLY valid JSON. Do not wrap in markdown code blocks. Do not in
       }
 
       const response = await ai.models.generateContent({
-        model: "gemini-2.5-Pro",
+        model: "gemini-2.5-pro",
         contents: geminiContents,
         config: {
           temperature: 0, // Force determinism
@@ -784,7 +784,7 @@ CRITICAL: Output **ONLY** valid JSON. Do not wrap in markdown code blocks. Do no
       let response;
       try {
         response = await ai.models.generateContent({
-          model: "gemini-2.5-Pro",
+          model: "gemini-2.5-pro",
           contents: geminiContents,
           config: {
             temperature: 0,
