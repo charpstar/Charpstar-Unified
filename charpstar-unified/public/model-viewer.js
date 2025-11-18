@@ -38447,7 +38447,9 @@ const EnvironmentMixin = (ModelViewerElement) => {
             ? ACESFilmicToneMapping
             : this.toneMapping === "agx"
               ? AgXToneMapping
-              : NeutralToneMapping;
+              : this.toneMapping === "linear"
+                ? LinearToneMapping
+                : NeutralToneMapping;
         this[$needsRender]();
       }
       if (
