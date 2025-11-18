@@ -62,8 +62,11 @@ import { TopUsersChart } from "@/components/analytics/TopUsersChart";
 import { FormatDistributionChart } from "@/components/analytics/FormatDistributionChart";
 import { ConversionRateChart } from "@/components/analytics/ConversionRateChart";
 import { SceneRendersTable } from "@/components/analytics/SceneRendersTable";
+import { GeneratorAnalytics } from "@/components/analytics/GeneratorAnalytics";
+import { ProductRenderAnalytics } from "@/components/analytics/ProductRenderAnalytics";
 import { supabase } from "@/lib/supabaseClient";
 import { useUser } from "@/contexts/useUser";
+import useSWR from "swr";
 import {
   BarChart,
   Bar,
@@ -421,12 +424,54 @@ interface TimeSeriesData {
   approvals: number;
 }
 
+// Fetcher for SWR
+const fetcher = async (url: string) => {
+  const res = await fetch(url, {
+    credentials: "include",
+  });
+  if (!res.ok) {
+    const error = await res.json();
+    throw new Error(error.error || "Failed to fetch analytics data");
+  }
+  return res.json();
+};
+
 export default function AdminAnalyticsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const user = useUser();
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  
+  // Date range for Generator and Render analytics (last 30 days by default)
+  const dateRange = {
+    from: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
+    to: new Date(),
+  };
+
+  // Fetch Generator analytics
+  const { data: generatorData, isLoading: isGeneratorLoading } = useSWR(
+    dateRange.from && dateRange.to
+      ? `/api/analytics/generator?startDate=${dateRange.from.toISOString()}&endDate=${dateRange.to.toISOString()}`
+      : null,
+    fetcher,
+    {
+      revalidateOnFocus: false,
+      refreshInterval: 5 * 60 * 1000,
+    }
+  );
+
+  // Fetch Product Render analytics
+  const { data: renderData, isLoading: isRenderLoading } = useSWR(
+    dateRange.from && dateRange.to
+      ? `/api/analytics/product-render?startDate=${dateRange.from.toISOString()}&endDate=${dateRange.to.toISOString()}`
+      : null,
+    fetcher,
+    {
+      revalidateOnFocus: false,
+      refreshInterval: 5 * 60 * 1000,
+    }
+  );
 
   // Get current tab from URL params, default to "overview"
   const currentTab = searchParams.get("tab") || "overview";
@@ -435,6 +480,8 @@ export default function AdminAnalyticsPage() {
   const validTabs = [
     "overview",
     "client-analytics",
+    "generator",
+    "product-render",
     "cost-tracking",
     "qa-statistics",
   ];
@@ -1601,6 +1648,12 @@ export default function AdminAnalyticsPage() {
           </TabsTrigger>
           <TabsTrigger className="cursor-pointer" value="client-analytics">
             Client Analytics
+          </TabsTrigger>
+          <TabsTrigger className="cursor-pointer" value="generator">
+            AI 3D Generator
+          </TabsTrigger>
+          <TabsTrigger className="cursor-pointer" value="product-render">
+            Product Renders
           </TabsTrigger>
           <TabsTrigger className="cursor-pointer" value="cost-tracking">
             Cost Tracking
@@ -4395,6 +4448,38 @@ export default function AdminAnalyticsPage() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Generator Analytics Tab */}
+        <TabsContent value="generator" className="space-y-4">
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <div>
+              <h2 className="text-2xl font-bold">AI 3D Generator Analytics</h2>
+              <p className="text-muted-foreground">
+                Track AI model generation usage, trends, and performance
+              </p>
+            </div>
+          </div>
+          <GeneratorAnalytics 
+            data={generatorData} 
+            isLoading={isGeneratorLoading} 
+          />
+        </TabsContent>
+
+        {/* Product Render Analytics Tab */}
+        <TabsContent value="product-render" className="space-y-4">
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <div>
+              <h2 className="text-2xl font-bold">Product Render Analytics</h2>
+              <p className="text-muted-foreground">
+                Track product render usage, settings, and asset performance
+              </p>
+            </div>
+          </div>
+          <ProductRenderAnalytics 
+            data={renderData} 
+            isLoading={isRenderLoading} 
+          />
         </TabsContent>
 
         {/* QA Statistics Tab */}

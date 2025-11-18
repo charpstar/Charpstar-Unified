@@ -21,13 +21,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/inputs/select";
-import { Input } from "@/components/ui/inputs/input";
 import { createClient } from "@/utils/supabase/client";
 
 interface GeneratedModel {
   id: string;
   model_name: string;
   model_url: string;
+  user_id?: string;
   file_size: number;
   face_count: number;
   enable_pbr: boolean;
@@ -60,9 +60,6 @@ export function GeneratedModelsGallery() {
   // Filter states
   const [selectedUserId, setSelectedUserId] = useState<string>("");
   const [selectedGenerateType, setSelectedGenerateType] = useState<string>("");
-  const [searchQuery, setSearchQuery] = useState<string>("");
-  const [dateFrom, setDateFrom] = useState<string>("");
-  const [dateTo, setDateTo] = useState<string>("");
   const [showFilters, setShowFilters] = useState(false);
 
   const fetchModels = useCallback(async () => {
@@ -73,9 +70,6 @@ export function GeneratedModelsGallery() {
       if (selectedUserId) params.append("userId", selectedUserId);
       if (selectedGenerateType)
         params.append("generateType", selectedGenerateType);
-      if (searchQuery) params.append("search", searchQuery);
-      if (dateFrom) params.append("dateFrom", dateFrom);
-      if (dateTo) params.append("dateTo", dateTo);
 
       const response = await fetch(
         `/api/generated-models?${params.toString()}`
@@ -88,13 +82,36 @@ export function GeneratedModelsGallery() {
       const data = await response.json();
       setModels(data.models || []);
       setIsAdmin(data.isAdmin || false);
+
+      // For admins, use all users who have generated models
+      // For non-admins, extract users from current models
+      if (data.isAdmin && data.allUsers) {
+        setUsers(data.allUsers || []);
+      } else if (data.models && Array.isArray(data.models)) {
+        const uniqueUsers = new Map<
+          string,
+          { id: string; email: string; name: string }
+        >();
+        data.models.forEach((model: GeneratedModel) => {
+          if (model.user && model.user_id) {
+            if (!uniqueUsers.has(model.user_id)) {
+              uniqueUsers.set(model.user_id, {
+                id: model.user_id,
+                email: model.user.email || "Unknown",
+                name: model.user.name || "Unknown User",
+              });
+            }
+          }
+        });
+        setUsers(Array.from(uniqueUsers.values()));
+      }
     } catch (error: any) {
       console.error("Fetch models error:", error);
       toast.error("Failed to load models");
     } finally {
       setLoading(false);
     }
-  }, [selectedUserId, selectedGenerateType, searchQuery, dateFrom, dateTo]);
+  }, [selectedUserId, selectedGenerateType]);
 
   async function checkAdminStatus() {
     try {
@@ -117,18 +134,6 @@ export function GeneratedModelsGallery() {
     }
   }
 
-  async function fetchUsers() {
-    try {
-      const response = await fetch("/api/users");
-      if (response.ok) {
-        const data = await response.json();
-        setUsers(data.users || []);
-      }
-    } catch (error) {
-      console.error("Error fetching users:", error);
-    }
-  }
-
   useEffect(() => {
     checkAdminStatus();
   }, []);
@@ -137,18 +142,9 @@ export function GeneratedModelsGallery() {
     fetchModels();
   }, [fetchModels]);
 
-  useEffect(() => {
-    if (isAdmin) {
-      fetchUsers();
-    }
-  }, [isAdmin]);
-
   function clearFilters() {
     setSelectedUserId("");
     setSelectedGenerateType("");
-    setSearchQuery("");
-    setDateFrom("");
-    setDateTo("");
   }
 
   async function downloadModel(model: GeneratedModel) {
@@ -231,8 +227,7 @@ export function GeneratedModelsGallery() {
     );
   }
 
-  const hasActiveFilters =
-    selectedUserId || selectedGenerateType || searchQuery || dateFrom || dateTo;
+  const hasActiveFilters = selectedUserId || selectedGenerateType;
 
   return (
     <>
@@ -259,13 +254,8 @@ export function GeneratedModelsGallery() {
                 {hasActiveFilters && (
                   <span className="ml-2 bg-primary text-primary-foreground rounded-full px-2 py-0.5 text-xs">
                     {
-                      [
-                        selectedUserId,
-                        selectedGenerateType,
-                        searchQuery,
-                        dateFrom,
-                        dateTo,
-                      ].filter(Boolean).length
+                      [selectedUserId, selectedGenerateType].filter(Boolean)
+                        .length
                     }
                   </span>
                 )}
@@ -334,42 +324,6 @@ export function GeneratedModelsGallery() {
                     </SelectContent>
                   </Select>
                 </div>
-
-                {/* Search Filter */}
-                <div className="space-y-2">
-                  <label className="text-xs font-medium text-muted-foreground">
-                    Search Model Name
-                  </label>
-                  <Input
-                    placeholder="Search models..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                  />
-                </div>
-
-                {/* Date From Filter */}
-                <div className="space-y-2">
-                  <label className="text-xs font-medium text-muted-foreground">
-                    Date From
-                  </label>
-                  <Input
-                    type="date"
-                    value={dateFrom}
-                    onChange={(e) => setDateFrom(e.target.value)}
-                  />
-                </div>
-
-                {/* Date To Filter */}
-                <div className="space-y-2">
-                  <label className="text-xs font-medium text-muted-foreground">
-                    Date To
-                  </label>
-                  <Input
-                    type="date"
-                    value={dateTo}
-                    onChange={(e) => setDateTo(e.target.value)}
-                  />
-                </div>
               </div>
             </Card>
           )}
@@ -380,22 +334,22 @@ export function GeneratedModelsGallery() {
                 key={model.id}
                 className="overflow-hidden hover:shadow-lg transition-shadow"
               >
-                {/* 3D Preview */}
-                <div className="relative h-48 bg-gradient-to-br from-muted to-accent">
-                  <Canvas camera={{ position: [0, 0, 5], fov: 50 }}>
-                    <Stage environment="city" intensity={0.5}>
-                      <ModelPreview modelUrl={model.model_url} />
-                    </Stage>
-                    <OrbitControls enableZoom={false} />
-                  </Canvas>
-
-                  {/* View button overlay */}
-                  <button
-                    onClick={() => setSelectedModel(model)}
-                    className="absolute top-2 right-2 p-2 bg-background/80 rounded-lg hover:bg-background transition-colors"
-                  >
-                    <Eye className="h-4 w-4 text-foreground" />
-                  </button>
+                {/* 3D Preview Placeholder */}
+                <div className="relative h-48 bg-gradient-to-br from-muted to-accent flex items-center justify-center">
+                  <div className="text-center">
+                    <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-background/20 flex items-center justify-center">
+                      <Eye className="h-8 w-8 text-muted-foreground/50" />
+                    </div>
+                    <Button
+                      onClick={() => setSelectedModel(model)}
+                      variant="secondary"
+                      size="sm"
+                      className="shadow-lg"
+                    >
+                      <Eye className="h-4 w-4 mr-2" />
+                      View 3D Model
+                    </Button>
+                  </div>
                 </div>
 
                 {/* Model Info */}

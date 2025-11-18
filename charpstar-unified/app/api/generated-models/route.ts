@@ -110,15 +110,73 @@ export async function GET(request: NextRequest) {
     // Attach user information to models
     const modelsWithUsers = models?.map((model) => ({
       ...model,
+      user_id: model.user_id, // Ensure user_id is included
       user: usersMap.get(model.user_id) || {
         email: "Unknown",
         name: "Unknown User",
       },
     }));
 
+    // For admins, also fetch ALL users who have generated models (not just from filtered results)
+    let allUsersWithModels: Array<{ id: string; email: string; name: string }> =
+      [];
+    if (isAdmin) {
+      try {
+        // Get all distinct user IDs from generated_models table
+        const { data: allUserIds, error: distinctError } = await supabase
+          .from("generated_models")
+          .select("user_id")
+          .not("user_id", "is", null);
+
+        if (!distinctError && allUserIds) {
+          // Get unique user IDs using Set
+          const uniqueUserIds = Array.from(
+            new Set(allUserIds.map((m) => m.user_id).filter(Boolean))
+          );
+          const allUsersMap = new Map();
+
+          await Promise.all(
+            uniqueUserIds.map(async (userId) => {
+              try {
+                const { data: authUser } =
+                  await adminClient.auth.admin.getUserById(userId);
+                if (authUser?.user) {
+                  const { data: profile } = await supabase
+                    .from("profiles")
+                    .select("title")
+                    .eq("id", userId)
+                    .single();
+
+                  const name =
+                    profile?.title ||
+                    authUser.user.user_metadata?.name ||
+                    `${authUser.user.user_metadata?.first_name || ""} ${authUser.user.user_metadata?.last_name || ""}`.trim() ||
+                    authUser.user.email?.split("@")[0] ||
+                    "Unknown User";
+
+                  allUsersMap.set(userId, {
+                    id: userId,
+                    email: authUser.user.email,
+                    name: name,
+                  });
+                }
+              } catch (err) {
+                console.error(`Failed to fetch user ${userId}:`, err);
+              }
+            })
+          );
+
+          allUsersWithModels = Array.from(allUsersMap.values());
+        }
+      } catch (err) {
+        console.error("Error fetching all users with models:", err);
+      }
+    }
+
     return NextResponse.json({
       models: modelsWithUsers,
       isAdmin: isAdmin,
+      allUsers: allUsersWithModels, // All users who have generated models (admin only)
     });
   } catch (error: any) {
     console.error("Fetch models error:", error);

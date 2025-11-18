@@ -11,3 +11,7 @@ export type { CVRRow } from "./components/columns";
 export { DataTableColumnHeader } from "./components/columns-header";
 
 export { AnalyticsTour } from "./analytics-tour";
+
+// Platform analytics components
+export { GeneratorAnalytics } from "./GeneratorAnalytics";
+export { ProductRenderAnalytics } from "./ProductRenderAnalytics";
