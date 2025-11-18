@@ -494,6 +494,10 @@ CRITICAL: Output ONLY valid JSON. Do not wrap in markdown code blocks. Do not in
                     imageUrl.includes(".jpeg")
                   ) {
                     mimeType = "image/jpeg";
+                  } else if (imageUrl.includes(".avif")) {
+                    mimeType = "image/avif";
+                  } else if (imageUrl.includes(".webp")) {
+                    mimeType = "image/webp";
                   }
                 }
 
@@ -750,6 +754,10 @@ CRITICAL: Output **ONLY** valid JSON. Do not wrap in markdown code blocks. Do no
                     imageUrl.includes(".jpeg")
                   ) {
                     mimeType = "image/jpeg";
+                  } else if (imageUrl.includes(".avif")) {
+                    mimeType = "image/avif";
+                  } else if (imageUrl.includes(".webp")) {
+                    mimeType = "image/webp";
                   }
                 }
 
