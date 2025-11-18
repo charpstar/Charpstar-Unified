@@ -1,112 +1,131 @@
 import React, { useState, useEffect } from "react";
-
 import { Button } from "@/components/ui/display";
 import { ImageIcon, Download, X, Trash2 } from "lucide-react";
 import Image from "next/image";
 
-interface Scene {
+interface Packshot {
   id: string;
   product_name: string;
   description?: string;
   preview_image?: string;
   created_at?: string;
   client?: string;
-  tags?: string[];
+  render_settings?: {
+    view?: string;
+    resolution?: number;
+    background?: string;
+    aspectRatio?: string;
+    format?: string;
+  };
 }
 
-interface RelatedScenesSectionProps {
-  assetId?: string;
+interface SavedPackshotsSectionProps {
   articleId?: string;
   modelUrl?: string;
-  productName: string;
+  assetId?: string;
+  productName?: string;
   hideHeader?: boolean;
 }
 
-const RelatedScenesSection: React.FC<RelatedScenesSectionProps> = ({
-  assetId,
+const SavedPackshotsSection: React.FC<SavedPackshotsSectionProps> = ({
   articleId,
   modelUrl,
+  assetId,
   hideHeader = false,
 }) => {
-  const [scenes, setScenes] = useState<Scene[]>([]);
+  const [packshots, setPackshots] = useState<Packshot[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedScene, setSelectedScene] = useState<Scene | null>(null);
+  const [selectedPackshot, setSelectedPackshot] = useState<Packshot | null>(
+    null
+  );
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   useEffect(() => {
-    const fetchScenes = async () => {
+    const fetchPackshots = async () => {
       try {
         setLoading(true);
         const params = new URLSearchParams();
-        if (assetId) params.append("asset_id", assetId);
         if (articleId) params.append("article_id", articleId);
         if (modelUrl) params.append("model_url", modelUrl);
+        if (assetId) params.append("asset_id", assetId);
 
-        const response = await fetch(`/api/assets/scenes?${params.toString()}`);
+        const response = await fetch(
+          `/api/assets/packshots?${params.toString()}`
+        );
         if (!response.ok) {
-          throw new Error("Failed to fetch scenes");
+          throw new Error("Failed to fetch packshots");
         }
 
         const data = await response.json();
-        console.log("Scenes data received:", data);
-        console.log(
-          "First scene preview_image:",
-          data.scenes?.[0]?.preview_image
-            ? `${data.scenes[0].preview_image.substring(0, 100)}...`
-            : null
-        );
-        setScenes(data.scenes || []);
+        console.log("Packshots data received:", data);
+        setPackshots(data.packshots || []);
       } catch (err) {
-        console.error("Error fetching scenes:", err);
-        setError("Failed to load related scenes");
+        console.error("Error fetching packshots:", err);
+        setError("Failed to load saved packshots");
       } finally {
         setLoading(false);
       }
     };
 
-    fetchScenes();
-  }, [assetId, articleId, modelUrl]);
+    fetchPackshots();
 
-  const handleSceneClick = (scene: Scene) => {
-    setSelectedScene(scene);
+    // Listen for new packshots saved
+    const handlePackshotSaved = () => {
+      fetchPackshots();
+    };
+
+    window.addEventListener(
+      "charpstar:packshotSaved",
+      handlePackshotSaved as any
+    );
+    return () => {
+      window.removeEventListener(
+        "charpstar:packshotSaved",
+        handlePackshotSaved as any
+      );
+    };
+  }, [articleId, modelUrl, assetId]);
+
+  const handlePackshotClick = (packshot: Packshot) => {
+    setSelectedPackshot(packshot);
     setIsDialogOpen(true);
   };
 
   const handleDownload = async () => {
-    if (selectedScene?.preview_image) {
+    if (selectedPackshot?.preview_image) {
       try {
-        // Fetch the image data
-        const response = await fetch(selectedScene.preview_image);
+        const response = await fetch(selectedPackshot.preview_image);
         const blob = await response.blob();
 
-        // Get the correct dimensions for the filename
-        const dimensions = getSceneDimensions(selectedScene);
-
-        // Create download link
         const url = window.URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.href = url;
-        link.download = `${selectedScene.product_name || "scene"}_${dimensions}.png`;
+
+        const settings = selectedPackshot.render_settings || {};
+        const view = settings.view || "render";
+        const resolution = settings.resolution || "";
+        const format = settings.format || "png";
+
+        link.download = `${selectedPackshot.product_name || "packshot"}_${view}${resolution ? `_${resolution}` : ""}.${format}`;
         document.body.appendChild(link);
         link.click();
 
-        // Cleanup
         document.body.removeChild(link);
         window.URL.revokeObjectURL(url);
       } catch (error) {
         console.error("Download failed:", error);
-        // Fallback: open in new tab
-        window.open(selectedScene.preview_image, "_blank");
+        window.open(selectedPackshot.preview_image, "_blank");
       }
     }
   };
 
   const closeDialog = () => {
     setIsDialogOpen(false);
-    setSelectedScene(null);
+    setSelectedPackshot(null);
+    setShowDeleteConfirm(false);
   };
 
   const handleDeleteClick = () => {
@@ -114,48 +133,37 @@ const RelatedScenesSection: React.FC<RelatedScenesSectionProps> = ({
   };
 
   const handleDeleteConfirm = async () => {
-    if (!selectedScene) return;
+    if (!selectedPackshot || !assetId) return;
 
     setIsDeleting(true);
     try {
-      // Use the assetId prop if available, otherwise extract from URL
-      let deleteAssetId = assetId;
-      if (!deleteAssetId) {
-        const currentPath = window.location.pathname;
-        const assetIdMatch = currentPath.match(/\/asset-library\/([^/]+)/);
-        deleteAssetId = assetIdMatch ? assetIdMatch[1] : undefined;
-      }
-
-      const response = await fetch(`/api/assets/delete-scene`, {
+      const response = await fetch(`/api/assets/delete-packshot`, {
         method: "DELETE",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          sceneId: selectedScene.id,
-          assetId: deleteAssetId, // Pass the asset ID for the new structure
+          packshotId: selectedPackshot.id,
+          assetId: assetId,
         }),
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to delete scene");
+        throw new Error(errorData.error || "Failed to delete packshot");
       }
 
-      // Remove the scene from the local state
-      setScenes((prevScenes) =>
-        prevScenes.filter((scene) => scene.id !== selectedScene.id)
+      setPackshots((prevPackshots) =>
+        prevPackshots.filter((packshot) => packshot.id !== selectedPackshot.id)
       );
 
-      // Close the dialogs
       setShowDeleteConfirm(false);
       closeDialog();
 
-      // Show success message (you can add toast here if you have it)
-      console.log("Scene deleted successfully");
+      console.log("Packshot deleted successfully");
     } catch (error) {
-      console.error("Error deleting scene:", error);
-      alert("Failed to delete scene. Please try again.");
+      console.error("Error deleting packshot:", error);
+      alert("Failed to delete packshot. Please try again.");
     } finally {
       setIsDeleting(false);
     }
@@ -165,23 +173,25 @@ const RelatedScenesSection: React.FC<RelatedScenesSectionProps> = ({
     setShowDeleteConfirm(false);
   };
 
-  // Extract dimensions from scene tags
-  const getSceneDimensions = (scene: Scene) => {
-    const dimensionTag = scene.tags?.find((tag) =>
-      tag.startsWith("dimensions:")
-    );
-
-    if (dimensionTag) {
-      return dimensionTag.replace("dimensions:", "");
+  const formatRenderSettings = (settings?: Packshot["render_settings"]) => {
+    if (!settings) return "";
+    const parts = [];
+    if (settings.view) parts.push(settings.view);
+    if (settings.resolution) parts.push(`${settings.resolution}px`);
+    if (settings.background) {
+      if (settings.background === "transparent") {
+        parts.push("transparent");
+      } else {
+        parts.push(`#${settings.background}`);
+      }
     }
-
-    return "1080x1080"; // Default fallback
+    return parts.join(" • ");
   };
 
   if (loading) {
     return (
       <div className="space-y-4">
-        <h2 className="text-lg font-semibold">Generated Scene</h2>
+        <h2 className="text-lg font-semibold">Saved Packshots</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {[1, 2, 3].map((i) => (
             <div key={i} className="overflow-hidden border rounded-lg">
@@ -202,7 +212,7 @@ const RelatedScenesSection: React.FC<RelatedScenesSectionProps> = ({
   if (error) {
     return (
       <div className="space-y-4">
-        <h2 className="text-lg font-semibold">Generated Scenes</h2>
+        <h2 className="text-lg font-semibold">Saved Packshots</h2>
         <div className="p-6 text-center border rounded-lg">
           <p className="text-muted-foreground">{error}</p>
         </div>
@@ -210,31 +220,8 @@ const RelatedScenesSection: React.FC<RelatedScenesSectionProps> = ({
     );
   }
 
-  if (scenes.length === 0) {
-    return (
-      <div className="space-y-4">
-        <h2 className="text-lg font-semibold">Generated Scenes</h2>
-        <div className="p-6 text-center border rounded-lg">
-          <div className="flex flex-col items-center gap-3">
-            <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center">
-              <ImageIcon className="h-6 w-6 text-muted-foreground" />
-            </div>
-            <div>
-              <p className="font-medium">No scenes generated yet</p>
-              <p className="text-sm text-muted-foreground">
-                Use this model in the scene renderer to create scenes
-              </p>
-            </div>
-            <a
-              href="/scene-render"
-              className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 rounded-md px-3"
-            >
-              Create Scene
-            </a>
-          </div>
-        </div>
-      </div>
-    );
+  if (packshots.length === 0) {
+    return null; // Don't show anything if there are no packshots
   }
 
   return (
@@ -242,31 +229,25 @@ const RelatedScenesSection: React.FC<RelatedScenesSectionProps> = ({
       {!hideHeader && (
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold">
-            Lifestyle Scenes ({scenes.length})
+            Saved Packshots ({packshots.length})
           </h2>
-          <a
-            href="/scene-render"
-            className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 rounded-md px-3"
-          >
-            Create New Scene
-          </a>
         </div>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-3 gap-4 overflow-y-auto h-fit">
-        {scenes.map((scene) => (
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+        {packshots.map((packshot) => (
           <div
-            key={scene.id}
-            className="hover:shadow-md transition-shadow h-fit border rounded-lg cursor-pointer"
-            onClick={() => handleSceneClick(scene)}
+            key={packshot.id}
+            className="hover:shadow-md transition-shadow h-fit border rounded-lg cursor-pointer overflow-hidden"
+            onClick={() => handlePackshotClick(packshot)}
           >
-            <div className="rounded-lg relative bg-muted overflow-hidden">
-              {scene.preview_image ? (
+            <div className="aspect-square relative bg-muted">
+              {packshot.preview_image ? (
                 <Image
-                  width={600}
-                  height={600}
-                  src={scene.preview_image}
-                  alt={scene.product_name}
+                  width={300}
+                  height={300}
+                  src={packshot.preview_image}
+                  alt={packshot.product_name}
                   className="w-full h-full object-contain hover:scale-105 transition-transform duration-200"
                   quality={95}
                   unoptimized={false}
@@ -277,12 +258,19 @@ const RelatedScenesSection: React.FC<RelatedScenesSectionProps> = ({
                 </div>
               )}
             </div>
+            {packshot.render_settings && (
+              <div className="p-2 bg-background">
+                <p className="text-xs text-muted-foreground truncate">
+                  {formatRenderSettings(packshot.render_settings)}
+                </p>
+              </div>
+            )}
           </div>
         ))}
       </div>
 
       {/* Image Dialog */}
-      {isDialogOpen && selectedScene && (
+      {isDialogOpen && selectedPackshot && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
           <div className="relative max-w-4xl max-h-[90vh] w-full mx-4">
             {/* Close Button */}
@@ -295,12 +283,12 @@ const RelatedScenesSection: React.FC<RelatedScenesSectionProps> = ({
 
             {/* Image */}
             <div className="relative bg-white rounded-lg overflow-hidden">
-              {selectedScene.preview_image ? (
+              {selectedPackshot.preview_image ? (
                 <Image
                   width={1200}
                   height={1200}
-                  src={selectedScene.preview_image}
-                  alt={selectedScene.product_name}
+                  src={selectedPackshot.preview_image}
+                  alt={selectedPackshot.product_name}
                   className="w-full h-auto max-h-[80vh] object-contain"
                   quality={100}
                   unoptimized={false}
@@ -331,19 +319,26 @@ const RelatedScenesSection: React.FC<RelatedScenesSectionProps> = ({
                   Download
                 </Button>
               </div>
+
+              {/* Render Settings Info */}
+              {selectedPackshot.render_settings && (
+                <div className="absolute top-4 left-4 bg-black/70 text-white px-3 py-2 rounded-md text-sm">
+                  {formatRenderSettings(selectedPackshot.render_settings)}
+                </div>
+              )}
             </div>
           </div>
         </div>
       )}
 
       {/* Delete Confirmation Dialog */}
-      {showDeleteConfirm && selectedScene && (
+      {showDeleteConfirm && selectedPackshot && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
           <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <h3 className="text-lg font-semibold mb-4">Delete Scene</h3>
+            <h3 className="text-lg font-semibold mb-4">Delete Packshot</h3>
             <p className="text-gray-600 mb-6">
-              Are you sure you want to delete {selectedScene.product_name}? This
-              action cannot be undone.
+              Are you sure you want to delete this packshot? This action cannot
+              be undone.
             </p>
             <div className="flex gap-3 justify-end">
               <Button
@@ -368,4 +363,4 @@ const RelatedScenesSection: React.FC<RelatedScenesSectionProps> = ({
   );
 };
 
-export default RelatedScenesSection;
+export default SavedPackshotsSection;

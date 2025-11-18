@@ -4,46 +4,49 @@ import { createAdminClient } from "@/utils/supabase/admin";
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
+    const assetId = searchParams.get("asset_id");
     const articleId = searchParams.get("article_id");
     const modelUrl = searchParams.get("model_url");
 
-    console.log("Fetching scenes for:", { articleId, modelUrl });
+    console.log("Fetching scenes for:", { assetId, articleId, modelUrl });
 
     const supabase = createAdminClient();
 
     // At least one identifier is required
-    if (!articleId && !modelUrl) {
+    if (!assetId && !articleId && !modelUrl) {
       return NextResponse.json(
-        { error: "Either article_id or model_url is required" },
+        { error: "Either asset_id, article_id, or model_url is required" },
         { status: 400 }
       );
     }
 
-    // If we have article_id, we need to get the actual model UUID from the assets table
-    let modelId = null;
-    if (articleId) {
-      const { data: assetData } = await supabase
+    // Priority: assetId > articleId > modelUrl
+    let modelId = assetId || null;
+
+    // If we have article_id but no assetId, get the actual model UUID from the assets table
+    if (!modelId && articleId) {
+      const { data: assetDataArray } = await supabase
         .from("assets")
         .select("id")
         .eq("article_id", articleId)
-        .single();
+        .limit(1);
 
-      if (assetData) {
-        modelId = assetData.id;
+      if (assetDataArray && assetDataArray.length > 0) {
+        modelId = assetDataArray[0].id;
         console.log("Found model ID for article_id:", modelId);
       }
     }
 
     // If we have modelUrl but no modelId, try to find the asset by glb_link
-    if (modelUrl && !modelId) {
-      const { data: assetData } = await supabase
+    if (!modelId && modelUrl) {
+      const { data: assetDataArray } = await supabase
         .from("assets")
         .select("id")
         .eq("glb_link", modelUrl)
-        .single();
+        .limit(1);
 
-      if (assetData) {
-        modelId = assetData.id;
+      if (assetDataArray && assetDataArray.length > 0) {
+        modelId = assetDataArray[0].id;
         console.log("Found model ID for modelUrl:", modelId);
       }
     }
@@ -51,11 +54,13 @@ export async function GET(request: NextRequest) {
     // Find the source asset by modelId or article_id
     let sourceAsset = null;
     if (modelId) {
-      const { data: asset } = await supabase
+      const { data: assetArray } = await supabase
         .from("assets")
         .select("id, generated_scenes, article_id, product_name")
         .eq("id", modelId)
-        .single();
+        .limit(1);
+
+      const asset = assetArray && assetArray.length > 0 ? assetArray[0] : null;
 
       if (
         asset &&
@@ -70,11 +75,13 @@ export async function GET(request: NextRequest) {
         );
       }
     } else if (articleId) {
-      const { data: asset } = await supabase
+      const { data: assetArray } = await supabase
         .from("assets")
         .select("id, generated_scenes, article_id, product_name")
         .eq("article_id", articleId)
-        .single();
+        .limit(1);
+
+      const asset = assetArray && assetArray.length > 0 ? assetArray[0] : null;
 
       if (
         asset &&

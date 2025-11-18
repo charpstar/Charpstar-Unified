@@ -1,11 +1,10 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Badge } from "@/components/ui/feedback";
 import { Button } from "@/components/ui/display";
 import { ArrowLeft, Download, ImageIcon, Pencil, Plus, X } from "lucide-react";
-import Link from "next/link";
 import { Input } from "@/components/ui/inputs";
 import { Label } from "@/components/ui/display";
 import { toast } from "sonner";
@@ -17,6 +16,7 @@ import { useUser } from "@/contexts/useUser";
 import { ModelViewer } from "@/components/asset-library/viewers/model-viewer";
 import RelatedScenesSection from "@/components/asset-library/RelatedScenesSection";
 import { ARButton } from "@/components/asset-library/ARButton";
+import SavedPackshotsSection from "@/components/product-render/SavedPackshotsSection";
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
@@ -496,6 +496,18 @@ export default function AssetDetailPage() {
     }
   };
 
+  const removeTag = (index: number) => {
+    if (editedAsset) {
+      const currentTags = Array.isArray(editedAsset.tags)
+        ? editedAsset.tags
+        : [];
+      setEditedAsset({
+        ...editedAsset,
+        tags: currentTags.filter((_, i) => i !== index),
+      });
+    }
+  };
+
   if (loading) {
     return (
       <div className=" p-2 sm:p-4 md:p-6">
@@ -600,16 +612,17 @@ export default function AssetDetailPage() {
   }
 
   return (
-    <>
+    <React.Fragment>
       <Script type="module" src="/model-viewer.js" />
-      <div className=" p-2 sm:p-4 md:p-6">
-        <div className="h-full">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 sm:gap-4 mb-4 sm:mb-6">
+      <div className=" bg-gradient-to-br from-background via-background to-muted/10 p-6">
+        <div className="max-w-[1920px] mx-auto">
+          {/* Enhanced Header */}
+          <div className="flex justify-between items-center mb-6">
             <Button
               variant="ghost"
               size="sm"
               onClick={() => router.push(buildBackUrl())}
-              className="gap-2"
+              className="gap-2 hover:bg-muted/50 transition-colors"
             >
               <ArrowLeft className="h-4 w-4" />
               Back to Asset Library
@@ -623,6 +636,7 @@ export default function AssetDetailPage() {
                   }
                   setIsEditing(!isEditing);
                 }}
+                className="shadow-sm hover:shadow-md transition-all"
               >
                 {isEditing ? (
                   <>
@@ -639,52 +653,62 @@ export default function AssetDetailPage() {
             )}
           </div>
 
-          <div className="flex flex-col lg:flex-row gap-4 sm:gap-6 p-2 sm:p-4 md:p-6">
-            {/* Left Side - Model Viewer */}
-            <div className="flex flex-col gap-4 h-full w-full lg:w-2/3">
-              <div className="w-full h-[400px] sm:h-[500px] md:h-[600px] lg:h-[700px] relative">
-                {asset.glb_link ? (
-                  <ModelViewer
-                    modelUrl={asset.glb_link}
-                    alt={`3D model of ${asset.product_name}`}
-                    environmentImage={
-                      getViewerParameters(clientViewerType).environmentImage
-                    }
-                    exposure={getViewerParameters(clientViewerType).exposure}
-                    toneMapping={
-                      getViewerParameters(clientViewerType).toneMapping
-                    }
-                  />
-                ) : asset.preview_image ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={asset.preview_image}
-                    alt={asset.product_name}
-                    className="w-full h-full object-cover rounded-lg"
-                  />
-                ) : (
-                  <div className="w-full h-full rounded-lg bg-muted flex items-center justify-center">
-                    <ImageIcon className="h-16 w-16 text-muted-foreground" />
-                  </div>
-                )}
-                {/* AR Button Overlay */}
+          {/* Main Content Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Left Column - 3D Viewer (full left side) */}
+            <div className="lg:col-span-1">
+              <div className="bg-card rounded-xl border border-border/40 shadow-[0_2px_8px_rgba(0,0,0,0.04),0_1px_2px_rgba(0,0,0,0.06)] hover:shadow-[0_4px_16px_rgba(0,0,0,0.06),0_2px_4px_rgba(0,0,0,0.08)] transition-all duration-300 overflow-hidden h-[600px] lg:h-[calc(100vh-200px)] relative">
+                <div className="w-full h-full bg-gradient-to-br from-muted/20 via-background to-muted/10">
+                  {asset.glb_link ? (
+                    <ModelViewer
+                      modelUrl={asset.glb_link}
+                      alt={`3D model of ${asset.product_name}`}
+                      environmentImage={
+                        getViewerParameters(clientViewerType).environmentImage
+                      }
+                      exposure={getViewerParameters(clientViewerType).exposure}
+                      toneMapping={
+                        getViewerParameters(clientViewerType).toneMapping
+                      }
+                    />
+                  ) : asset.preview_image ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={asset.preview_image}
+                      alt={asset.product_name}
+                      className="w-full h-full object-contain p-8"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <div className="text-center">
+                        <div className="w-24 h-24 mx-auto mb-4 bg-gradient-to-br from-muted/30 via-muted/20 to-muted/10 rounded-3xl flex items-center justify-center shadow-[inset_0_2px_8px_rgba(0,0,0,0.06)]">
+                          <ImageIcon className="h-12 w-12 text-muted-foreground/40" />
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          No 3D model available
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                {/* AR Button Overlay - Enhanced */}
                 {asset.glb_link && (
-                  <div className="absolute top-4 right-4 z-10">
+                  <div className="absolute top-6 right-6 z-10">
                     <ARButton
                       assetId={asset.id}
                       glbUrl={asset.glb_link}
                       productName={asset.product_name}
                       variant="default"
                       size="default"
-                      className="shadow-lg hover:shadow-xl transition-shadow bg-primary text-primary-foreground hover:bg-primary/90"
+                      className="shadow-[0_4px_12px_rgba(0,0,0,0.15)] hover:shadow-[0_6px_20px_rgba(0,0,0,0.2)] transition-all bg-primary text-primary-foreground hover:bg-primary/90 hover:scale-105"
                     />
                   </div>
                 )}
               </div>
             </div>
 
-            {/* Right Side - Details */}
-            <div className="flex flex-col gap-4 sm:gap-6 w-full lg:w-1/3">
+            {/* Right Column - Split into Specifications and Saved Packshots */}
+            <div className="lg:col-span-1 flex flex-col gap-6 h-[calc(100vh-200px)] min-h-0">
               {isEditing ? (
                 <div className="space-y-6">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -943,25 +967,36 @@ export default function AssetDetailPage() {
                       </Button>
                     </div>
                     <div className="flex flex-wrap gap-1.5 mt-2">
-                      {Array.isArray(editedAsset?.tags) ? (
-                        editedAsset.tags.map((tag: string) => (
-                          <Badge
-                            key={tag}
-                            variant="secondary"
-                            className="text-sm font-normal border border-border bg-background/50"
-                          >
-                            {tag}
-                          </Badge>
-                        ))
-                      ) : editedAsset?.tags &&
-                        typeof editedAsset.tags === "string" ? (
-                        <Badge
-                          variant="secondary"
-                          className="text-sm font-normal border border-border bg-background/50"
-                        >
-                          {editedAsset.tags}
-                        </Badge>
-                      ) : null}
+                      {Array.isArray(editedAsset?.tags)
+                        ? editedAsset.tags.map((tag: string, index: number) => (
+                            <Badge
+                              key={index}
+                              variant="secondary"
+                              className="flex items-center gap-1"
+                            >
+                              {tag}
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => removeTag(index)}
+                                className="ml-1 h-auto p-0 hover:text-destructive"
+                              >
+                                <X className="h-3 w-3" />
+                              </Button>
+                            </Badge>
+                          ))
+                        : editedAsset?.tags &&
+                            typeof editedAsset.tags === "string"
+                          ? [
+                              <Badge
+                                key="single-tag"
+                                variant="secondary"
+                                className="text-sm font-normal border border-border bg-background/50"
+                              >
+                                {editedAsset.tags}
+                              </Badge>,
+                            ]
+                          : null}
                     </div>
                   </div>
 
@@ -982,290 +1017,355 @@ export default function AssetDetailPage() {
                   </div>
                 </div>
               ) : (
-                <div className="space-y-4">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <h1 className="text-xl sm:text-2xl md:text-3xl font-bold">
-                        {asset.product_name}
-                      </h1>
-                      <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-                        {asset.category}{" "}
-                        {asset.subcategory ? `> ${asset.subcategory}` : ""}
-                      </p>
-                    </div>
-                    <div
-                      className="flex items-center gap-2 relative"
-                      ref={downloadsRef}
-                    >
-                      {canDownloadGLB && glbLinks.length > 0 && (
-                        <>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="cursor-pointer"
-                            onClick={() => setShowGlbDownloads((prev) => !prev)}
-                          >
-                            <Download className="h-4 w-4 mr-2" />
-                            {showGlbDownloads ? "Hide" : "Show"} GLB Links
-                          </Button>
-                          {showGlbDownloads && (
-                            <div className="absolute right-0 top-full mt-2 w-80 max-h-64 overflow-y-auto rounded-md border border-border bg-background shadow-lg z-30 p-3 space-y-2">
-                              {glbLinks.map(({ articleId, url }) => (
-                                <div
-                                  key={articleId}
-                                  className="text-xs sm:text-sm break-words"
-                                >
-                                  {url ? (
-                                    <a
-                                      href={url}
-                                      download
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="flex w-full items-start gap-2 text-blue-500 hover:text-blue-600 break-all whitespace-normal"
-                                    >
-                                      <Download className="h-4 w-4 mt-0.5 shrink-0" />
-                                      <span className="w-full break-words text-left whitespace-normal">
-                                        {articleId}
-                                      </span>
-                                    </a>
-                                  ) : (
-                                    <span className="flex w-full items-start gap-2 text-muted-foreground break-all whitespace-normal">
-                                      <Download className="h-4 w-4 mt-0.5 shrink-0" />
-                                      <span className="w-full break-words text-left">
-                                        {articleId} (unavailable)
-                                      </span>
-                                    </span>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </>
-                      )}
-                      {zipUrl && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="cursor-pointer"
-                        >
-                          <a
-                            href={zipUrl}
-                            download
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-2"
-                            onClick={(e) => {
-                              if (!zipUrl) {
-                                e.preventDefault();
-                                toast.error("ZIP file not found in storage");
-                              }
-                            }}
-                          >
-                            <span className="flex items-center gap-2">
-                              <Download className="h-4 w-4" />
-                              OBJ
+                <div className="flex flex-col gap-4 h-full min-h-0">
+                  {/* Specifications Section - Top */}
+                  <div className="flex-shrink-0 max-h-[30vh] overflow-y-auto space-y-4">
+                    {/* Product Header Card */}
+                    <div className="bg-card rounded-xl border border-border/40 shadow-[0_2px_8px_rgba(0,0,0,0.04),0_1px_2px_rgba(0,0,0,0.06)] p-6">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1 min-w-0">
+                          <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-2 tracking-tight">
+                            {asset.product_name}
+                          </h1>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-sm font-medium text-muted-foreground">
+                              {asset.category}
                             </span>
-                          </a>
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Description */}
-                  <div className="space-y-2">
-                    <h2 className="text-base sm:text-lg font-semibold">
-                      Description
-                    </h2>
-                    <p className="text-xs sm:text-sm text-muted-foreground">
-                      {asset.description}
-                    </p>
-                  </div>
-
-                  {/* Specifications */}
-                  <div className="space-y-2">
-                    <h2 className="text-base sm:text-lg font-semibold">
-                      Specifications
-                    </h2>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                      <div className="space-y-1">
-                        <p className="text-xs sm:text-sm font-medium">
-                          Article IDs
-                        </p>
-                        {asset.article_id ? (
-                          <div className="flex flex-wrap gap-1.5">
-                            <Badge
-                              variant="outline"
-                              className="text-xs"
-                              title={
-                                getArticleIdsTooltip(asset.article_ids || []) ||
-                                undefined
-                              }
-                            >
-                              {asset.article_id}
-                            </Badge>
-                            {getAdditionalArticleIds(asset).map((id) => (
-                              <Badge
-                                key={id}
-                                variant="outline"
-                                className="text-xs"
-                                title={id}
-                              >
-                                {id}
-                              </Badge>
-                            ))}
-                          </div>
-                        ) : (
-                          <p className="text-xs sm:text-sm text-muted-foreground">
-                            Not specified
-                          </p>
-                        )}
-                      </div>
-                      <div className="space-y-1">
-                        <p className="text-xs sm:text-sm font-medium">
-                          Dimensions
-                        </p>
-                        <p className="text-xs sm:text-sm text-muted-foreground">
-                          {asset.dimensions || "Not specified"}
-                        </p>
-                      </div>
-                      <div className="space-y-1">
-                        <p className="text-xs sm:text-sm font-medium">
-                          Materials
-                        </p>
-                        <p className="text-xs sm:text-sm text-muted-foreground">
-                          {asset.materials?.join(", ") || "Not specified"}
-                        </p>
-                      </div>
-                      <div className="space-y-1">
-                        <p className="text-xs sm:text-sm font-medium">Colors</p>
-                        <p className="text-xs sm:text-sm text-muted-foreground">
-                          {asset.colors?.join(", ") || "Not specified"}
-                        </p>
-                      </div>
-                      <div className="space-y-1">
-                        <p className="text-xs sm:text-sm font-medium">Client</p>
-                        <p className="text-xs sm:text-sm text-muted-foreground">
-                          {asset.client || "Not specified"}
-                        </p>
-                      </div>
-                      <div className="space-y-1">
-                        <p className="text-xs sm:text-sm font-medium">
-                          GLB Link
-                        </p>
-                        {glbLinks.length > 0 ? (
-                          <details className="rounded-md border border-border/40 bg-muted/30 p-3 text-xs sm:text-sm">
-                            <summary className="cursor-pointer font-medium text-foreground">
-                              Show GLB URLs ({glbLinks.length})
-                            </summary>
-                            <div className="mt-2 space-y-2">
-                              {glbLinks.map(({ articleId, url }) => (
-                                <div
-                                  key={articleId}
-                                  className="text-muted-foreground break-words"
-                                >
-                                  {url ? (
-                                    <a
-                                      href={url}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="block break-all whitespace-normal text-blue-500 hover:text-blue-600"
-                                    >
-                                      <span className="font-medium text-foreground">
-                                        {articleId}:
-                                      </span>{" "}
-                                      {url}
-                                    </a>
-                                  ) : (
-                                    <span className="break-words whitespace-normal">
-                                      <span className="font-medium text-foreground">
-                                        {articleId}:
-                                      </span>{" "}
-                                      Not available
-                                    </span>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-                          </details>
-                        ) : (
-                          <p className="text-xs sm:text-sm text-muted-foreground">
-                            Not available
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Tags */}
-                  {asset.tags && asset.tags.length > 0 && (
-                    <div className="space-y-2">
-                      <h2 className="text-base sm:text-lg font-semibold">
-                        Tags
-                      </h2>
-                      <div className="flex flex-wrap gap-1.5 sm:gap-2">
-                        {asset.tags.map((tag) => (
-                          <Badge
-                            key={tag}
-                            variant="secondary"
-                            className="text-xs sm:text-sm"
-                          >
-                            {tag}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Generated Scenes Section */}
-                  <RelatedScenesSection
-                    articleId={asset.article_id}
-                    modelUrl={asset.glb_link}
-                    productName={asset.product_name}
-                  />
-                </div>
-              )}
-
-              {/* Related Assets */}
-              {!isEditing && relatedAssets.length > 0 && (
-                <div className="space-y-3 sm:space-y-4">
-                  <h2 className="text-base sm:text-lg font-semibold">
-                    Related Assets
-                  </h2>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-3 sm:gap-4">
-                    {relatedAssets.map((relatedAsset) => (
-                      <Link
-                        key={relatedAsset.id}
-                        href={`/asset-library/${relatedAsset.id}`}
-                        className="block"
-                      >
-                        <div className="group relative aspect-square overflow-hidden rounded-lg bg-muted">
-                          {relatedAsset.preview_image ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={relatedAsset.preview_image}
-                              alt={relatedAsset.product_name}
-                              className="object-cover w-full h-full transition-transform "
-                            />
-                          ) : (
-                            <div className="flex h-full items-center justify-center">
-                              <ImageIcon className="h-8 w-8 text-muted-foreground" />
-                            </div>
-                          )}
-                          <div className="absolute inset-0 bg-black/40 opacity-0 transition-opacity group-hover:opacity-100" />
-                          <div className="absolute bottom-0 left-0 right-0 p-3 sm:p-4">
-                            <h3 className="text-xs sm:text-sm font-medium text-white">
-                              {relatedAsset.product_name}
-                            </h3>
-                            <p className="text-[10px] sm:text-xs text-white/80">
-                              {relatedAsset.category}
-                              {relatedAsset.subcategory
-                                ? ` > ${relatedAsset.subcategory}`
-                                : ""}
-                            </p>
+                            {asset.subcategory && (
+                              <>
+                                <span className="text-muted-foreground/50">
+                                  ›
+                                </span>
+                                <span className="text-sm font-medium text-muted-foreground">
+                                  {asset.subcategory}
+                                </span>
+                              </>
+                            )}
                           </div>
                         </div>
-                      </Link>
-                    ))}
+                        <div
+                          className="flex items-center gap-2 relative flex-shrink-0"
+                          ref={downloadsRef}
+                        >
+                          {canDownloadGLB && glbLinks.length > 0 && (
+                            <>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="cursor-pointer shadow-sm hover:shadow-md transition-all"
+                                onClick={() =>
+                                  setShowGlbDownloads((prev) => !prev)
+                                }
+                              >
+                                <Download className="h-4 w-4 mr-2" />
+                                GLB
+                              </Button>
+                              {showGlbDownloads && (
+                                <div className="absolute right-0 top-full mt-2 w-80 max-h-64 overflow-y-auto rounded-md border border-border bg-background shadow-lg z-30 p-3 space-y-2">
+                                  {glbLinks.map(({ articleId, url }) => (
+                                    <div
+                                      key={articleId}
+                                      className="text-xs sm:text-sm break-words"
+                                    >
+                                      {url ? (
+                                        <a
+                                          href={url}
+                                          download
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="flex w-full items-start gap-2 text-blue-500 hover:text-blue-600 break-all whitespace-normal"
+                                        >
+                                          <Download className="h-4 w-4 mt-0.5 shrink-0" />
+                                          <span className="w-full break-words text-left whitespace-normal">
+                                            {articleId}
+                                          </span>
+                                        </a>
+                                      ) : (
+                                        <span className="flex w-full items-start gap-2 text-muted-foreground break-all whitespace-normal">
+                                          <Download className="h-4 w-4 mt-0.5 shrink-0" />
+                                          <span className="w-full break-words text-left">
+                                            {articleId} (unavailable)
+                                          </span>
+                                        </span>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </>
+                          )}
+                          {zipUrl && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="cursor-pointer shadow-sm hover:shadow-md transition-all"
+                            >
+                              <a
+                                href={zipUrl}
+                                download
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-2"
+                                onClick={(e) => {
+                                  if (!zipUrl) {
+                                    e.preventDefault();
+                                    toast.error(
+                                      "ZIP file not found in storage"
+                                    );
+                                  }
+                                }}
+                              >
+                                <span className="flex items-center gap-2">
+                                  <Download className="h-4 w-4" />
+                                  OBJ
+                                </span>
+                              </a>
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Description Card */}
+                    {asset.description && (
+                      <div className="bg-card rounded-xl border border-border/40 shadow-[0_2px_8px_rgba(0,0,0,0.04),0_1px_2px_rgba(0,0,0,0.06)] p-6">
+                        <div className="flex items-center gap-3 mb-3">
+                          <div className="w-1 h-5 bg-gradient-to-b from-primary to-primary/70 rounded-full"></div>
+                          <h2 className="text-lg font-semibold text-foreground">
+                            Description
+                          </h2>
+                        </div>
+                        <p className="text-sm text-muted-foreground leading-relaxed">
+                          {asset.description}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Specifications Card */}
+                    <div className="bg-card rounded-xl border border-border/40 shadow-[0_2px_8px_rgba(0,0,0,0.04),0_1px_2px_rgba(0,0,0,0.06)] p-6">
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="w-1 h-5 bg-gradient-to-b from-primary to-primary/70 rounded-full"></div>
+                        <h2 className="text-lg font-semibold text-foreground">
+                          Specifications
+                        </h2>
+                      </div>
+                      <div className="grid grid-cols-1 gap-4">
+                        <div className="space-y-2 p-4 bg-muted/30 rounded-lg">
+                          <p className="text-sm font-semibold text-foreground/80">
+                            Article IDs
+                          </p>
+                          {asset.article_id ? (
+                            <div className="flex flex-wrap gap-2">
+                              <Badge
+                                variant="secondary"
+                                className="text-xs font-mono shadow-sm"
+                                title={
+                                  getArticleIdsTooltip(
+                                    asset.article_ids || []
+                                  ) || undefined
+                                }
+                              >
+                                {asset.article_id}
+                              </Badge>
+                              {getAdditionalArticleIds(asset).map((id) => (
+                                <Badge
+                                  key={id}
+                                  variant="secondary"
+                                  className="text-xs font-mono shadow-sm"
+                                  title={id}
+                                >
+                                  {id}
+                                </Badge>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-sm text-muted-foreground">
+                              Not specified
+                            </p>
+                          )}
+                        </div>
+
+                        {asset.dimensions && (
+                          <div className="space-y-2 p-4 bg-muted/30 rounded-lg">
+                            <p className="text-sm font-semibold text-foreground/80">
+                              Dimensions
+                            </p>
+                            <p className="text-sm text-muted-foreground font-mono">
+                              {asset.dimensions}
+                            </p>
+                          </div>
+                        )}
+
+                        {asset.materials && asset.materials.length > 0 && (
+                          <div className="space-y-2 p-4 bg-muted/30 rounded-lg">
+                            <p className="text-sm font-semibold text-foreground/80">
+                              Materials
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              {asset.materials.join(", ")}
+                            </p>
+                          </div>
+                        )}
+
+                        {asset.colors && asset.colors.length > 0 && (
+                          <div className="space-y-2 p-4 bg-muted/30 rounded-lg">
+                            <p className="text-sm font-semibold text-foreground/80">
+                              Colors
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              {asset.colors.join(", ")}
+                            </p>
+                          </div>
+                        )}
+
+                        {asset.client && (
+                          <div className="space-y-2 p-4 bg-muted/30 rounded-lg">
+                            <p className="text-sm font-semibold text-foreground/80">
+                              Client
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              {asset.client}
+                            </p>
+                          </div>
+                        )}
+
+                        {asset.product_link && (
+                          <div className="space-y-2 p-4 bg-muted/30 rounded-lg">
+                            <p className="text-sm font-semibold text-foreground/80">
+                              Product Link
+                            </p>
+                            <a
+                              href={asset.product_link}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-sm text-primary hover:text-primary/80 transition-colors break-all"
+                            >
+                              {asset.product_link}
+                            </a>
+                          </div>
+                        )}
+
+                        {glbLinks.length > 0 && (
+                          <div className="space-y-2 p-4 bg-muted/30 rounded-lg">
+                            <p className="text-sm font-semibold text-foreground/80">
+                              GLB Files
+                            </p>
+                            <details className="rounded-lg border border-border/40 bg-background/50 p-3 text-sm">
+                              <summary className="cursor-pointer font-medium text-foreground hover:text-primary transition-colors">
+                                View {glbLinks.length} file
+                                {glbLinks.length > 1 ? "s" : ""}
+                              </summary>
+                              <div className="mt-3 space-y-2">
+                                {glbLinks.map(({ articleId, url }) => (
+                                  <div
+                                    key={articleId}
+                                    className="p-2 rounded bg-muted/20 hover:bg-muted/40 transition-colors"
+                                  >
+                                    {url ? (
+                                      <a
+                                        href={url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="block break-all text-sm text-primary hover:text-primary/80 transition-colors"
+                                      >
+                                        <span className="font-semibold font-mono">
+                                          {articleId}
+                                        </span>
+                                        <span className="text-xs text-muted-foreground block mt-1 truncate">
+                                          {url}
+                                        </span>
+                                      </a>
+                                    ) : (
+                                      <div>
+                                        <span className="font-semibold font-mono text-sm">
+                                          {articleId}
+                                        </span>
+                                        <span className="text-xs text-muted-foreground block mt-1">
+                                          Not available
+                                        </span>
+                                      </div>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            </details>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Tags Card */}
+                    {asset.tags && asset.tags.length > 0 && (
+                      <div className="bg-card rounded-xl border border-border/40 shadow-[0_2px_8px_rgba(0,0,0,0.04),0_1px_2px_rgba(0,0,0,0.06)] p-6">
+                        <div className="flex items-center gap-3 mb-4">
+                          <div className="w-1 h-5 bg-gradient-to-b from-primary to-primary/70 rounded-full"></div>
+                          <h2 className="text-lg font-semibold text-foreground">
+                            Tags
+                          </h2>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {asset.tags.map((tag) => (
+                            <Badge
+                              key={tag}
+                              variant="secondary"
+                              className="text-sm shadow-sm hover:shadow-md transition-shadow"
+                            >
+                              {tag}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Generated Scenes Section */}
+                  <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+                    <div className="bg-card rounded-xl border border-border/40 shadow-[0_2px_8px_rgba(0,0,0,0.04),0_1px_2px_rgba(0,0,0,0.06)] flex flex-col h-full">
+                      {/* Header - Fixed outside scroll */}
+                      <div className="flex items-center justify-between p-6 pb-4 border-b border-border/40 flex-shrink-0">
+                        <h2 className="text-lg font-semibold">
+                          Lifestyle Scenes
+                        </h2>
+                        <a
+                          href="/scene-render"
+                          className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 rounded-md px-3"
+                        >
+                          Create New Scene
+                        </a>
+                      </div>
+                      {/* Scrollable Content */}
+                      <div className="flex-1 min-h-0 overflow-y-auto p-6 pt-4">
+                        <RelatedScenesSection
+                          assetId={asset.id}
+                          articleId={asset.article_id}
+                          modelUrl={asset.glb_link}
+                          productName={asset.product_name}
+                          hideHeader={true}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Saved Packshots Section - Bottom */}
+                  <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+                    <div className="bg-card rounded-xl border border-border/40 shadow-[0_2px_8px_rgba(0,0,0,0.04),0_1px_2px_rgba(0,0,0,0.06)] flex flex-col h-full">
+                      {/* Header - Fixed outside scroll */}
+                      <div className="flex items-center justify-between p-6 pb-4 border-b border-border/40 flex-shrink-0">
+                        <h2 className="text-lg font-semibold">
+                          Saved Packshots
+                        </h2>
+                      </div>
+                      {/* Scrollable Content */}
+                      <div className="flex-1 min-h-0 overflow-y-auto p-6 pt-4">
+                        <SavedPackshotsSection
+                          assetId={asset.id}
+                          articleId={asset.article_id}
+                          modelUrl={asset.glb_link}
+                          productName={asset.product_name}
+                          hideHeader={true}
+                        />
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}
@@ -1273,6 +1373,6 @@ export default function AssetDetailPage() {
           </div>
         </div>
       </div>
-    </>
+    </React.Fragment>
   );
 }

@@ -19,10 +19,13 @@ interface HunyuanImageUploadSectionProps {
   setGeneratedModel: (model: string | null) => void;
   setTencentModelUrl: (url: string | null) => void;
   tencentModelUrl: string | null;
+  setAvailableFiles: (files: Array<{ type: string; url: string }>) => void;
+  availableFiles: Array<{ type: string; url: string }>;
   isSingleImageMode: boolean;
   faceCount: number;
   enablePBR: boolean;
   generateType: "Normal" | "LowPoly" | "Geometry" | "Sketch";
+  polygonType: "triangle" | "quadrilateral";
   onModelSaved?: () => void;
 }
 
@@ -56,10 +59,12 @@ export function HunyuanImageUploadSection({
   setGeneratedModel,
   setTencentModelUrl,
   tencentModelUrl,
+  setAvailableFiles,
   isSingleImageMode,
   faceCount,
   enablePBR,
   generateType,
+  polygonType,
   onModelSaved,
 }: HunyuanImageUploadSectionProps) {
   const [isSaving, setIsSaving] = useState(false);
@@ -252,6 +257,7 @@ export function HunyuanImageUploadSection({
     try {
       setIsGenerating(true);
       setGenerationProgress(10);
+      setAvailableFiles([]); // Clear previous files
 
       // Build the request payload
       const payload: any = {
@@ -259,6 +265,11 @@ export function HunyuanImageUploadSection({
         EnablePBR: enablePBR,
         GenerateType: generateType,
       };
+
+      // Add PolygonType only for LowPoly generation type
+      if (generateType === "LowPoly") {
+        payload.PolygonType = polygonType;
+      }
 
       if (isSingleImageMode) {
         // Single image mode
@@ -527,9 +538,109 @@ export function HunyuanImageUploadSection({
             // Success!
             const resultFiles = queryResult.Response?.ResultFile3Ds;
             if (resultFiles && resultFiles.length > 0) {
-              const glbFile = resultFiles.find((f: any) => f.Type === "GLB");
+              // Log all files to see what's available
+              console.log("=== All Result Files ===");
+              resultFiles.forEach((f: any, index: number) => {
+                const urlLower = (f.Url || "").toLowerCase();
+                const hasZip =
+                  urlLower.includes(".zip") || urlLower.endsWith(".zip");
+                const hasObj =
+                  urlLower.includes(".obj") || urlLower.endsWith(".obj");
+                const hasGlb =
+                  urlLower.includes(".glb") || urlLower.endsWith(".glb");
+                console.log(`${index + 1}. Type: ${f.Type}, URL: ${f.Url}`);
+                console.log(
+                  `   URL analysis: ZIP=${hasZip}, OBJ=${hasObj}, GLB=${hasGlb}`
+                );
+              });
+
+              // Store all available file types (normalize type names)
+              const files = resultFiles.map((f: any) => {
+                // First, check URL for file extension (most reliable)
+                const urlLower = (f.Url || "").toLowerCase();
+                let normalizedType = null;
+
+                // Check URL extension first (most reliable indicator)
+                if (
+                  urlLower.includes(".zip") ||
+                  urlLower.endsWith(".zip") ||
+                  (urlLower.includes("?") && urlLower.includes(".zip"))
+                ) {
+                  normalizedType = "ZIP";
+                } else if (
+                  urlLower.includes(".obj") ||
+                  urlLower.endsWith(".obj") ||
+                  (urlLower.includes("?") && urlLower.includes(".obj"))
+                ) {
+                  normalizedType = "OBJ";
+                } else if (
+                  urlLower.includes(".glb") ||
+                  urlLower.endsWith(".glb") ||
+                  (urlLower.includes("?") && urlLower.includes(".glb"))
+                ) {
+                  normalizedType = "GLB";
+                }
+
+                // If URL doesn't reveal type, check Type field
+                if (!normalizedType && f.Type) {
+                  if (typeof f.Type === "string") {
+                    const typeUpper = f.Type.toUpperCase();
+                    // Handle variations like "ZIP", "Zip", "zip", etc.
+                    if (
+                      typeUpper === "ZIP" ||
+                      typeUpper === "ZIPFILE" ||
+                      typeUpper.includes("ZIP")
+                    ) {
+                      normalizedType = "ZIP";
+                    } else if (
+                      typeUpper === "OBJ" ||
+                      typeUpper === "OBJFILE" ||
+                      typeUpper.includes("OBJ")
+                    ) {
+                      normalizedType = "OBJ";
+                    } else if (
+                      typeUpper === "GLB" ||
+                      typeUpper === "GLBFILE" ||
+                      typeUpper.includes("GLB")
+                    ) {
+                      normalizedType = "GLB";
+                    } else {
+                      normalizedType = typeUpper; // Use as-is if we can't determine
+                    }
+                  } else {
+                    normalizedType = String(f.Type).toUpperCase();
+                  }
+                }
+
+                // Fallback if still no type
+                if (!normalizedType) {
+                  normalizedType = "UNKNOWN";
+                }
+
+                return {
+                  type: normalizedType,
+                  url: f.Url,
+                };
+              });
+
+              console.log(
+                "Normalized file types:",
+                files.map((f: any) => f.type).join(", ")
+              );
+              setAvailableFiles(files);
+
+              // Find GLB file for display
+              const glbFile = resultFiles.find((f: any) => {
+                const type =
+                  typeof f.Type === "string" ? f.Type.toUpperCase() : f.Type;
+                return type === "GLB" || type === "GLBFILE";
+              });
               if (glbFile) {
                 console.log("✓ Generation complete! Model URL:", glbFile.Url);
+                console.log(
+                  "Available file types:",
+                  files.map((f: any) => f.type).join(", ")
+                );
                 await downloadAndDisplayModel(glbFile.Url);
                 setGenerationProgress(100);
                 toast.success("3D model generated successfully!");
@@ -698,6 +809,7 @@ export function HunyuanImageUploadSection({
             faceCount,
             enablePBR,
             generateType,
+            polygonType: generateType === "LowPoly" ? polygonType : undefined,
             imageMode: isSingleImageMode ? "single" : "multi-view",
           },
         }),
@@ -738,6 +850,7 @@ export function HunyuanImageUploadSection({
             faceCount,
             enablePBR,
             generateType,
+            polygonType: generateType === "LowPoly" ? polygonType : undefined,
             imageMode: isSingleImageMode ? "single" : "multi-view",
           },
         }),

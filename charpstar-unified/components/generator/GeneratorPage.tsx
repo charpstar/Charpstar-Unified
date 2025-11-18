@@ -35,12 +35,18 @@ export function GeneratorPage() {
   const [generationProgress, setGenerationProgress] = useState(0);
   const [generatedModel, setGeneratedModel] = useState<string | null>(null);
   const [tencentModelUrl, setTencentModelUrl] = useState<string | null>(null); // Store original Tencent URL for saving
+  const [availableFiles, setAvailableFiles] = useState<
+    Array<{ type: string; url: string }>
+  >([]); // Store all available file types
   const [isSingleImageMode, setIsSingleImageMode] = useState(false);
   const [faceCount, setFaceCount] = useState(500000);
   const [enablePBR, setEnablePBR] = useState(false);
   const [generateType, setGenerateType] = useState<
     "Normal" | "LowPoly" | "Geometry" | "Sketch"
   >("Normal");
+  const [polygonType, setPolygonType] = useState<"triangle" | "quadrilateral">(
+    "triangle"
+  );
 
   // Clear images when switching modes
   useEffect(() => {
@@ -52,6 +58,7 @@ export function GeneratorPage() {
     });
     setGeneratedModel(null);
     setTencentModelUrl(null);
+    setAvailableFiles([]);
   }, [isSingleImageMode]);
 
   return (
@@ -112,6 +119,8 @@ export function GeneratorPage() {
                     setEnablePBR={setEnablePBR}
                     generateType={generateType}
                     setGenerateType={setGenerateType}
+                    polygonType={polygonType}
+                    setPolygonType={setPolygonType}
                   />
                 </div>
 
@@ -126,10 +135,13 @@ export function GeneratorPage() {
                     setGeneratedModel={setGeneratedModel}
                     setTencentModelUrl={setTencentModelUrl}
                     tencentModelUrl={tencentModelUrl}
+                    setAvailableFiles={setAvailableFiles}
+                    availableFiles={availableFiles}
                     isSingleImageMode={isSingleImageMode}
                     faceCount={faceCount}
                     enablePBR={enablePBR}
                     generateType={generateType}
+                    polygonType={polygonType}
                     onModelSaved={() => {
                       setActiveTab("gallery");
                     }}
@@ -148,6 +160,7 @@ export function GeneratorPage() {
               generatedModel={generatedModel}
               isGenerating={isGenerating}
               generationProgress={generationProgress}
+              availableFiles={availableFiles}
             />
           </div>
         ) : (

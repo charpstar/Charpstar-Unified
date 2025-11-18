@@ -1,8 +1,8 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/utils/supabase/server";
 import { createAdminClient } from "@/utils/supabase/admin";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const supabase = createServerClient();
 
@@ -15,12 +15,54 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Fetch user's generated models
-    const { data: models, error } = await supabase
-      .from("generated_models")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false });
+    // Check if user is admin
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .single();
+
+    const isAdmin = profile?.role === "admin";
+
+    // Get query parameters for filtering
+    const { searchParams } = new URL(request.url);
+    const userId = searchParams.get("userId");
+    const generateType = searchParams.get("generateType");
+    const dateFrom = searchParams.get("dateFrom");
+    const dateTo = searchParams.get("dateTo");
+    const search = searchParams.get("search");
+
+    // Build query - admins can see all, others only their own
+    let query = supabase.from("generated_models").select("*");
+
+    if (!isAdmin) {
+      // Non-admins only see their own models
+      query = query.eq("user_id", user.id);
+    } else if (userId) {
+      // Admin filtering by specific user
+      query = query.eq("user_id", userId);
+    }
+
+    // Apply filters
+    if (generateType) {
+      query = query.eq("generate_type", generateType);
+    }
+
+    if (dateFrom) {
+      query = query.gte("created_at", dateFrom);
+    }
+
+    if (dateTo) {
+      query = query.lte("created_at", dateTo);
+    }
+
+    if (search) {
+      query = query.ilike("model_name", `%${search}%`);
+    }
+
+    const { data: models, error } = await query.order("created_at", {
+      ascending: false,
+    });
 
     if (error) {
       console.error("Database error:", error);
@@ -74,7 +116,10 @@ export async function GET() {
       },
     }));
 
-    return NextResponse.json({ models: modelsWithUsers });
+    return NextResponse.json({
+      models: modelsWithUsers,
+      isAdmin: isAdmin,
+    });
   } catch (error: any) {
     console.error("Fetch models error:", error);
     return NextResponse.json(

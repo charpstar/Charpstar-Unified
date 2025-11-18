@@ -10,15 +10,51 @@ interface ModelViewerSectionProps {
   generatedModel: string | null;
   isGenerating: boolean;
   generationProgress: number;
+  availableFiles?: Array<{ type: string; url: string }>;
 }
 
 export function ModelViewerSection({
   generatedModel,
   isGenerating,
   generationProgress,
+  availableFiles = [],
 }: ModelViewerSectionProps) {
-  const handleDownload = () => {
-    if (generatedModel) {
+  const handleDownload = async (fileType: string = "GLB") => {
+    // Find the file URL for the requested type
+    const file = availableFiles.find((f) => f.type === fileType);
+
+    if (file) {
+      try {
+        // Use proxy endpoint to bypass CORS restrictions
+        const proxyUrl = `/api/hunyuan/download?url=${encodeURIComponent(file.url)}`;
+        const response = await fetch(proxyUrl);
+
+        if (!response.ok) {
+          throw new Error(`Failed to download ${fileType} file`);
+        }
+
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `generated_model_${Date.now()}.${fileType.toLowerCase()}`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+      } catch (error) {
+        console.error(`Error downloading ${fileType}:`, error);
+        // Fallback: try direct download
+        const link = document.createElement("a");
+        link.href = file.url;
+        link.download = `generated_model_${Date.now()}.${fileType.toLowerCase()}`;
+        link.target = "_blank";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+    } else if (fileType === "GLB" && generatedModel) {
+      // Fallback for GLB if availableFiles not set yet
       const link = document.createElement("a");
       link.href = generatedModel;
       link.download = `generated_model_${Date.now()}.glb`;
@@ -89,28 +125,62 @@ export function ModelViewerSection({
       <div className="flex-1">{renderContent()}</div>
 
       {/* Download section - always visible */}
-      <div className="p-4 border-t border-border bg-muted flex items-center justify-between">
-        <div>
-          <h4
-            className={`font-medium ${generatedModel ? "text-foreground" : "text-muted-foreground"}`}
-          >
-            {generatedModel ? "Model ready" : "No model generated"}
-          </h4>
-          <p
-            className={`text-sm ${generatedModel ? "text-muted-foreground" : "text-muted-foreground/70"}`}
-          >
-            GLB format
-          </p>
+      <div className="p-4 border-t border-border bg-muted">
+        <div className="flex items-center justify-between mb-2">
+          <div>
+            <h4
+              className={`font-medium ${generatedModel ? "text-foreground" : "text-muted-foreground"}`}
+            >
+              {generatedModel ? "Model ready" : "No model generated"}
+            </h4>
+            <p
+              className={`text-sm ${generatedModel ? "text-muted-foreground" : "text-muted-foreground/70"}`}
+            >
+              {availableFiles.length > 0
+                ? `Available formats: ${availableFiles.map((f) => f.type).join(", ")}`
+                : "GLB format"}
+            </p>
+          </div>
         </div>
-        <Button
-          onClick={handleDownload}
-          size="sm"
-          disabled={!generatedModel}
-          className={!generatedModel ? "opacity-50 cursor-not-allowed" : ""}
-        >
-          <Download className="h-4 w-4 mr-2" />
-          Download
-        </Button>
+        <div className="space-y-2">
+          <div className="flex gap-2 flex-wrap">
+            {availableFiles.length > 0 ? (
+              availableFiles.map((file) => {
+                // Prioritize ZIP for OBJ format (contains OBJ + MTL + textures)
+                const isRecommended =
+                  file.type === "ZIP" || file.type === "GLB";
+                return (
+                  <Button
+                    key={file.type}
+                    onClick={() => handleDownload(file.type)}
+                    size="sm"
+                    variant={isRecommended ? "default" : "outline"}
+                    disabled={!generatedModel}
+                    className={
+                      !generatedModel ? "opacity-50 cursor-not-allowed" : ""
+                    }
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    Download {file.type}
+                    {file.type === "ZIP" && " "}
+                  </Button>
+                );
+              })
+            ) : (
+              <Button
+                onClick={() => handleDownload("GLB")}
+                size="sm"
+                disabled={!generatedModel}
+                className={
+                  !generatedModel ? "opacity-50 cursor-not-allowed" : ""
+                }
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Download GLB
+              </Button>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );

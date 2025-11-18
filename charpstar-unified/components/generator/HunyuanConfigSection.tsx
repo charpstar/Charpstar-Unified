@@ -21,6 +21,8 @@ interface HunyuanConfigSectionProps {
   setEnablePBR: (enable: boolean) => void;
   generateType: "Normal" | "LowPoly" | "Geometry" | "Sketch";
   setGenerateType: (type: "Normal" | "LowPoly" | "Geometry" | "Sketch") => void;
+  polygonType: "triangle" | "quadrilateral";
+  setPolygonType: (type: "triangle" | "quadrilateral") => void;
 }
 
 export function HunyuanConfigSection({
@@ -32,6 +34,8 @@ export function HunyuanConfigSection({
   setEnablePBR,
   generateType,
   setGenerateType,
+  polygonType,
+  setPolygonType,
 }: HunyuanConfigSectionProps) {
   return (
     <div className="space-y-4">
@@ -94,6 +98,31 @@ export function HunyuanConfigSection({
           </SelectContent>
         </Select>
       </div>
+
+      {/* Polygon Type - Only show for LowPoly */}
+      {generateType === "LowPoly" && (
+        <div className="space-y-2">
+          <Label className="text-xs font-medium text-muted-foreground">
+            Polygon Type
+          </Label>
+          <Select
+            value={polygonType}
+            onValueChange={(value: any) => setPolygonType(value)}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="triangle">Triangle (Default)</SelectItem>
+              <SelectItem value="quadrilateral">Quadrilateral</SelectItem>
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">
+            Model surface polygon grid type. Only available for Low Poly
+            generation.
+          </p>
+        </div>
+      )}
 
       {/* Face Count Slider */}
       <div className="space-y-2">
