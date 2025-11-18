@@ -39,7 +39,7 @@ export function GeneratorPage() {
     Array<{ type: string; url: string }>
   >([]); // Store all available file types
   const [isSingleImageMode, setIsSingleImageMode] = useState(false);
-  const [faceCount, setFaceCount] = useState(500000);
+  const [faceCount, setFaceCount] = useState(100000);
   const [enablePBR, setEnablePBR] = useState(false);
   const [generateType, setGenerateType] = useState<
     "Normal" | "LowPoly" | "Geometry" | "Sketch"

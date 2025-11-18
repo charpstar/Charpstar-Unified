@@ -1,9 +1,10 @@
 "use client";
 
 import React from "react";
-import { Box, Download, Loader2 } from "lucide-react";
+import { Box, Download } from "lucide-react";
 import { Button } from "@/components/ui/display/button";
 import { Progress } from "@/components/ui/feedback/progress";
+import { Skeleton } from "@/components/ui/skeletons";
 import { ModelViewer } from "./ModelViewer";
 
 interface ModelViewerSectionProps {
@@ -65,32 +66,43 @@ export function ModelViewerSection({
   };
 
   const renderContent = () => {
-    // Show loading if actively generating
+    // Show loading skeleton if actively generating
     if (isGenerating) {
       return (
-        <div className="flex flex-col items-center justify-center h-full space-y-4">
-          <Loader2 className="h-12 w-12 animate-spin text-muted-foreground" />
-          <h3 className="text-lg font-medium text-foreground">
-            Generating 3D model
-          </h3>
-          <div className="w-full max-w-xs space-y-2">
-            <Progress value={generationProgress} className="w-full" />
-            <p className="text-sm text-muted-foreground text-center">
-              {generationProgress < 25
-                ? "Preparing images..."
-                : generationProgress < 40
-                  ? "Uploading to server..."
-                  : generationProgress < 50
-                    ? "Starting AI processing..."
-                    : generationProgress < 90
-                      ? "Generating 3D model... (this may take a few minutes)"
-                      : "Almost done..."}
-            </p>
-            <p className="text-xs text-muted-foreground text-center">
-              {generationProgress}% complete
-            </p>
+        <>
+          {/* Main viewer skeleton */}
+          <div className="flex-1 flex items-center justify-center p-8">
+            <div className="w-full max-w-2xl space-y-4">
+              <Skeleton className="h-[400px] w-full rounded-lg" />
+              <div className="w-full max-w-xs mx-auto space-y-2">
+                <Progress value={generationProgress} className="w-full" />
+                <p className="text-sm text-muted-foreground text-center">
+                  {generationProgress < 25
+                    ? "Preparing images..."
+                    : generationProgress < 40
+                      ? "Uploading to server..."
+                      : generationProgress < 50
+                        ? "Starting AI processing..."
+                        : generationProgress < 90
+                          ? "Generating 3D model... (this may take a few minutes)"
+                          : "Almost done..."}
+                </p>
+                <p className="text-xs text-muted-foreground text-center">
+                  {generationProgress}% complete
+                </p>
+              </div>
+            </div>
           </div>
-        </div>
+
+          {/* Download section skeleton - matches actual bottom section */}
+          <div className="p-4 border-t border-border bg-muted">
+            <div className="flex items-center justify-between mb-2">
+              <div className="space-y-1">
+                <Skeleton className="h-5 w-32" />
+              </div>
+            </div>
+          </div>
+        </>
       );
     }
 
@@ -121,67 +133,73 @@ export function ModelViewerSection({
 
   return (
     <div className="h-full flex flex-col">
-      {/* Main content area */}
-      <div className="flex-1">{renderContent()}</div>
+      {isGenerating ? (
+        renderContent()
+      ) : (
+        <>
+          {/* Main content area */}
+          <div className="flex-1">{renderContent()}</div>
 
-      {/* Download section - always visible */}
-      <div className="p-4 border-t border-border bg-muted">
-        <div className="flex items-center justify-between mb-2">
-          <div>
-            <h4
-              className={`font-medium ${generatedModel ? "text-foreground" : "text-muted-foreground"}`}
-            >
-              {generatedModel ? "Model ready" : "No model generated"}
-            </h4>
-            <p
-              className={`text-sm ${generatedModel ? "text-muted-foreground" : "text-muted-foreground/70"}`}
-            >
-              {availableFiles.length > 0
-                ? `Available formats: ${availableFiles.map((f) => f.type).join(", ")}`
-                : "GLB format"}
-            </p>
-          </div>
-        </div>
-        <div className="space-y-2">
-          <div className="flex gap-2 flex-wrap">
-            {availableFiles.length > 0 ? (
-              availableFiles.map((file) => {
-                // Prioritize ZIP for OBJ format (contains OBJ + MTL + textures)
-                const isRecommended =
-                  file.type === "ZIP" || file.type === "GLB";
-                return (
+          {/* Download section - always visible */}
+          <div className="p-4 border-t border-border bg-muted">
+            <div className="flex items-center justify-between mb-2">
+              <div>
+                <h4
+                  className={`font-medium ${generatedModel ? "text-foreground" : "text-muted-foreground"}`}
+                >
+                  {generatedModel ? "Model ready" : "No model generated"}
+                </h4>
+                <p
+                  className={`text-sm ${generatedModel ? "text-muted-foreground" : "text-muted-foreground/70"}`}
+                >
+                  {availableFiles.length > 0
+                    ? `Available formats: ${availableFiles.map((f) => f.type).join(", ")}`
+                    : "GLB format"}
+                </p>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <div className="flex gap-2 flex-wrap">
+                {availableFiles.length > 0 ? (
+                  availableFiles.map((file) => {
+                    // Prioritize ZIP for OBJ format (contains OBJ + MTL + textures)
+                    const isRecommended =
+                      file.type === "ZIP" || file.type === "GLB";
+                    return (
+                      <Button
+                        key={file.type}
+                        onClick={() => handleDownload(file.type)}
+                        size="sm"
+                        variant={isRecommended ? "default" : "outline"}
+                        disabled={!generatedModel}
+                        className={
+                          !generatedModel ? "opacity-50 cursor-not-allowed" : ""
+                        }
+                      >
+                        <Download className="h-4 w-4 mr-2" />
+                        Download {file.type}
+                        {file.type === "ZIP" && " "}
+                      </Button>
+                    );
+                  })
+                ) : (
                   <Button
-                    key={file.type}
-                    onClick={() => handleDownload(file.type)}
+                    onClick={() => handleDownload("GLB")}
                     size="sm"
-                    variant={isRecommended ? "default" : "outline"}
                     disabled={!generatedModel}
                     className={
                       !generatedModel ? "opacity-50 cursor-not-allowed" : ""
                     }
                   >
                     <Download className="h-4 w-4 mr-2" />
-                    Download {file.type}
-                    {file.type === "ZIP" && " "}
+                    Download GLB
                   </Button>
-                );
-              })
-            ) : (
-              <Button
-                onClick={() => handleDownload("GLB")}
-                size="sm"
-                disabled={!generatedModel}
-                className={
-                  !generatedModel ? "opacity-50 cursor-not-allowed" : ""
-                }
-              >
-                <Download className="h-4 w-4 mr-2" />
-                Download GLB
-              </Button>
-            )}
+                )}
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
+        </>
+      )}
     </div>
   );
 }

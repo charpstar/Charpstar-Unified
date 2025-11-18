@@ -11,8 +11,8 @@ function Skeleton({ className, ...props }: React.ComponentProps<"div">) {
       {...props}
     >
       {" "}
-      <div className="h-8 w-full bg-gray-100 rounded-lg dark:bg-muted mb-2.5"></div>
-      <div className="h-6 w-full bg-gray-100 rounded-lg dark:bg-muted"></div>
+      {/* <div className="h-8 w-full bg-gray-100 rounded-lg dark:bg-muted mb-2.5"></div> */}
+      {/*<div className="h-6 w-full bg-gray-100 rounded-lg dark:bg-muted"></div>*/}
       <span className="sr-only">Loading...</span>
     </div>
   );

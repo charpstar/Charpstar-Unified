@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, Suspense } from "react";
 import { Card } from "@/components/ui/containers/card";
 import { Button } from "@/components/ui/display/button";
-import { Download, Trash2, Loader2, Eye, Filter, X } from "lucide-react";
+import { Download, Trash2, Eye, Filter, X } from "lucide-react";
 import { toast } from "sonner";
 import { Canvas } from "@react-three/fiber";
-import { OrbitControls, Stage } from "@react-three/drei";
-import { useGLTF } from "@react-three/drei";
+import { OrbitControls, useGLTF } from "@react-three/drei";
+import { Skeleton } from "@/components/ui/skeletons";
 import {
   Dialog,
   DialogContent,
@@ -206,8 +206,43 @@ export function GeneratedModelsGallery() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      <div className="p-4 space-y-4">
+        {/* Filter skeleton */}
+        <Card className="p-4">
+          <div className="flex items-center justify-between">
+            <Skeleton className="h-6 w-24" />
+          </div>
+        </Card>
+
+        {/* Gallery grid skeleton */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+            <Card key={i} className="overflow-hidden">
+              {/* Preview area skeleton */}
+              <div className="relative h-48 bg-gradient-to-br from-muted to-accent flex items-center justify-center">
+                <div className="text-center space-y-3">
+                  <Skeleton className="w-16 h-16 mx-auto rounded-full" />
+                </div>
+              </div>
+
+              {/* Info section skeleton */}
+              <div className="p-4 space-y-3">
+                {/* Model name */}
+                <Skeleton className="h-6 w-full" />
+
+                {/* Info list */}
+                <div className="space-y-2">
+                  <Skeleton className="h-3 w-full" />
+                </div>
+
+                {/* Action buttons */}
+                <div className="flex gap-2 pt-1">
+                  <Skeleton className="h-9 flex-1" />
+                </div>
+              </div>
+            </Card>
+          ))}
+        </div>
       </div>
     );
   }
@@ -434,10 +469,29 @@ export function GeneratedModelsGallery() {
             </DialogHeader>
             <div className="flex-1 bg-gradient-to-br from-muted to-accent rounded-lg min-h-[calc(100vh-300px)] w-full">
               <Canvas camera={{ position: [0, 0, 5], fov: 50 }}>
-                <Stage environment="city" intensity={0.5}>
+                <ambientLight intensity={0.8} />
+                <directionalLight
+                  position={[10, 10, 5]}
+                  intensity={1.2}
+                  castShadow
+                />
+                <directionalLight position={[-10, -10, -5]} intensity={0.6} />
+                <spotLight
+                  position={[0, 10, 0]}
+                  angle={0.3}
+                  penumbra={1}
+                  intensity={0.5}
+                  castShadow
+                />
+                <Suspense fallback={null}>
                   <ModelPreview modelUrl={selectedModel.model_url} />
-                </Stage>
-                <OrbitControls />
+                </Suspense>
+                <OrbitControls
+                  enableDamping
+                  dampingFactor={0.05}
+                  minDistance={2}
+                  maxDistance={10}
+                />
               </Canvas>
             </div>
           </DialogContent>
