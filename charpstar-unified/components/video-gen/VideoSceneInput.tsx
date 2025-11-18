@@ -20,12 +20,6 @@ const resolutionOptions = [
   { value: "1080p", label: "Full HD 1080p", description: "1920 x 1080" },
 ];
 
-const durationOptions = [
-  { value: "4", label: "4 seconds" },
-  { value: "6", label: "6 seconds" },
-  { value: "8", label: "8 seconds" },
-];
-
 interface VideoSceneInputProps {
   onGenerate: (
     snapshots: string[],
@@ -33,23 +27,15 @@ interface VideoSceneInputProps {
     objectType: string,
     sceneDescription: string,
     inspirationImage: string | null,
-    resolution: string,
-    durationSeconds: string
+    resolution: string
   ) => void;
   onCancel: () => void;
   objectSizeDescription: string;
   objectType: string;
   onObjectTypeChange: (value: string) => void;
   currentResolution: string;
-  currentDuration: string;
   onResolutionChange: (value: string) => void;
-  onDurationChange: (value: string) => void;
   disabled?: boolean;
-  selectedAssets?: Array<{
-    id: string;
-    product_name: string;
-    glb_link: string;
-  }>;
 }
 
 const VideoSceneInput: React.FC<VideoSceneInputProps> = ({
@@ -59,11 +45,8 @@ const VideoSceneInput: React.FC<VideoSceneInputProps> = ({
   objectType: objectTypeValue,
   onObjectTypeChange,
   currentResolution,
-  currentDuration,
   onResolutionChange,
-  onDurationChange,
   disabled = false,
-  selectedAssets,
 }) => {
   const [sceneDescription, setSceneDescription] = useState("");
   const [inspirationImage, setInspirationImage] = useState<File | null>(null);
@@ -101,8 +84,7 @@ const VideoSceneInput: React.FC<VideoSceneInputProps> = ({
       objectTypeValue || "Product",
       sceneDescription,
       inspirationBase64,
-      currentResolution,
-      currentDuration
+      currentResolution
     );
   };
 
@@ -187,20 +169,8 @@ const VideoSceneInput: React.FC<VideoSceneInputProps> = ({
           <span className="text-xs font-medium text-muted-foreground">
             Duration
           </span>
-          <div className="flex gap-2">
-            {durationOptions.map((option) => (
-              <button
-                key={option.value}
-                onClick={() => onDurationChange(option.value)}
-                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                  currentDuration === option.value
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground"
-                }`}
-              >
-                {option.label}
-              </button>
-            ))}
+          <div className="px-3 py-1.5 rounded-md text-xs font-medium bg-muted/50 text-muted-foreground">
+            8 seconds
           </div>
         </div>
       </div>

@@ -84,7 +84,7 @@ export default function VideoGenPage() {
     }>
   >([]);
   const [isCapturingSnapshots, setIsCapturingSnapshots] = useState(false);
-  const [capturedSnapshots, setCapturedSnapshots] = useState<string[]>([]);
+
   useEffect(() => {
     const fetchClientViewerType = async () => {
       if (!user?.id) return;
@@ -264,7 +264,6 @@ export default function VideoGenPage() {
   };
 
   const handleAllSnapshotsCaptured = async (snapshots: string[]) => {
-    setCapturedSnapshots(snapshots);
     setIsCapturingSnapshots(false);
 
     // Now generate the video with the captured snapshots
@@ -399,13 +398,13 @@ export default function VideoGenPage() {
                       objectTypeDesc,
                       sceneDesc,
                       inspirationImg,
-                      resolutionValue,
-                      durationValue
+                      resolutionValue
                     ) => {
                       setLastSceneDescription(sceneDesc);
                       setLastObjectType(objectTypeDesc);
                       setVideoResolution(resolutionValue);
-                      setVideoDuration(durationValue);
+                      // VEO 3.1 preview only supports 8 seconds
+                      setVideoDuration("8");
                       
                       // Start capturing snapshots from all selected assets
                       setIsCapturingSnapshots(true);
@@ -415,11 +414,8 @@ export default function VideoGenPage() {
                       setMultiAssetMode(false);
                       setSelectedAssets([]);
                     }}
-                    selectedAssets={selectedAssets}
                     currentResolution={videoResolution}
-                    currentDuration={videoDuration}
                     onResolutionChange={setVideoResolution}
-                    onDurationChange={setVideoDuration}
                     objectSizeDescription=""
                     objectType="Product"
                     onObjectTypeChange={() => {}}
@@ -470,16 +466,20 @@ export default function VideoGenPage() {
             exposure={getViewerParameters(clientViewerType).exposure}
             toneMapping={getViewerParameters(clientViewerType).toneMapping}
             resolution={videoResolution}
-            durationSeconds={videoDuration}
             onResolutionChange={setVideoResolution}
-            onDurationChange={setVideoDuration}
           />
         );
       case "generating":
         if (isCapturingSnapshots) {
           return (
             <MultiAssetSnapshotCapture
-              selectedAssets={selectedAssets}
+              selectedAssets={selectedAssets.map(asset => ({
+                id: asset.id,
+                name: asset.product_name,
+                glb_link: asset.glb_link,
+                category: asset.category,
+                thumbnail: asset.preview_image,
+              }))}
               onAllSnapshotsCaptured={handleAllSnapshotsCaptured}
               onError={handleSnapshotError}
               environmentImage={
@@ -642,7 +642,13 @@ export default function VideoGenPage() {
               setIsAssetPanelCollapsed((prev) => !prev)
             }
             multiAssetMode={multiAssetMode}
-            selectedAssets={selectedAssets}
+            selectedAssets={selectedAssets.map(asset => ({
+              id: asset.id,
+              name: asset.product_name,
+              glb_link: asset.glb_link,
+              category: asset.category,
+              thumbnail: asset.preview_image,
+            }))}
           />
         </div>
       </div>

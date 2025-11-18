@@ -50,9 +50,7 @@ interface VideoModelPreviewerProps {
   exposure?: string;
   toneMapping?: string;
   resolution: string;
-  durationSeconds: string;
   onResolutionChange: (value: string) => void;
-  onDurationChange: (value: string) => void;
 }
 
 const VideoModelPreviewer: React.FC<VideoModelPreviewerProps> = ({
@@ -64,9 +62,7 @@ const VideoModelPreviewer: React.FC<VideoModelPreviewerProps> = ({
   exposure = "1.2",
   toneMapping = "aces",
   resolution,
-  durationSeconds,
   onResolutionChange,
-  onDurationChange,
 }) => {
   const modelViewerRef = useRef<HTMLElement>(null);
   const [fileUrl, setFileUrl] = useState<string | null>(null);
@@ -75,11 +71,6 @@ const VideoModelPreviewer: React.FC<VideoModelPreviewerProps> = ({
   const [objectSize, setObjectSize] = useState("");
   const [objectType, setObjectType] = useState("Product");
   const [sceneDescription, setSceneDescription] = useState("Cinematic hero video");
-  const [modelDimensions, setModelDimensions] = useState<{
-    x: number;
-    y: number;
-    z: number;
-  } | null>(null);
   const [isCapturing, setIsCapturing] = useState(false);
 
   useEffect(() => {
@@ -109,7 +100,6 @@ const VideoModelPreviewer: React.FC<VideoModelPreviewerProps> = ({
           if (typeof modelViewer.getDimensions === "function") {
             const dims = modelViewer.getDimensions();
             if (dims?.x && dims?.y && dims?.z) {
-              setModelDimensions({ x: dims.x, y: dims.y, z: dims.z });
               setObjectSize(
                 `Width: ${dims.x.toFixed(2)}m, Height: ${dims.y.toFixed(2)}m, Depth: ${dims.z.toFixed(2)}m.`
               );
@@ -117,7 +107,6 @@ const VideoModelPreviewer: React.FC<VideoModelPreviewerProps> = ({
           }
         } catch (error) {
           console.error("Failed to get model dimensions", error);
-          setModelDimensions(null);
           setObjectSize("Dimensions unavailable - use reasonable scale.");
         }
       }, 1000);
@@ -125,7 +114,7 @@ const VideoModelPreviewer: React.FC<VideoModelPreviewerProps> = ({
     };
 
     const handleError = (event: CustomEvent) => {
-      console.error("Model loading error:", event.detail);
+      console.error("Model loading error:", event?.detail || "Unknown error");
       setModelError("Failed to load 3D model. Please try a different file.");
       setIsModelLoading(false);
     };
@@ -164,7 +153,7 @@ const VideoModelPreviewer: React.FC<VideoModelPreviewerProps> = ({
         finalDescription,
         finalInspiration,
         resolution,
-        durationSeconds
+        "8" // VEO 3.1 preview only supports 8 seconds
       );
     } finally {
       setIsCapturing(false);
@@ -259,23 +248,19 @@ const VideoModelPreviewer: React.FC<VideoModelPreviewerProps> = ({
             objectTypeDesc,
             sceneDesc,
             inspirationImg,
-            resolutionValue,
-            durationValue
+            resolutionValue
           ) => {
             setSceneDescription(sceneDesc);
             setObjectType(objectTypeDesc);
             onResolutionChange(resolutionValue);
-            onDurationChange(durationValue);
             await handleCapture(sceneDesc, inspirationImg);
           }}
           onCancel={onCancel}
           objectSizeDescription={objectSize || "Dimensions calculating..."}
-          objectTypeValue={objectType}
+          objectType={objectType}
           onObjectTypeChange={setObjectType}
           currentResolution={resolution}
-          currentDuration={durationSeconds}
           onResolutionChange={onResolutionChange}
-          onDurationChange={onDurationChange}
           disabled={isCapturing}
         />
       </div>
