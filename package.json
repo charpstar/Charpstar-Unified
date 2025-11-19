@@ -1,0 +1,45 @@
+{
+  "name": "glb-processor-8views",
+  "version": "1.0.0",
+  "description": "GLB 3D model screenshot processor - generates 8 views (front, back, left, right, top, bottom, and 2 isometric views) from GLB files using Puppeteer",
+  "main": "index.js",
+  "type": "module",
+  "bin": {
+    "glb-processor": "./glb_processor.js"
+  },
+  "scripts": {
+    "start": "node glb_processor.js",
+    "dry-run": "node glb_processor.js --dry-run",
+    "test": "node test.js"
+  },
+  "keywords": [
+    "glb",
+    "3d",
+    "screenshot",
+    "puppeteer",
+    "model-viewer",
+    "supabase",
+    "image-processing",
+    "3d-models"
+  ],
+  "author": "",
+  "license": "ISC",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "puppeteer": "^21.0.0",
+    "@supabase/supabase-js": "^2.45.0",
+    "dotenv": "^16.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0"
+  },
+  "files": [
+    "glb_processor.js",
+    "index.js",
+    "migration.sql",
+    "README.md"
+  ]
+}
+

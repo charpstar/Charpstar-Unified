@@ -1,0 +1,39 @@
+# Source files (keep these for npm package)
+# node_modules/
+# package-lock.json
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Output files
+output/
+*.log
+results.jsonl
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+
+# Documentation
+README.md
+
+# Temporary files
+*.tmp
+*.temp
+
+# Test files
+test.js
+
