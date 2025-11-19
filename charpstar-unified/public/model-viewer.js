@@ -51681,7 +51681,7 @@ const ControlsMixin = (ModelViewerElement) => {
       });
       this.shadowRoot.querySelector(
         'button[slot="hotspot-dim+X-Y"]'
-      ).textContent = `${(size.z * 100).toFixed(1)} cm`;
+      ).textContent = `${(size.z * 100).toFixed(2)} cm`;
 
       this.updateHotspot({
         name: "hotspot-dot+X-Y-Z",
