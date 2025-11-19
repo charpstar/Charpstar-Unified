@@ -4,7 +4,7 @@ import { createAdminClient } from "@/utils/supabase/admin";
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createServerClient();
+    const supabase = await createServerClient();
 
     // Check authentication
     const {

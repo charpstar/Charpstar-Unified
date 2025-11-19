@@ -6,7 +6,7 @@ import { cookies } from "next/headers";
 export async function GET() {
   try {
     const cookieStore = await cookies();
-    const supabase = createServerClient(cookieStore);
+    const supabase = await createServerClient(cookieStore);
 
     // Check if user is authenticated
     const {

@@ -3,7 +3,7 @@ import { createServerClient } from "@/utils/supabase/server";
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createServerClient();
+    const supabase = await createServerClient();
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -71,4 +71,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-

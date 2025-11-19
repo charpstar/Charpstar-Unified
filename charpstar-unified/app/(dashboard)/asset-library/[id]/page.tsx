@@ -4,7 +4,16 @@ import React, { useEffect, useState, useRef } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Badge } from "@/components/ui/feedback";
 import { Button } from "@/components/ui/display";
-import { ArrowLeft, Download, ImageIcon, Pencil, Plus, X } from "lucide-react";
+import {
+  ArrowLeft,
+  Download,
+  ImageIcon,
+  Pencil,
+  Plus,
+  X,
+  Video,
+  Camera,
+} from "lucide-react";
 import { Input } from "@/components/ui/inputs";
 import { Label } from "@/components/ui/display";
 import { toast } from "sonner";
@@ -12,11 +21,18 @@ import { Textarea } from "@/components/ui/inputs";
 import Script from "next/script";
 import { createClient } from "@/utils/supabase/client";
 import { useUser } from "@/contexts/useUser";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/interactive/tabs";
 
 import { ModelViewer } from "@/components/asset-library/viewers/model-viewer";
 import RelatedScenesSection from "@/components/asset-library/RelatedScenesSection";
 import { ARButton } from "@/components/asset-library/ARButton";
 import SavedPackshotsSection from "@/components/product-render/SavedPackshotsSection";
+import SavedVideosSection from "@/components/asset-library/SavedVideosSection";
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
@@ -1318,53 +1334,115 @@ export default function AssetDetailPage() {
                     )}
                   </div>
 
-                  {/* Generated Scenes Section */}
+                  {/* Generated Content Section with Tabs */}
                   <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
                     <div className="bg-card rounded-xl border border-border/40 shadow-[0_2px_8px_rgba(0,0,0,0.04),0_1px_2px_rgba(0,0,0,0.06)] flex flex-col h-full">
-                      {/* Header - Fixed outside scroll */}
-                      <div className="flex items-center justify-between p-6 pb-4 border-b border-border/40 flex-shrink-0">
-                        <h2 className="text-lg font-semibold">
-                          Lifestyle Scenes
-                        </h2>
-                        <a
-                          href="/scene-render"
-                          className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 rounded-md px-3"
-                        >
-                          Create New Scene
-                        </a>
-                      </div>
-                      {/* Scrollable Content */}
-                      <div className="flex-1 min-h-0 overflow-y-auto p-6 pt-4">
-                        <RelatedScenesSection
-                          assetId={asset.id}
-                          articleId={asset.article_id}
-                          modelUrl={asset.glb_link}
-                          productName={asset.product_name}
-                          hideHeader={true}
-                        />
-                      </div>
-                    </div>
-                  </div>
+                      <Tabs
+                        defaultValue="scenes"
+                        className="flex flex-col h-full"
+                      >
+                        {/* Header with Tabs */}
+                        <div className="p-6 pb-0 border-b border-border/40 flex-shrink-0">
+                          <h2 className="text-lg font-semibold mb-4">
+                            Generated Content
+                          </h2>
+                          <TabsList className="grid w-full grid-cols-3">
+                            <TabsTrigger value="scenes" className="gap-2">
+                              <ImageIcon className="h-4 w-4" />
+                              Scenes
+                            </TabsTrigger>
+                            <TabsTrigger value="packshots" className="gap-2">
+                              <Camera className="h-4 w-4" />
+                              Packshots
+                            </TabsTrigger>
+                            <TabsTrigger value="videos" className="gap-2">
+                              <Video className="h-4 w-4" />
+                              Videos
+                            </TabsTrigger>
+                          </TabsList>
+                        </div>
 
-                  {/* Saved Packshots Section - Bottom */}
-                  <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
-                    <div className="bg-card rounded-xl border border-border/40 shadow-[0_2px_8px_rgba(0,0,0,0.04),0_1px_2px_rgba(0,0,0,0.06)] flex flex-col h-full">
-                      {/* Header - Fixed outside scroll */}
-                      <div className="flex items-center justify-between p-6 pb-4 border-b border-border/40 flex-shrink-0">
-                        <h2 className="text-lg font-semibold">
-                          Saved Packshots
-                        </h2>
-                      </div>
-                      {/* Scrollable Content */}
-                      <div className="flex-1 min-h-0 overflow-y-auto p-6 pt-4">
-                        <SavedPackshotsSection
-                          assetId={asset.id}
-                          articleId={asset.article_id}
-                          modelUrl={asset.glb_link}
-                          productName={asset.product_name}
-                          hideHeader={true}
-                        />
-                      </div>
+                        {/* Scrollable Tab Content */}
+                        <div className="flex-1 min-h-0 overflow-hidden">
+                          <TabsContent
+                            value="scenes"
+                            className="h-full m-0 p-0"
+                          >
+                            <div className="flex flex-col h-full">
+                              <div className="flex items-center justify-end p-4 pb-2 border-b border-border/20">
+                                <a
+                                  href="/scene-render"
+                                  className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 rounded-md px-3"
+                                >
+                                  <Plus className="h-4 w-4 mr-2" />
+                                  Create New Scene
+                                </a>
+                              </div>
+                              <div className="flex-1 overflow-y-auto p-6">
+                                <RelatedScenesSection
+                                  assetId={asset.id}
+                                  articleId={asset.article_id}
+                                  modelUrl={asset.glb_link}
+                                  productName={asset.product_name}
+                                  hideHeader={true}
+                                />
+                              </div>
+                            </div>
+                          </TabsContent>
+
+                          <TabsContent
+                            value="packshots"
+                            className="h-full m-0 p-0"
+                          >
+                            <div className="flex flex-col h-full">
+                              <div className="flex items-center justify-end p-4 pb-2 border-b border-border/20">
+                                <a
+                                  href="/product-render"
+                                  className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 rounded-md px-3"
+                                >
+                                  <Plus className="h-4 w-4 mr-2" />
+                                  Create New Packshot
+                                </a>
+                              </div>
+                              <div className="flex-1 overflow-y-auto p-6">
+                                <SavedPackshotsSection
+                                  assetId={asset.id}
+                                  articleId={asset.article_id}
+                                  modelUrl={asset.glb_link}
+                                  productName={asset.product_name}
+                                  hideHeader={true}
+                                />
+                              </div>
+                            </div>
+                          </TabsContent>
+
+                          <TabsContent
+                            value="videos"
+                            className="h-full m-0 p-0"
+                          >
+                            <div className="flex flex-col h-full">
+                              <div className="flex items-center justify-end p-4 pb-2 border-b border-border/20">
+                                <a
+                                  href="/video-gen"
+                                  className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 rounded-md px-3"
+                                >
+                                  <Plus className="h-4 w-4 mr-2" />
+                                  Create New Video
+                                </a>
+                              </div>
+                              <div className="flex-1 overflow-y-auto p-6">
+                                <SavedVideosSection
+                                  assetId={asset.id}
+                                  articleId={asset.article_id}
+                                  modelUrl={asset.glb_link}
+                                  productName={asset.product_name}
+                                  hideHeader={true}
+                                />
+                              </div>
+                            </div>
+                          </TabsContent>
+                        </div>
+                      </Tabs>
                     </div>
                   </div>
                 </div>

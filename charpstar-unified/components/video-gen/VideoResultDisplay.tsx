@@ -119,6 +119,12 @@ const VideoResultDisplay: React.FC<VideoResultDisplayProps> = ({
       }
 
       toast.success("Video scene saved to asset library");
+
+      // Emit event to refresh saved videos list
+      window.dispatchEvent(new CustomEvent("charpstar:videoSaved"));
+
+      // Close the dialog after successful save
+      setIsSaveDialogOpen(false);
     } catch (error) {
       console.error("Error saving video scene:", error);
       toast.error(
@@ -147,7 +153,13 @@ const VideoResultDisplay: React.FC<VideoResultDisplayProps> = ({
           <video
             controls
             controlsList="nodownload"
-            poster={posterImage ? (posterImage.startsWith("data:") ? posterImage : `data:image/png;base64,${posterImage}`) : undefined}
+            poster={
+              posterImage
+                ? posterImage.startsWith("data:")
+                  ? posterImage
+                  : `data:image/png;base64,${posterImage}`
+                : undefined
+            }
             className="w-full h-full aspect-video bg-black"
             src={videoUrl}
           />
@@ -188,11 +200,7 @@ const VideoResultDisplay: React.FC<VideoResultDisplayProps> = ({
               <Save className="h-4 w-4 mr-2" />
               Save to library
             </Button>
-            <Button
-              variant="outline"
-              className="h-11"
-              onClick={onReset}
-            >
+            <Button variant="outline" className="h-11" onClick={onReset}>
               <Film className="h-4 w-4 mr-2" />
               Create another
             </Button>
@@ -216,4 +224,3 @@ const VideoResultDisplay: React.FC<VideoResultDisplayProps> = ({
 };
 
 export default VideoResultDisplay;
-

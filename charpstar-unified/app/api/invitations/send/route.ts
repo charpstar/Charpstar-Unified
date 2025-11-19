@@ -5,8 +5,8 @@ import { emailService } from "@/lib/emailService";
 
 export async function POST(request: NextRequest) {
   try {
-    const cookieStore = cookies();
-    const supabase = createServerClient(cookieStore);
+    const cookieStore = await cookies();
+    const supabase = await createServerClient(cookieStore);
 
     // Get current user
     const {

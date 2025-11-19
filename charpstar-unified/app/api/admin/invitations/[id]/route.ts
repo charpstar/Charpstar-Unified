@@ -7,8 +7,8 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const cookieStore = cookies();
-    const supabase = createServerClient(cookieStore);
+    const cookieStore = await cookies();
+    const supabase = await createServerClient(cookieStore);
 
     // Get current user
     const {

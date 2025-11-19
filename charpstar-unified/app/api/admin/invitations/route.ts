@@ -5,8 +5,8 @@ import { getSignupUrl } from "@/lib/urlUtils";
 
 export async function GET() {
   try {
-    const cookieStore = cookies();
-    const supabase = createServerClient(cookieStore);
+    const cookieStore = await cookies();
+    const supabase = await createServerClient(cookieStore);
 
     // Get current user
     const {
@@ -55,8 +55,8 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const cookieStore = cookies();
-    const supabase = createServerClient(cookieStore);
+    const cookieStore = await cookies();
+    const supabase = await createServerClient(cookieStore);
 
     // Get current user
     const {
@@ -182,8 +182,8 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const cookieStore = cookies();
-    const supabase = createServerClient(cookieStore);
+    const cookieStore = await cookies();
+    const supabase = await createServerClient(cookieStore);
 
     // Get current user
     const {

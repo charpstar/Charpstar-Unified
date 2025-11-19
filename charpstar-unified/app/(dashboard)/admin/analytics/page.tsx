@@ -64,6 +64,7 @@ import { ConversionRateChart } from "@/components/analytics/ConversionRateChart"
 import { SceneRendersTable } from "@/components/analytics/SceneRendersTable";
 import { GeneratorAnalytics } from "@/components/analytics/GeneratorAnalytics";
 import { ProductRenderAnalytics } from "@/components/analytics/ProductRenderAnalytics";
+import { VideoGenerationAnalytics } from "@/components/analytics/VideoGenerationAnalytics";
 import { supabase } from "@/lib/supabaseClient";
 import { useUser } from "@/contexts/useUser";
 import useSWR from "swr";
@@ -452,6 +453,7 @@ export default function AdminAnalyticsPage() {
     "client-analytics",
     "generator",
     "product-render",
+    "video-generation",
     "cost-tracking",
     "qa-statistics",
   ];
@@ -471,6 +473,7 @@ export default function AdminAnalyticsPage() {
   // Only fetch when on the relevant tab to prevent unnecessary calls
   const shouldFetchGenerator = activeTab === "generator";
   const shouldFetchRender = activeTab === "product-render";
+  const shouldFetchVideo = activeTab === "video-generation";
 
   // Fetch Generator analytics - only when tab is active
   const { data: generatorData, isLoading: isGeneratorLoading } = useSWR(
@@ -490,6 +493,20 @@ export default function AdminAnalyticsPage() {
   const { data: renderData, isLoading: isRenderLoading } = useSWR(
     shouldFetchRender
       ? `/api/analytics/product-render?startDate=${dateRange.from}&endDate=${dateRange.to}`
+      : null,
+    fetcher,
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: false,
+      refreshInterval: 0, // Disable auto-refresh to prevent spam
+      dedupingInterval: 60000, // Cache for 1 minute
+    }
+  );
+
+  // Fetch Video Generation analytics - only when tab is active
+  const { data: videoData, isLoading: isVideoLoading } = useSWR(
+    shouldFetchVideo
+      ? `/api/analytics/video-render?startDate=${dateRange.from}&endDate=${dateRange.to}`
       : null,
     fetcher,
     {
@@ -1667,6 +1684,9 @@ export default function AdminAnalyticsPage() {
           </TabsTrigger>
           <TabsTrigger className="cursor-pointer" value="product-render">
             Product Renders
+          </TabsTrigger>
+          <TabsTrigger className="cursor-pointer" value="video-generation">
+            Video Generation
           </TabsTrigger>
           <TabsTrigger className="cursor-pointer" value="cost-tracking">
             Cost Tracking
@@ -4492,6 +4512,23 @@ export default function AdminAnalyticsPage() {
           <ProductRenderAnalytics
             data={renderData}
             isLoading={isRenderLoading}
+          />
+        </TabsContent>
+
+        {/* Video Generation Analytics Tab */}
+        <TabsContent value="video-generation" className="space-y-4">
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <div>
+              <h2 className="text-2xl font-bold">Video Generation Analytics</h2>
+              <p className="text-muted-foreground">
+                Track AI video generation usage, performance, and user
+                engagement
+              </p>
+            </div>
+          </div>
+          <VideoGenerationAnalytics
+            data={videoData}
+            isLoading={isVideoLoading}
           />
         </TabsContent>
 

@@ -11,10 +11,25 @@ async function getUserFromAuth(authHeader: string | null, supabase: any) {
     
     if (error || !user) return null;
 
+    // Get client name from user profile
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("client")
+      .eq("id", user.id)
+      .single();
+
+    // Handle client being an array or string
+    const rawClient = Array.isArray(profile?.client) 
+      ? profile.client[0] 
+      : profile?.client;
+    const clientName = rawClient && String(rawClient).trim().length > 0 
+      ? String(rawClient) 
+      : "Shared";
+
     return {
       id: user.id,
       email: user.email || null,
-      client_name: user.user_metadata?.client_name || user.email?.split("@")[0] || "Unknown Client",
+      client_name: clientName,
     };
   } catch (error) {
     console.warn("Failed to authenticate user:", error);
@@ -50,9 +65,15 @@ async function trackAnalytics(
       .select()
       .single();
 
-    return error ? null : record?.id;
+    if (error) {
+      console.error("[Video Gen] Failed to insert analytics record:", error);
+      return null;
+    }
+
+    console.log("[Video Gen] Successfully created analytics record:", record?.id);
+    return record?.id;
   } catch (error) {
-    console.warn("Failed to track analytics:", error);
+    console.error("[Video Gen] Exception tracking analytics:", error);
     return null;
   }
 }
@@ -63,12 +84,19 @@ async function updateAnalytics(
   update: { status: string; generation_time_ms?: number; error_message?: string }
 ) {
   try {
-    await supabase
+    console.log(`[Video Gen] Updating analytics ${analyticsId}:`, update);
+    const { error } = await supabase
       .from("video_render_analytics")
       .update(update)
       .eq("id", analyticsId);
+    
+    if (error) {
+      console.error("[Video Gen] Failed to update analytics:", error);
+    } else {
+      console.log("[Video Gen] Analytics updated successfully");
+    }
   } catch (error) {
-    console.warn("Failed to update analytics:", error);
+    console.error("[Video Gen] Exception updating analytics:", error);
   }
 }
 
@@ -109,6 +137,7 @@ export async function POST(request: NextRequest) {
 
     // Track analytics if user is authenticated
     if (user) {
+      console.log("[Video Gen] Tracking analytics for user:", user.email, "client:", user.client_name);
       analyticsId = await trackAnalytics(supabase, user, {
         objectType,
         sceneDescription,
@@ -116,6 +145,9 @@ export async function POST(request: NextRequest) {
         durationSeconds: Number(durationSeconds),
         inspirationUsed: Boolean(inspirationImage),
       });
+      console.log("[Video Gen] Analytics ID created:", analyticsId);
+    } else {
+      console.warn("[Video Gen] No user authenticated, skipping analytics tracking");
     }
 
     // Generate video with Vertex AI VEO

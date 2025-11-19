@@ -83,6 +83,30 @@ export async function DELETE(request: NextRequest) {
         }
       }
 
+      // Try to delete the video from storage if it's in Supabase storage
+      if (
+        sceneToDelete.video_url &&
+        sceneToDelete.video_url.includes("supabase.co")
+      ) {
+        try {
+          const url = new URL(sceneToDelete.video_url);
+          const pathParts = url.pathname.split("/");
+          const filePath = pathParts.slice(-2).join("/"); // e.g., "videos/scene_video_123.mp4"
+
+          const { error: storageError } = await supabase.storage
+            .from("assets")
+            .remove([`generated-scenes/${filePath}`]);
+
+          if (storageError) {
+            console.error("Error deleting video from storage:", storageError);
+          } else {
+            console.log("Successfully deleted video from storage:", filePath);
+          }
+        } catch (error) {
+          console.error("Error processing video storage deletion:", error);
+        }
+      }
+
       console.log("Scene deleted successfully from asset:", sceneId);
       return NextResponse.json({ success: true });
     }

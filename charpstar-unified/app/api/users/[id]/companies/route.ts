@@ -9,7 +9,7 @@ export async function GET(
 ) {
   try {
     const cookieStore = await cookies();
-    const supabase = createServerClient(cookieStore);
+    const supabase = await createServerClient(cookieStore);
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -68,7 +68,7 @@ export async function PATCH(
 ) {
   try {
     const cookieStore = await cookies();
-    const supabase = createServerClient(cookieStore);
+    const supabase = await createServerClient(cookieStore);
     const {
       data: { user },
     } = await supabase.auth.getUser();
