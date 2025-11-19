@@ -22,6 +22,7 @@ import {
   ChevronDown,
   ChevronUp,
   Clock,
+  ExternalLink,
   Layers,
   Loader2,
   RefreshCw,
@@ -461,7 +462,7 @@ export default function QAAssignedListsPage() {
               >
                 <CardHeader className="pb-4">
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
+                    <div className="flex-1">
                       <div className="flex items-center gap-2">
                         <h3 className="text-lg font-semibold">
                           Allocation {list.number ?? "—"}
@@ -475,6 +476,19 @@ export default function QAAssignedListsPage() {
                           {list.name}
                         </p>
                       )}
+                      <div className="mt-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-2 text-xs"
+                          onClick={() =>
+                            router.push(`/qa-review?allocation=${list.id}`)
+                          }
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                          View in QA Review
+                        </Button>
+                      </div>
                     </div>
                     <div className="space-y-1 text-sm text-muted-foreground text-right">
                       <div className="flex items-center gap-2 justify-end">

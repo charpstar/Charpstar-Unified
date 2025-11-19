@@ -11,6 +11,7 @@ export async function POST(request: NextRequest) {
 
     const file = formData.get("file") as File;
     const clientName = formData.get("client_name") as string;
+    const fileType = formData.get("file_type") as string; // "glb", "blend", etc.
 
     // Try alternative field names that might be used
     const alternativeClientName =
@@ -118,10 +119,13 @@ export async function POST(request: NextRequest) {
     // Skip folder creation - BunnyCDN creates folders automatically when uploading files
     // The old approach was creating folders on every upload, adding 3 API calls (~3-5 seconds delay)
 
+    // Determine folder based on file type - blend files go to "assets", GLB files go to "QC"
+    const folder = fileType === "blend" ? "assets" : "QC";
+
     // Original file path (where the current version will be stored)
     const originalPath = useCustomStructure
-      ? `QC/${baseFileName}`
-      : `${sanitizedClientName}/QC/${baseFileName}`;
+      ? `${folder}/${baseFileName}`
+      : `${sanitizedClientName}/${folder}/${baseFileName}`;
     const originalUrl = `https://se.storage.bunnycdn.com/${finalStorageZone}/${originalPath}`;
 
     // Note: Backup is now handled by the frontend before calling this endpoint
@@ -180,10 +184,13 @@ export async function POST(request: NextRequest) {
     const cleanCdnUrl = cdnUrl;
     const publicUrl = `${cleanCdnUrl}/${uploadPath}`;
 
-    // Purge cache for the uploaded GLB file URL
+    // Purge cache for the uploaded file URL
     if (bunnyApiKey) {
       try {
-        console.log("🗑️ Purging cache for uploaded GLB:", publicUrl);
+        console.log(
+          `🗑️ Purging cache for uploaded ${fileType || "file"}:`,
+          publicUrl
+        );
         const purgeResponse = await fetch(
           "https://api.bunny.net/purge?async=false",
           {

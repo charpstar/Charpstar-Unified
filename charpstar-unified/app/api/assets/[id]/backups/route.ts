@@ -26,10 +26,10 @@ export async function GET(
       );
     }
 
-    // Get asset details
+    // Get asset details - fetch both glb_link and blend_link
     const { data: asset, error: assetError } = await supabase
       .from("onboarding_assets")
-      .select("article_id, client, glb_link")
+      .select("article_id, client, glb_link, blend_link")
       .eq("id", assetId)
       .single();
 
@@ -106,16 +106,24 @@ export async function GET(
 
     const backupFiles = await listResponse.json();
 
-    // Filter files that match the current asset's article_id
+    console.log("📁 All backup files found:", backupFiles.length);
+    console.log("🔍 Looking for backups for article_id:", asset.article_id);
+
+    // Filter files that match the current asset's article_id (both .glb and .blend)
     const articleId = asset.article_id;
     const matchingBackups = backupFiles
       .filter((file: any) => {
         // Check if filename starts with the article_id
         const fileName = file.ObjectName || file.name || "";
-        return (
+        const matches =
           fileName.startsWith(`${articleId}_backup_`) &&
-          fileName.endsWith(".glb")
-        );
+          (fileName.endsWith(".glb") || fileName.endsWith(".blend"));
+
+        if (matches) {
+          console.log("✅ Matched backup file:", fileName);
+        }
+
+        return matches;
       })
       .map((file: any) => {
         const fileName = file.ObjectName || file.name || "";
@@ -126,9 +134,12 @@ export async function GET(
           file.DateCreated ||
           new Date().toISOString();
 
-        // Extract timestamp from filename for sorting
-        const timestampMatch = fileName.match(/_backup_(\d+)\.glb$/);
+        // Extract timestamp from filename for sorting (works for both .glb and .blend)
+        const timestampMatch = fileName.match(/_backup_(\d+)\.(glb|blend)$/);
         const timestamp = timestampMatch ? parseInt(timestampMatch[1]) : 0;
+
+        // Determine file type
+        const fileType = fileName.endsWith(".blend") ? "blend" : "glb";
 
         // Construct the correct CDN URL based on structure
         // For custom structure, CDN URL doesn't include storage zone
@@ -143,7 +154,9 @@ export async function GET(
           fileSize,
           lastModified,
           timestamp,
-          glbUrl: backupCdnUrl,
+          fileType, // "glb" or "blend"
+          glbUrl: backupCdnUrl, // Keep this name for backward compatibility
+          fileUrl: backupCdnUrl, // Also provide a generic fileUrl
           isBackup: true,
           isCurrent: false, // Backups are never current
         };
@@ -153,37 +166,163 @@ export async function GET(
     // Only use BunnyCDN file system - no database lookups
     // This ensures we always show what's actually in storage
 
-    // Create current file entry (the main GLB file, not a backup)
-    let currentFileSize = 0;
-    if (asset.glb_link) {
-      try {
-        const fileResponse = await fetch(asset.glb_link, { method: "HEAD" });
-        const contentLength = fileResponse.headers.get("content-length");
-        if (contentLength) {
-          currentFileSize = parseInt(contentLength, 10);
-        }
-      } catch {
-        // Ignore errors - file size is optional
-      }
-    }
-
-    const currentFile = {
-      id: "current",
-      fileName: `${articleId}.glb`,
-      fileSize: currentFileSize,
-      lastModified: new Date().toISOString(),
-      timestamp: Date.now(),
-      glbUrl: asset.glb_link,
-      isBackup: false,
-      isCurrent: true,
-    };
-
-    // Build version list from file system only
+    // Create current file entries (both GLB and Blend files)
     const allVersions: any[] = [];
 
-    // First, add the current file (always first)
-    if (currentFile.glbUrl) {
-      allVersions.push(currentFile);
+    // Add current GLB file
+    if (asset.glb_link) {
+      let currentGlbFileSize = 0;
+      try {
+        // Construct storage path directly from asset data (more reliable than parsing CDN URL)
+        const sanitizedClientName = asset.client.replace(
+          /[^a-zA-Z0-9._-]/g,
+          "_"
+        );
+        const mainGlbFileName = `${articleId}.glb`;
+        const mainQcPath = useCustomStructure
+          ? `QC/${mainGlbFileName}`
+          : `${sanitizedClientName}/QC/${mainGlbFileName}`;
+        const storageUrl = `https://se.storage.bunnycdn.com/${finalStorageZone}/${mainQcPath}`;
+
+        // Fetch file size from storage directly (most reliable)
+        const storageResponse = await fetch(storageUrl, {
+          method: "HEAD",
+          headers: {
+            AccessKey: customAccessKey,
+          },
+        });
+
+        if (storageResponse.ok) {
+          const storageContentLength =
+            storageResponse.headers.get("content-length");
+          if (storageContentLength) {
+            currentGlbFileSize = parseInt(storageContentLength, 10);
+          }
+        } else {
+          // Fallback: try CDN URL with HEAD request
+          try {
+            const fileResponse = await fetch(asset.glb_link, {
+              method: "HEAD",
+              headers: {
+                "Cache-Control": "no-cache",
+              },
+            });
+            const contentLength = fileResponse.headers.get("content-length");
+            if (contentLength) {
+              currentGlbFileSize = parseInt(contentLength, 10);
+            }
+          } catch {
+            // Ignore errors - file size is optional
+          }
+        }
+      } catch {
+        // If storage fetch fails, try CDN URL as fallback
+        try {
+          const fileResponse = await fetch(asset.glb_link, {
+            method: "HEAD",
+            headers: {
+              "Cache-Control": "no-cache",
+            },
+          });
+          const contentLength = fileResponse.headers.get("content-length");
+          if (contentLength) {
+            currentGlbFileSize = parseInt(contentLength, 10);
+          }
+        } catch {
+          // Ignore errors - file size is optional
+        }
+      }
+
+      allVersions.push({
+        id: "current-glb",
+        fileName: `${articleId}.glb`,
+        fileSize: currentGlbFileSize,
+        lastModified: new Date().toISOString(),
+        timestamp: Date.now(),
+        fileType: "glb",
+        glbUrl: asset.glb_link,
+        fileUrl: asset.glb_link,
+        isBackup: false,
+        isCurrent: true,
+      });
+    }
+
+    // Add current Blend file
+    if (asset.blend_link) {
+      let currentBlendFileSize = 0;
+      try {
+        // Construct storage path directly from asset data (more reliable than parsing CDN URL)
+        const sanitizedClientName = asset.client.replace(
+          /[^a-zA-Z0-9._-]/g,
+          "_"
+        );
+        const mainBlendFileName = `${articleId}.blend`;
+        const mainAssetsPath = useCustomStructure
+          ? `assets/${mainBlendFileName}`
+          : `${sanitizedClientName}/assets/${mainBlendFileName}`;
+        const storageUrl = `https://se.storage.bunnycdn.com/${finalStorageZone}/${mainAssetsPath}`;
+
+        // Fetch file size from storage directly (most reliable)
+        const storageResponse = await fetch(storageUrl, {
+          method: "HEAD",
+          headers: {
+            AccessKey: customAccessKey,
+          },
+        });
+
+        if (storageResponse.ok) {
+          const storageContentLength =
+            storageResponse.headers.get("content-length");
+          if (storageContentLength) {
+            currentBlendFileSize = parseInt(storageContentLength, 10);
+          }
+        } else {
+          // Fallback: try CDN URL with HEAD request
+          try {
+            const fileResponse = await fetch(asset.blend_link, {
+              method: "HEAD",
+              headers: {
+                "Cache-Control": "no-cache",
+              },
+            });
+            const contentLength = fileResponse.headers.get("content-length");
+            if (contentLength) {
+              currentBlendFileSize = parseInt(contentLength, 10);
+            }
+          } catch {
+            // Ignore errors - file size is optional
+          }
+        }
+      } catch {
+        // If storage fetch fails, try CDN URL as fallback
+        try {
+          const fileResponse = await fetch(asset.blend_link, {
+            method: "HEAD",
+            headers: {
+              "Cache-Control": "no-cache",
+            },
+          });
+          const contentLength = fileResponse.headers.get("content-length");
+          if (contentLength) {
+            currentBlendFileSize = parseInt(contentLength, 10);
+          }
+        } catch {
+          // Ignore errors - file size is optional
+        }
+      }
+
+      allVersions.push({
+        id: "current-blend",
+        fileName: `${articleId}.blend`,
+        fileSize: currentBlendFileSize,
+        lastModified: new Date().toISOString(),
+        timestamp: Date.now(),
+        fileType: "blend",
+        glbUrl: asset.blend_link, // Keep for backward compatibility
+        fileUrl: asset.blend_link,
+        isBackup: false,
+        isCurrent: true,
+      });
     }
 
     // Then, add all backup files from BunnyCDN file system
@@ -211,6 +350,14 @@ export async function GET(
       if (!a.isCurrent && b.isCurrent) return 1;
       // If both or neither are current, sort by timestamp (newest first)
       return b.timestamp - a.timestamp;
+    });
+
+    console.log("📊 Version history summary:", {
+      total: allVersions.length,
+      glb: allVersions.filter((v) => v.fileType === "glb").length,
+      blend: allVersions.filter((v) => v.fileType === "blend").length,
+      current: allVersions.filter((v) => v.isCurrent).length,
+      backups: allVersions.filter((v) => v.isBackup).length,
     });
 
     return NextResponse.json({

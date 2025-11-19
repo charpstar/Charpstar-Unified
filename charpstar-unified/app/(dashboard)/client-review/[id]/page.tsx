@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef, useMemo } from "react";
+import { useEffect, useState, useRef, useMemo, useCallback } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useUser } from "@/contexts/useUser";
 import { supabase } from "@/lib/supabaseClient";
@@ -10,6 +10,12 @@ import { AssetStatusLogger } from "@/lib/assetStatusLogger";
 import { ApprovalHistory } from "@/components/review/ApprovalHistory";
 import { Card } from "@/components/ui/containers";
 import { Button } from "@/components/ui/display";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/display/tooltip";
 import { Textarea, Input } from "@/components/ui/inputs";
 import { Badge } from "@/components/ui/feedback";
 import {
@@ -60,6 +66,7 @@ import {
   Star,
   FileText,
   Copy,
+  History,
 } from "lucide-react";
 import Script from "next/script";
 import { toast } from "sonner";
@@ -76,6 +83,7 @@ interface Asset {
   status: string;
   product_link: string;
   glb_link: string;
+  blend_link?: string | null;
   pricing_comment?: string;
   measurements?: string | null;
   updated_at?: string | null;
@@ -590,6 +598,13 @@ export default function ReviewPage() {
   const [highlightedAnnotationId, setHighlightedAnnotationId] = useState<
     string | null
   >(null);
+
+  // Version history state
+  const [showVersionHistoryDialog, setShowVersionHistoryDialog] =
+    useState(false);
+  const [versionHistory, setVersionHistory] = useState<any[]>([]);
+  const [loadingVersions, setLoadingVersions] = useState(false);
+  const [deletingAllVersions, setDeletingAllVersions] = useState(false);
 
   // Make URLs in text clickable with blue styling
   const linkifyText = (text: string): any => {
@@ -3021,6 +3036,166 @@ export default function ReviewPage() {
     }
   };
 
+  // Fetch version history function - memoized with useCallback
+  const fetchVersionHistory = useCallback(async () => {
+    if (!assetId) return;
+    setLoadingVersions(true);
+    try {
+      const response = await fetch(`/api/assets/${assetId}/backups`);
+      const data = await response.json();
+      if (response.ok) {
+        // Group GLB and Blend files by timestamp/version
+        const groupedVersions: any[] = [];
+        const processedTimestamps = new Set();
+
+        // Process all versions
+        data.versions?.forEach((version: any) => {
+          const timestamp = version.timestamp;
+          const isCurrent = version.isCurrent;
+
+          // Create unique key: group current files together, backups by timestamp
+          const key = isCurrent ? "current" : `backup-${timestamp}`;
+
+          if (processedTimestamps.has(key)) {
+            // This timestamp/key already processed, add file to existing group
+            const existingGroup = groupedVersions.find(
+              (g: any) => g.id === key
+            );
+            if (existingGroup) {
+              if (version.fileType === "glb") {
+                existingGroup.glbFile = version;
+              } else {
+                existingGroup.blendFile = version;
+              }
+            }
+          } else {
+            // New timestamp/key, create new group
+            processedTimestamps.add(key);
+            const group: any = {
+              id: key,
+              timestamp,
+              isCurrent,
+              isBackup: version.isBackup,
+              lastModified: version.lastModified,
+            };
+
+            if (version.fileType === "glb") {
+              group.glbFile = version;
+            } else {
+              group.blendFile = version;
+            }
+
+            groupedVersions.push(group);
+          }
+        });
+
+        // Sort groups: current versions first, then by timestamp (newest first)
+        groupedVersions.sort((a: any, b: any) => {
+          if (a.isCurrent && !b.isCurrent) return -1;
+          if (!a.isCurrent && b.isCurrent) return 1;
+          return b.timestamp - a.timestamp;
+        });
+
+        // Filter out backup groups that only have GLB (no Blend file)
+        // Keep current versions and backups that have a Blend file
+        const filteredVersions = groupedVersions.filter((group: any) => {
+          // Always keep current versions
+          if (group.isCurrent) return true;
+
+          // For backups, only keep if there's a Blend file
+          return group.blendFile !== undefined;
+        });
+
+        setVersionHistory(filteredVersions);
+      } else {
+        console.error("Error fetching version history:", data.error);
+        toast.error("Failed to load version history");
+      }
+    } catch (error) {
+      console.error("Error fetching version history:", error);
+      toast.error("Failed to load version history");
+    } finally {
+      setLoadingVersions(false);
+    }
+  }, [assetId]);
+
+  // Fetch version history on mount to show count in button
+  useEffect(() => {
+    fetchVersionHistory();
+  }, [fetchVersionHistory]);
+
+  // Delete all backup versions
+  const deleteAllVersions = async () => {
+    if (!assetId) return;
+
+    // Filter out current versions and collect all backup file URLs
+    const backupGroups = versionHistory.filter(
+      (group: any) => !group.isCurrent
+    );
+
+    if (backupGroups.length === 0) {
+      toast.info("No backup versions to delete");
+      return;
+    }
+
+    // Confirm deletion
+    if (
+      !confirm(
+        `Are you sure you want to delete all ${backupGroups.length} backup version(s)? This action cannot be undone.`
+      )
+    ) {
+      return;
+    }
+
+    setDeletingAllVersions(true);
+    try {
+      // Collect all file URLs from backup groups
+      const fileUrls: string[] = [];
+      backupGroups.forEach((group: any) => {
+        if (group.glbFile?.fileUrl || group.glbFile?.glbUrl) {
+          fileUrls.push(group.glbFile.fileUrl || group.glbFile.glbUrl);
+        }
+        if (group.blendFile?.fileUrl || group.blendFile?.glbUrl) {
+          fileUrls.push(group.blendFile.fileUrl || group.blendFile.glbUrl);
+        }
+      });
+
+      // Delete each backup file
+      const deletePromises = fileUrls.map((fileUrl) =>
+        fetch("/api/assets/delete-backup", {
+          method: "DELETE",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            assetId,
+            backupUrl: fileUrl,
+          }),
+        })
+      );
+
+      const results = await Promise.allSettled(deletePromises);
+      const failed = results.filter((r) => r.status === "rejected").length;
+
+      if (failed === 0) {
+        toast.success("All backup versions deleted successfully!");
+        // Refresh version history
+        await fetchVersionHistory();
+      } else {
+        toast.warning(
+          `Deleted ${results.length - failed} of ${results.length} versions. Some deletions may have failed.`
+        );
+        // Still refresh to show updated state
+        await fetchVersionHistory();
+      }
+    } catch (error) {
+      console.error("Error deleting all versions:", error);
+      toast.error("Failed to delete all versions");
+    } finally {
+      setDeletingAllVersions(false);
+    }
+  };
+
   // Handle revision confirmation (client submits revision -> update status and notify)
   const handleRevisionConfirm = async () => {
     setShowRevisionDialog(false);
@@ -4956,24 +5131,109 @@ export default function ReviewPage() {
                   </Button>
                 )}
 
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    const a = document.createElement("a");
-                    a.href = asset.glb_link as string;
-                    a.download = `${asset.article_id}.glb`;
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                  }}
-                  className="bg-background/95  border-border/50 shadow-sm cursor-pointer h-7 sm:h-8 px-2 sm:px-3 text-xs"
-                  title="Download GLB"
-                >
-                  <Download className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
-                  <span className="hidden sm:inline">Download GLB</span>
-                  <span className="sm:hidden">Download</span>
-                </Button>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const a = document.createElement("a");
+                          // Add cache-busting parameter to ensure fresh download
+                          const glbUrl = asset.glb_link as string;
+                          const cacheBustedUrl = glbUrl.includes("?")
+                            ? `${glbUrl}&v=${Date.now()}`
+                            : `${glbUrl}?v=${Date.now()}`;
+                          a.href = cacheBustedUrl;
+                          a.download = `${asset.article_id}.glb`;
+                          document.body.appendChild(a);
+                          a.click();
+                          document.body.removeChild(a);
+                        }}
+                        className="bg-background/95  border-border/50 shadow-sm cursor-pointer h-7 sm:h-8 px-2 sm:px-3 text-xs"
+                      >
+                        <Download className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                        <span className="hidden sm:inline">Download GLB</span>
+                        <span className="sm:hidden">Download</span>
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="text-sm">
+                        Download the current GLB model file for this asset
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                {asset.blend_link && (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            const a = document.createElement("a");
+                            // Add cache-busting parameter to ensure fresh download
+                            const blendUrl = asset.blend_link as string;
+                            const cacheBustedUrl = blendUrl.includes("?")
+                              ? `${blendUrl}&v=${Date.now()}`
+                              : `${blendUrl}?v=${Date.now()}`;
+                            a.href = cacheBustedUrl;
+                            a.download = `${asset.article_id}.blend`;
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                          }}
+                          className="bg-background/95  border-border/50 shadow-sm cursor-pointer h-7 sm:h-8 px-2 sm:px-3 text-xs"
+                        >
+                          <Download className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                          <span className="hidden sm:inline">
+                            Download Blend
+                          </span>
+                          <span className="sm:hidden">Blend</span>
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p className="text-sm">
+                          Download the Blender source file (.blend) for this
+                          asset
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setShowVersionHistoryDialog(true);
+                          fetchVersionHistory();
+                        }}
+                        className="bg-background/95  border-border/50 shadow-sm cursor-pointer h-7 sm:h-8 px-2 sm:px-3 text-xs"
+                      >
+                        <History className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                        <span className="hidden sm:inline">
+                          History
+                          {versionHistory.length > 0 && (
+                            <span className="ml-1.5 px-1.5 py-0.5 text-xs font-semibold bg-primary/10 text-primary rounded-full">
+                              {versionHistory.length}
+                            </span>
+                          )}
+                        </span>
+                        <span className="sm:hidden">Hist</span>
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="text-sm">
+                        View and manage version history of GLB and Blend files.
+                        Download previous versions or restore GLB files.
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               </div>
             )}
 
@@ -7038,6 +7298,175 @@ export default function ReviewPage() {
                 </>
               )}
             </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Version History Dialog */}
+      <Dialog
+        open={showVersionHistoryDialog}
+        onOpenChange={setShowVersionHistoryDialog}
+      >
+        <DialogContent className="max-w-3xl max-h-[80vh] flex flex-col">
+          <DialogHeader className="flex-shrink-0">
+            <div className="flex items-center justify-between">
+              <div>
+                <DialogTitle className="flex items-center gap-2">
+                  <History className="h-5 w-5 text-primary" />
+                  File Version History
+                </DialogTitle>
+                <DialogDescription>
+                  View and restore previous versions of GLB and Blend files. The
+                  current version will be backed up before restoration.
+                </DialogDescription>
+              </div>
+              {versionHistory.length > 0 &&
+                versionHistory.some((v: any) => !v.isCurrent) && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={deleteAllVersions}
+                    disabled={deletingAllVersions}
+                    className="cursor-pointer text-red-600 hover:text-red-700 hover:bg-red-50"
+                  >
+                    {deletingAllVersions ? (
+                      <>
+                        <Loader2 className="h-3 w-3 animate-spin mr-2" />
+                        Deleting...
+                      </>
+                    ) : (
+                      <>
+                        <Trash2 className="h-3 w-3 mr-2" />
+                        Delete All
+                      </>
+                    )}
+                  </Button>
+                )}
+            </div>
+          </DialogHeader>
+
+          <div className="flex-1 overflow-y-auto space-y-4 mt-4">
+            {loadingVersions ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                <span className="ml-2 text-sm text-muted-foreground">
+                  Loading version history...
+                </span>
+              </div>
+            ) : versionHistory.length === 0 ? (
+              <div className="text-center py-8">
+                <History className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-foreground mb-2">
+                  No version history
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  Upload GLB or Blend files to start version history
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4 p-2">
+                {versionHistory.map((group: any) => (
+                  <Card
+                    key={group.id}
+                    className={`p-4 transition-all duration-200 ${
+                      group.isCurrent
+                        ? "ring-2 ring-primary/20 bg-primary/5"
+                        : "hover:shadow-md"
+                    }`}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-2">
+                          {group.isCurrent && (
+                            <Badge
+                              variant="default"
+                              className="bg-green-100 text-green-800 border-green-200"
+                            >
+                              Current
+                            </Badge>
+                          )}
+                          {group.isBackup && (
+                            <Badge variant="outline">Backup</Badge>
+                          )}
+                          <span
+                            className="text-sm font-medium text-foreground truncate max-w-[400px]"
+                            title={
+                              group.glbFile?.fileName ||
+                              group.blendFile?.fileName ||
+                              "Version"
+                            }
+                          >
+                            {(() => {
+                              const fileName =
+                                group.glbFile?.fileName ||
+                                group.blendFile?.fileName ||
+                                "Version";
+                              // For backup files, show a shorter version: filename...extension
+                              if (
+                                group.isBackup &&
+                                fileName.includes("_backup_")
+                              ) {
+                                const parts = fileName.split("_backup_");
+                                const baseName = parts[0];
+                                const timestampAndExt = parts[1];
+                                // Show first 20 chars of base name + ... + last part
+                                if (baseName.length > 20) {
+                                  return `${baseName.substring(0, 20)}...backup_${timestampAndExt}`;
+                                }
+                              }
+                              return fileName;
+                            })()}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-4 text-xs text-muted-foreground mb-3">
+                          <div className="flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            {new Date(group.lastModified).toLocaleString()}
+                          </div>
+                        </div>
+
+                        {/* File Download Links */}
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {group.glbFile && (
+                            <a
+                              href={`${group.glbFile.fileUrl || group.glbFile.glbUrl}?v=${Date.now()}`}
+                              download
+                              className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors"
+                            >
+                              <Download className="h-3 w-3" />
+                              GLB
+                              {group.glbFile.fileSize > 0
+                                ? ` (${(group.glbFile.fileSize / 1024 / 1024).toFixed(2)} MB)`
+                                : group.isCurrent
+                                  ? ""
+                                  : ""}
+                            </a>
+                          )}
+                          {group.blendFile && (
+                            <a
+                              href={`${group.blendFile.fileUrl || group.blendFile.glbUrl}?v=${Date.now()}`}
+                              download
+                              className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded bg-purple-100 text-purple-700 hover:bg-purple-200 transition-colors"
+                            >
+                              <Download className="h-3 w-3" />
+                              Blend
+                              {group.blendFile.fileSize > 0
+                                ? ` (${(group.blendFile.fileSize / 1024 / 1024).toFixed(2)} MB)`
+                                : group.isCurrent
+                                  ? ""
+                                  : ""}
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 ml-4">
+                        {!group.isCurrent && group.glbFile && <></>}
+                      </div>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>

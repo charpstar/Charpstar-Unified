@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useUser } from "@/contexts/useUser";
 import { useLoadingState } from "@/hooks/useLoadingState";
 import { supabase } from "@/lib/supabaseClient";
-import { Card } from "@/components/ui/containers";
+import { Card, CardContent } from "@/components/ui/containers";
 import { Button } from "@/components/ui/display";
 import { Badge } from "@/components/ui/feedback";
 import {
@@ -45,6 +45,12 @@ import {
   Download,
   ExternalLink,
   FileText,
+  Calendar,
+  Users,
+  Layers,
+  Edit3,
+  Check,
+  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useSearchParams } from "next/navigation";
@@ -244,6 +250,7 @@ interface AssignedAsset {
   pricing_comment?: string;
   model_updated_at?: string; // New field for GLB upload date
   measurements?: any; // Add measurements field
+  allocation_list_id?: string | null; // Allocation list ID for filtering
   modeler?: {
     id: string;
     email: string;
@@ -289,6 +296,21 @@ export default function QAReviewPage() {
   const [statusFilters, setStatusFilters] = useState<string[]>([
     "delivered_by_artist",
   ]);
+  const [allocationFilter, setAllocationFilter] = useState<string | null>(null);
+  const [allocationListDetails, setAllocationListDetails] = useState<{
+    id: string;
+    name: string | null;
+    number: number | null;
+    status: string | null;
+    deadline: string | null;
+    bonus: number | null;
+    modelerId: string | null;
+    modelerEmail?: string | null;
+    modelerTitle?: string | null;
+  } | null>(null);
+  const [editingAllocationName, setEditingAllocationName] = useState(false);
+  const [allocationNameDraft, setAllocationNameDraft] = useState("");
+  const [savingAllocationName, setSavingAllocationName] = useState(false);
   const [clients, setClients] = useState<string[]>([]);
   const fetchAssignedAssetsRef = useRef<() => void>(() => {});
 
@@ -319,6 +341,7 @@ export default function QAReviewPage() {
     const clientParam = searchParams.get("client");
     const batchParam = searchParams.get("batch");
     const statusParam = searchParams.get("status");
+    const allocationParam = searchParams.get("allocation");
 
     if (clientParam) {
       setClientFilters(clientParam.split(","));
@@ -328,6 +351,14 @@ export default function QAReviewPage() {
     }
     if (statusParam) {
       setStatusFilters(statusParam.split(","));
+    } else if (allocationParam) {
+      // When filtering by allocation, clear status filter to show all assets
+      setStatusFilters([]);
+    }
+    if (allocationParam) {
+      setAllocationFilter(allocationParam);
+    } else {
+      setAllocationFilter(null);
     }
   }, [searchParams]);
 
@@ -344,19 +375,133 @@ export default function QAReviewPage() {
     if (statusFilters.length > 0) {
       params.set("status", statusFilters.join(","));
     }
+    if (allocationFilter) {
+      params.set("allocation", allocationFilter);
+    }
 
     // Update URL without triggering a page reload
     const newUrl = params.toString()
       ? `?${params.toString()}`
       : window.location.pathname;
     window.history.replaceState({}, "", newUrl);
-  }, [clientFilters, batchFilters, statusFilters]);
+  }, [clientFilters, batchFilters, statusFilters, allocationFilter]);
 
   useEffect(() => {
     if (user?.id) {
       fetchAssignedAssets();
     }
-  }, [user?.id]);
+  }, [user?.id, allocationFilter]);
+
+  // Fetch allocation list details when filter is set
+  useEffect(() => {
+    const fetchAllocationListDetails = async () => {
+      if (!allocationFilter) {
+        console.log("🔍 No allocation filter, clearing details");
+        setAllocationListDetails(null);
+        return;
+      }
+
+      console.log("📋 Fetching allocation list details for:", allocationFilter);
+
+      try {
+        // Use the API endpoint that handles permissions correctly
+        const response = await fetch("/api/qa/asset-lists", {
+          cache: "no-store",
+        });
+
+        if (!response.ok) {
+          console.error("❌ Error fetching allocation lists from API");
+          setAllocationListDetails(null);
+          return;
+        }
+
+        const data = await response.json();
+        const lists = data?.lists || [];
+
+        // Find the allocation list we're looking for
+        const allocationList = lists.find(
+          (list: any) => list.id === allocationFilter
+        );
+
+        if (!allocationList) {
+          console.error("❌ Allocation list not found in accessible lists");
+          setAllocationListDetails(null);
+          return;
+        }
+
+        console.log("✅ Fetched allocation list:", allocationList);
+
+        const details = {
+          id: allocationList.id,
+          name: allocationList.name,
+          number: allocationList.number,
+          status: allocationList.status,
+          deadline: allocationList.deadline,
+          bonus: allocationList.bonus,
+          modelerId: allocationList.modelerId,
+          modelerEmail: allocationList.modelerEmail || undefined,
+          modelerTitle: allocationList.modelerTitle || undefined,
+        };
+
+        console.log("💾 Setting allocation list details:", details);
+        setAllocationListDetails(details);
+      } catch (error) {
+        console.error("❌ Error fetching allocation list details:", error);
+        setAllocationListDetails(null);
+      }
+    };
+
+    fetchAllocationListDetails();
+  }, [allocationFilter]);
+
+  const handleSaveAllocationName = async () => {
+    if (!allocationListDetails || !allocationFilter) return;
+
+    const trimmedName = allocationNameDraft.trim();
+    if (trimmedName === (allocationListDetails.name || "")) {
+      setEditingAllocationName(false);
+      return;
+    }
+
+    setSavingAllocationName(true);
+    try {
+      const response = await fetch(
+        `/api/allocation-lists/${allocationFilter}/name`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ name: trimmedName }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        throw new Error(
+          errorData?.error || "Failed to update allocation list name"
+        );
+      }
+
+      // Update local state
+      setAllocationListDetails({
+        ...allocationListDetails,
+        name: trimmedName,
+      });
+
+      toast.success("Allocation list name updated");
+      setEditingAllocationName(false);
+    } catch (error) {
+      console.error("Error updating allocation list name:", error);
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to update allocation list name"
+      );
+    } finally {
+      setSavingAllocationName(false);
+    }
+  };
 
   useEffect(() => {
     filterAndSortAssets();
@@ -368,6 +513,7 @@ export default function QAReviewPage() {
     clientFilters,
     batchFilters,
     statusFilters,
+    allocationFilter,
   ]);
 
   const handlePriorityChange = async (assetId: string, newPriority: number) => {
@@ -432,18 +578,31 @@ export default function QAReviewPage() {
       setLoading(true);
       startLoading();
 
-      // Fetch both regular and provisional QA assignments
-      const [regularAssets, provisionalAssets] = await Promise.all([
-        fetchRegularQAAssets(),
-        fetchProvisionalQAAssets(),
-      ]);
+      let uniqueAssets: AssignedAsset[] = [];
 
-      // Combine and deduplicate assets
-      const allAssets = [...regularAssets, ...provisionalAssets];
-      const uniqueAssets = allAssets.filter(
-        (asset, index, self) =>
-          index === self.findIndex((a) => a.id === asset.id)
-      );
+      // If allocation filter is set, ONLY fetch assets from that allocation list
+      if (allocationFilter) {
+        console.log(
+          "🎯 Allocation filter active - fetching only from allocation list"
+        );
+        const allocationListAssets =
+          await fetchAssetsFromAllocationList(allocationFilter);
+        uniqueAssets = allocationListAssets;
+        console.log("📦 Assets from allocation list:", uniqueAssets.length);
+      } else {
+        // Fetch both regular and provisional QA assignments
+        const [regularAssets, provisionalAssets] = await Promise.all([
+          fetchRegularQAAssets(),
+          fetchProvisionalQAAssets(),
+        ]);
+
+        // Combine and deduplicate assets
+        const allAssets = [...regularAssets, ...provisionalAssets];
+        uniqueAssets = allAssets.filter(
+          (asset, index, self) =>
+            index === self.findIndex((a) => a.id === asset.id)
+        );
+      }
 
       setAssets(uniqueAssets);
 
@@ -604,6 +763,137 @@ export default function QAReviewPage() {
     return await processAssetAssignments(filteredAssignments);
   };
 
+  const fetchAssetsFromAllocationList = async (
+    allocationListId: string
+  ): Promise<AssignedAsset[]> => {
+    console.log("🔍 Fetching assets from allocation list:", allocationListId);
+
+    // Get all asset assignments for this allocation list (modeler assignments)
+    const { data: assetAssignments, error: assignmentError } = await supabase
+      .from("asset_assignments")
+      .select(
+        `
+        asset_id,
+        user_id,
+        price,
+        allocation_list_id,
+        onboarding_assets!inner(
+          id,
+          product_name,
+          article_id,
+          article_ids,
+          client,
+          batch,
+          priority,
+          delivery_date,
+          status,
+          glb_link,
+          product_link,
+          category,
+          subcategory,
+          subcategory_missing,
+          created_at,
+          reference,
+          internal_reference,
+          pricing_comment,
+          upload_order,
+          measurements
+        )
+      `
+      )
+      .eq("allocation_list_id", allocationListId)
+      .eq("role", "modeler")
+      .order("upload_order", {
+        ascending: true,
+        referencedTable: "onboarding_assets",
+      });
+
+    if (assignmentError) {
+      console.error(
+        "❌ Error fetching assets from allocation list:",
+        assignmentError
+      );
+      return [];
+    }
+
+    console.log("📦 Found asset assignments:", assetAssignments?.length || 0);
+
+    if (!assetAssignments || assetAssignments.length === 0) {
+      console.log("⚠️ No asset assignments found for allocation list");
+      return [];
+    }
+
+    // Check if this QA has provisional access to this allocation list
+    const { data: qaOverride } = await supabase
+      .from("asset_assignments")
+      .select("id")
+      .eq("allocation_list_id", allocationListId)
+      .eq("role", "qa")
+      .eq("is_provisional", true)
+      .eq("user_id", user?.id)
+      .limit(1);
+
+    console.log(
+      "🔐 QA override check:",
+      qaOverride?.length || 0,
+      "overrides found"
+    );
+
+    // If QA doesn't have provisional access, check if they have access through qa_allocations
+    let hasAccess = false;
+    if (qaOverride && qaOverride.length > 0) {
+      hasAccess = true;
+      console.log("✅ QA has provisional access to allocation list");
+    } else {
+      // Check if any of the modelers in this allocation list are allocated to this QA
+      const modelerIds = Array.from(
+        new Set(
+          assetAssignments
+            .map((a) => a.user_id)
+            .filter((id): id is string => typeof id === "string")
+        )
+      );
+
+      console.log(
+        "👥 Checking access through modelers:",
+        modelerIds.length,
+        "modelers"
+      );
+
+      if (modelerIds.length > 0) {
+        const { data: qaAllocations, error: qaAllocError } = await supabase
+          .from("qa_allocations")
+          .select("modeler_id")
+          .eq("qa_id", user?.id)
+          .in("modeler_id", modelerIds)
+          .limit(1);
+
+        if (!qaAllocError && qaAllocations && qaAllocations.length > 0) {
+          hasAccess = true;
+          console.log("✅ QA has access through qa_allocations");
+        } else {
+          console.log(
+            "❌ QA does not have access to any modelers in this allocation list"
+          );
+        }
+      }
+    }
+
+    // Only return assets if QA has access
+    if (!hasAccess) {
+      console.log("🚫 QA does not have access to this allocation list");
+      return [];
+    }
+
+    const processedAssets = await processAssetAssignments(assetAssignments);
+    console.log(
+      "✅ Processed",
+      processedAssets.length,
+      "assets from allocation list"
+    );
+    return processedAssets;
+  };
+
   const fetchProvisionalQAAssets = async (): Promise<AssignedAsset[]> => {
     // Get assets directly assigned to this QA as provisional
     const { data: provisionalAssignments, error: provisionalError } =
@@ -614,6 +904,7 @@ export default function QAReviewPage() {
         asset_id,
         user_id,
         price,
+        allocation_list_id,
         onboarding_assets!inner(
           id,
           product_name,
@@ -745,6 +1036,7 @@ export default function QAReviewPage() {
         pricing_comment: asset.pricing_comment,
         model_updated_at: modelUpdatedAt,
         measurements: asset.measurements,
+        allocation_list_id: assignment.allocation_list_id || null,
         modeler: modeler
           ? {
               id: modeler.id,
@@ -872,6 +1164,7 @@ export default function QAReviewPage() {
         pricing_comment: asset.pricing_comment,
         model_updated_at: modelUpdatedAt,
         measurements: asset.measurements,
+        allocation_list_id: assignment.allocation_list_id || null,
         modeler: modeler
           ? {
               id: modeler.id,
@@ -887,9 +1180,19 @@ export default function QAReviewPage() {
 
   const filterAndSortAssets = () => {
     let filtered = [...assets];
+    console.log("🔍 Starting filter with", filtered.length, "assets");
+    console.log("📊 Current filters:", {
+      search,
+      clientFilters,
+      batchFilters,
+      statusFilters,
+      modelerFilter,
+      allocationFilter,
+    });
 
     // Apply search filter
     if (search) {
+      const beforeCount = filtered.length;
       const lowerSearch = search.toLowerCase();
       filtered = filtered.filter((asset) => {
         const matchesProduct = asset.product_name
@@ -909,24 +1212,30 @@ export default function QAReviewPage() {
           matchesProduct || matchesPrimary || matchesAdditional || matchesClient
         );
       });
+      console.log(`🔎 Search filter: ${beforeCount} → ${filtered.length}`);
     }
 
     // Apply multi client filter
     if (clientFilters.length > 0) {
+      const beforeCount = filtered.length;
       filtered = filtered.filter((asset) =>
         clientFilters.includes(asset.client)
       );
+      console.log(`👥 Client filter: ${beforeCount} → ${filtered.length}`);
     }
 
     // Apply multi batch filter
     if (batchFilters.length > 0) {
+      const beforeCount = filtered.length;
       filtered = filtered.filter((asset) =>
         batchFilters.includes(Number(asset.batch))
       );
+      console.log(`📦 Batch filter: ${beforeCount} → ${filtered.length}`);
     }
 
     // Apply multi status filter
     if (statusFilters.length > 0) {
+      const beforeCount = filtered.length;
       filtered = filtered.filter((asset) => {
         // Handle special "new" filter
         if (statusFilters.includes("new")) {
@@ -935,14 +1244,34 @@ export default function QAReviewPage() {
         // Handle regular status filters
         return statusFilters.includes(asset.status);
       });
+      console.log(`📋 Status filter: ${beforeCount} → ${filtered.length}`, {
+        statusFilters,
+        assetStatuses: filtered.map((a) => a.status),
+      });
     }
 
     // Apply modeler filter
     if (modelerFilter !== "all") {
+      const beforeCount = filtered.length;
       filtered = filtered.filter(
         (asset) => asset.modeler?.id === modelerFilter
       );
+      console.log(`👤 Modeler filter: ${beforeCount} → ${filtered.length}`);
     }
+
+    // Apply allocation list filter
+    if (allocationFilter) {
+      const beforeCount = filtered.length;
+      filtered = filtered.filter(
+        (asset) => asset.allocation_list_id === allocationFilter
+      );
+      console.log(`📁 Allocation filter: ${beforeCount} → ${filtered.length}`, {
+        allocationFilter,
+        assetAllocations: filtered.map((a) => a.allocation_list_id),
+      });
+    }
+
+    console.log("✅ Final filtered count:", filtered.length);
 
     // Apply sorting
     filtered.sort((a, b) => {
@@ -1171,17 +1500,19 @@ export default function QAReviewPage() {
   };
 
   const statusTotals = {
-    total: assets.length,
-    in_production: assets.filter((a) => a.status === "in_production").length,
-    delivered_by_artist: assets.filter(
+    total: filteredAssets.length,
+    in_production: filteredAssets.filter((a) => a.status === "in_production")
+      .length,
+    delivered_by_artist: filteredAssets.filter(
       (a) => a.status === "delivered_by_artist"
     ).length,
-    revisions: assets.filter(
+    revisions: filteredAssets.filter(
       (a) => a.status === "revisions" || a.status === "client_revision"
     ).length,
-    approved: assets.filter((a) => a.status === "approved").length,
-    approved_by_client: assets.filter((a) => a.status === "approved_by_client")
-      .length,
+    approved: filteredAssets.filter((a) => a.status === "approved").length,
+    approved_by_client: filteredAssets.filter(
+      (a) => a.status === "approved_by_client"
+    ).length,
   };
 
   // Show loading state while user context is initializing
@@ -1236,6 +1567,165 @@ export default function QAReviewPage() {
       </div>
 
       <Card className="p-3 sm:p-6 flex-1 flex flex-col border-0 shadow-none">
+        {/* Allocation List Info Card */}
+        {allocationListDetails && (
+          <Card className="mb-4 sm:mb-6 border-primary/20 bg-primary/5">
+            <CardContent className="p-4 sm:p-6">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Layers className="h-5 w-5 text-primary" />
+                    <h3 className="text-lg font-semibold">
+                      Allocation {allocationListDetails.number ?? "—"}
+                    </h3>
+                    {allocationListDetails.status && (
+                      <Badge variant="outline" className="text-xs">
+                        {allocationListDetails.status
+                          .replace(/_/g, " ")
+                          .replace(/\b\w/g, (char) => char.toUpperCase())}
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="mb-4">
+                    {editingAllocationName ? (
+                      <div className="flex items-center gap-2">
+                        <Input
+                          value={allocationNameDraft}
+                          onChange={(e) =>
+                            setAllocationNameDraft(e.target.value)
+                          }
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              handleSaveAllocationName();
+                            } else if (e.key === "Escape") {
+                              setEditingAllocationName(false);
+                              setAllocationNameDraft(
+                                allocationListDetails.name || ""
+                              );
+                            }
+                          }}
+                          className="flex-1 text-sm"
+                          autoFocus
+                          disabled={savingAllocationName}
+                        />
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={handleSaveAllocationName}
+                          disabled={savingAllocationName}
+                          className="shrink-0"
+                        >
+                          {savingAllocationName ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Check className="h-4 w-4" />
+                          )}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            setEditingAllocationName(false);
+                            setAllocationNameDraft(
+                              allocationListDetails.name || ""
+                            );
+                          }}
+                          disabled={savingAllocationName}
+                          className="shrink-0"
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 group">
+                        <p className="text-sm text-muted-foreground flex-1">
+                          {allocationListDetails.name || "No name set"}
+                        </p>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            setEditingAllocationName(true);
+                            setAllocationNameDraft(
+                              allocationListDetails.name || ""
+                            );
+                          }}
+                          className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <Edit3 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                    {allocationListDetails.deadline && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <Calendar className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-muted-foreground">Deadline:</span>
+                        <span
+                          className={
+                            new Date(allocationListDetails.deadline).getTime() <
+                            Date.now()
+                              ? "text-destructive font-medium"
+                              : "font-medium"
+                          }
+                        >
+                          {new Date(
+                            allocationListDetails.deadline
+                          ).toLocaleDateString(undefined, {
+                            year: "numeric",
+                            month: "short",
+                            day: "numeric",
+                          })}
+                        </span>
+                      </div>
+                    )}
+                    {allocationListDetails.modelerEmail && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <Users className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-muted-foreground">Modeler:</span>
+                        <span className="font-medium">
+                          {allocationListDetails.modelerTitle
+                            ? `${allocationListDetails.modelerTitle} (${allocationListDetails.modelerEmail})`
+                            : allocationListDetails.modelerEmail}
+                        </span>
+                      </div>
+                    )}
+                    {allocationListDetails.bonus &&
+                      allocationListDetails.bonus > 0 && (
+                        <div className="flex items-center gap-2 text-sm">
+                          <Package className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-muted-foreground">Bonus:</span>
+                          <span className="font-medium text-green-600">
+                            {allocationListDetails.bonus}%
+                          </span>
+                        </div>
+                      )}
+                    <div className="flex items-center gap-2 text-sm">
+                      <ShieldCheck className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-muted-foreground">Assets:</span>
+                      <span className="font-medium">
+                        {filteredAssets.length}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setAllocationFilter(null);
+                    router.push("/qa-review");
+                  }}
+                  className="shrink-0"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Status Summary Cards */}
         {!loading && (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-4 mb-4 sm:mb-6">

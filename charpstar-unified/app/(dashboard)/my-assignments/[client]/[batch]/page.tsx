@@ -75,10 +75,17 @@ const getArticleIdsTooltip = (articleIds: string[]): string | null => {
   if (!articleIds || articleIds.length <= 1) return null;
   return articleIds.join(", ");
 };
+
 import { supabase } from "@/lib/supabaseClient";
 import { Card, CardContent, CardHeader } from "@/components/ui/containers";
 import { Button } from "@/components/ui/display";
 import { Badge } from "@/components/ui/feedback";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/display/tooltip";
 import { Input } from "@/components/ui/inputs";
 import {
   Select,
@@ -123,6 +130,7 @@ import {
   Target,
   StickyNote,
   Copy,
+  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -130,6 +138,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/containers";
 import {
   Popover,
@@ -156,6 +165,7 @@ interface BatchAsset {
   created_at: string;
   revision_count: number;
   glb_link: string | null;
+  blend_link: string | null;
   product_link: string | null;
   reference: string[] | string | null;
   internal_reference?: string[] | string | null;
@@ -256,6 +266,7 @@ export default function BatchDetailPage() {
 
   const [uploadingFile, setUploadingFile] = useState<string | null>(null);
   const [uploadingGLB, setUploadingGLB] = useState<string | null>(null);
+  const [uploadingBlend, setUploadingBlend] = useState<string | null>(null);
   const [referenceDialogOpen, setReferenceDialogOpen] = useState(false);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [currentReferences, setCurrentReferences] = useState<string[]>([]);
@@ -275,6 +286,13 @@ export default function BatchDetailPage() {
     []
   );
   const [clientGuideUrls, setClientGuideUrls] = useState<string[]>([]);
+
+  // Unified upload dialog states
+  const [unifiedUploadDialogOpen, setUnifiedUploadDialogOpen] = useState(false);
+  const [selectedGlbFile, setSelectedGlbFile] = useState<File | null>(null);
+  const [selectedBlendFile, setSelectedBlendFile] = useState<File | null>(null);
+  const [uploadingBoth, setUploadingBoth] = useState(false);
+
   // Persisted expanded allocations in accordion
   const [expandedAllocations, setExpandedAllocations] = useState<string[]>([]);
 
@@ -573,6 +591,7 @@ export default function BatchDetailPage() {
               created_at,
               revision_count,
               glb_link,
+              blend_link,
               product_link,
               reference,
               internal_reference,
@@ -1282,6 +1301,242 @@ export default function BatchDetailPage() {
       );
     } finally {
       setUploadingGLB(null);
+    }
+  };
+
+  const handleUploadBlend = async (assetId: string, file: File) => {
+    try {
+      setUploadingBlend(assetId);
+
+      // Get the asset to validate file name against article ID
+      const asset = allocationLists
+        .flatMap((list) => list.assets)
+        .find((a) => a.id === assetId);
+
+      if (!asset) {
+        toast.error("Asset not found");
+        return;
+      }
+
+      // Validate file
+      const fileName = file.name.toLowerCase();
+      if (!fileName.endsWith(".blend")) {
+        toast.error("Please select a Blender (.blend) file");
+        return;
+      }
+
+      if (file.size > 500 * 1024 * 1024) {
+        toast.error("File size must be less than 500MB");
+        return;
+      }
+
+      // Validate file name matches article ID
+      const fileBaseName = file.name.replace(/\.blend$/i, "").toLowerCase();
+      const articleId = asset.article_id.toLowerCase();
+
+      if (fileBaseName !== articleId) {
+        toast.error(
+          `File name must match the Article ID. Expected: ${asset.article_id}, got: ${file.name.replace(/\.blend$/i, "")}`
+        );
+        return;
+      }
+
+      // Backup current Blender file before uploading new one (if it exists)
+      if (asset.blend_link) {
+        try {
+          const cleanBlendUrl = asset.blend_link.split("?")[0];
+          console.log(
+            "📦 Creating backup of current Blender file:",
+            cleanBlendUrl
+          );
+          const backupResponse = await fetch("/api/assets/backup-blend", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              assetId: asset.id,
+              blendUrl: cleanBlendUrl,
+            }),
+          });
+
+          if (backupResponse.ok) {
+            const backupData = await backupResponse.json();
+            if (backupData.skipped) {
+              console.log(
+                "ℹ️ Blender Backup skipped (already exists):",
+                backupData.backupUrl
+              );
+            } else {
+              console.log("✅ Blender Backup created:", backupData.backupUrl);
+            }
+          } else {
+            console.warn(
+              "⚠️ Blender Backup creation failed, continuing with upload"
+            );
+          }
+        } catch (backupError) {
+          console.error("Error creating Blender backup:", backupError);
+          // Don't fail the upload if backup fails
+        }
+      }
+
+      // Check if file is too large for regular upload
+      const isLargeFile = file.size > 3.5 * 1024 * 1024; // 3.5MB safety threshold (Vercel limit is ~4MB)
+      let result: any;
+
+      if (isLargeFile) {
+        // Use direct upload (bypasses Vercel's 4.5MB limit)
+        const { DirectFileUploader, formatFileSize } = await import(
+          "@/lib/directUpload"
+        );
+
+        const uploader = new DirectFileUploader((progress) => {
+          // Only log every 10% to reduce console spam
+          if (
+            progress.progress % 10 === 0 ||
+            progress.status === "complete" ||
+            progress.status === "error"
+          ) {
+          }
+        });
+
+        const uploadResult = await uploader.uploadFile(
+          file,
+          assetId,
+          "blend",
+          client
+        );
+
+        if (!uploadResult.success) {
+          throw new Error(
+            uploadResult.error || "Direct Blender file upload failed"
+          );
+        }
+
+        result = { url: uploadResult.cdnUrl };
+        toast.success(
+          `Large Blender file uploaded successfully! (${formatFileSize(file.size)})`
+        );
+      } else {
+        // Use regular upload for smaller files
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("asset_id", assetId);
+        formData.append("file_type", "blend");
+        formData.append("client_name", client);
+
+        const response = await fetch("/api/assets/upload-file", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || "Failed to upload Blender file");
+        }
+
+        result = await response.json();
+      }
+
+      // Update the asset with the new Blender link
+      const { error: updateError } = await supabase
+        .from("onboarding_assets")
+        .update({
+          blend_link: result.url,
+        })
+        .eq("id", assetId);
+
+      if (updateError) {
+        console.error("Database update error:", updateError);
+        throw updateError;
+      }
+
+      // Update local state to avoid collapsing the accordion
+      setAllocationLists((prev) => {
+        const updatedLists = prev.map((list) => ({
+          ...list,
+          assets: list.assets.map((a) =>
+            a.id === assetId
+              ? {
+                  ...a,
+                  blend_link: result.url,
+                }
+              : a
+          ),
+        }));
+        recalculateBatchStatsFromLists(updatedLists);
+        return updatedLists;
+      });
+
+      toast.success("Blender file uploaded successfully!");
+    } catch (error) {
+      console.error("Error uploading Blender file:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Failed to upload Blender file"
+      );
+    } finally {
+      setUploadingBlend(null);
+    }
+  };
+
+  const handleUploadBothFiles = async () => {
+    if (!currentUploadAsset) {
+      toast.error("No asset selected");
+      return;
+    }
+
+    if (!selectedGlbFile && !selectedBlendFile) {
+      toast.error("Please select at least one file to upload");
+      return;
+    }
+
+    setUploadingBoth(true);
+    let glbSuccess = false;
+    let blendSuccess = false;
+
+    try {
+      // Upload GLB file if selected
+      if (selectedGlbFile) {
+        try {
+          await handleUploadGLB(currentUploadAsset.id, selectedGlbFile);
+          glbSuccess = true;
+        } catch (error) {
+          console.error("GLB upload failed:", error);
+          toast.error("GLB upload failed. See console for details.");
+        }
+      }
+
+      // Upload Blender file if selected
+      if (selectedBlendFile) {
+        try {
+          await handleUploadBlend(currentUploadAsset.id, selectedBlendFile);
+          blendSuccess = true;
+        } catch (error) {
+          console.error("Blender upload failed:", error);
+          toast.error("Blender upload failed. See console for details.");
+        }
+      }
+
+      // Show summary
+      if (selectedGlbFile && selectedBlendFile) {
+        if (glbSuccess && blendSuccess) {
+          toast.success("Both files uploaded successfully!");
+        } else if (glbSuccess || blendSuccess) {
+          toast.warning("Some files uploaded successfully, but others failed.");
+        }
+      }
+
+      // Close dialog and reset state
+      setUnifiedUploadDialogOpen(false);
+      setSelectedGlbFile(null);
+      setSelectedBlendFile(null);
+      setCurrentUploadAsset(null);
+    } catch (error) {
+      console.error("Error during upload:", error);
+      toast.error("Upload process failed");
+    } finally {
+      setUploadingBoth(false);
     }
   };
 
@@ -2275,8 +2530,8 @@ export default function BatchDetailPage() {
                                     <TableHead className="w-32 py-2 text-xs text-left">
                                       Category
                                     </TableHead>
-                                    <TableHead className="w-24 py-2 text-xs text-left">
-                                      GLB
+                                    <TableHead className="w-32 py-2 text-xs text-left">
+                                      Files
                                     </TableHead>
                                     <TableHead className="w-24 py-2 text-xs text-left">
                                       References
@@ -2437,58 +2692,82 @@ export default function BatchDetailPage() {
                                             -
                                           </span>
                                         ) : (
-                                          <div className="flex flex-col gap-1">
-                                            {asset.glb_link ? (
-                                              <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                onClick={() => {
-                                                  const fileName =
-                                                    asset.glb_link
-                                                      ?.split("/")
-                                                      .pop() ||
-                                                    `${asset.article_id}.glb`;
-                                                  handleFileDownload(
-                                                    asset.glb_link!,
-                                                    fileName
-                                                  );
-                                                }}
-                                                className="text-xs h-6 px-2 w-full hover:text-blue-700 hover:underline"
+                                          <div className="flex flex-col gap-2">
+                                            {/* File Status Badges */}
+                                            <div className="flex flex-wrap gap-1">
+                                              <Badge
+                                                variant={
+                                                  asset.glb_link
+                                                    ? "default"
+                                                    : "outline"
+                                                }
+                                                className={`text-[10px] px-1.5 py-0 ${
+                                                  asset.glb_link
+                                                    ? "bg-blue-100 text-blue-700 border-blue-200"
+                                                    : "text-muted-foreground"
+                                                }`}
                                               >
-                                                <Download className="h-3 w-3 mr-1" />
-                                                Download
-                                              </Button>
-                                            ) : null}
+                                                {asset.glb_link ? "✓" : "○"} GLB
+                                              </Badge>
+                                              <Badge
+                                                variant={
+                                                  asset.blend_link
+                                                    ? "default"
+                                                    : "outline"
+                                                }
+                                                className={`text-[10px] px-1.5 py-0 ${
+                                                  asset.blend_link
+                                                    ? "bg-purple-100 text-purple-700 border-purple-200"
+                                                    : "text-muted-foreground"
+                                                }`}
+                                              >
+                                                {asset.blend_link ? "✓" : "○"}{" "}
+                                                Blend
+                                              </Badge>
+                                            </div>
+
+                                            {/* Upload Button */}
                                             <Button
                                               variant={
-                                                asset.glb_link
+                                                asset.glb_link &&
+                                                asset.blend_link
                                                   ? "ghost"
                                                   : "default"
                                               }
                                               size="sm"
-                                              onClick={() =>
-                                                handleOpenUploadDialog(
-                                                  asset,
-                                                  "glb"
-                                                )
-                                              }
+                                              onClick={() => {
+                                                setCurrentUploadAsset(asset);
+                                                setUnifiedUploadDialogOpen(
+                                                  true
+                                                );
+                                              }}
                                               disabled={
-                                                uploadingGLB === asset.id
+                                                uploadingBoth ||
+                                                uploadingGLB === asset.id ||
+                                                uploadingBlend === asset.id
                                               }
-                                              className={`text-xs h-6 px-2 w-full ${
-                                                asset.glb_link
-                                                  ? "hover:text-blue-700 hover:underline"
-                                                  : " text-white"
+                                              className={`text-xs h-7 px-2 w-full ${
+                                                asset.glb_link &&
+                                                asset.blend_link
+                                                  ? "hover:text-primary hover:underline"
+                                                  : "text-white"
                                               }`}
                                             >
-                                              {uploadingGLB === asset.id ? (
-                                                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-current mr-1 dark:border-border dark:text-muted-foreground text-foreground" />
+                                              {uploadingGLB === asset.id ||
+                                              uploadingBlend === asset.id ? (
+                                                <>
+                                                  <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-current mr-1" />
+                                                  Uploading...
+                                                </>
                                               ) : (
-                                                <Upload className="h-3 w-3 mr-1" />
+                                                <>
+                                                  <Upload className="h-3 w-3 mr-1" />
+                                                  {asset.glb_link &&
+                                                  asset.blend_link
+                                                    ? "Update Files"
+                                                    : "Upload Files"}
+                                                </>
                                               )}
-                                              {asset.glb_link
-                                                ? "Update GLB"
-                                                : "Upload GLB"}
                                             </Button>
                                           </div>
                                         )}
@@ -3320,6 +3599,245 @@ export default function BatchDetailPage() {
           setShowAddRefDialog(true);
         }}
       />
+
+      {/* Unified Upload Dialog - Upload Both GLB and Blender Files */}
+      <Dialog
+        open={unifiedUploadDialogOpen}
+        onOpenChange={(open) => {
+          setUnifiedUploadDialogOpen(open);
+          if (!open) {
+            setSelectedGlbFile(null);
+            setSelectedBlendFile(null);
+            setCurrentUploadAsset(null);
+          }
+        }}
+      >
+        <DialogContent className="w-[95vw] sm:w-full max-w-2xl h-fit max-h-[90vh] overflow-y-auto">
+          <DialogHeader className="pb-4">
+            <DialogTitle className="flex items-center gap-2 text-lg">
+              <Upload className="h-5 w-5" />
+              Upload Model Files
+            </DialogTitle>
+            <DialogDescription>
+              Both GLB and Blender files are required for{" "}
+              {currentUploadAsset?.product_name}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {/* Asset Info */}
+            <div className="bg-muted/50 rounded-lg p-3 text-sm">
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <span className="text-muted-foreground">Asset:</span>
+                  <p className="font-medium">
+                    {currentUploadAsset?.product_name}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Article ID:</span>
+                  <p className="font-mono font-medium">
+                    {currentUploadAsset?.article_id}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* File Status Overview */}
+            <div className="grid grid-cols-2 gap-3">
+              <div
+                className={`rounded-lg border-2 p-3 ${selectedGlbFile || currentUploadAsset?.glb_link ? "border-blue-200 bg-blue-50" : "border-border bg-muted/30"}`}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium">GLB File</span>
+                  {(selectedGlbFile || currentUploadAsset?.glb_link) && (
+                    <CheckCircle className="h-4 w-4 text-blue-600" />
+                  )}
+                </div>
+                <p
+                  className="text-xs text-muted-foreground"
+                  title={selectedGlbFile?.name}
+                >
+                  {selectedGlbFile
+                    ? selectedGlbFile.name.length > 25
+                      ? `${selectedGlbFile.name.substring(0, 25)}...`
+                      : selectedGlbFile.name
+                    : currentUploadAsset?.glb_link
+                      ? "Uploaded ✓"
+                      : "Not uploaded"}
+                </p>
+              </div>
+              <div
+                className={`rounded-lg border-2 p-3 ${selectedBlendFile || currentUploadAsset?.blend_link ? "border-purple-200 bg-purple-50" : "border-border bg-muted/30"}`}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium">Blender File</span>
+                  {(selectedBlendFile || currentUploadAsset?.blend_link) && (
+                    <CheckCircle className="h-4 w-4 text-purple-600" />
+                  )}
+                </div>
+                <p
+                  className="text-xs text-muted-foreground"
+                  title={selectedBlendFile?.name}
+                >
+                  {selectedBlendFile
+                    ? selectedBlendFile.name.length > 25
+                      ? `${selectedBlendFile.name.substring(0, 25)}...`
+                      : selectedBlendFile.name
+                    : currentUploadAsset?.blend_link
+                      ? "Uploaded ✓"
+                      : "Not uploaded"}
+                </p>
+              </div>
+            </div>
+
+            {/* GLB File Upload */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium flex items-center gap-2">
+                <div className="h-2 w-2 rounded-full bg-blue-500"></div>
+                GLB File (.glb or .gltf)
+              </label>
+              <div className="border-2 border-dashed border-blue-200 rounded-lg p-6 text-center bg-blue-50/50 hover:bg-blue-50 transition-colors">
+                <input
+                  type="file"
+                  accept=".glb,.gltf"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) setSelectedGlbFile(file);
+                  }}
+                  className="hidden"
+                  id="glb-file-input"
+                />
+                <label htmlFor="glb-file-input" className="cursor-pointer">
+                  <Upload className="h-8 w-8 mx-auto mb-2 text-blue-600" />
+                  <p className="text-sm font-medium text-blue-900">
+                    {selectedGlbFile
+                      ? selectedGlbFile.name
+                      : "Click to select GLB file"}
+                  </p>
+                  <p className="text-xs text-blue-700 mt-1">
+                    Must match:{" "}
+                    <span className="font-mono bg-blue-100 px-1 py-0.5 rounded">
+                      {currentUploadAsset?.article_id}.glb
+                    </span>
+                  </p>
+                </label>
+                {selectedGlbFile && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setSelectedGlbFile(null)}
+                    className="mt-2 text-xs"
+                  >
+                    Remove
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            {/* Blender File Upload */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium flex items-center gap-2">
+                <div className="h-2 w-2 rounded-full bg-purple-500"></div>
+                Blender File (.blend)
+              </label>
+              <div className="border-2 border-dashed border-purple-200 rounded-lg p-6 text-center bg-purple-50/50 hover:bg-purple-50 transition-colors">
+                <input
+                  type="file"
+                  accept=".blend"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) setSelectedBlendFile(file);
+                  }}
+                  className="hidden"
+                  id="blend-file-input"
+                />
+                <label htmlFor="blend-file-input" className="cursor-pointer">
+                  <Upload className="h-8 w-8 mx-auto mb-2 text-purple-600" />
+                  <p className="text-sm font-medium text-purple-900">
+                    {selectedBlendFile
+                      ? selectedBlendFile.name
+                      : "Click to select Blender file"}
+                  </p>
+                  <p className="text-xs text-purple-700 mt-1">
+                    Must match:{" "}
+                    <span className="font-mono bg-purple-100 px-1 py-0.5 rounded">
+                      {currentUploadAsset?.article_id}.blend
+                    </span>
+                  </p>
+                </label>
+                {selectedBlendFile && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setSelectedBlendFile(null)}
+                    className="mt-2 text-xs"
+                  >
+                    Remove
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-2 pt-4">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setUnifiedUploadDialogOpen(false);
+                  setSelectedGlbFile(null);
+                  setSelectedBlendFile(null);
+                }}
+                disabled={uploadingBoth}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="flex-1">
+                      <Button
+                        onClick={handleUploadBothFiles}
+                        disabled={
+                          uploadingBoth ||
+                          !selectedGlbFile ||
+                          !selectedBlendFile
+                        }
+                        className="w-full"
+                      >
+                        {uploadingBoth ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Uploading...
+                          </>
+                        ) : (
+                          <>
+                            <Upload className="h-4 w-4 mr-2" />
+                            Upload Both Files
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </TooltipTrigger>
+                  {(!selectedGlbFile || !selectedBlendFile) &&
+                    !uploadingBoth && (
+                      <TooltipContent>
+                        <p className="text-sm">
+                          {!selectedGlbFile && !selectedBlendFile
+                            ? "Please select both GLB and Blender files"
+                            : !selectedGlbFile
+                              ? "Please select a GLB file"
+                              : "Please select a Blender file"}
+                        </p>
+                      </TooltipContent>
+                    )}
+                </Tooltip>
+              </TooltipProvider>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

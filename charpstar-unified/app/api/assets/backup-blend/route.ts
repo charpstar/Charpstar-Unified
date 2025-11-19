@@ -15,11 +15,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { assetId, glbUrl, timestamp } = await request.json();
+    const { assetId, blendUrl, timestamp } = await request.json();
 
-    if (!assetId || !glbUrl) {
+    if (!assetId || !blendUrl) {
       return NextResponse.json(
-        { error: "Asset ID and GLB URL are required" },
+        { error: "Asset ID and Blender URL are required" },
         { status: 400 }
       );
     }
@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
     // Get asset details
     const { data: asset, error: assetError } = await supabase
       .from("onboarding_assets")
-      .select("article_id, client, glb_link")
+      .select("article_id, client, blend_link")
       .eq("id", assetId)
       .single();
 
@@ -72,22 +72,20 @@ export async function POST(request: NextRequest) {
       ? customStorageZone
       : storageZone;
 
-    // Construct the storage URL directly from asset data to ensure we get the correct file
-    // This is more reliable than parsing the CDN URL
+    // Construct the storage URL directly from asset data
+    // Blend files are stored in the 'assets' folder, not 'QC'
     const sanitizedClientName = asset.client.replace(/[^a-zA-Z0-9._-]/g, "_");
-    const mainFileName = `${asset.article_id}.glb`;
-    const mainQcPath = useCustomStructure
-      ? `QC/${mainFileName}`
-      : `${sanitizedClientName}/QC/${mainFileName}`;
-    const storageUrl = `https://se.storage.bunnycdn.com/${finalStorageZone}/${mainQcPath}`;
+    const mainFileName = `${asset.article_id}.blend`;
+    const mainAssetsPath = useCustomStructure
+      ? `assets/${mainFileName}`
+      : `${sanitizedClientName}/assets/${mainFileName}`;
+    const storageUrl = `https://se.storage.bunnycdn.com/${finalStorageZone}/${mainAssetsPath}`;
 
-    // Download the current GLB file directly from storage (not CDN) to avoid caching
-    // This ensures we get the actual file that's in storage, not a cached version
+    // Download the current Blender file directly from storage
     console.log(
-      "📥 Downloading current file from storage for backup:",
+      "📥 Downloading current Blender file from storage for backup:",
       storageUrl
     );
-    console.log("📊 Asset GLB link from database:", asset.glb_link);
     const currentFileResponse = await fetch(storageUrl, {
       method: "GET",
       headers: {
@@ -96,7 +94,6 @@ export async function POST(request: NextRequest) {
     });
 
     if (!currentFileResponse.ok) {
-      // If file doesn't exist, that's okay - no backup needed
       return NextResponse.json({
         success: true,
         message: "No existing file to backup",
@@ -111,7 +108,6 @@ export async function POST(request: NextRequest) {
       "bytes"
     );
 
-    // Validate file is not empty
     if (fileBuffer.byteLength === 0) {
       console.warn("⚠️ File is empty, skipping backup");
       return NextResponse.json({
@@ -121,48 +117,20 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Verify the file is actually a GLB file by checking the magic bytes
-    // GLB files start with "glTF" (0x676C5446) at offset 0
-    const magicBytes = new Uint8Array(fileBuffer.slice(0, 4));
+    // Verify magic bytes for Blender file ('BLENDER')
+    const magicBytes = new Uint8Array(fileBuffer.slice(0, 7));
     const magicString = String.fromCharCode(...magicBytes);
-    if (magicString !== "glTF") {
+    if (magicString !== "BLENDER") {
       console.warn(
-        "⚠️ File doesn't appear to be a valid GLB file (missing glTF magic bytes), but continuing with backup"
+        "⚠️ File doesn't appear to be a valid Blender file (missing BLENDER magic bytes), but continuing with backup"
       );
-    }
-
-    // Check if a backup was created in the last 10 seconds to prevent duplicates
-    // This handles cases where the endpoint might be called multiple times rapidly
-    // We check by file size to ensure it's the same file being backed up
-    const tenSecondsAgo = new Date(Date.now() - 10000).toISOString();
-    const { data: recentBackups } = await supabase
-      .from("glb_upload_history")
-      .select("id, uploaded_at, glb_url, file_size")
-      .eq("asset_id", assetId)
-      .eq("file_size", fileBuffer.byteLength) // Same file size = same file
-      .gte("uploaded_at", tenSecondsAgo)
-      .order("uploaded_at", { ascending: false })
-      .limit(1);
-
-    if (recentBackups && recentBackups.length > 0) {
-      const recentBackup = recentBackups[0];
-      console.log(
-        "⚠️ Recent backup found with same file size, skipping duplicate backup creation"
-      );
-      return NextResponse.json({
-        success: true,
-        message: "Backup already created recently for this file",
-        backupUrl: recentBackup.glb_url,
-        skipped: true,
-      });
     }
 
     // Create backup filename with timestamp
-    // Use provided timestamp if available (for syncing with blend file), otherwise generate new one
+    // Use provided timestamp if available (for syncing with GLB file), otherwise generate new one
     const backupTimestamp = timestamp || Date.now();
-    const fileExtension = mainFileName.split(".").pop();
     const fileNameWithoutExt = mainFileName.replace(/\.[^/.]+$/, "");
-    const backupFileName = `${fileNameWithoutExt}_backup_${backupTimestamp}.${fileExtension}`;
+    const backupFileName = `${fileNameWithoutExt}_backup_${backupTimestamp}.blend`;
     const backupPath = useCustomStructure
       ? `QC/backups/${backupFileName}`
       : `${sanitizedClientName}/QC/backups/${backupFileName}`;
@@ -196,27 +164,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Record backup in glb_upload_history
-    try {
-      const { error: historyError } = await supabase
-        .from("glb_upload_history")
-        .insert({
-          asset_id: assetId,
-          glb_url: backupPublicUrl,
-          file_name: backupFileName,
-          file_size: fileBuffer.byteLength,
-          uploaded_by: session.user.id,
-          uploaded_at: new Date().toISOString(),
-        });
+    // Note: We are not saving to glb_upload_history as it might not support .blend files
+    // The file system backup is sufficient for version history listing
 
-      if (historyError) {
-        console.error("Error recording backup to history:", historyError);
-        // Don't fail the request if history recording fails
-      }
-    } catch (historyErr) {
-      console.error("Error recording backup to history:", historyErr);
-      // Don't fail the request if history recording fails
-    }
+    console.log("✅ Blend backup created successfully:", {
+      backupFileName,
+      backupPath,
+      backupPublicUrl,
+      fileSize: fileBuffer.byteLength,
+    });
 
     return NextResponse.json({
       success: true,
@@ -225,7 +181,7 @@ export async function POST(request: NextRequest) {
       message: "Backup created successfully",
     });
   } catch (error) {
-    console.error("❌ Error creating GLB backup:", error);
+    console.error("❌ Error creating Blender backup:", error);
     return NextResponse.json(
       { error: "Internal server error", details: (error as Error).message },
       { status: 500 }

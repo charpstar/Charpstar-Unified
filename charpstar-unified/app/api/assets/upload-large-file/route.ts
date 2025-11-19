@@ -242,6 +242,86 @@ export async function POST(request: NextRequest) {
           { status: 500 }
         );
       }
+
+      // Purge cache for the uploaded GLB file
+      const bunnyApiKey = process.env.BUNNY_API_KEY;
+      if (bunnyApiKey) {
+        try {
+          console.log("🗑️ Purging cache for uploaded GLB:", cdnUrl);
+          const purgeResponse = await fetch(
+            "https://api.bunny.net/purge?async=false",
+            {
+              method: "POST",
+              headers: {
+                AccessKey: bunnyApiKey,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({ urls: [cdnUrl] }),
+            }
+          );
+
+          if (purgeResponse.ok) {
+            console.log("✅ Cache purged successfully for:", cdnUrl);
+          } else {
+            const errorText = await purgeResponse.text();
+            console.warn(
+              `⚠️ Cache purge warning: ${purgeResponse.status} - ${errorText}`
+            );
+          }
+        } catch (purgeError) {
+          console.error("❌ Error purging cache:", purgeError);
+          // Continue even if purge fails - the file is still uploaded
+        }
+      } else {
+        console.warn("⚠️ BUNNY_API_KEY not set, skipping cache purge");
+      }
+    } else if (fileType === "blend") {
+      // Update blend_link in onboarding_assets
+      const { error: updateError } = await adminClient
+        .from("onboarding_assets")
+        .update({ blend_link: cdnUrl })
+        .eq("id", assetId);
+
+      if (updateError) {
+        console.error("Error updating Blend link:", updateError);
+        return NextResponse.json(
+          { error: "Failed to update asset" },
+          { status: 500 }
+        );
+      }
+
+      // Purge cache for the uploaded Blend file
+      const bunnyApiKey = process.env.BUNNY_API_KEY;
+      if (bunnyApiKey) {
+        try {
+          console.log("🗑️ Purging cache for uploaded Blend file:", cdnUrl);
+          const purgeResponse = await fetch(
+            "https://api.bunny.net/purge?async=false",
+            {
+              method: "POST",
+              headers: {
+                AccessKey: bunnyApiKey,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({ urls: [cdnUrl] }),
+            }
+          );
+
+          if (purgeResponse.ok) {
+            console.log("✅ Cache purged successfully for:", cdnUrl);
+          } else {
+            const errorText = await purgeResponse.text();
+            console.warn(
+              `⚠️ Cache purge warning: ${purgeResponse.status} - ${errorText}`
+            );
+          }
+        } catch (purgeError) {
+          console.error("❌ Error purging cache:", purgeError);
+          // Continue even if purge fails - the file is still uploaded
+        }
+      } else {
+        console.warn("⚠️ BUNNY_API_KEY not set, skipping cache purge");
+      }
     } else if (fileType === "reference") {
       // Update reference images
       let { data: currentAsset, error: fetchError } = await adminClient

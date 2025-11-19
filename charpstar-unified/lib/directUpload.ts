@@ -23,7 +23,7 @@ export class DirectFileUploader {
   async uploadFile(
     file: File,
     assetId: string,
-    fileType: "glb" | "reference" | "asset",
+    fileType: "glb" | "reference" | "asset" | "blend",
     clientName?: string
   ): Promise<DirectUploadResult> {
     const startTime = Date.now();
