@@ -280,7 +280,7 @@ export class GLBProcessor8Views {
           <style>
             body { 
               margin: 0; 
-              background: #f5f5f5;
+              background: transparent;
               display: flex;
               justify-content: center;
               align-items: center;
@@ -289,9 +289,8 @@ export class GLBProcessor8Views {
             model-viewer {
               width: ${width}px;
               height: ${height}px;
-              background-color: white;
-              border-radius: 8px;
-              box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+              min-height: 400px;
+              background-color: transparent;
             }
           </style>
         </head>
@@ -306,16 +305,19 @@ export class GLBProcessor8Views {
             disable-pan="true"
             disable-tap="true"
             orbit-sensitivity="0"
-            touch-action="none"
-            exposure="1"
-            shadow-intensity="0.5"
+            touch-action="pan-y"
+            exposure="1.3"
+            shadow-intensity="1"
+            shadow-softness="0.75"
+            environment-image="https://cdn.charpstar.net/Demos/HDR_Furniture.hdr"
+            tone-mapping="aces"
+            max-camera-orbit="auto 90deg auto"
+            field-of-view="auto"
             interaction-prompt="none"
-            shadow-softness="1"
-            min-field-of-view="5deg"
-            max-field-of-view="35deg"
+            ar-status="not-presenting"
             alt="3D model screenshot"
             loading="eager"
-            style="width: 100%; height: 100%; background-color: #fafafa; pointer-events: none;"
+            style="width: 100%; height: 100%; background-color: transparent; pointer-events: none;"
           ></model-viewer>
           
           <script>
@@ -331,6 +333,10 @@ export class GLBProcessor8Views {
                   modelViewer.orbitSensitivity = 0;
                   modelViewer.cameraOrbit = "${cameraOrbit}";
                   modelViewer.cameraTarget = '0 0 0';
+                  // modelViewer.exposure = 1.3;
+                  modelViewer.shadowIntensity = 1;
+                  modelViewer.shadowSoftness = 0.75;
+                  modelViewer.toneMapping = 'aces';
                   console.log('Model loaded and movement disabled');
                 });
               }
