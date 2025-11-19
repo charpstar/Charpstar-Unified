@@ -22,37 +22,28 @@ async function fetchGLBFiles(clientName, isDryRun = false, processAll = false) {
     // First, check what exists for this client (for debugging)
     const { data: allData, error: allError } = await supabase
       .from("assets")
-      .select("article_id, glb_link, product_name, client, new_upload")
+      .select("article_id, glb_link, product_name, client")
       .eq("client", clientName);
 
     if (allError) {
       console.error(`❌ Database error (checking all):`, allError);
     } else {
       const withGLB = allData.filter(row => row.glb_link !== null);
-      const newUploads = allData.filter(row => row.new_upload === true);
-      const newUploadsWithGLB = allData.filter(row => row.new_upload === true && row.glb_link !== null);
-      
+
       console.log(`📊 Debug info for client "${clientName}":`);
       console.log(`   - Total records: ${allData.length}`);
       console.log(`   - Records with GLB link: ${withGLB.length}`);
-      console.log(`   - Records with new_upload=true: ${newUploads.length}`);
-      console.log(`   - Records matching all criteria: ${newUploadsWithGLB.length}`);
+
     }
 
-    // Build query based on processAll flag
+    // Build query - always process all files with GLB links
     let query = supabase
       .from("assets")
-      .select("article_id, glb_link, product_name, client, new_upload")
+      .select("article_id, glb_link, product_name, client")
       .eq("client", clientName)
       .not("glb_link", "is", null);
 
-    if (!processAll) {
-      // Only process new uploads
-      query = query.eq("new_upload", true);
-      console.log(`🔍 Filtering for new_upload=true only`);
-    } else {
-      console.log(`🔍 Processing ALL files with GLB links`);
-    }
+    console.log(`🔍 Processing ALL files with GLB links`);
 
     const { data, error } = await query;
 
@@ -76,7 +67,6 @@ async function updateProcessedGLB(articleId, previewImages) {
   const { error } = await supabase
     .from("assets")
     .update({
-      new_upload: false,
       preview_images: previewImages  // This should be a text[] array in PostgreSQL
     })
     .eq("article_id", articleId);
@@ -90,7 +80,7 @@ async function updateProcessedGLB(articleId, previewImages) {
 }
 
 // Process a single GLB file
-async function processGLBFile(row, outputDir, isDryRun = false) {
+async function processGLBFile(row, outputDir, clientName, isDryRun = false) {
   const { article_id, glb_link, product_name } = row;
   
   try {
@@ -106,8 +96,8 @@ async function processGLBFile(row, outputDir, isDryRun = false) {
       fs.mkdirSync(skuDir, { recursive: true });
     }
 
-    // Process the GLB file (8 screenshots)
-    const result = await glbProcessor8Views.processGLB(glb_link, article_id, skuDir, null, isDryRun);
+    // Process the GLB file (8 screenshots) - pass clientName for BunnyCDN upload
+    const result = await glbProcessor8Views.processGLB(glb_link, article_id, skuDir, clientName, isDryRun);
     
     console.log(`✅ ${article_id}: ${result.screenshots.length} images captured`);
     
@@ -186,7 +176,7 @@ async function main() {
       }
       
       try {
-        const result = await processGLBFile(row, outputDir, isDryRun);
+        const result = await processGLBFile(row, outputDir, clientName, isDryRun);
         results.push(result);
         
         if (!isDryRun) {

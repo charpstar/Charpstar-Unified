@@ -131,34 +131,50 @@ export class GLBProcessor8Views {
     }
   }
 
-  // Upload image to Supabase Storage
+  // Upload image to BunnyCDN Storage
   async uploadImage(imagePath, sku, viewIndex, viewName, clientName = null) {
     try {
-      console.log(`📤 Uploading ${viewName} (view ${viewIndex + 1}) for ${sku}...`);
+      console.log(`📤 Uploading ${viewName} (view ${viewIndex + 1}) for ${sku} to BunnyCDN...`);
       
-      const imageBuffer = fs.readFileSync(imagePath);
-      const filename = clientName 
-        ? `glb-images/${clientName}/${sku}/${sku}_view_${viewIndex + 1}_${viewName}.jpg`
-        : `glb-images/${sku}/${sku}_view_${viewIndex + 1}_${viewName}.jpg`;
+      const storageZoneName = process.env.BUNNY_STORAGE_ZONE || 'maincdn';
+      const apiKey = process.env.BUNNY_API_KEY;
+      const storageHostname = process.env.BUNNY_STORAGE_HOSTNAME || 'storage.bunnycdn.com';
+      const cdnHostname = process.env.BUNNY_CDN_HOSTNAME || `${storageZoneName}.bunnycdn.com`;
       
-      const { data, error } = await supabase.storage
-        .from('assets')
-        .upload(filename, imageBuffer, {
-          contentType: 'image/jpeg',
-          upsert: true
-        });
-      
-      if (error) {
-        throw new Error(`Supabase upload failed: ${error.message}`);
+      if (!apiKey) {
+        throw new Error('BUNNY_API_KEY environment variable is required');
       }
       
-      // Get public URL
-      const { data: urlData } = supabase.storage
-        .from('assets')
-        .getPublicUrl(filename);
+      const imageBuffer = fs.readFileSync(imagePath);
+      const filePath = clientName 
+        ? `Platform/glb-images/${clientName}/${sku}/${sku}_view_${viewIndex + 1}_${viewName}.jpg`
+        : `Platform/glb-images/${sku}/${sku}_view_${viewIndex + 1}_${viewName}.jpg`;
       
-      console.log(`✅ ${viewName} uploaded: ${urlData.publicUrl}`);
-      return urlData.publicUrl;
+      // BunnyCDN Storage API endpoint
+      const uploadUrl = `https://${storageHostname}/${storageZoneName}/${filePath}`;
+      
+      console.log(`🔍 Debug: Uploading to ${uploadUrl}`);
+      console.log(`🔍 Debug: Storage Zone: ${storageZoneName}, API Key length: ${apiKey.length}`);
+      
+      const response = await fetch(uploadUrl, {
+        method: 'PUT',
+        headers: {
+          'AccessKey': apiKey,
+          'Content-Type': 'image/jpeg'
+        },
+        body: imageBuffer
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`BunnyCDN upload failed: ${response.status} ${response.statusText} - ${errorText}`);
+      }
+      
+      // Construct public URL
+      const publicUrl = `https://${cdnHostname}/${filePath}`;
+      
+      console.log(`✅ ${viewName} uploaded: ${publicUrl}`);
+      return publicUrl;
     } catch (error) {
       console.error(`❌ Failed to upload ${viewName}:`, error);
       throw error;
