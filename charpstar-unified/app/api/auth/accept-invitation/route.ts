@@ -82,6 +82,8 @@ export async function POST(request: NextRequest) {
     const adminClient = createAdminClient();
 
     // Update the profiles table with invitation data and role-specific fields
+    // Set client_role from invitation (default to product_manager if not set for backward compatibility)
+    const clientRole = invitation.client_role || "product_manager";
 
     const { error: profileError } = await adminClient
       .from("profiles")
@@ -95,6 +97,7 @@ export async function POST(request: NextRequest) {
         model_types: modelTypes || null,
         client: [invitation.client_name], // client is a text array
         role: invitation.role,
+        client_role: invitation.role === "client" ? clientRole : null, // Only set for client users
         client_config: null,
         daily_hours: dailyHours || null,
         exclusive_work: exclusiveWork || false,

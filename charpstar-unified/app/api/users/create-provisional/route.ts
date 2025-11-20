@@ -40,6 +40,7 @@ export async function POST(request: NextRequest) {
       role,
       password,
       clientNames, // Changed to array for multiple companies
+      clientRole, // Client sub-role: 'client_admin' or 'product_manager'
       title,
       phoneNumber,
       discordName,
@@ -99,11 +100,16 @@ export async function POST(request: NextRequest) {
     }
 
     // Create profile in profiles table
+    // For client users, set client_role (default to client_admin for backward compatibility)
     const profileData = {
       id: authData.user.id,
       email: email, // Add email field to satisfy NOT NULL constraint
       role: role,
       client: validClientNames.length > 0 ? validClientNames : null,
+      client_role:
+        role === "client"
+          ? clientRole || "client_admin" // Default to client_admin if not specified
+          : null,
       title: title || null,
       phone_number: phoneNumber || null,
       discord_name: discordName || null,

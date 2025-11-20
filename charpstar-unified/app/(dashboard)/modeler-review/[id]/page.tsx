@@ -487,6 +487,7 @@ export default function ModelerReviewPage() {
   const [qaApproved, setQaApproved] = useState<boolean | null>(null);
   const [uploadedGlbUrl, setUploadedGlbUrl] = useState<string | null>(null);
   const [showStaleGlbDialog, setShowStaleGlbDialog] = useState(false);
+  const [showQAReminderDialog, setShowQAReminderDialog] = useState(false);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [_isDialogDragOver, setIsDialogDragOver] = useState(false);
   const currentGlbUrlRef = useRef<string | null>(null);
@@ -502,12 +503,32 @@ export default function ModelerReviewPage() {
   useEffect(() => {
     if (asset?.glb_link) {
       // Only update if it's a new URL (not just a cache-busting parameter change)
-      const baseUrl = asset.glb_link.split("?")[0];
-      const currentBaseUrl = currentGlbUrlRef.current?.split("?")[0];
-      if (baseUrl !== currentBaseUrl) {
-        currentGlbUrlRef.current = asset.glb_link;
+      const baseUrl = asset.glb_link.split("?")[0].split("#")[0];
+      const currentBaseUrl = currentGlbUrlRef.current
+        ?.split("?")[0]
+        .split("#")[0];
+
+      // Check if this is a different base URL (not just cache-busting params)
+      if (baseUrl !== currentBaseUrl && baseUrl) {
+        // If ref has upload/restore params, keep them but update base URL
+        const refUrl = currentGlbUrlRef.current;
+        if (
+          refUrl &&
+          (refUrl.includes("upload=") || refUrl.includes("restore="))
+        ) {
+          // Keep cache-busting params but update base URL
+          const params = refUrl.split("?")[1];
+          currentGlbUrlRef.current = params ? `${baseUrl}?${params}` : baseUrl;
+        } else {
+          // Fresh URL, store without cache-busting (will be added by src calculation)
+          currentGlbUrlRef.current = asset.glb_link;
+        }
+
         // Reset model loaded state when GLB URL changes
         setModelLoaded(false);
+        // Force model viewer re-render
+        setModelViewerKey((prev) => prev + 1);
+
         // Only reset auto-trigger and QA approval state if this is a new upload (status not already delivered)
         if (asset?.status !== "delivered_by_artist") {
           setAutoQATriggered(false);
@@ -517,7 +538,7 @@ export default function ModelerReviewPage() {
     }
   }, [asset?.glb_link, asset?.status]);
 
-  // Auto-trigger QA when model loads (after redirect from upload)
+  // Auto-trigger QA when model loads (after upload)
   useEffect(() => {
     console.log("🔍 Auto QA trigger check:", {
       modelLoaded,
@@ -527,6 +548,7 @@ export default function ModelerReviewPage() {
       qaApproved,
       showQADialog,
       assetStatus: asset?.status,
+      uploadedGlbUrl: !!uploadedGlbUrl,
     });
 
     // Trigger auto QA if:
@@ -536,27 +558,37 @@ export default function ModelerReviewPage() {
     // 4. QA not already approved/rejected
     // 5. Dialog not already open
     // 6. Status is not already delivered_by_artist (meaning it's a new upload)
+    // 7. We have an uploaded GLB URL (from recent upload) or reference images exist
     // Note: Reference images are optional - user can upload them in the QA modal
+    const hasUploadedGlb = uploadedGlbUrl && uploadedGlbUrl === asset?.glb_link;
     const shouldTrigger =
       modelLoaded &&
       !autoQATriggered &&
       asset?.glb_link &&
       qaApproved === null &&
       !showQADialog &&
-      asset?.status !== "delivered_by_artist";
+      asset?.status !== "delivered_by_artist" &&
+      (hasUploadedGlb || referenceImages.length > 0);
 
     if (shouldTrigger) {
       console.log("✅ All conditions met, triggering auto QA...");
       // Small delay to ensure model is fully rendered
       const timer = setTimeout(() => {
         console.log("🚀 Opening QA dialog and setting auto-triggered");
-        setUploadedGlbUrl(asset.glb_link);
+        if (!uploadedGlbUrl) {
+          setUploadedGlbUrl(asset.glb_link);
+        }
         setShowQADialog(true);
         setAutoQATriggered(true);
       }, 500);
       return () => clearTimeout(timer);
-    } else if (modelLoaded && asset?.glb_link && referenceImages.length === 0) {
-      console.log("⏳ Waiting for reference images to load...");
+    } else if (
+      modelLoaded &&
+      asset?.glb_link &&
+      referenceImages.length === 0 &&
+      !uploadedGlbUrl
+    ) {
+      console.log("⏳ Waiting for reference images to load or upload...");
     }
   }, [
     modelLoaded,
@@ -566,6 +598,7 @@ export default function ModelerReviewPage() {
     referenceImages.length,
     qaApproved,
     showQADialog,
+    uploadedGlbUrl,
   ]);
 
   // Also listen to model-viewer load event via ref (when model-viewer element exists)
@@ -1617,10 +1650,12 @@ export default function ModelerReviewPage() {
 
     // Check filename matches article ID
     if (asset?.article_id) {
+      // Normalize both: replace spaces with underscores for comparison
       const fileBaseName = file.name
         .replace(/\.(glb|gltf)$/i, "")
-        .toLowerCase();
-      const expectedName = asset.article_id.toLowerCase();
+        .toLowerCase()
+        .replace(/\s+/g, "_"); // Normalize spaces to underscores
+      const expectedName = asset.article_id.toLowerCase().replace(/\s+/g, "_"); // Normalize spaces to underscores
 
       if (fileBaseName !== expectedName) {
         return `Filename must match Article ID. Expected: "${asset.article_id}.glb" but got: "${file.name}"`;
@@ -2233,10 +2268,14 @@ export default function ModelerReviewPage() {
               throw new Error("Please select a GLB or GLTF file");
             }
 
+            // Normalize both: replace spaces with underscores for comparison
             const fileBaseName = selectedFile.name
               .replace(/\.(glb|gltf)$/i, "")
-              .toLowerCase();
-            const articleId = asset.article_id.toLowerCase();
+              .toLowerCase()
+              .replace(/\s+/g, "_"); // Normalize spaces to underscores
+            const articleId = asset.article_id
+              .toLowerCase()
+              .replace(/\s+/g, "_"); // Normalize spaces to underscores
 
             if (fileBaseName !== articleId) {
               throw new Error(
@@ -2418,21 +2457,73 @@ export default function ModelerReviewPage() {
         .single();
 
       if (refreshedAsset) {
-        setAsset(refreshedAsset);
-
         // Update model viewer if GLB was uploaded
         if (glbResult && glbSuccess) {
           const uniqueTimestamp = Date.now();
-          const cacheBustUrl = `${(glbResult as any).value.url}?upload=${uniqueTimestamp}`;
+          const cleanUrl = (glbResult as any).value.url;
+          const cacheBustUrl = `${cleanUrl}?upload=${uniqueTimestamp}`;
+
+          // Update ref immediately with cache-busted URL
           currentGlbUrlRef.current = cacheBustUrl;
 
+          // Update asset with the clean URL from database
+          setAsset(refreshedAsset);
+
+          // Force model viewer re-render by updating the key
+          setModelViewerKey((prev) => prev + 1);
+
+          // Reset model loaded state to allow auto QA to trigger
+          setModelLoaded(false);
+          setAutoQATriggered(false);
+
+          // Force model viewer update with multiple approaches
           setTimeout(() => {
             const mv = modelViewerRef.current as any;
             if (mv) {
-              mv.src = cacheBustUrl;
-              if (mv.reload) mv.reload();
+              // Clear src first to force reload
+              mv.src = "";
+
+              // Small delay to ensure src is cleared
+              setTimeout(() => {
+                if (mv) {
+                  // Set new cache-busted URL
+                  mv.src = cacheBustUrl;
+
+                  // Force reload if available
+                  if (mv.reload) {
+                    mv.reload();
+                  }
+
+                  // Trigger load event
+                  try {
+                    mv.dispatchEvent(new Event("load"));
+                  } catch (e) {
+                    console.warn("Could not dispatch load event:", e);
+                  }
+                }
+              }, 50);
             }
-          }, 100);
+          }, 200);
+
+          // Store refreshedAsset for later use in QA reminder check
+          const assetForQA = refreshedAsset;
+
+          // Show QA reminder dialog if QA hasn't been approved yet
+          // Wait a bit to ensure asset state is updated
+          setTimeout(() => {
+            // Check if QA hasn't been approved and model isn't already delivered
+            const needsQA =
+              qaApproved !== true &&
+              assetForQA?.status !== "delivered_by_artist" &&
+              assetForQA?.status !== "approved_by_client";
+
+            if (needsQA) {
+              setShowQAReminderDialog(true);
+            }
+          }, 1500);
+        } else {
+          // If no GLB upload, just update asset normally
+          setAsset(refreshedAsset);
         }
       }
 
@@ -2457,13 +2548,23 @@ export default function ModelerReviewPage() {
       setSelectedFile(null);
       setSelectedBlendFile(null);
 
-      // Trigger Auto QA if GLB was uploaded and reference images exist
+      // Trigger Auto QA if GLB was uploaded
+      // Note: QA reminder dialog is shown in the asset update block above
       if (glbSuccess) {
-        const refImages = await fetchReferenceImages();
-        if (refImages.length > 0) {
-          setUploadedGlbUrl((glbResult as any).value.url);
-          setShowQADialog(true);
-        }
+        const cleanUrl = (glbResult as any).value.url;
+        // Set uploaded GLB URL for QA (use clean URL, QA will handle it)
+        setUploadedGlbUrl(cleanUrl);
+
+        // Fetch reference images after a brief delay to ensure asset is updated
+        // Note: Reference images are fetched but not used here - auto-trigger effect handles QA
+        setTimeout(async () => {
+          await fetchReferenceImages();
+
+          // If reference images exist, trigger QA after model loads
+          // Otherwise, wait for model to load and auto-trigger will handle it
+          // Don't trigger immediately - wait for model to load first
+          // The auto-trigger effect will handle it when modelLoaded becomes true
+        }, 500);
       }
     } catch (error) {
       console.error("Error uploading files:", error);
@@ -3891,11 +3992,13 @@ export default function ModelerReviewPage() {
               // Always prioritize database value, fallback to ref only during upload/restore
               const dbGlbLink = asset?.glb_link;
               const refGlbLink = currentGlbUrlRef.current;
-              // Use ref if it exists and has cache-busting params (upload or restore)
+              // Use ref if it exists and has cache-busting params (upload, restore, or t=)
               const currentUrl =
                 dbGlbLink ||
                 (refGlbLink &&
-                (refGlbLink.includes("?t=") || refGlbLink.includes("restore="))
+                (refGlbLink.includes("?t=") ||
+                  refGlbLink.includes("restore=") ||
+                  refGlbLink.includes("upload="))
                   ? refGlbLink
                   : null);
 
@@ -3904,22 +4007,26 @@ export default function ModelerReviewPage() {
               <div className="w-full h-full  overflow-hidden">
                 {/* @ts-expect-error -- model-viewer is a custom element */}
                 <model-viewer
-                  key={`${asset?.glb_link || ""}-${asset?.updated_at || ""}-${modelViewerKey}-${currentGlbUrlRef.current?.includes("restore=") ? currentGlbUrlRef.current.split("restore=")[1]?.split("&")[0] : currentGlbUrlRef.current?.includes("?t=") ? currentGlbUrlRef.current.split("?t=")[1] : ""}`} // Force re-render when GLB changes
+                  key={`${asset?.glb_link || ""}-${asset?.updated_at || ""}-${modelViewerKey}-${currentGlbUrlRef.current?.includes("restore=") ? currentGlbUrlRef.current.split("restore=")[1]?.split("&")[0] : currentGlbUrlRef.current?.includes("upload=") ? currentGlbUrlRef.current.split("upload=")[1]?.split("&")[0] : currentGlbUrlRef.current?.includes("?t=") ? currentGlbUrlRef.current.split("?t=")[1]?.split("&")[0] : ""}`} // Force re-render when GLB changes
                   ref={modelViewerRef}
                   src={(() => {
-                    // Always use database value as primary source
+                    // Priority 1: Use ref if it has cache-busting params (upload, restore, or t=)
+                    const refUrl = currentGlbUrlRef.current;
+                    if (
+                      refUrl &&
+                      (refUrl.includes("upload=") ||
+                        refUrl.includes("restore=") ||
+                        refUrl.includes("?t="))
+                    ) {
+                      return refUrl;
+                    }
+
+                    // Priority 2: Use database value with cache-busting
                     const dbUrl = asset?.glb_link;
                     if (!dbUrl) {
-                      // Fallback to ref only if no database value exists
-                      return currentGlbUrlRef.current || "";
+                      return "";
                     }
-                    // If ref has a restore parameter, use it (for restored files)
-                    if (
-                      currentGlbUrlRef.current &&
-                      currentGlbUrlRef.current.includes("restore=")
-                    ) {
-                      return currentGlbUrlRef.current;
-                    }
+
                     // Add cache-busting parameter based on updated_at timestamp to ensure fresh load
                     const separator = dbUrl.includes("?") ? "&" : "?";
                     const cacheBuster = asset?.updated_at
@@ -5758,6 +5865,68 @@ export default function ModelerReviewPage() {
                 }}
               >
                 Upload New GLB
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* QA Reminder Dialog - Shown after upload */}
+        <Dialog
+          open={showQAReminderDialog}
+          onOpenChange={setShowQAReminderDialog}
+        >
+          <DialogContent className="max-w-md w-full h-fit">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5 text-amber-600" />
+                Run Auto QA Required
+              </DialogTitle>
+              <DialogDescription className="text-sm">
+                You need to run Auto QA before you can deliver the model.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-3 py-4">
+              <div className="flex items-start gap-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                <div className="text-sm text-amber-900">
+                  <p className="font-medium mb-1">
+                    Auto QA is required before delivery
+                  </p>
+                  <p className="text-amber-700">
+                    Please run Auto QA analysis on your uploaded model to ensure
+                    quality standards are met. The model cannot be delivered
+                    until Auto QA has been completed and approved.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-2 justify-end mt-4">
+              <Button
+                variant="outline"
+                onClick={() => setShowQAReminderDialog(false)}
+              >
+                I&apos;ll do it later
+              </Button>
+              <Button
+                onClick={async () => {
+                  setShowQAReminderDialog(false);
+                  // Fetch reference images if needed
+                  const refImages = await fetchReferenceImages();
+                  // Set uploaded GLB URL for QA
+                  if (!uploadedGlbUrl && asset?.glb_link) {
+                    setUploadedGlbUrl(asset.glb_link);
+                  }
+                  // Open QA dialog
+                  if (refImages.length > 0 || asset?.glb_link) {
+                    setShowQADialog(true);
+                  } else {
+                    toast.error("Reference images are required to run Auto QA");
+                  }
+                }}
+              >
+                Run Auto QA Now
               </Button>
             </div>
           </DialogContent>

@@ -13,7 +13,16 @@ import {
 } from "@/components/ui/containers";
 import { Button } from "@/components/ui/display";
 import { Input } from "@/components/ui/inputs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/inputs";
 import { Badge } from "@/components/ui/feedback";
+import { Label } from "@/components/ui/display";
+import { Shield, User } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -40,6 +49,7 @@ interface Invitation {
   id: string;
   email: string;
   role: string;
+  client_role?: string | null; // Client sub-role: 'client_admin' or 'product_manager'
   status: string;
   created_at: string;
   expires_at: string;
@@ -59,6 +69,7 @@ export default function InviteMembersPage() {
     email: "",
     firstName: "",
     lastName: "",
+    clientRole: "product_manager" as "client_admin" | "product_manager", // Default to product_manager
   });
 
   // Check if user is a client
@@ -132,6 +143,7 @@ export default function InviteMembersPage() {
         email: "",
         firstName: "",
         lastName: "",
+        clientRole: "product_manager",
       });
 
       // Refresh invitations list
@@ -216,10 +228,17 @@ export default function InviteMembersPage() {
     }
   };
 
-  const getRoleName = (role: string) => {
+  const getRoleName = (role: string, clientRole?: string | null) => {
+    if (role === "client") {
+      // Show client sub-role for client users
+      if (clientRole === "client_admin") {
+        return "Client Admin";
+      } else if (clientRole === "product_manager") {
+        return "Product Manager";
+      }
+      return "Client"; // Fallback
+    }
     switch (role) {
-      case "client":
-        return "Client";
       case "modeler":
         return "Modeler";
       case "qa":
@@ -283,9 +302,9 @@ export default function InviteMembersPage() {
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="text-sm font-medium mb-1.5 block">
+              <Label className="text-sm font-medium mb-1.5 block">
                 Email Address *
-              </label>
+              </Label>
               <Input
                 type="email"
                 placeholder="colleague@example.com"
@@ -296,9 +315,38 @@ export default function InviteMembersPage() {
                 required
                 className="w-full"
               />
+            </div>
+
+            <div>
+              <Label className="text-sm font-medium mb-1.5 block">Role *</Label>
+              <Select
+                value={formData.clientRole}
+                onValueChange={(value: "client_admin" | "product_manager") =>
+                  setFormData({ ...formData, clientRole: value })
+                }
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="client_admin">
+                    <div className="flex items-center gap-2">
+                      <Shield className="h-4 w-4" />
+                      Client Admin
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="product_manager">
+                    <div className="flex items-center gap-2">
+                      <User className="h-4 w-4" />
+                      Product Manager
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
               <p className="text-xs text-muted-foreground mt-1.5">
-                The invited member will be added to your organization as a
-                client team member
+                {formData.clientRole === "client_admin"
+                  ? "Client Admins can allocate products to colleagues and view all company products"
+                  : "Product Managers can only view products allocated to them"}
               </p>
             </div>
 
@@ -381,7 +429,9 @@ export default function InviteMembersPage() {
                       <TableCell className="font-medium">
                         {invitation.email}
                       </TableCell>
-                      <TableCell>{getRoleName(invitation.role)}</TableCell>
+                      <TableCell>
+                        {getRoleName(invitation.role, invitation.client_role)}
+                      </TableCell>
                       <TableCell>{getStatusBadge(invitation.status)}</TableCell>
                       <TableCell className="text-sm text-muted-foreground">
                         {formatDate(invitation.created_at)}

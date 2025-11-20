@@ -26,6 +26,7 @@ import { ViewReferencesDialog } from "@/components/ui/containers/ViewReferencesD
 import { AddReferenceDialog } from "@/components/ui/containers/AddReferenceDialog";
 import { ActivityLogsDialog } from "@/components/ui/containers/ActivityLogsDialog";
 import { ShareForReviewDialog } from "@/components/ui/containers/ShareForReviewDialog";
+import { AllocateProductsDialog } from "@/components/client/AllocateProductsDialog";
 import {
   Eye,
   ChevronLeft,
@@ -42,6 +43,8 @@ import {
   Trash2,
   Layers,
   Share,
+  UserPlus,
+  User,
 } from "lucide-react";
 
 import { useRouter, useSearchParams } from "next/navigation";
@@ -322,10 +325,23 @@ export default function ReviewDashboardPage() {
   // Share for review dialog state
   const [showShareDialog, setShowShareDialog] = useState(false);
 
+  // Allocate products dialog state
+  const [showAllocateDialog, setShowAllocateDialog] = useState(false);
+
   // Delete confirmation dialog state
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+
+  // Product assignments state (for product owners)
+  //eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [isProductOwner, setIsProductOwner] = useState(false);
+  const [clientRole, setClientRole] = useState<string | null>(null); // 'client_admin' or 'product_manager'
   const [assetToDelete, setAssetToDelete] = useState<any>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Asset allocations state (for client admins to see who each asset is allocated to)
+  const [assetAllocations, setAssetAllocations] = useState<
+    Map<string, Array<{ id: string; email: string; name?: string }>>
+  >(new Map());
 
   // Expanded parent groups state for collapsible parent/variation groups
   const [expandedParents, setExpandedParents] = useState<Set<string>>(
@@ -526,6 +542,60 @@ export default function ReviewDashboardPage() {
     return totals;
   }, [assets]);
 
+  // Fetch user's client role from profile
+  const fetchClientRole = async (): Promise<string | null> => {
+    if (!user?.id) return null;
+
+    try {
+      const { data: profile, error } = await supabase
+        .from("profiles")
+        .select("client_role")
+        .eq("id", user.id)
+        .single();
+
+      if (error || !profile) {
+        console.error("Error fetching client role:", error);
+        return null;
+      }
+
+      const role = profile.client_role || "client_admin"; // Default to client_admin for backward compatibility
+      setClientRole(role);
+      setIsProductOwner(role === "product_manager");
+      return role;
+    } catch (error) {
+      console.error("Error fetching client role:", error);
+      return null;
+    }
+  };
+
+  // Fetch product assignments for current user (product manager only)
+  const fetchProductAssignments = async (): Promise<Set<string>> => {
+    if (!user?.id) return new Set<string>();
+
+    try {
+      const response = await fetch(
+        "/api/client-product-assignments/my-assignments"
+      );
+      if (!response.ok) {
+        console.error("Failed to fetch product assignments");
+        return new Set<string>();
+      }
+
+      const data = await response.json();
+      const assignedIds = new Set<string>(data.assignedAssetIds || []);
+
+      // Only set isProductOwner if user actually has assignments
+      if (assignedIds.size > 0) {
+        setIsProductOwner(true);
+      }
+
+      return assignedIds;
+    } catch (error) {
+      console.error("Error fetching product assignments:", error);
+      return new Set<string>();
+    }
+  };
+
   // Fetch assets for this client
   const fetchAssets = async () => {
     if (
@@ -540,15 +610,40 @@ export default function ReviewDashboardPage() {
     setLoading(true);
 
     try {
-      // Build query to fetch assets from all user's companies
-      const { data, error } = await supabase
+      // Fetch user's client role first
+      const role = await fetchClientRole();
+      const isProductManager = role === "product_manager";
+
+      // If user is product_manager, fetch their assigned products
+      let assignments: Set<string> = new Set();
+      if (isProductManager) {
+        assignments = await fetchProductAssignments();
+      }
+
+      let query = supabase
         .from("onboarding_assets")
         .select(
           "id, product_name, article_id, article_ids, delivery_date, status, batch, priority, revision_count, product_link, glb_link, reference, internal_reference, client, upload_order, transferred, measurements, is_variation, parent_asset_id, variation_index"
         )
         .in("client", user.metadata.client)
-        .eq("transferred", false) // Hide transferred assets
-        .order("upload_order", { ascending: true });
+        .eq("transferred", false); // Hide transferred assets
+
+      // If user is a product_manager, only show assigned products
+      // client_admin sees all products for their company
+      if (isProductManager && assignments.size > 0) {
+        query = query.in("id", Array.from(assignments));
+      } else if (isProductManager && assignments.size === 0) {
+        // Product manager with no assignments - show empty list
+        setAssets([]);
+        setClients([]);
+        setLoading(false);
+        stopLoading();
+        return;
+      }
+
+      const { data, error } = await query.order("upload_order", {
+        ascending: true,
+      });
 
       if (error) {
         console.error("Error fetching assets:", error);
@@ -576,6 +671,13 @@ export default function ReviewDashboardPage() {
           new Set(normalizedData.map((asset) => asset.client).filter(Boolean))
         ).sort();
         setClients(uniqueClients);
+
+        // Fetch asset allocations for client admins after assets are loaded
+        if (role === "client_admin" && normalizedData.length > 0) {
+          // Fetch allocations with the normalized asset IDs
+          const assetIds = normalizedData.map((asset) => asset.id);
+          fetchAssetAllocationsForAssets(assetIds);
+        }
       } else {
         setAssets([]);
       }
@@ -588,10 +690,90 @@ export default function ReviewDashboardPage() {
     }
   };
 
+  // Fetch asset allocations for client admins
+  const fetchAssetAllocationsForAssets = async (assetIds: string[]) => {
+    if (!user?.id || assetIds.length === 0) {
+      setAssetAllocations(new Map());
+      return;
+    }
+
+    try {
+      const { data: assignments, error } = await supabase
+        .from("client_product_assignments")
+        .select("asset_id, assigned_to_user_id")
+        .in("asset_id", assetIds);
+
+      if (error) {
+        console.error("Error fetching asset allocations:", error);
+        return;
+      }
+
+      // Get unique user IDs from assignments
+      const userIds = Array.from(
+        new Set(assignments?.map((a) => a.assigned_to_user_id) || [])
+      );
+
+      if (userIds.length === 0) {
+        setAssetAllocations(new Map());
+        return;
+      }
+
+      // Fetch user details
+      const { data: users, error: usersError } = await supabase
+        .from("profiles")
+        .select("id, email, title")
+        .in("id", userIds);
+
+      if (usersError) {
+        console.error("Error fetching user details:", usersError);
+        return;
+      }
+
+      // Create a map of asset_id -> array of allocated users
+      const allocationsMap = new Map<
+        string,
+        Array<{ id: string; email: string; name?: string }>
+      >();
+
+      assignments?.forEach((assignment) => {
+        const user = users?.find(
+          (u) => u.id === assignment.assigned_to_user_id
+        );
+        if (user) {
+          const existing = allocationsMap.get(assignment.asset_id) || [];
+          // Check if user already added (avoid duplicates)
+          if (!existing.find((u) => u.id === user.id)) {
+            allocationsMap.set(assignment.asset_id, [
+              ...existing,
+              {
+                id: user.id,
+                email: user.email || "",
+                name: user.title || undefined,
+              },
+            ]);
+          }
+        }
+      });
+
+      setAssetAllocations(allocationsMap);
+    } catch (error) {
+      console.error("Error in fetchAssetAllocationsForAssets:", error);
+    }
+  };
+
   useEffect(() => {
-    fetchAssets();
-    fetchAllocationData();
-  }, [user?.metadata?.client]);
+    if (user?.id && user?.metadata?.client) {
+      fetchAssets();
+      fetchAllocationData();
+    }
+  }, [user?.id, user?.metadata?.client]);
+
+  // Clear allocations when client role changes from admin to manager
+  useEffect(() => {
+    if (clientRole !== "client_admin") {
+      setAssetAllocations(new Map());
+    }
+  }, [clientRole]);
 
   // Handle URL parameters for new filters
   useEffect(() => {
@@ -1010,156 +1192,94 @@ export default function ReviewDashboardPage() {
             </Card>
           </div>
         )}
-        <div className="flex flex-col gap-3 sm:gap-4 mb-3 sm:mb-4">
-          {/* Filters Row */}
-          <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-2 justify-between">
-            <div className="flex flex-col sm:flex-row gap-2 sm:gap-2">
-              {/* Batch Filter */}
-              <Select
-                value={
-                  batchFilters.length === 1
-                    ? batchFilters[0].toString()
-                    : undefined
-                }
-                onValueChange={(value) => {
-                  if (value === "all") {
-                    setBatchFilters([]);
-                  } else if (value) {
-                    setBatchFilters([parseInt(value)]);
-                  }
-                  setPage(1);
-                }}
-              >
-                <SelectTrigger className="w-full sm:w-32 h-8 sm:h-9 text-sm">
-                  <SelectValue
-                    placeholder={
-                      batchFilters.length === 0
-                        ? "All batches"
-                        : batchFilters.length === 1
-                          ? `Batch ${batchFilters[0]}`
-                          : `${batchFilters.length} selected`
-                    }
-                  />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All batches</SelectItem>
-                  {Array.from(
-                    new Set(assets.map((asset) => asset.batch).filter(Boolean))
-                  )
-                    .sort((a, b) => a - b)
-                    .map((batch) => (
-                      <SelectItem key={batch} value={batch.toString()}>
-                        Batch {batch}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
-
-              <Input
-                className="w-full sm:w-48 md:w-64 text-sm"
-                placeholder="Search by name or article ID"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
+        {/* Product Manager Banner */}
+        {clientRole === "product_manager" && (
+          <div className="mb-4 rounded-lg border border-primary/20 bg-primary/5 p-4">
+            <div className="flex items-center gap-2">
+              <UserPlus className="h-5 w-5 text-primary" />
+              <div className="flex-1">
+                <h3 className="font-medium text-primary">
+                  Product Manager View
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  You are viewing only the products allocated to you. You can
+                  review and QA these products.
+                </p>
+              </div>
             </div>
+          </div>
+        )}
 
-            <div className="flex flex-col sm:flex-row gap-2 sm:gap-2">
-              {/* Bulk Actions - Only show when items are selected */}
-              {selected.size > 0 && (
-                <>
-                  <div className="flex items-center gap-2 px-3 py-1.5  rounded-md">
-                    <div className="h-2 w-2 bg-primary rounded-full"></div>
-                    <span className="text-xs font-medium text-primary">
-                      {selected.size} selected
-                    </span>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setSelected(new Set())}
-                      className="h-5 px-2 text-xs hover:bg-primary/20"
-                    >
-                      <X className="h-3 w-3" />
-                    </Button>
-                  </div>
+        <div className="flex flex-col gap-3 mb-3 sm:mb-4">
+          {/* Row 1: Filters */}
+          <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
+            {/* Batch Filter */}
+            <Select
+              value={
+                batchFilters.length === 1
+                  ? batchFilters[0].toString()
+                  : undefined
+              }
+              onValueChange={(value) => {
+                if (value === "all") {
+                  setBatchFilters([]);
+                } else if (value) {
+                  setBatchFilters([parseInt(value)]);
+                }
+                setPage(1);
+              }}
+            >
+              <SelectTrigger className="w-full sm:w-32 h-9 text-sm">
+                <SelectValue
+                  placeholder={
+                    batchFilters.length === 0
+                      ? "All batches"
+                      : batchFilters.length === 1
+                        ? `Batch ${batchFilters[0]}`
+                        : `${batchFilters.length} selected`
+                  }
+                />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All batches</SelectItem>
+                {Array.from(
+                  new Set(assets.map((asset) => asset.batch).filter(Boolean))
+                )
+                  .sort((a, b) => a - b)
+                  .map((batch) => (
+                    <SelectItem key={batch} value={batch.toString()}>
+                      Batch {batch}
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
 
-                  <div className="flex items-center gap-2">
-                    <Select
-                      value={bulkPriority.toString()}
-                      onValueChange={(value) =>
-                        setBulkPriority(parseInt(value))
-                      }
-                    >
-                      <SelectTrigger className="h-8 w-20 text-xs">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="1">High</SelectItem>
-                        <SelectItem value="2">Medium</SelectItem>
-                        <SelectItem value="3">Low</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Button
-                      size="sm"
-                      onClick={handleBulkPriorityChange}
-                      className="h-8 px-3 text-xs"
-                    >
-                      Set Priority
-                    </Button>
-                  </div>
+            {/* Search */}
+            <Input
+              className="flex-1 sm:max-w-xs text-sm h-9"
+              placeholder="Search by name or article ID"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
 
-                  <div className="flex items-center gap-2">
-                    <Button
-                      size="sm"
-                      onClick={() => setShowShareDialog(true)}
-                      className="h-8 px-3 text-xs"
-                    >
-                      <Share className="h-3 w-3 mr-1" />
-                      Share for Review
-                    </Button>
-                  </div>
-                </>
-              )}
-
-              {/* Logs Dialog Trigger */}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowLogsDialog(true)}
-                className="gap-2 h-8 sm:h-9 text-sm"
-              >
-                <Activity className="h-3 w-3 sm:h-4 sm:w-4" />
-                <span className="hidden sm:inline">Logs</span>
-                <span className="sm:hidden">Logs</span>
-              </Button>
-
+          {/* Row 2: Sort and Actions */}
+          <div className="flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between">
+            <div className="flex items-center gap-2">
               <Select value={sort} onValueChange={(value) => setSort(value)}>
-                <SelectTrigger className="w-full sm:w-auto h-8 sm:h-9 text-sm">
+                <SelectTrigger className="w-full sm:w-auto h-9 text-sm">
                   <SelectValue placeholder="Sort by" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="status-progress">
-                    <span className="hidden sm:inline">
-                      Sort by: Status Progression
-                    </span>
-                    <span className="sm:hidden">Status Progression</span>
+                    Status Progression
                   </SelectItem>
-                  <SelectItem value="batch">
-                    <span className="hidden sm:inline">
-                      Sort by: Batch (1, 2, 3...)
-                    </span>
-                    <span className="sm:hidden">Batch</span>
-                  </SelectItem>
+                  <SelectItem value="batch">Batch (1, 2, 3...)</SelectItem>
                   <SelectItem value="priority">
-                    <span className="hidden sm:inline">
-                      Sort by: Priority (Highest First)
-                    </span>
-                    <span className="sm:hidden">Priority (High)</span>
+                    Priority (Highest First)
                   </SelectItem>
                   <SelectItem value="priority-lowest">
-                    <span className="hidden sm:inline">
-                      Sort by: Priority (Lowest First)
-                    </span>
-                    <span className="sm:hidden">Priority (Low)</span>
+                    Priority (Lowest First)
                   </SelectItem>
                 </SelectContent>
               </Select>
@@ -1175,14 +1295,94 @@ export default function ReviewDashboardPage() {
                   setBatchFilters([]);
                   setStatusFilters([]);
                 }}
-                className="gap-2 h-8 sm:h-9 text-sm w-full sm:w-auto"
+                className="gap-2 h-9 text-sm"
               >
-                <X className="h-3 w-3 sm:h-4 sm:w-4" />
-                <span className="hidden sm:inline">Clear Filters</span>
-                <span className="sm:hidden">Clear</span>
+                <X className="h-4 w-4" />
+                Clear Filters
+              </Button>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {/* Logs Dialog Trigger */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowLogsDialog(true)}
+                className="gap-2 h-9 text-sm"
+              >
+                <Activity className="h-4 w-4" />
+                Logs
               </Button>
             </div>
           </div>
+
+          {/* Row 3: Bulk Actions (only shown when items are selected) */}
+          {selected.size > 0 && (
+            <div className="flex flex-col sm:flex-row gap-2 sm:items-center p-3 bg-muted/30 rounded-lg border border-border">
+              <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-background">
+                  <div className="h-2 w-2 bg-primary rounded-full"></div>
+                  <span className="text-sm font-medium text-primary">
+                    {selected.size} selected
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setSelected(new Set())}
+                    className="h-5 px-2 text-xs hover:bg-primary/20"
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Select
+                    value={bulkPriority.toString()}
+                    onValueChange={(value) => setBulkPriority(parseInt(value))}
+                  >
+                    <SelectTrigger className="h-9 w-24 text-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">High</SelectItem>
+                      <SelectItem value="2">Medium</SelectItem>
+                      <SelectItem value="3">Low</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    size="sm"
+                    onClick={handleBulkPriorityChange}
+                    className="h-9 px-3 text-sm"
+                  >
+                    Set Priority
+                  </Button>
+                </div>
+
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Button
+                    size="sm"
+                    onClick={() => setShowShareDialog(true)}
+                    className="h-9 px-3 text-sm"
+                  >
+                    <Share className="h-4 w-4 mr-2" />
+                    Share for Review
+                  </Button>
+                  {/* Only show allocate button for client_admin */}
+                  {clientRole === "client_admin" && (
+                    <Button
+                      size="sm"
+                      onClick={() => setShowAllocateDialog(true)}
+                      className="h-9 px-3 text-sm"
+                      variant="outline"
+                    >
+                      <UserPlus className="h-4 w-4 mr-2" />
+                      Allocate to Colleague
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="overflow-auto rounded-lg border dark:border-border bg-background dark:bg-background flex-1 max-h-[62vh] min-h-[62vh] relative">
@@ -1228,6 +1428,11 @@ export default function ReviewDashboardPage() {
                       <TableHead className="dark:text-foreground text-center w-20">
                         Refs
                       </TableHead>
+                      {clientRole === "client_admin" && (
+                        <TableHead className="dark:text-foreground text-center w-40">
+                          Allocated To
+                        </TableHead>
+                      )}
                       <TableHead className="dark:text-foreground text-center w-16">
                         View
                       </TableHead>
@@ -1240,7 +1445,7 @@ export default function ReviewDashboardPage() {
                     {paged.length === 0 ? (
                       <TableRow className="dark:border-border">
                         <TableCell
-                          colSpan={10}
+                          colSpan={clientRole === "client_admin" ? 11 : 10}
                           className="text-center dark:text-muted-foreground py-8"
                         >
                           {statusFilters.length > 0 ||
@@ -1627,6 +1832,41 @@ export default function ReviewDashboardPage() {
                               </div>
                             </TableCell>
 
+                            {/* Allocated To Column - Only for client_admin */}
+                            {clientRole === "client_admin" && (
+                              <TableCell className="text-center w-40">
+                                <div className="flex flex-col items-center gap-1 min-w-0">
+                                  {(() => {
+                                    const allocatedUsers =
+                                      assetAllocations.get(asset.id) || [];
+                                    if (allocatedUsers.length === 0) {
+                                      return (
+                                        <span className="text-xs text-muted-foreground">
+                                          -
+                                        </span>
+                                      );
+                                    }
+                                    return (
+                                      <div className="flex flex-col gap-1 items-center">
+                                        {allocatedUsers.map((user) => (
+                                          <div
+                                            key={user.id}
+                                            className="flex items-center gap-1.5 text-xs"
+                                            title={user.email}
+                                          >
+                                            <User className="h-3 w-3 text-muted-foreground" />
+                                            <span className="truncate max-w-[120px]">
+                                              {user.name || user.email}
+                                            </span>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    );
+                                  })()}
+                                </div>
+                              </TableCell>
+                            )}
+
                             <TableCell className="text-center w-16">
                               {(asset.status === "approved" ||
                                 asset.status === "approved_by_client") && (
@@ -1985,6 +2225,40 @@ export default function ReviewDashboardPage() {
                             </span>
                           </div>
 
+                          {/* Allocated To - Only for client_admin */}
+                          {clientRole === "client_admin" && (
+                            <div className="flex flex-col gap-1.5">
+                              <div className="text-xs font-medium text-muted-foreground">
+                                Allocated To:
+                              </div>
+                              <div className="flex flex-col gap-1">
+                                {(() => {
+                                  const allocatedUsers =
+                                    assetAllocations.get(asset.id) || [];
+                                  if (allocatedUsers.length === 0) {
+                                    return (
+                                      <span className="text-xs text-muted-foreground">
+                                        Not allocated
+                                      </span>
+                                    );
+                                  }
+                                  return allocatedUsers.map((user) => (
+                                    <div
+                                      key={user.id}
+                                      className="flex items-center gap-1.5 text-xs"
+                                      title={user.email}
+                                    >
+                                      <User className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                                      <span className="truncate">
+                                        {user.name || user.email}
+                                      </span>
+                                    </div>
+                                  ));
+                                })()}
+                              </div>
+                            </div>
+                          )}
+
                           {/* Action buttons */}
                           <div className="flex flex-wrap gap-2">
                             {asset.product_link && (
@@ -2169,6 +2443,17 @@ export default function ReviewDashboardPage() {
         assetCount={selected.size}
         onSuccess={() => {
           setSelected(new Set()); // Clear selection after sharing
+        }}
+      />
+
+      {/* Allocate Products Dialog */}
+      <AllocateProductsDialog
+        open={showAllocateDialog}
+        onOpenChange={setShowAllocateDialog}
+        assetIds={Array.from(selected)}
+        onSuccess={() => {
+          setSelected(new Set()); // Clear selection after allocation
+          fetchAssets(); // Refresh assets to show updated assignments
         }}
       />
 

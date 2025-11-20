@@ -18,10 +18,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Get user profile to verify they're a client
+    // Get user profile to verify they're a client and specifically a client_admin
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
-      .select("role, client, email, title")
+      .select("role, client, client_role, email, title")
       .eq("id", user.id)
       .single();
 
@@ -32,6 +32,16 @@ export async function POST(request: NextRequest) {
     if (profile.role !== "client") {
       return NextResponse.json(
         { error: "Only clients can send invitations" },
+        { status: 403 }
+      );
+    }
+
+    // Only client_admin can invite members
+    // Default to client_admin for backward compatibility if client_role is null
+    const clientRole = profile.client_role || "client_admin";
+    if (clientRole !== "client_admin") {
+      return NextResponse.json(
+        { error: "Only client admins can invite team members" },
         { status: 403 }
       );
     }
@@ -50,10 +60,17 @@ export async function POST(request: NextRequest) {
 
     // Parse request body
     const body = await request.json();
-    const { email } = body;
+    const { email, clientRole: inviteeClientRole } = body;
 
     // Always set role to "client" for invited members
     const role = "client";
+
+    // Validate inviteeClientRole if provided (default to product_manager for safety)
+    const validClientRole =
+      inviteeClientRole === "client_admin" ||
+      inviteeClientRole === "product_manager"
+        ? inviteeClientRole
+        : "product_manager"; // Default to product_manager for new invites
 
     // Validate required fields
     if (!email) {
@@ -122,6 +139,7 @@ export async function POST(request: NextRequest) {
         email: email.toLowerCase().trim(),
         client_name: clientName,
         role: role,
+        client_role: validClientRole, // Store client sub-role
         invitation_token: invitationToken,
         invitation_link: signupLink,
         status: "pending",

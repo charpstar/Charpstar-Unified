@@ -973,10 +973,22 @@ export default function ProductionDashboard() {
       const batchesArray = Array.from(batchMap.values())
         .map((batch) => {
           // Count unassigned assets for this batch
-          const batchAssets = assetData.filter(
-            (asset) =>
-              asset.client === batch.client && asset.batch === batch.batch
-          );
+          // Normalize client names and batch numbers for comparison
+          const normalizedClient = batch.client?.trim();
+          const normalizedBatch = batch.batch ?? 1;
+
+          const batchAssets = assetData.filter((asset) => {
+            // Normalize asset client and batch for comparison
+            const assetClient = asset.client?.trim();
+            const assetBatch = asset.batch ?? 1;
+
+            // Strict comparison with normalized values and exclude transferred
+            return (
+              assetClient === normalizedClient &&
+              assetBatch === normalizedBatch &&
+              asset.transferred !== true
+            );
+          });
 
           const unassignedCount = batchAssets.filter(
             (asset) => !assignedAssetIds.has(asset.id)
@@ -1288,8 +1300,14 @@ export default function ProductionDashboard() {
       const batchMap = new Map<string, BatchProgress>();
 
       assetData?.forEach((asset) => {
-        const client = asset.client;
-        const batch = asset.batch || 1;
+        // Normalize client name and batch number
+        const client = asset.client?.trim() || "";
+        const batch = asset.batch ?? 1;
+
+        // Skip assets without a proper client name
+        if (!client || client === "") {
+          return;
+        }
 
         // Skip transferred assets as they are no longer part of production
         if (asset.transferred === true) {
@@ -1480,15 +1498,42 @@ export default function ProductionDashboard() {
         };
 
         // Count unassigned assets for this batch
+        // Normalize client names for comparison (trim and handle spaces)
+        const normalizedClient = batch.client?.trim();
+        const normalizedBatch = batch.batch ?? 1;
+
         const batchAssets =
-          assetData?.filter(
-            (asset) =>
-              asset.client === batch.client && asset.batch === batch.batch
-          ) || [];
+          assetData?.filter((asset) => {
+            // Normalize asset client and batch for comparison
+            const assetClient = asset.client?.trim();
+            const assetBatch = asset.batch ?? 1;
+
+            // Strict comparison with normalized values
+            return (
+              assetClient === normalizedClient &&
+              assetBatch === normalizedBatch &&
+              asset.transferred !== true
+            );
+          }) || [];
 
         const unassignedCount = batchAssets.filter(
           (asset) => !assignedAssetIds.has(asset.id)
         ).length;
+
+        // Debug logging for troubleshooting
+        if (
+          batch.client === "SK Holdings" ||
+          batch.client?.includes("SK Holdings")
+        ) {
+          console.log(`Batch ${batchKey}:`, {
+            client: normalizedClient,
+            batch: normalizedBatch,
+            totalBatchAssets: batchAssets.length,
+            unassignedCount,
+            assignedAssetIdsSize: assignedAssetIds.size,
+            batchAssetIds: batchAssets.map((a) => a.id),
+          });
+        }
 
         return {
           ...batch,

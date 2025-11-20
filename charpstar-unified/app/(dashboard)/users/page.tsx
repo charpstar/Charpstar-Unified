@@ -94,6 +94,7 @@ import {
 import { getCountryNameByCode } from "@/lib/helpers";
 import UserProfileDialog from "@/components/users/UserProfileDialog";
 import { EditCompaniesDialog } from "@/components/users/EditCompaniesDialog";
+import { EditClientRoleDialog } from "@/components/users/EditClientRoleDialog";
 import { AllowedRolesManager } from "@/components/users/AllowedRolesManager";
 import {
   Tooltip,
@@ -213,6 +214,7 @@ interface UserFormData {
 
   // Client fields
   clientNames: string[]; // Changed to array for multiple companies
+  clientRole: "client_admin" | "product_manager"; // Client sub-role
   title: string;
   phoneNumber: string;
 
@@ -317,6 +319,7 @@ export default function UsersPage() {
     password: "",
     confirmPassword: "",
     clientNames: [""], // Changed to array for multiple companies - start with one empty field
+    clientRole: "client_admin", // Default to client_admin
     title: "",
     phoneNumber: "",
     discordName: "",
@@ -343,6 +346,13 @@ export default function UsersPage() {
     useState(false);
   const [editCompaniesUserId, setEditCompaniesUserId] = useState<string>("");
   const [editCompaniesUserEmail, setEditCompaniesUserEmail] =
+    useState<string>("");
+
+  // Edit client role dialog state
+  const [isEditClientRoleDialogOpen, setIsEditClientRoleDialogOpen] =
+    useState(false);
+  const [editClientRoleUserId, setEditClientRoleUserId] = useState<string>("");
+  const [editClientRoleUserEmail, setEditClientRoleUserEmail] =
     useState<string>("");
 
   // Bulk CSV upload state
@@ -1219,6 +1229,7 @@ export default function UsersPage() {
         password: "",
         confirmPassword: "",
         clientNames: [""],
+        clientRole: "client_admin",
         title: "",
         phoneNumber: "",
         discordName: "",
@@ -1286,6 +1297,7 @@ export default function UsersPage() {
         password: "password123",
         confirmPassword: "password123",
         clientNames: ["Acme Corporation", "ACME Retail"], // Example with multiple companies
+        clientRole: "client_admin" as const,
         title: "Creative Director",
         phoneNumber: "+46701234567",
         discordName: "",
@@ -1304,6 +1316,7 @@ export default function UsersPage() {
         password: "password123",
         confirmPassword: "password123",
         clientNames: [],
+        clientRole: "client_admin" as const,
         title: "",
         phoneNumber: "+46701234567",
         discordName: "sarah3d#5678",
@@ -1326,6 +1339,7 @@ export default function UsersPage() {
         password: "password123",
         confirmPassword: "password123",
         clientNames: [],
+        clientRole: "client_admin" as const,
         title: "",
         phoneNumber: "+46701234567",
         discordName: "mikechen#1234",
@@ -1355,6 +1369,7 @@ export default function UsersPage() {
       password: "",
       confirmPassword: "",
       clientNames: [""],
+      clientRole: "client_admin",
       title: "",
       phoneNumber: "",
       discordName: "",
@@ -1441,6 +1456,7 @@ export default function UsersPage() {
             password: "TempPassword123!", // Default password for bulk uploads
             confirmPassword: "TempPassword123!",
             clientNames: clientNameValue ? [clientNameValue] : [""], // Convert to array
+            clientRole: "client_admin", // Default to client_admin for bulk uploads
             title: "Manager", // Default title
             phoneNumber: "", // Empty phone number
             discordName: "",
@@ -2439,19 +2455,38 @@ export default function UsersPage() {
                                         Edit user
                                       </DropdownMenuItem>
                                       {user.role === "client" && (
-                                        <DropdownMenuItem
-                                          className="cursor-pointer flex items-center"
-                                          onClick={() => {
-                                            setEditCompaniesUserId(user.id);
-                                            setEditCompaniesUserEmail(
-                                              user.email
-                                            );
-                                            setIsEditCompaniesDialogOpen(true);
-                                          }}
-                                        >
-                                          <Building className="w-4 h-4 mr-2" />
-                                          Edit Companies
-                                        </DropdownMenuItem>
+                                        <>
+                                          <DropdownMenuItem
+                                            className="cursor-pointer flex items-center"
+                                            onClick={() => {
+                                              setEditCompaniesUserId(user.id);
+                                              setEditCompaniesUserEmail(
+                                                user.email
+                                              );
+                                              setIsEditCompaniesDialogOpen(
+                                                true
+                                              );
+                                            }}
+                                          >
+                                            <Building className="w-4 h-4 mr-2" />
+                                            Edit Companies
+                                          </DropdownMenuItem>
+                                          <DropdownMenuItem
+                                            className="cursor-pointer flex items-center"
+                                            onClick={() => {
+                                              setEditClientRoleUserId(user.id);
+                                              setEditClientRoleUserEmail(
+                                                user.email
+                                              );
+                                              setIsEditClientRoleDialogOpen(
+                                                true
+                                              );
+                                            }}
+                                          >
+                                            <UserCog className="w-4 h-4 mr-2" />
+                                            Edit Client Role
+                                          </DropdownMenuItem>
+                                        </>
                                       )}
                                     </>
                                   )}
@@ -2542,6 +2577,15 @@ export default function UsersPage() {
         onClose={() => setIsEditCompaniesDialogOpen(false)}
         userId={editCompaniesUserId}
         userEmail={editCompaniesUserEmail}
+        onSuccess={() => fetchUsers()}
+      />
+
+      {/* Edit Client Role Dialog */}
+      <EditClientRoleDialog
+        isOpen={isEditClientRoleDialogOpen}
+        onClose={() => setIsEditClientRoleDialogOpen(false)}
+        userId={editClientRoleUserId}
+        userEmail={editClientRoleUserEmail}
         onSuccess={() => fetchUsers()}
       />
 
@@ -2828,6 +2872,41 @@ export default function UsersPage() {
                   )}
                   <p className="text-xs text-muted-foreground mt-1">
                     Add all companies this client should have access to
+                  </p>
+                </div>
+
+                <div>
+                  <Label className="text-xs sm:text-sm font-medium text-muted-foreground mb-1 sm:mb-2 block">
+                    Client Role *
+                  </Label>
+                  <Select
+                    value={formData.clientRole}
+                    onValueChange={(
+                      value: "client_admin" | "product_manager"
+                    ) => updateFormData("clientRole", value)}
+                  >
+                    <SelectTrigger className="text-sm sm:text-base">
+                      <SelectValue placeholder="Select client role" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="client_admin">
+                        <div className="flex items-center gap-2">
+                          <Shield className="h-3 w-3 sm:h-4 sm:w-4" />
+                          Client Admin
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="product_manager">
+                        <div className="flex items-center gap-2">
+                          <User className="h-3 w-3 sm:h-4 sm:w-4" />
+                          Product Manager
+                        </div>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {formData.clientRole === "client_admin"
+                      ? "Can allocate products to colleagues and view all company products"
+                      : "Can only view products allocated to them"}
                   </p>
                 </div>
 
