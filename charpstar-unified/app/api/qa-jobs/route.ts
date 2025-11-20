@@ -421,9 +421,22 @@ Before any other analysis, you MUST verify that the 3D model represents the SAME
   * Set status to "Not Approved"
   * Clearly state in the summary: "CRITICAL ERROR: Product type mismatch - reference shows [X] but model is [Y]"
 
+SPECIAL PRODUCT TYPES - ENHANCED LENIENCY:
+Some product categories have natural shape variation and should be evaluated more leniently, especially with limited reference views:
+- **Fabric/Soft Goods**: Curtains, drapes, tablecloths, blankets, towels, rugs, carpets, upholstery fabrics
+- **Flexible/Deformable Items**: Clothing, bags, pillows, cushions, soft toys
+- **Natural/Organic Shapes**: Plants, flowers, food items, organic materials
+- **Single View Reference**: When only ONE reference image is provided, be significantly more lenient with shape and proportion variations, as you cannot see the full 3D form
+
+For these products:
+- Accept wider shape variations (e.g., curtains can drape differently, fabric can fold in various ways)
+- Be more forgiving of proportion differences, especially with single-view references
+- Focus primarily on material/color accuracy and general product type correctness
+- Only reject for completely wrong product type or major structural errors
+
 ANALYSIS APPROACH (only if product types match):
 1. **Intelligent View Matching**: Match each screenshot to the most relevant reference image(s) based on camera angle and view
-2. **Adaptive Comparison**: If reference images are limited (e.g., only front view), only compare the corresponding screenshot views
+2. **Adaptive Comparison**: If reference images are limited (e.g., only front view), only compare the corresponding screenshot views. With single-view references, be significantly more lenient since full 3D form cannot be verified.
 3. **Comprehensive Analysis**: For each matched pair, analyze:
    - Silhouette/Shape accuracy
    - Proportions and dimensions
@@ -438,14 +451,15 @@ TOLERANCE RULES (only applies when product types match):
 - Lens decals/branding (e.g., small logos on lenses) may vary—do not penalize unless clearly wrong or missing where critical
 - Focus primarily on shape and proportions; only penalize materials for major, obvious mismatches
 - Approve models that are generally correct, even with minor variations
+- **ENHANCED TOLERANCE FOR FLEXIBLE PRODUCTS**: For curtains, fabric items, and similar products with natural variation, accept different draping patterns, fold variations, and shape differences as long as the product type and materials are correct
 
 SUMMARY PHRASING:
 - If status is "Approved", phrase the summary as a list of constructive feedback points. Start with a positive statement as the first item in the list.
 - If status is "Not Approved", the summary should be a list of the critical issues, starting with product type mismatch if applicable.
 
-SCORING SYSTEM:
-- Silhouette: How well the overall shape matches (0-100%). Score 0-20 if product types don't match.
-- Proportion: Accuracy of relative sizes and dimensions (0-100%). Score 0-20 if product types don't match.
+SCORING SYSTEM (with enhanced leniency for special cases):
+- Silhouette: How well the overall shape matches (0-100%). Score 0-20 if product types don't match. For fabric/soft goods or single-view references, be lenient - accept shape variations (e.g., different draping, folding patterns) as long as product type is correct.
+- Proportion: Accuracy of relative sizes and dimensions (0-100%). Score 0-20 if product types don't match. For fabric/soft goods or single-view references, be more lenient - accept reasonable proportion variations since full 3D form may not be visible.
 - Color/Material: Color accuracy, material appearance, textures (0-100%). Score 0-30 if product types don't match.
 - Overall: Weighted average considering all factors (0-100%)
 
@@ -728,23 +742,42 @@ Before any other analysis, you MUST verify that the 3D model represents the SAME
   * Clearly state in the summary: "CRITICAL ERROR: Product type mismatch - reference shows [X] but model is [Y]"
   * Add this as a high-severity issue in the differences array
 
+SPECIAL PRODUCT TYPES - ENHANCED LENIENCY:
+Some product categories have natural shape variation and should be evaluated more leniently, especially with limited reference views:
+- **Fabric/Soft Goods**: Curtains, drapes, tablecloths, blankets, towels, rugs, carpets, upholstery fabrics
+- **Flexible/Deformable Items**: Clothing, bags, pillows, cushions, soft toys
+- **Natural/Organic Shapes**: Plants, flowers, food items, organic materials
+- **Single View Reference**: When only ONE reference image is provided, be significantly more lenient with shape and proportion variations, as you cannot see the full 3D form
+
+For these products:
+- Accept wider shape variations (e.g., curtains can drape differently, fabric can fold in various ways)
+- Be more forgiving of proportion differences, especially with single-view references
+- Focus primarily on material/color accuracy and general product type correctness
+- Only reject for completely wrong product type or major structural errors
+
 INTELLIGENT COMPARISON APPROACH (only if product types match):
 1.  **Smart View Matching**: Match each render screenshot to the most relevant reference image(s) based on camera angle and perspective.
 2.  **Adaptive Analysis**: ONLY compare views showing the *SAME PERSPECTIVE and ANGLE* of the product. If a render angle has no match in the references, SKIP that render.
-3.  **Comprehensive Assessment**: Analyze geometry, proportions, colors, materials, textures, and branding elements for each matched pair.
+3.  **Single View Handling**: If only ONE reference image is available, be significantly more lenient - accept reasonable shape variations since the full 3D form cannot be verified from a single angle.
+4.  **Comprehensive Assessment**: Analyze geometry, proportions, colors, materials, textures, and branding elements for each matched pair.
 
 CRITICAL RULES:
 * **NO DUPLICATE ISSUES**: Report each unique issue **ONLY ONCE**. Choose the clearest view to report it in.
 * **SPECIFICITY**: Each issue must state: what's in the 3D Model, what's in the reference, and the exact difference.
 * **TOLERANCE (only when product types match)**: Be tolerant of minor differences in **transparency, reflections, metallic finishes, gloss levels, lighting, shadows, and color variations**. Only flag major issues like completely wrong shapes, significantly incorrect proportions, or completely missing/incorrect materials. Be forgiving of minor variations - focus on approving models that are generally correct rather than finding small issues.
+* **ENHANCED TOLERANCE FOR FLEXIBLE PRODUCTS**: For curtains, fabric items, and similar products with natural variation, accept different draping patterns, fold variations, and shape differences as long as the product type and materials are correct.
 
 **SUMMARY PHRASING**:
 *   If status is "Approved", phrase the summary as a list of constructive feedback points. Start with a positive statement as the first item in the list.
 *   If status is "Not Approved", the summary should be a list of the critical issues.
 
-SCORING - STRICT AND ACCURATE:
-* **SILHOUETTE**: Compare overall shape, outline, and form. Score 0-20 if product types don't match. For matching types, be accurate - deduct appropriately for shape errors. (0-100%)
-* **PROPORTION**: Compare relative sizes and dimensions of parts. Score 0-20 if product types don't match. For matching types, accept minor proportion differences but be accurate. (0-100%)
+SCORING - STRICT AND ACCURATE (with enhanced leniency for special cases):
+* **SILHOUETTE**: Compare overall shape, outline, and form. Score 0-20 if product types don't match. For matching types:
+  - Standard products: Be accurate - deduct appropriately for shape errors
+  - Fabric/soft goods (curtains, drapes, etc.) or single-view references: Be lenient - accept shape variations (e.g., different draping, folding patterns) as long as product type is correct
+* **PROPORTION**: Compare relative sizes and dimensions of parts. Score 0-20 if product types don't match. For matching types:
+  - Standard products: Accept minor proportion differences but be accurate
+  - Fabric/soft goods or single-view references: Be more lenient - accept reasonable proportion variations since full 3D form may not be visible
 * **COLOR/MATERIAL**: Compare base colors and primary textures. Score 0-30 if product types don't match. For matching types, be tolerant of minor color variations but accurate for major mismatches. (0-100%)
 * **OVERALL**: Must be the weighted average of the other scores.
 
