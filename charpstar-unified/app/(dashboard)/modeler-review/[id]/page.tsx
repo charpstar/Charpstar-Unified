@@ -3874,19 +3874,15 @@ export default function ModelerReviewPage() {
                           // Run QA analysis
                           try {
                             const refImages = await fetchReferenceImages();
-                            if (
-                              refImages.length > 0 &&
-                              (uploadedGlbUrl || asset?.glb_link)
-                            ) {
+                            // Always open the QA dialog - it has upload functionality built in
+                            // Set GLB URL if available
+                            if (uploadedGlbUrl || asset?.glb_link) {
                               setUploadedGlbUrl(
                                 uploadedGlbUrl || asset?.glb_link || ""
                               );
-                              setShowQADialog(true);
-                            } else {
-                              alert(
-                                `No reference images (${refImages.length}) or GLB file found`
-                              );
                             }
+                            // Open dialog - user can upload reference images if needed
+                            setShowQADialog(true);
                           } catch (error) {
                             console.error("Error starting QA:", error);
                             toast.error("Failed to start QA analysis");
@@ -5918,12 +5914,8 @@ export default function ModelerReviewPage() {
                   if (!uploadedGlbUrl && asset?.glb_link) {
                     setUploadedGlbUrl(asset.glb_link);
                   }
-                  // Open QA dialog
-                  if (refImages.length > 0 || asset?.glb_link) {
-                    setShowQADialog(true);
-                  } else {
-                    toast.error("Reference images are required to run Auto QA");
-                  }
+                  // Always open QA dialog - it has upload functionality built in
+                  setShowQADialog(true);
                 }}
               >
                 Run Auto QA Now
