@@ -3873,7 +3873,6 @@ export default function ModelerReviewPage() {
                         if (qaApproved === null) {
                           // Run QA analysis
                           try {
-                            const refImages = await fetchReferenceImages();
                             // Always open the QA dialog - it has upload functionality built in
                             // Set GLB URL if available
                             if (uploadedGlbUrl || asset?.glb_link) {
@@ -5908,8 +5907,6 @@ export default function ModelerReviewPage() {
               <Button
                 onClick={async () => {
                   setShowQAReminderDialog(false);
-                  // Fetch reference images if needed
-                  const refImages = await fetchReferenceImages();
                   // Set uploaded GLB URL for QA
                   if (!uploadedGlbUrl && asset?.glb_link) {
                     setUploadedGlbUrl(asset.glb_link);
