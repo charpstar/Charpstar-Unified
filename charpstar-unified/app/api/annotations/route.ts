@@ -304,11 +304,60 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
+    // Get user profile to check role
+    const { data: userProfile, error: profileError } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", session.user.id)
+      .single();
+
+    if (profileError) {
+      console.error("Error fetching user profile:", profileError);
+      return NextResponse.json(
+        { error: "Failed to fetch user profile" },
+        { status: 500 }
+      );
+    }
+
+    // Get the annotation to check creator's role
+    const { data: annotation, error: fetchError } = await supabase
+      .from("asset_annotations")
+      .select(
+        `
+        *,
+        profiles:created_by (role)
+      `
+      )
+      .eq("id", id)
+      .single();
+
+    if (fetchError || !annotation) {
+      return NextResponse.json(
+        { error: "Annotation not found" },
+        { status: 404 }
+      );
+    }
+
+    // Check permissions: admin can delete anything, users can delete their own,
+    // QA users can delete other QA members' annotations
+    const isAdmin = userProfile.role === "admin";
+    const isOwner = annotation.created_by === session.user.id;
+    const isQADeletingOtherQA =
+      userProfile.role === "qa" &&
+      annotation.created_by !== session.user.id &&
+      annotation.profiles?.role === "qa";
+
+    if (!isAdmin && !isOwner && !isQADeletingOtherQA) {
+      return NextResponse.json(
+        { error: "You don't have permission to delete this annotation" },
+        { status: 403 }
+      );
+    }
+
     const { error } = await supabase
       .from("asset_annotations")
       .delete()
-      .eq("id", id)
-      .eq("created_by", session.user.id); // Ensure user can only delete their own annotations
+      .eq("id", id);
 
     if (error) {
       console.error("Error deleting annotation:", error);

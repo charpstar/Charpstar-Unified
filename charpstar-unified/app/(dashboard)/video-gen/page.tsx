@@ -41,6 +41,18 @@ const getViewerParameters = (viewerType?: string | null) => {
         exposure: "1",
         toneMapping: "aces",
       };
+    case "v2":
+      return {
+        environmentImage: "https://demosetc.b-cdn.net/HDR/HDRI-Default.hdr",
+        exposure: "1.3",
+        toneMapping: "linear",
+      };
+    case "v4":
+      return {
+        environmentImage: "https://demosetc.b-cdn.net/HDR/HDRI-Default.hdr",
+        exposure: "1.3",
+        toneMapping: "aces",
+      };
     default:
       return {
         environmentImage: "https://cdn.charpstar.net/Demos/HDR_Furniture.hdr",

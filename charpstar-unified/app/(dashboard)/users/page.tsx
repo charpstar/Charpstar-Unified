@@ -162,7 +162,7 @@ interface Company {
   notes: string;
   client_guide?: string | null;
   client_guide_links?: string[] | null;
-  viewer_type?: "v6_aces" | "v5_tester" | "synsam" | "v2" | null;
+  viewer_type?: "v6_aces" | "v5_tester" | "synsam" | "v2" | "v4" | null;
   bunny_custom_structure?: boolean | null;
   bunny_custom_url?: string | null;
   bunny_custom_access_key?: string | null;
@@ -187,7 +187,7 @@ interface CompanyFormData {
   notes: string;
   client_guide?: string;
   client_guide_links?: string[];
-  viewer_type?: "v6_aces" | "v5_tester" | "synsam" | "v2" | null;
+  viewer_type?: "v6_aces" | "v5_tester" | "synsam" | "v2" | "v4" | null;
   bunny_custom_structure?: boolean;
   bunny_custom_url?: string;
   bunny_custom_access_key?: string;
@@ -4275,6 +4275,8 @@ function CompanyForm({
                             value:
                               | "v6_aces"
                               | "v5_tester"
+                              | "v4"
+                              | "v2"
                               | "synsam"
                               | "v2"
                               | ""
@@ -4294,9 +4296,8 @@ function CompanyForm({
                             </SelectItem>
                             <SelectItem value="v5_tester">V5 Tester</SelectItem>
                             <SelectItem value="synsam">Synsam</SelectItem>
-                            <SelectItem value="v2" disabled>
-                              V2 (Under Construction)
-                            </SelectItem>
+                            <SelectItem value="v4">V4</SelectItem>
+                            <SelectItem value="v2">V2 Classic</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -4709,18 +4710,26 @@ function CompanyView({ company }: { company: Company }) {
                     ? "bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400"
                     : company.viewer_type === "v5_tester"
                       ? "bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400"
-                      : company.viewer_type === "synsam"
-                        ? "bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-400"
-                        : "bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400"
+                      : company.viewer_type === "v4"
+                        ? "bg-cyan-100 text-cyan-800 dark:bg-cyan-900/20 dark:text-cyan-400"
+                        : company.viewer_type === "v2"
+                          ? "bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-400"
+                          : company.viewer_type === "synsam"
+                            ? "bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-400"
+                            : "bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400"
                 } text-xs`}
               >
                 {company.viewer_type === "v6_aces"
                   ? "V6 ACES Tester"
                   : company.viewer_type === "v5_tester"
                     ? "V5 Tester"
-                    : company.viewer_type === "synsam"
-                      ? "Synsam"
-                      : "V2 (Under Construction)"}
+                    : company.viewer_type === "v4"
+                      ? "V4"
+                      : company.viewer_type === "v2"
+                        ? "V2 Classic"
+                        : company.viewer_type === "synsam"
+                          ? "Synsam"
+                          : "Unknown"}
               </Badge>
             </div>
           )}

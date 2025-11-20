@@ -4,9 +4,26 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useUser } from "@/contexts/useUser";
 import { supabase } from "@/lib/supabaseClient";
-import { Card, CardContent, CardHeader } from "@/components/ui/containers";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/containers";
 import { Badge } from "@/components/ui/feedback";
-import { Button } from "@/components/ui/display";
+import {
+  Button,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/display";
 import { Input } from "@/components/ui/inputs";
 import {
   Select,
@@ -18,6 +35,7 @@ import {
 import { toast } from "sonner";
 import {
   ArrowLeft,
+  ArrowRightLeft,
   Calendar,
   ChevronDown,
   ChevronUp,
@@ -25,6 +43,7 @@ import {
   ExternalLink,
   Layers,
   Loader2,
+  Pencil,
   RefreshCw,
   Search,
   ShieldCheck,
@@ -109,6 +128,195 @@ const getStatusLabel = (status?: string | null) => {
     .replace(/\b\w/g, (char) => char.toUpperCase());
 };
 
+function TransferListDialog({
+  listId,
+  qaOptions,
+  onTransfer,
+}: {
+  listId: string;
+  qaOptions: QAProfileOption[];
+  onTransfer: (listId: string, newQaId: string) => Promise<void>;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [selectedQa, setSelectedQa] = useState<string>("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleTransfer = async () => {
+    if (!selectedQa) return;
+    setIsSubmitting(true);
+    try {
+      await onTransfer(listId, selectedQa);
+      setIsOpen(false);
+      //eslint-disable-next-line @typescript-eslint/no-unused-vars
+    } catch (error) {
+      // Error handling is done in the parent
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 text-muted-foreground hover:text-primary"
+        >
+          <ArrowRightLeft className="h-4 w-4" />
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle>Transfer Allocation List</DialogTitle>
+          <DialogDescription>
+            Move this list to another QA team member. You will lose access to
+            this list after transferring.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-4 py-4">
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Select QA Member</label>
+            <Select value={selectedQa} onValueChange={setSelectedQa}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select a team member" />
+              </SelectTrigger>
+              <SelectContent>
+                {qaOptions.length === 0 ? (
+                  <SelectItem value="none" disabled>
+                    No other QA members available
+                  </SelectItem>
+                ) : (
+                  qaOptions.map((qa) => (
+                    <SelectItem key={qa.id} value={qa.id}>
+                      {qa.title?.trim() || qa.email || "QA User"}
+                    </SelectItem>
+                  ))
+                )}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={() => setIsOpen(false)}
+            disabled={isSubmitting}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleTransfer}
+            disabled={!selectedQa || isSubmitting}
+          >
+            {isSubmitting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Transferring...
+              </>
+            ) : (
+              "Transfer List"
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function EditListNameDialog({
+  listId,
+  currentName,
+  onUpdate,
+}: {
+  listId: string;
+  currentName: string | null;
+  onUpdate: () => Promise<void>;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [name, setName] = useState(currentName || "");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleUpdate = async () => {
+    setIsSubmitting(true);
+    try {
+      const response = await fetch(`/api/allocation-lists/${listId}/name`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ name }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.error || "Failed to update list name.");
+      }
+
+      toast.success("Allocation list name updated successfully.");
+      await onUpdate();
+      setIsOpen(false);
+    } catch (err) {
+      console.error("Error updating list name:", err);
+      toast.error("Failed to update list name.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-6 w-6 text-muted-foreground hover:text-primary ml-1"
+        >
+          <Pencil className="h-3 w-3" />
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle>Edit Allocation List Name</DialogTitle>
+          <DialogDescription>
+            Give this allocation list a descriptive name to help you identify
+            it.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-4 py-4">
+          <div className="space-y-2">
+            <label className="text-sm font-medium">List Name</label>
+            <Input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g., Priority Batch A"
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={() => setIsOpen(false)}
+            disabled={isSubmitting}
+          >
+            Cancel
+          </Button>
+          <Button onClick={handleUpdate} disabled={isSubmitting}>
+            {isSubmitting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              "Save Changes"
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function QAAssignedListsPage() {
   const user = useUser();
   const router = useRouter();
@@ -120,12 +328,6 @@ export default function QAAssignedListsPage() {
     []
   );
   const [availableQAs, setAvailableQAs] = useState<QAProfileOption[]>([]);
-  const [selectedQAByList, setSelectedQAByList] = useState<
-    Record<string, string>
-  >({});
-  const [transferLoading, setTransferLoading] = useState<Set<string>>(
-    new Set()
-  );
   const [expandedLists, setExpandedLists] = useState<Set<string>>(new Set());
 
   useEffect(() => {
@@ -192,15 +394,7 @@ export default function QAAssignedListsPage() {
     await fetchAssignedLists();
   };
 
-  const handleTransfer = async (listId: string) => {
-    const selectedQa = selectedQAByList[listId];
-    if (!selectedQa) {
-      toast.error("Select a QA before transferring this list.");
-      return;
-    }
-
-    setTransferLoading((prev) => new Set(prev).add(listId));
-
+  const handleTransfer = async (listId: string, newQaId: string) => {
     try {
       const response = await fetch(
         `/api/allocation-lists/${encodeURIComponent(listId)}/transfer-qa`,
@@ -209,7 +403,7 @@ export default function QAAssignedListsPage() {
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ newQaId: selectedQa }),
+          body: JSON.stringify({ newQaId }),
         }
       );
 
@@ -225,7 +419,6 @@ export default function QAAssignedListsPage() {
         payload?.message ??
           "Allocation list transferred successfully. You will no longer see it once reassigned."
       );
-      setSelectedQAByList((prev) => ({ ...prev, [listId]: "" }));
       if (typeof window !== "undefined") {
         window.dispatchEvent(new CustomEvent("qaAssetAssignmentsUpdated"));
       }
@@ -237,20 +430,8 @@ export default function QAAssignedListsPage() {
           ? err.message
           : "Failed to transfer allocation list."
       );
-    } finally {
-      setTransferLoading((prev) => {
-        const next = new Set(prev);
-        next.delete(listId);
-        return next;
-      });
+      throw err; // Re-throw to let the dialog know it failed
     }
-  };
-
-  const handleQaSelectionChange = (listId: string, qaId: string) => {
-    setSelectedQAByList((prev) => ({
-      ...prev,
-      [listId]: qaId,
-    }));
   };
 
   const toggleListExpansion = (listId: string) => {
@@ -332,373 +513,421 @@ export default function QAAssignedListsPage() {
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <TooltipProvider>
+      <div className="container mx-auto p-6 space-y-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => router.push("/qa-assignments")}
+              className="gap-2"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Back to QA Assignments
+            </Button>
+            <Badge variant="outline" className="gap-1 text-xs sm:text-sm">
+              <Layers className="h-3 w-3" />
+              Asset Lists
+            </Badge>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              onClick={handleRefresh}
+              disabled={refreshing || loading}
+            >
+              {refreshing || loading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCw className="h-4 w-4" />
+              )}
+              Refresh
+            </Button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Card>
+            <CardHeader className="pb-2">
+              <div className="flex items-center gap-2">
+                <Layers className="h-5 w-5 text-primary" />
+                <span className="text-sm text-muted-foreground">
+                  Active Lists
+                </span>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <p className="text-3xl font-semibold">
+                {summaryTotals.totalLists}
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="h-5 w-5 text-success" />
+                <span className="text-sm text-muted-foreground">
+                  Total Assets
+                </span>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <p className="text-3xl font-semibold">
+                {summaryTotals.totalAssets}
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <div className="flex items-center gap-2">
+                <Clock className="h-5 w-5 text-warning" />
+                <span className="text-sm text-muted-foreground">
+                  Urgent Assets
+                </span>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <p className="text-3xl font-semibold">
+                {summaryTotals.urgentAssets}
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+
         <div className="flex items-center gap-3">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => router.push("/qa-assignments")}
-            className="gap-2"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Back to QA Assignments
-          </Button>
-          <Badge variant="outline" className="gap-1 text-xs sm:text-sm">
-            <Layers className="h-3 w-3" />
-            Asset Lists
-          </Badge>
+          <div className="relative w-full sm:w-80">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by list number, client, or modeler"
+              className="pl-9"
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+            />
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-2"
-            onClick={handleRefresh}
-            disabled={refreshing || loading}
-          >
-            {refreshing || loading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <RefreshCw className="h-4 w-4" />
-            )}
-            Refresh
-          </Button>
-        </div>
-      </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <div className="flex items-center gap-2">
-              <Layers className="h-5 w-5 text-primary" />
-              <span className="text-sm text-muted-foreground">
-                Active Lists
-              </span>
-            </div>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <p className="text-3xl font-semibold">{summaryTotals.totalLists}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <div className="flex items-center gap-2">
-              <ShieldCheck className="h-5 w-5 text-success" />
-              <span className="text-sm text-muted-foreground">
-                Total Assets
-              </span>
-            </div>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <p className="text-3xl font-semibold">
-              {summaryTotals.totalAssets}
+        {error && (
+          <div className="rounded-md border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
+            {error}
+          </div>
+        )}
+
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-24 text-muted-foreground">
+            <Loader2 className="h-8 w-8 animate-spin mb-3" />
+            <p>Loading your asset lists…</p>
+          </div>
+        ) : filteredSummaries.length === 0 ? (
+          <Card className="p-8 text-center">
+            <Layers className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+            <h2 className="text-lg font-semibold mb-2">
+              No asset lists assigned
+            </h2>
+            <p className="text-muted-foreground">
+              You are not currently assigned to any allocation lists.
             </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <div className="flex items-center gap-2">
-              <Clock className="h-5 w-5 text-warning" />
-              <span className="text-sm text-muted-foreground">
-                Urgent Assets
-              </span>
-            </div>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <p className="text-3xl font-semibold">
-              {summaryTotals.urgentAssets}
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+            {filteredSummaries.map((list) => {
+              const statusClasses = getStatusBadgeClasses(list.status);
+              const isExpanded = expandedLists.has(list.id);
 
-      <div className="flex items-center gap-3">
-        <div className="relative w-full sm:w-80">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search by list number, client, or modeler"
-            className="pl-9"
-            value={searchTerm}
-            onChange={(event) => setSearchTerm(event.target.value)}
-          />
-        </div>
-      </div>
-
-      {error && (
-        <div className="rounded-md border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
-          {error}
-        </div>
-      )}
-
-      {loading ? (
-        <div className="flex flex-col items-center justify-center py-24 text-muted-foreground">
-          <Loader2 className="h-8 w-8 animate-spin mb-3" />
-          <p>Loading your asset lists…</p>
-        </div>
-      ) : filteredSummaries.length === 0 ? (
-        <Card className="p-8 text-center">
-          <Layers className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
-          <h2 className="text-lg font-semibold mb-2">
-            No asset lists assigned
-          </h2>
-          <p className="text-muted-foreground">
-            You are not currently assigned to any allocation lists.
-          </p>
-        </Card>
-      ) : (
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-          {filteredSummaries.map((list) => {
-            const statusClasses = getStatusBadgeClasses(list.status);
-            const selectedQa = selectedQAByList[list.id] ?? "";
-            const isTransferring = transferLoading.has(list.id);
-            const disableTransferButton = !selectedQa || isTransferring;
-            const isExpanded = expandedLists.has(list.id);
-
-            return (
-              <Card
-                key={list.id}
-                className="border-border/70 shadow-sm transition hover:shadow-md"
-              >
-                <CardHeader className="pb-4">
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <h3 className="text-lg font-semibold">
-                          Allocation {list.number ?? "—"}
-                        </h3>
-                        <Badge variant="outline" className={statusClasses}>
-                          {getStatusLabel(list.status)}
-                        </Badge>
-                      </div>
-                      {list.name && (
-                        <p className="text-sm text-muted-foreground mt-1">
-                          {list.name}
-                        </p>
-                      )}
-                      <div className="mt-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="gap-2 text-xs"
-                          onClick={() =>
-                            router.push(`/qa-review?allocation=${list.id}`)
-                          }
-                        >
-                          <ExternalLink className="h-3 w-3" />
-                          View in QA Review
-                        </Button>
-                      </div>
-                    </div>
-                    <div className="space-y-1 text-sm text-muted-foreground text-right">
-                      <div className="flex items-center gap-2 justify-end">
-                        <Calendar className="h-4 w-4" />
-                        <span
-                          className={
-                            isDeadlineOverdue(list.deadline)
-                              ? "text-destructive font-medium"
-                              : undefined
-                          }
-                        >
-                          {formatDate(list.deadline)}
-                        </span>
-                      </div>
-                      {list.modelerEmail && (
-                        <div className="flex items-center gap-2 justify-end">
-                          <Users className="h-4 w-4" />
-                          <span className="truncate max-w-[14rem]">
-                            {list.modelerTitle
-                              ? `${list.modelerTitle} (${list.modelerEmail})`
-                              : list.modelerEmail}
-                          </span>
+              return (
+                <Card
+                  key={list.id}
+                  className="border-border/70 shadow-sm transition hover:shadow-md overflow-hidden"
+                >
+                  <CardHeader className="p-4 pb-2">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="space-y-1 flex-1">
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
+                          <Badge variant="outline" className={statusClasses}>
+                            {getStatusLabel(list.status)}
+                          </Badge>
+                          <span>Allocation #{list.number ?? "—"}</span>
                         </div>
-                      )}
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex justify-end">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="gap-2"
-                      onClick={() => toggleListExpansion(list.id)}
-                    >
-                      {isExpanded ? (
-                        <ChevronUp className="h-4 w-4" />
-                      ) : (
-                        <ChevronDown className="h-4 w-4" />
-                      )}
-                      {isExpanded ? "Hide Assets" : "View Assets"}
-                    </Button>
-                  </div>
 
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
-                    <div>
-                      <p className="text-muted-foreground">Assets</p>
-                      <p className="text-base font-semibold">
-                        {list.assetCount}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground">Urgent</p>
-                      <p className="text-base font-semibold text-warning">
-                        {list.urgentCount}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground">Clients</p>
-                      <p className="text-base font-semibold">
-                        {list.clients.length > 0
-                          ? list.clients.join(", ")
-                          : "—"}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground">Bonus</p>
-                      <p className="text-base font-semibold">
-                        {list.bonus && list.bonus > 0 ? `${list.bonus}%` : "—"}
-                      </p>
-                    </div>
-                  </div>
+                        <div className="flex items-center gap-2">
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <h3 className="text-xl font-bold cursor-help truncate leading-tight">
+                                {list.name || `Allocation #${list.number}`}
+                              </h3>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>
+                                {list.name
+                                  ? `List Name: ${list.name}`
+                                  : "No custom name set"}
+                              </p>
+                            </TooltipContent>
+                          </Tooltip>
 
-                  {isExpanded && (
-                    <div className="rounded-md border border-border/60 p-3 space-y-2 bg-muted/30">
-                      <p className="text-sm font-semibold">
-                        Assets in this list
-                      </p>
-                      {list.assets.length === 0 ? (
-                        <p className="text-xs text-muted-foreground">
-                          No assets found for this allocation list.
-                        </p>
-                      ) : (
-                        <div className="space-y-2">
-                          {list.assets.map((asset) => (
-                            <div
-                              key={asset.id}
-                              className="flex flex-col sm:flex-row sm:items-center sm:justify-between rounded-md border border-border/40 bg-background p-3 text-sm"
-                            >
-                              <div className="space-y-1">
-                                <p className="font-medium">
-                                  {asset.productName || "Unnamed Asset"}
-                                </p>
-                                <p className="text-xs text-muted-foreground">
-                                  {asset.articleId
-                                    ? `Article ID: ${asset.articleId}`
-                                    : "No article ID"}
-                                </p>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div>
+                                <EditListNameDialog
+                                  listId={list.id}
+                                  currentName={list.name}
+                                  onUpdate={fetchAssignedLists}
+                                />
                               </div>
-                              <div className="flex flex-wrap items-center gap-2 mt-2 sm:mt-0">
-                                <Badge
-                                  variant="outline"
-                                  className={getStatusBadgeClasses(
-                                    asset.status
-                                  )}
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Edit List Name</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground pt-1">
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="flex items-center gap-1 cursor-help">
+                                <Calendar className="h-3 w-3" />
+                                <span
+                                  className={
+                                    isDeadlineOverdue(list.deadline)
+                                      ? "text-destructive font-medium"
+                                      : undefined
+                                  }
                                 >
-                                  {getStatusLabel(asset.status)}
-                                </Badge>
-                                {typeof asset.priority === "number" && (
-                                  <Badge variant="outline" className="text-xs">
-                                    Priority {asset.priority}
-                                  </Badge>
-                                )}
-                                {asset.client && (
-                                  <Badge variant="outline" className="text-xs">
-                                    {asset.client}
-                                  </Badge>
-                                )}
+                                  {formatDate(list.deadline)}
+                                </span>
                               </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>
+                                {isDeadlineOverdue(list.deadline)
+                                  ? "Deadline Overdue"
+                                  : "Target Deadline"}
+                              </p>
+                            </TooltipContent>
+                          </Tooltip>
 
-                  {Object.keys(list.statusBreakdown).length > 0 && (
-                    <div>
-                      <p className="text-sm font-medium mb-2">
-                        Status Breakdown
-                      </p>
-                      <div className="flex flex-wrap gap-2">
+                          {list.modelerEmail && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div className="flex items-center gap-1 cursor-help">
+                                  <Users className="h-3 w-3" />
+                                  <span className="truncate max-w-[12rem]">
+                                    {list.modelerTitle || list.modelerEmail}
+                                  </span>
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>
+                                  Assigned Modeler:{" "}
+                                  {list.modelerEmail || "Unknown"}
+                                </p>
+                              </TooltipContent>
+                            </Tooltip>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-muted-foreground hover:text-primary"
+                              onClick={() =>
+                                router.push(`/qa-review?allocation=${list.id}`)
+                              }
+                            >
+                              <ExternalLink className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>View in QA Review</p>
+                          </TooltipContent>
+                        </Tooltip>
+
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div>
+                              <TransferListDialog
+                                listId={list.id}
+                                qaOptions={qaOptions}
+                                onTransfer={handleTransfer}
+                              />
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Transfer List</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="p-4 pt-2 space-y-3">
+                    <div className="flex items-center justify-between rounded-md bg-muted/30 px-3 py-2 text-sm">
+                      <div className="flex gap-6">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div className="flex flex-col cursor-help">
+                              <span className="text-[10px] uppercase text-muted-foreground font-semibold">
+                                Assets
+                              </span>
+                              <span className="font-bold">
+                                {list.assetCount}
+                              </span>
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Total assets in this list</p>
+                          </TooltipContent>
+                        </Tooltip>
+
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div className="flex flex-col cursor-help">
+                              <span className="text-[10px] uppercase text-muted-foreground font-semibold">
+                                Urgent
+                              </span>
+                              <span className="font-bold text-warning">
+                                {list.urgentCount}
+                              </span>
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Assets marked as urgent</p>
+                          </TooltipContent>
+                        </Tooltip>
+
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div className="flex flex-col cursor-help">
+                              <span className="text-[10px] uppercase text-muted-foreground font-semibold">
+                                Bonus
+                              </span>
+                              <span className="font-bold">
+                                {list.bonus && list.bonus > 0
+                                  ? `${list.bonus}%`
+                                  : "—"}
+                              </span>
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Bonus percentage for this list</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
+                      <div className="text-right">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div className="cursor-help">
+                              <span className="text-[10px] uppercase text-muted-foreground font-semibold block">
+                                Client
+                              </span>
+                              <span className="font-medium text-xs">
+                                {list.clients.length > 0
+                                  ? list.clients.join(", ")
+                                  : "—"}
+                              </span>
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>
+                              {list.clients.length > 0
+                                ? list.clients.join(", ")
+                                : "No client assigned"}
+                            </p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
+                    </div>
+
+                    {Object.keys(list.statusBreakdown).length > 0 && (
+                      <div className="flex flex-wrap gap-1.5">
                         {Object.entries(list.statusBreakdown).map(
                           ([status, count]) => (
-                            <Badge
-                              key={status}
-                              variant="outline"
-                              className="text-xs"
-                            >
-                              {getStatusLabel(status)} • {count}
-                            </Badge>
+                            <Tooltip key={status}>
+                              <TooltipTrigger asChild>
+                                <Badge
+                                  variant="secondary"
+                                  className="text-[10px] px-1.5 py-0 h-5 font-normal cursor-help"
+                                >
+                                  {getStatusLabel(status)}: {count}
+                                </Badge>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>
+                                  {count} assets are {getStatusLabel(status)}
+                                </p>
+                              </TooltipContent>
+                            </Tooltip>
                           )
                         )}
                       </div>
-                    </div>
-                  )}
+                    )}
 
-                  <div className="rounded-md border border-dashed border-border/60 p-4 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-semibold">
-                          Transfer allocation list
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Move this list to another QA. You will lose access
-                          after transfer.
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex flex-col sm:flex-row gap-3">
-                      <Select
-                        value={selectedQa}
-                        onValueChange={(value) =>
-                          handleQaSelectionChange(list.id, value)
-                        }
-                        disabled={qaOptions.length === 0}
-                      >
-                        <SelectTrigger className="w-full sm:w-64">
-                          <SelectValue placeholder="Select QA teammate" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {qaOptions.length === 0 ? (
-                            <SelectItem value="" disabled>
-                              No other QA members available
-                            </SelectItem>
-                          ) : (
-                            qaOptions.map((qa) => (
-                              <SelectItem key={qa.id} value={qa.id}>
-                                {qa.title?.trim() || qa.email || "QA User"}
-                              </SelectItem>
-                            ))
-                          )}
-                        </SelectContent>
-                      </Select>
+                    <div className="pt-1">
                       <Button
-                        variant="outline"
-                        className="sm:w-48 flex items-center gap-2"
-                        onClick={() => handleTransfer(list.id)}
-                        disabled={disableTransferButton}
+                        variant="ghost"
+                        size="sm"
+                        className="w-full justify-between h-8 text-xs font-normal text-muted-foreground hover:text-foreground"
+                        onClick={() => toggleListExpansion(list.id)}
                       >
-                        {isTransferring ? (
-                          <>
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                            Transferring…
-                          </>
+                        <span>
+                          {isExpanded
+                            ? "Hide Asset Details"
+                            : "View Asset Details"}
+                        </span>
+                        {isExpanded ? (
+                          <ChevronUp className="h-3 w-3" />
                         ) : (
-                          <>
-                            <Users className="h-4 w-4" />
-                            Transfer List
-                          </>
+                          <ChevronDown className="h-3 w-3" />
                         )}
                       </Button>
+
+                      {isExpanded && (
+                        <div className="mt-2 space-y-2 animate-in slide-in-from-top-2 duration-200">
+                          {list.assets.length === 0 ? (
+                            <p className="text-xs text-muted-foreground text-center py-2">
+                              No assets found.
+                            </p>
+                          ) : (
+                            <div className="max-h-[300px] overflow-y-auto pr-1 space-y-2">
+                              {list.assets.map((asset) => (
+                                <div
+                                  key={asset.id}
+                                  className="flex items-center justify-between rounded-md border border-border/40 bg-background p-2 text-xs"
+                                >
+                                  <div className="min-w-0 flex-1 mr-2">
+                                    <p className="font-medium truncate">
+                                      {asset.productName || "Unnamed Asset"}
+                                    </p>
+                                    <p className="text-[10px] text-muted-foreground truncate">
+                                      {asset.articleId || "No ID"}
+                                    </p>
+                                  </div>
+                                  <Badge
+                                    variant="outline"
+                                    className={`text-[10px] px-1.5 h-5 whitespace-nowrap ${getStatusBadgeClasses(
+                                      asset.status
+                                    )}`}
+                                  >
+                                    {getStatusLabel(asset.status)}
+                                  </Badge>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-      )}
-    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </TooltipProvider>
   );
 }

@@ -349,8 +349,14 @@ const getViewerParameters = (viewerType?: string | null) => {
       };
     case "v2":
       return {
-        environmentImage: "https://cdn.charpstar.net/Demos/HDR_Furniture.hdr",
-        exposure: "1.2",
+        environmentImage: "https://demosetc.b-cdn.net/HDR/HDRI-Default.hdr",
+        exposure: "1.3",
+        toneMapping: "linear",
+      };
+    case "v4":
+      return {
+        environmentImage: "https://demosetc.b-cdn.net/HDR/HDRI-Default.hdr",
+        exposure: "1.3",
         toneMapping: "aces",
       };
     default:
@@ -373,6 +379,8 @@ const getViewerDisplayName = (viewerType?: string | null) => {
       return "Synsam Default";
     case "v2":
       return "V2 Default";
+    case "v4":
+      return "V4";
     default:
       return "Default (V6 ACES Tester)";
   }
@@ -464,6 +472,10 @@ export default function ModelerReviewPage() {
   // Blender Upload state
   const [selectedBlendFile, setSelectedBlendFile] = useState<File | null>(null);
   const [uploadingBlend, setUploadingBlend] = useState(false);
+
+  // File validation errors
+  const [glbFileError, setGlbFileError] = useState<string | null>(null);
+  const [blendFileError, setBlendFileError] = useState<string | null>(null);
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [_latestExternalFeedbackTime, setLatestExternalFeedbackTime] = useState<
@@ -1581,9 +1593,68 @@ export default function ModelerReviewPage() {
     if (!open) {
       // Reset all upload-related states when dialog is closed
       setSelectedFile(null);
+      setSelectedBlendFile(null);
       setSelectedFileSizeWarning(false);
       setSelectedFileNameMismatch(null);
+      setGlbFileError(null);
+      setBlendFileError(null);
     }
+  };
+
+  // Validate GLB file
+  const validateGlbFile = (file: File): string | null => {
+    const fileName = file.name.toLowerCase();
+
+    // Check file extension
+    if (!fileName.endsWith(".glb") && !fileName.endsWith(".gltf")) {
+      return "File must be a .glb or .gltf file";
+    }
+
+    // Check file size
+    if (file.size > 100 * 1024 * 1024) {
+      return "File size must be less than 100MB";
+    }
+
+    // Check filename matches article ID
+    if (asset?.article_id) {
+      const fileBaseName = file.name
+        .replace(/\.(glb|gltf)$/i, "")
+        .toLowerCase();
+      const expectedName = asset.article_id.toLowerCase();
+
+      if (fileBaseName !== expectedName) {
+        return `Filename must match Article ID. Expected: "${asset.article_id}.glb" but got: "${file.name}"`;
+      }
+    }
+
+    return null;
+  };
+
+  // Validate Blender file
+  const validateBlendFile = (file: File): string | null => {
+    const fileName = file.name.toLowerCase();
+
+    // Check file extension
+    if (!fileName.endsWith(".blend")) {
+      return "File must be a .blend file";
+    }
+
+    // Check file size
+    if (file.size > 500 * 1024 * 1024) {
+      return "File size must be less than 500MB";
+    }
+
+    // Check filename matches article ID
+    if (asset?.article_id) {
+      const fileBaseName = file.name.replace(/\.blend$/i, "").toLowerCase();
+      const expectedName = asset.article_id.toLowerCase();
+
+      if (fileBaseName !== expectedName) {
+        return `Filename must match Article ID. Expected: "${asset.article_id}.blend" but got: "${file.name}"`;
+      }
+    }
+
+    return null;
   };
 
   // Validate and set file for upload
@@ -2712,12 +2783,15 @@ export default function ModelerReviewPage() {
         try {
           const modelerName =
             user?.user_metadata?.name || user?.email || "Unknown Modeler";
-          await notificationService.sendQAReviewNotification(
-            asset.id,
-            asset.product_name,
-            modelerName,
-            asset.client
-          );
+          if (user?.id) {
+            await notificationService.sendQAReviewNotification(
+              asset.id,
+              asset.product_name,
+              modelerName,
+              asset.client,
+              user.id
+            );
+          }
         } catch (error) {
           console.error("❌ Failed to send QA notification:", error);
           // Don't throw error to avoid blocking status update
@@ -5294,20 +5368,38 @@ export default function ModelerReviewPage() {
                   <div className="h-2 w-2 rounded-full bg-blue-500"></div>
                   GLB File (.glb or .gltf)
                 </label>
-                <div className="border-2 border-dashed border-blue-200 rounded-lg p-6 text-center bg-blue-50/50 hover:bg-blue-50 transition-colors">
+                <div
+                  className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
+                    glbFileError
+                      ? "border-red-300 bg-red-50/50"
+                      : "border-blue-200 bg-blue-50/50 hover:bg-blue-50"
+                  }`}
+                >
                   <input
                     type="file"
                     accept=".glb,.gltf"
                     onChange={(e) => {
                       const file = e.target.files?.[0];
-                      if (file) setSelectedFile(file);
+                      if (file) {
+                        const error = validateGlbFile(file);
+                        setGlbFileError(error);
+                        setSelectedFile(file);
+                      }
                     }}
                     className="hidden"
                     id="glb-file-input"
                   />
                   <label htmlFor="glb-file-input" className="cursor-pointer">
-                    <Upload className="h-8 w-8 mx-auto mb-2 text-blue-600" />
-                    <p className="text-sm font-medium text-blue-900">
+                    <Upload
+                      className={`h-8 w-8 mx-auto mb-2 ${
+                        glbFileError ? "text-red-600" : "text-blue-600"
+                      }`}
+                    />
+                    <p
+                      className={`text-sm font-medium ${
+                        glbFileError ? "text-red-900" : "text-blue-900"
+                      }`}
+                    >
                       {selectedFile
                         ? selectedFile.name
                         : "Click to select GLB file"}
@@ -5323,13 +5415,25 @@ export default function ModelerReviewPage() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => setSelectedFile(null)}
+                      onClick={() => {
+                        setSelectedFile(null);
+                        setGlbFileError(null);
+                      }}
                       className="mt-2 text-xs"
                     >
                       Remove
                     </Button>
                   )}
                 </div>
+                {glbFileError && (
+                  <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+                    <AlertCircle className="h-4 w-4 text-red-600 flex-shrink-0 mt-0.5" />
+                    <div className="text-sm text-red-900">
+                      <p className="font-semibold mb-1">GLB File Error:</p>
+                      <p>{glbFileError}</p>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Blender File Upload */}
@@ -5338,20 +5442,38 @@ export default function ModelerReviewPage() {
                   <div className="h-2 w-2 rounded-full bg-purple-500"></div>
                   Blender File (.blend)
                 </label>
-                <div className="border-2 border-dashed border-purple-200 rounded-lg p-6 text-center bg-purple-50/50 hover:bg-purple-50 transition-colors">
+                <div
+                  className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
+                    blendFileError
+                      ? "border-red-300 bg-red-50/50"
+                      : "border-purple-200 bg-purple-50/50 hover:bg-purple-50"
+                  }`}
+                >
                   <input
                     type="file"
                     accept=".blend"
                     onChange={(e) => {
                       const file = e.target.files?.[0];
-                      if (file) setSelectedBlendFile(file);
+                      if (file) {
+                        const error = validateBlendFile(file);
+                        setBlendFileError(error);
+                        setSelectedBlendFile(file);
+                      }
                     }}
                     className="hidden"
                     id="blend-file-input"
                   />
                   <label htmlFor="blend-file-input" className="cursor-pointer">
-                    <Upload className="h-8 w-8 mx-auto mb-2 text-purple-600" />
-                    <p className="text-sm font-medium text-purple-900">
+                    <Upload
+                      className={`h-8 w-8 mx-auto mb-2 ${
+                        blendFileError ? "text-red-600" : "text-purple-600"
+                      }`}
+                    />
+                    <p
+                      className={`text-sm font-medium ${
+                        blendFileError ? "text-red-900" : "text-purple-900"
+                      }`}
+                    >
                       {selectedBlendFile
                         ? selectedBlendFile.name
                         : "Click to select Blender file"}
@@ -5367,13 +5489,25 @@ export default function ModelerReviewPage() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => setSelectedBlendFile(null)}
+                      onClick={() => {
+                        setSelectedBlendFile(null);
+                        setBlendFileError(null);
+                      }}
                       className="mt-2 text-xs"
                     >
                       Remove
                     </Button>
                   )}
                 </div>
+                {blendFileError && (
+                  <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+                    <AlertCircle className="h-4 w-4 text-red-600 flex-shrink-0 mt-0.5" />
+                    <div className="text-sm text-red-900">
+                      <p className="font-semibold mb-1">Blender File Error:</p>
+                      <p>{blendFileError}</p>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Action Buttons */}
@@ -5396,7 +5530,9 @@ export default function ModelerReviewPage() {
                             uploading ||
                             uploadingBlend ||
                             !selectedFile ||
-                            !selectedBlendFile
+                            !selectedBlendFile ||
+                            !!glbFileError ||
+                            !!blendFileError
                           }
                           className="w-full"
                           variant={
@@ -5422,16 +5558,21 @@ export default function ModelerReviewPage() {
                         </Button>
                       </div>
                     </TooltipTrigger>
-                    {(!selectedFile || !selectedBlendFile) &&
+                    {(!selectedFile ||
+                      !selectedBlendFile ||
+                      glbFileError ||
+                      blendFileError) &&
                       !uploading &&
                       !uploadingBlend && (
                         <TooltipContent>
                           <p className="text-sm">
-                            {!selectedFile && !selectedBlendFile
-                              ? "Please select both GLB and Blender files"
-                              : !selectedFile
-                                ? "Please select a GLB file"
-                                : "Please select a Blender file"}
+                            {glbFileError || blendFileError
+                              ? "Please fix file errors before uploading"
+                              : !selectedFile && !selectedBlendFile
+                                ? "Please select both GLB and Blender files"
+                                : !selectedFile
+                                  ? "Please select a GLB file"
+                                  : "Please select a Blender file"}
                           </p>
                         </TooltipContent>
                       )}

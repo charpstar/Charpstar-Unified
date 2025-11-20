@@ -67,6 +67,8 @@ import {
   FileText,
   Copy,
   History,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import Script from "next/script";
 import { toast } from "sonner";
@@ -298,8 +300,14 @@ const getViewerParameters = (viewerType?: string | null) => {
       };
     case "v2":
       return {
-        environmentImage: "https://cdn.charpstar.net/Demos/HDR_Furniture.hdr",
-        exposure: "1.2",
+        environmentImage: "https://demosetc.b-cdn.net/HDR/HDRI-Default.hdr",
+        exposure: "1.3",
+        toneMapping: "linear",
+      };
+    case "v4":
+      return {
+        environmentImage: "https://demosetc.b-cdn.net/HDR/HDRI-Default.hdr",
+        exposure: "1.3",
         toneMapping: "aces",
       };
     default:
@@ -323,6 +331,8 @@ const getViewerLabel = (viewerType?: string | null): string => {
       return "Synsam";
     case "v2":
       return "V2 Classic";
+    case "v4":
+      return "V4";
     default:
       return "Default Viewer";
   }
@@ -586,6 +596,9 @@ export default function ReviewPage() {
       };
     }>
   >([]);
+  //eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [currentReferenceIndex, setCurrentReferenceIndex] = useState<number>(0);
+
   const [newNote, setNewNote] = useState("");
   const [isNotesDialogOpen, setIsNotesDialogOpen] = useState(false);
   const [isApprovalHistoryDialogOpen, setIsApprovalHistoryDialogOpen] =
@@ -730,10 +743,12 @@ export default function ReviewPage() {
         {selectedImage && (
           <div className="relative">
             <div
-              className="aspect-video bg-muted rounded-lg overflow-hidden border border-border relative cursor-pointer"
+              className={`aspect-video bg-muted rounded-lg overflow-hidden border border-border relative ${zoomLevel > 1 ? (isDragging ? "cursor-grabbing" : "cursor-grab") : "cursor-pointer"}`}
               onMouseMove={handleImageMouseMove}
               onMouseEnter={handleImageMouseEnter}
               onMouseLeave={handleImageMouseLeave}
+              onMouseDown={handleImageMouseDown}
+              onMouseUp={handleImageMouseUp}
               onWheel={handleImageWheel}
             >
               <Image
@@ -744,7 +759,7 @@ export default function ReviewPage() {
                 alt={`${title} preview`}
                 className="w-full h-full object-contain transition-transform duration-200"
                 style={{
-                  transform: `scale(${zoomLevel})`,
+                  transform: `scale(${zoomLevel}) translate(${panOffset.x / zoomLevel}px, ${panOffset.y / zoomLevel}px)`,
                   transformOrigin: isZooming
                     ? `${mousePosition.x}% ${mousePosition.y}%`
                     : "center",
@@ -765,6 +780,41 @@ export default function ReviewPage() {
                   Invalid image URL
                 </div>
               </div>
+
+              {/* Navigation arrows */}
+              {images.length > 1 && (
+                <>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const newIndex =
+                        safeIndex !== null && safeIndex > 0
+                          ? safeIndex - 1
+                          : images.length - 1;
+                      onSelectImage(newIndex);
+                    }}
+                    className="absolute left-2 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full bg-black/50 text-white hover:bg-black/70 flex items-center justify-center transition-all cursor-pointer z-10"
+                    aria-label="Previous image"
+                  >
+                    <ChevronLeft className="h-5 w-5" />
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const newIndex =
+                        safeIndex !== null && safeIndex < images.length - 1
+                          ? safeIndex + 1
+                          : 0;
+                      onSelectImage(newIndex);
+                    }}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full bg-black/50 text-white hover:bg-black/70 flex items-center justify-center transition-all cursor-pointer z-10"
+                    aria-label="Next image"
+                  >
+                    <ChevronRight className="h-5 w-5" />
+                  </button>
+                </>
+              )}
+
               <div className="absolute top-2 right-2 flex gap-1">
                 <Button
                   variant="ghost"
@@ -915,6 +965,14 @@ export default function ReviewPage() {
     x: 0,
     y: 0,
   });
+
+  // Drag/pan state for zoomed images
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
+  const [dialogIsDragging, setDialogIsDragging] = useState(false);
+  const [dialogDragStart, setDialogDragStart] = useState({ x: 0, y: 0 });
+  const [dialogPanOffset, setDialogPanOffset] = useState({ x: 0, y: 0 });
 
   // Comment state variables
   const [newCommentText, setNewCommentText] = useState("");
@@ -1778,15 +1836,66 @@ export default function ReviewPage() {
   const deleteAnnotation = async (annotationId: string) => {
     try {
       const annotation = annotations.find((ann) => ann.id === annotationId);
-      if (!isAdmin && annotation && annotation.created_by !== user?.id) {
-        toast.error("You can only delete your own annotations");
+      if (!annotation) {
+        toast.error("Annotation not found");
         return;
       }
 
-      // Store the annotation for undo before deleting
-      if (annotation) {
-        setLastDeletedAnnotation(annotation);
+      // Check permissions
+      if (!canEditOrDeleteAnnotation(annotation)) {
+        toast.error("You don't have permission to delete this annotation");
+        return;
       }
+
+      // If QA user is deleting another QA member's annotation, send notification
+      const isQADeletingOtherQA =
+        normalizedUserRole === "qa" &&
+        annotation.created_by !== user?.id &&
+        annotation.profiles?.role === "qa";
+
+      if (isQADeletingOtherQA && assetId) {
+        try {
+          // Get recipient's email
+          const { data: recipientProfile } = await supabase
+            .from("profiles")
+            .select("email")
+            .eq("id", annotation.created_by)
+            .single();
+
+          // Get deleter's name
+          const { data: deleterProfile } = await supabase
+            .from("profiles")
+            .select("title, email")
+            .eq("id", user?.id)
+            .single();
+
+          const deleterName =
+            deleterProfile?.title ||
+            deleterProfile?.email?.split("@")[0] ||
+            "A QA member";
+
+          // Send notification to the original creator
+          await notificationService.sendQADeletionNotification({
+            recipientId: annotation.created_by,
+            recipientEmail: recipientProfile?.email || "",
+            assetId: assetId,
+            assetName: asset?.product_name,
+            deletedBy: user?.id || "",
+            deletedByName: deleterName,
+            itemType: "annotation",
+            itemPreview: annotation.comment,
+          });
+        } catch (notificationError) {
+          console.error(
+            "Error sending deletion notification:",
+            notificationError
+          );
+          // Continue with deletion even if notification fails
+        }
+      }
+
+      // Store the annotation for undo before deleting
+      setLastDeletedAnnotation(annotation);
 
       const response = await fetch(`/api/annotations?id=${annotationId}`, {
         method: "DELETE",
@@ -1814,16 +1923,91 @@ export default function ReviewPage() {
   // Delete multiple annotations
   const deleteMultipleAnnotations = async (annotationIds: string[]) => {
     try {
-      if (!isAdmin) {
-        const unauthorized = annotationIds.some((id) => {
-          const ann = annotations.find((a) => a.id === id);
-          return ann && ann.created_by !== user?.id;
-        });
-        if (unauthorized) {
-          toast.error("You can only delete your own annotations");
-          return;
+      // Check permissions for all annotations
+      const unauthorized = annotationIds.some((id) => {
+        const ann = annotations.find((a) => a.id === id);
+        return ann && !canEditOrDeleteAnnotation(ann);
+      });
+      if (unauthorized) {
+        toast.error("You don't have permission to delete some annotations");
+        return;
+      }
+
+      // If QA user is deleting other QA members' annotations, send notifications
+      const qaDeletions = annotationIds
+        .map((id) => annotations.find((a) => a.id === id))
+        .filter(
+          (ann) =>
+            ann &&
+            normalizedUserRole === "qa" &&
+            ann.created_by !== user?.id &&
+            ann.profiles?.role === "qa"
+        );
+
+      if (qaDeletions.length > 0 && assetId) {
+        try {
+          // Get deleter's name
+          const { data: deleterProfile } = await supabase
+            .from("profiles")
+            .select("title, email")
+            .eq("id", user?.id)
+            .single();
+
+          const deleterName =
+            deleterProfile?.title ||
+            deleterProfile?.email?.split("@")[0] ||
+            "A QA member";
+
+          // Group deletions by recipient to avoid duplicate notifications
+          const deletionsByRecipient = new Map<string, typeof qaDeletions>();
+          for (const ann of qaDeletions) {
+            if (!ann) continue;
+            const recipientId = ann.created_by;
+            if (!deletionsByRecipient.has(recipientId)) {
+              deletionsByRecipient.set(recipientId, []);
+            }
+            deletionsByRecipient.get(recipientId)!.push(ann);
+          }
+
+          // Send notification for each recipient
+          for (const [
+            recipientId,
+            recipientDeletions,
+          ] of deletionsByRecipient) {
+            const { data: recipientProfile } = await supabase
+              .from("profiles")
+              .select("email")
+              .eq("id", recipientId)
+              .single();
+
+            // Send one notification per recipient (for multiple deletions)
+            const itemCount = recipientDeletions.length;
+            const firstItem = recipientDeletions[0];
+            if (firstItem) {
+              await notificationService.sendQADeletionNotification({
+                recipientId: recipientId,
+                recipientEmail: recipientProfile?.email || "",
+                assetId: assetId,
+                assetName: asset?.product_name,
+                deletedBy: user?.id || "",
+                deletedByName: deleterName,
+                itemType: "annotation",
+                itemPreview:
+                  itemCount > 1
+                    ? `${itemCount} annotations deleted`
+                    : firstItem.comment,
+              });
+            }
+          }
+        } catch (notificationError) {
+          console.error(
+            "Error sending deletion notifications:",
+            notificationError
+          );
+          // Continue with deletion even if notification fails
         }
       }
+
       const promises = annotationIds.map((id) =>
         fetch(`/api/annotations?id=${id}`, {
           method: "DELETE",
@@ -1866,6 +2050,12 @@ export default function ReviewPage() {
   };
 
   const handleImageClick = (imageUrl: string, title: string) => {
+    // Combine all reference images for navigation
+    const allReferenceImages = [...referenceImages, ...internalReferenceImages];
+    const imageIndex = allReferenceImages.findIndex((img) => img === imageUrl);
+    if (imageIndex !== -1) {
+      setCurrentReferenceIndex(imageIndex);
+    }
     setSelectedImage(imageUrl);
     setSelectedImageTitle(title);
     setShowImageDialog(true);
@@ -3036,6 +3226,31 @@ export default function ReviewPage() {
     }
   };
 
+  // Reference navigation handlers
+  const handlePreviousReference = useCallback((): void => {
+    const allReferenceImages = [...referenceImages, ...internalReferenceImages];
+    if (allReferenceImages.length === 0) return;
+
+    setCurrentReferenceIndex((prev) => {
+      const newIndex = prev > 0 ? prev - 1 : allReferenceImages.length - 1;
+      setSelectedImage(allReferenceImages[newIndex]);
+      setSelectedImageTitle(`Reference Image ${newIndex + 1}`);
+      return newIndex;
+    });
+  }, [referenceImages, internalReferenceImages]);
+
+  const handleNextReference = useCallback((): void => {
+    const allReferenceImages = [...referenceImages, ...internalReferenceImages];
+    if (allReferenceImages.length === 0) return;
+
+    setCurrentReferenceIndex((prev) => {
+      const newIndex = prev < allReferenceImages.length - 1 ? prev + 1 : 0;
+      setSelectedImage(allReferenceImages[newIndex]);
+      setSelectedImageTitle(`Reference Image ${newIndex + 1}`);
+      return newIndex;
+    });
+  }, [referenceImages, internalReferenceImages]);
+
   // Fetch version history function - memoized with useCallback
   const fetchVersionHistory = useCallback(async () => {
     if (!assetId) return;
@@ -3694,10 +3909,25 @@ export default function ReviewPage() {
   // Permissions: Admins can edit/delete all annotations and comments, users can edit/delete their own annotations
   const isAdmin = user?.metadata?.role === "admin";
 
-  const canEditOrDeleteAnnotation = (annotation: Annotation) =>
-    isAdmin || annotation.created_by === user?.id;
-  const canEditOrDeleteComment = (comment?: any) =>
-    isAdmin || (comment && comment.created_by === user?.id);
+  const canEditOrDeleteAnnotation = (annotation: Annotation) => {
+    if (isAdmin) return true;
+    if (annotation.created_by === user?.id) return true;
+    // QA users can delete annotations from other QA members
+    if (normalizedUserRole === "qa" && annotation.profiles?.role === "qa") {
+      return true;
+    }
+    return false;
+  };
+  const canEditOrDeleteComment = (comment?: any) => {
+    if (!comment) return false;
+    if (isAdmin) return true;
+    if (comment.created_by === user?.id) return true;
+    // QA users can delete comments from other QA members
+    if (normalizedUserRole === "qa" && comment.profiles?.role === "qa") {
+      return true;
+    }
+    return false;
+  };
 
   // Function to get comments for selected annotation
   // Comments should be independent of annotations - show all comments for the asset
@@ -3733,13 +3963,12 @@ export default function ReviewPage() {
   };
 
   const handleImageMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!isZooming) return;
-
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = ((e.clientX - rect.left) / rect.width) * 100;
-    const y = ((e.clientY - rect.top) / rect.height) * 100;
-
-    setMousePosition({ x, y });
+    // Handle dragging when zoomed in
+    if (isDragging && zoomLevel > 1) {
+      const deltaX = e.clientX - dragStart.x;
+      const deltaY = e.clientY - dragStart.y;
+      setPanOffset({ x: deltaX, y: deltaY });
+    }
   };
 
   const handleImageMouseEnter = () => {
@@ -3748,8 +3977,22 @@ export default function ReviewPage() {
 
   const handleImageMouseLeave = () => {
     setImageZoom(false);
-    setZoomLevel(1);
-    setIsZooming(false);
+    // Keep zoom level and isZooming state so the image stays zoomed
+    // Users can zoom out by scrolling when they return to the image
+    // Reset drag state when leaving
+    setIsDragging(false);
+  };
+
+  const handleImageMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (zoomLevel > 1) {
+      setIsDragging(true);
+      setDragStart({ x: e.clientX - panOffset.x, y: e.clientY - panOffset.y });
+      e.preventDefault();
+    }
+  };
+
+  const handleImageMouseUp = () => {
+    setIsDragging(false);
   };
 
   const handleImageWheel = (e: React.WheelEvent<HTMLDivElement>) => {
@@ -3769,16 +4012,36 @@ export default function ReviewPage() {
     const newZoomLevel = Math.max(1, Math.min(3, zoomLevel + zoomDelta));
 
     setZoomLevel(newZoomLevel);
+
+    // Reset pan offset when zooming back to 1x
+    if (newZoomLevel === 1) {
+      setPanOffset({ x: 0, y: 0 });
+      setIsDragging(false);
+    }
   };
 
   const handleDialogImageMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!dialogIsZooming) return;
+    // Handle dragging when zoomed in
+    if (dialogIsDragging && dialogZoomLevel > 1) {
+      const deltaX = e.clientX - dialogDragStart.x;
+      const deltaY = e.clientY - dialogDragStart.y;
+      setDialogPanOffset({ x: deltaX, y: deltaY });
+    }
+  };
 
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = ((e.clientX - rect.left) / rect.width) * 100;
-    const y = ((e.clientY - rect.top) / rect.height) * 100;
+  const handleDialogImageMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (dialogZoomLevel > 1) {
+      setDialogIsDragging(true);
+      setDialogDragStart({
+        x: e.clientX - dialogPanOffset.x,
+        y: e.clientY - dialogPanOffset.y,
+      });
+      e.preventDefault();
+    }
+  };
 
-    setDialogMousePosition({ x, y });
+  const handleDialogImageMouseUp = () => {
+    setDialogIsDragging(false);
   };
 
   const handleDialogImageWheel = (e: React.WheelEvent<HTMLDivElement>) => {
@@ -3796,12 +4059,20 @@ export default function ReviewPage() {
     const newZoomLevel = Math.max(1, Math.min(5, dialogZoomLevel + zoomDelta));
 
     setDialogZoomLevel(newZoomLevel);
+
+    // Reset pan offset when zooming back to 1x
+    if (newZoomLevel === 1) {
+      setDialogPanOffset({ x: 0, y: 0 });
+      setDialogIsDragging(false);
+    }
   };
 
   const handleDialogClose = () => {
     setShowImageDialog(false);
     setDialogZoomLevel(1);
     setDialogIsZooming(false);
+    setDialogPanOffset({ x: 0, y: 0 });
+    setDialogIsDragging(false);
   };
 
   // Comment functions
@@ -3926,9 +4197,58 @@ export default function ReviewPage() {
     try {
       const target = comments.find((c) => c.id === commentId);
       if (!canEditOrDeleteComment(target)) {
-        toast.error("You can only delete your own comments");
+        toast.error("You don't have permission to delete this comment");
         return;
       }
+
+      // If QA user is deleting another QA member's comment, send notification
+      const isQADeletingOtherQA =
+        normalizedUserRole === "qa" &&
+        target &&
+        target.created_by !== user?.id &&
+        target.profiles?.role === "qa";
+
+      if (isQADeletingOtherQA && assetId) {
+        try {
+          // Get recipient's email
+          const { data: recipientProfile } = await supabase
+            .from("profiles")
+            .select("email")
+            .eq("id", target.created_by)
+            .single();
+
+          // Get deleter's name
+          const { data: deleterProfile } = await supabase
+            .from("profiles")
+            .select("title, email")
+            .eq("id", user?.id)
+            .single();
+
+          const deleterName =
+            deleterProfile?.title ||
+            deleterProfile?.email?.split("@")[0] ||
+            "A QA member";
+
+          // Send notification to the original creator
+          await notificationService.sendQADeletionNotification({
+            recipientId: target.created_by,
+            recipientEmail: recipientProfile?.email || "",
+            assetId: assetId,
+            assetName: asset?.product_name,
+            deletedBy: user?.id || "",
+            deletedByName: deleterName,
+            itemType: "comment",
+            itemPreview: target.comment,
+          });
+        } catch (notificationError) {
+          console.error(
+            "Error sending deletion notification:",
+            notificationError
+          );
+          // Continue with deletion even if notification fails
+        }
+      }
+
       const { error } = await supabase
         .from("asset_comments")
         .delete()
@@ -6658,12 +6978,15 @@ export default function ReviewPage() {
                   {selectedImageTitle}
                 </DialogTitle>
                 <DialogDescription className="text-xs sm:text-sm text-muted-foreground">
-                  Reference image for annotation • Scroll to zoom (1x-5x)
+                  Reference image for annotation • Scroll to zoom (1x-5x) • Drag
+                  to pan when zoomed
                 </DialogDescription>
               </DialogHeader>
               <div
-                className="relative w-full h-[70vh] bg-muted cursor-pointer"
+                className={`relative w-full h-[70vh] bg-muted ${dialogZoomLevel > 1 ? (dialogIsDragging ? "cursor-grabbing" : "cursor-grab") : "cursor-pointer"}`}
                 onMouseMove={handleDialogImageMouseMove}
+                onMouseDown={handleDialogImageMouseDown}
+                onMouseUp={handleDialogImageMouseUp}
                 onWheel={handleDialogImageWheel}
               >
                 <Image
@@ -6674,7 +6997,7 @@ export default function ReviewPage() {
                   alt={selectedImageTitle}
                   className="w-full h-full object-contain bg-background transition-transform duration-200"
                   style={{
-                    transform: `scale(${dialogZoomLevel})`,
+                    transform: `scale(${dialogZoomLevel}) translate(${dialogPanOffset.x / dialogZoomLevel}px, ${dialogPanOffset.y / dialogZoomLevel}px)`,
                     transformOrigin: dialogIsZooming
                       ? `${dialogMousePosition.x}% ${dialogMousePosition.y}%`
                       : "center",
@@ -6699,7 +7022,7 @@ export default function ReviewPage() {
                   </div>
                 </div>
               </div>
-              <div className="px-6 py-4 border-t border-border">
+              <div className="px-6 py-4 border-t border-border flex items-center gap-2">
                 <Button
                   variant="outline"
                   onClick={handleDialogClose}
@@ -6707,6 +7030,25 @@ export default function ReviewPage() {
                 >
                   Close
                 </Button>
+                {[...referenceImages, ...internalReferenceImages].length >
+                  1 && (
+                  <>
+                    <Button
+                      variant="outline"
+                      onClick={() => handlePreviousReference()}
+                      className="cursor-pointer"
+                    >
+                      Previous Reference
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => handleNextReference()}
+                      className="cursor-pointer"
+                    >
+                      Next Reference
+                    </Button>
+                  </>
+                )}
               </div>
             </DialogContent>
           </Dialog>

@@ -21,6 +21,12 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/interactive";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/display";
 
 import {
   Input,
@@ -1345,7 +1351,7 @@ export default function QAReviewPage() {
   };
 
   const handleViewAsset = (assetId: string) => {
-    router.push(`/client-review/${assetId}?from=qa-review`);
+    window.open(`/client-review/${assetId}?from=qa-review`, "_blank");
   };
 
   // References column removed
@@ -2021,25 +2027,31 @@ export default function QAReviewPage() {
               <span className="hidden sm:inline">Clear Filters</span>
               <span className="sm:hidden">Clear</span>
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={selectedAssetIds.size === 0}
-              onClick={handleDownloadSelectedGLBs}
-              className="h-8 sm:h-9 text-sm w-full sm:w-auto"
-            >
-              <span className="hidden sm:inline">
-                Download GLBs (Selected {selectedAssetIds.size})
-              </span>
-              <span className="sm:hidden">
-                Download ({selectedAssetIds.size})
-              </span>
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={selectedAssetIds.size === 0}
+                onClick={handleDownloadSelectedGLBs}
+                className="h-8 sm:h-9 text-sm w-full sm:w-auto"
+              >
+                <span className="hidden sm:inline">Download GLBs</span>
+                <span className="sm:hidden">Download</span>
+              </Button>
+              {selectedAssetIds.size > 0 && (
+                <Badge
+                  variant="outline"
+                  className="h-8 sm:h-9 px-2 sm:px-3 text-sm"
+                >
+                  {selectedAssetIds.size} selected
+                </Badge>
+              )}
+            </div>
           </div>
         </div>
 
         {/* Assets Table */}
-        <div className="overflow-y-auto rounded-lg border bg-background flex-1 max-h-[64vh]">
+        <div className="overflow-y-auto overflow-x-auto rounded-lg border bg-background flex-1 max-h-[64vh]">
           {/* Desktop Table View */}
           <div className="hidden md:block">
             <Table>
@@ -2057,20 +2069,20 @@ export default function QAReviewPage() {
                       onCheckedChange={toggleSelectAllCurrent}
                     />
                   </TableHead>
-                  <TableHead className="text-left">Product Name</TableHead>
-                  <TableHead className="text-left">Article ID</TableHead>
-                  <TableHead className="text-left">Client</TableHead>
-                  <TableHead className="text-left">Price</TableHead>
-                  <TableHead className="text-left">Priority</TableHead>
-                  <TableHead className="text-left">Status</TableHead>
-                  <TableHead className="text-left">Modeler</TableHead>
-                  <TableHead className="w-20 text-left">
+                  <TableHead className="w-32 text-left">Product Name</TableHead>
+                  <TableHead className="w-24 text-left">Article ID</TableHead>
+                  <TableHead className="w-20 text-left">Client</TableHead>
+                  <TableHead className="w-16 text-left">Price</TableHead>
+                  <TableHead className="w-20 text-left">Priority</TableHead>
+                  <TableHead className="w-24 text-left">Status</TableHead>
+                  <TableHead className="w-24 text-left">Modeler</TableHead>
+                  <TableHead className="w-28 text-left">
                     Model Updated
                   </TableHead>
-                  <TableHead className="text-left">Product Link</TableHead>
-                  <TableHead className="text-left">GLB</TableHead>
-                  <TableHead className="text-left">Files</TableHead>
-                  <TableHead className="text-left">View</TableHead>
+                  <TableHead className="w-16 text-left">Product</TableHead>
+                  <TableHead className="w-12 text-left">GLB</TableHead>
+                  <TableHead className="w-16 text-left">Files</TableHead>
+                  <TableHead className="w-12 text-left">View</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -2196,24 +2208,43 @@ export default function QAReviewPage() {
                         />
                       </TableCell>
                       <TableCell className="text-left">
-                        <div
-                          className="font-medium max-w-[200px] cursor-help truncate"
-                          title={asset.product_name}
-                        >
-                          {asset.product_name.length > 45
-                            ? asset.product_name.substring(0, 45) + "..."
-                            : asset.product_name}
-                        </div>
-                        <div className="text-sm text-muted-foreground flex items-center gap-2 group">
-                          <span>{asset.category}</span>
-                          <span>•</span>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="font-medium max-w-[120px] truncate text-sm">
+                                {asset.product_name}
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p className="max-w-xs">{asset.product_name}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                        <div className="text-xs text-muted-foreground flex items-center gap-1">
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="truncate max-w-[100px]">
+                                  {asset.category}
+                                  {asset.subcategory &&
+                                    ` • ${asset.subcategory}`}
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>
+                                  {asset.category}
+                                  {asset.subcategory &&
+                                    ` • ${asset.subcategory}`}
+                                </p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
                           <SubcategoryEditor
                             assetId={asset.id}
                             currentSubcategory={asset.subcategory}
                             category={asset.category}
                             isMissing={asset.subcategory_missing || false}
                             onUpdate={(newSubcategory) => {
-                              // Update the local state to reflect the change
                               setAssets((prevAssets) =>
                                 prevAssets.map((a) =>
                                   a.id === asset.id
@@ -2227,43 +2258,57 @@ export default function QAReviewPage() {
                               );
                             }}
                             variant="inline"
-                            className="inline-flex"
+                            className="inline-flex shrink-0"
                           />
                         </div>
                       </TableCell>
                       <TableCell className="text-left">
-                        <div className="flex flex-col gap-1">
-                          <span
-                            className="text-xs text-muted-foreground"
-                            title={
-                              getArticleIdsTooltip(asset.article_ids || []) ||
-                              undefined
-                            }
-                          >
-                            {asset.article_id}
-                          </span>
-                          {Array.isArray(asset.article_ids) &&
-                            getAdditionalArticleIds(asset).length > 0 && (
-                              <div className="flex flex-wrap gap-1">
-                                {getAdditionalArticleIds(asset).map((id) => (
-                                  <Badge
-                                    key={`${asset.id}-${id}`}
-                                    variant="outline"
-                                    className="px-1.5 py-0 text-[10px] uppercase tracking-wide text-muted-foreground border-border/60"
-                                    title={id}
-                                  >
-                                    {id}
-                                  </Badge>
-                                ))}
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="text-xs text-muted-foreground truncate max-w-[80px] font-mono">
+                                {asset.article_id}
                               </div>
-                            )}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-left text-xs">
-                        {asset.client}
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <div className="space-y-1">
+                                <p className="font-mono">{asset.article_id}</p>
+                                {Array.isArray(asset.article_ids) &&
+                                  getAdditionalArticleIds(asset).length > 0 && (
+                                    <div className="text-xs">
+                                      <p className="font-semibold mb-1">
+                                        Additional IDs:
+                                      </p>
+                                      {getAdditionalArticleIds(asset).map(
+                                        (id) => (
+                                          <p key={id} className="font-mono">
+                                            {id}
+                                          </p>
+                                        )
+                                      )}
+                                    </div>
+                                  )}
+                              </div>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
                       </TableCell>
                       <TableCell className="text-left">
-                        <div className="text-sm font-medium">
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="text-xs truncate max-w-[60px]">
+                                {asset.client}
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>{asset.client}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </TableCell>
+                      <TableCell className="text-left">
+                        <div className="text-xs font-medium">
                           €{(asset.price || 0).toFixed(2)}
                         </div>
                       </TableCell>
@@ -2308,46 +2353,82 @@ export default function QAReviewPage() {
                       </TableCell>
                       <TableCell className="text-left">
                         {asset.modeler ? (
-                          <div className="text-sm">
-                            <div className="font-medium">
-                              {asset.modeler.title ||
-                                asset.modeler.email.split("@")[0]}
-                            </div>
-                            {asset.modeler.title && (
-                              <div className="text-xs text-muted-foreground">
-                                {asset.modeler.title}
-                              </div>
-                            )}
-                          </div>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div className="text-xs truncate max-w-[80px]">
+                                  {asset.modeler.title ||
+                                    asset.modeler.email.split("@")[0]}
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <div>
+                                  {asset.modeler.title && (
+                                    <p className="font-semibold">
+                                      {asset.modeler.title}
+                                    </p>
+                                  )}
+                                  <p className="text-xs text-muted-foreground">
+                                    {asset.modeler.email}
+                                  </p>
+                                </div>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
                         ) : (
-                          <span className="text-muted-foreground text-sm">
+                          <span className="text-muted-foreground text-xs">
                             -
                           </span>
                         )}
                       </TableCell>
                       {/* Model Updated Date */}
                       <TableCell className="text-left">
-                        <div className="flex items-center gap-1">
-                          <div
-                            className={`text-xs ${isModelOverdue(asset.delivery_date, asset.model_updated_at) ? "text-red-600 font-semibold" : "text-muted-foreground"}`}
-                          >
-                            {asset.model_updated_at ? (
-                              <>
-                                {dayjs(asset.model_updated_at).format("MMM DD")}
-                                •{dayjs(asset.model_updated_at).format("YYYY")}•
-                                {dayjs(asset.model_updated_at).format("HH:mm")}
-                                {isModelOverdue(
-                                  asset.delivery_date,
-                                  asset.model_updated_at
-                                ) && (
-                                  <span className="ml-1 text-red-500"></span>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div
+                                className={`text-xs truncate max-w-[90px] font-mono ${isModelOverdue(asset.delivery_date, asset.model_updated_at) ? "text-red-600 font-semibold" : "text-muted-foreground"}`}
+                              >
+                                {asset.model_updated_at ? (
+                                  <>
+                                    {dayjs(asset.model_updated_at).format(
+                                      "MMM DD"
+                                    )}
+                                    {isModelOverdue(
+                                      asset.delivery_date,
+                                      asset.model_updated_at
+                                    ) && " ⚠"}
+                                  </>
+                                ) : (
+                                  <span className="text-muted-foreground">
+                                    -
+                                  </span>
                                 )}
-                              </>
-                            ) : (
-                              <span className="text-muted-foreground">-</span>
-                            )}
-                          </div>
-                        </div>
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              {asset.model_updated_at ? (
+                                <div className="space-y-1">
+                                  <p className="font-mono">
+                                    {dayjs(asset.model_updated_at).format(
+                                      "MMM DD, YYYY HH:mm"
+                                    )}
+                                  </p>
+                                  {isModelOverdue(
+                                    asset.delivery_date,
+                                    asset.model_updated_at
+                                  ) && (
+                                    <p className="text-xs text-red-600">
+                                      Overdue
+                                    </p>
+                                  )}
+                                </div>
+                              ) : (
+                                <p>No model update date</p>
+                              )}
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
                       </TableCell>
                       {/* Product */}
                       <TableCell className="text-left">
@@ -2415,33 +2496,40 @@ export default function QAReviewPage() {
                       </TableCell>
                       {/* Files */}
                       <TableCell className="text-left">
-                        <div className="flex flex-col items-center gap-1">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="text-xs px-3 py-1 h-7"
-                            onClick={() => {
-                              setSelectedAssetForView(asset);
-                              setShowViewRefDialog(true);
-                            }}
-                          >
-                            <FileText className="mr-1 h-3 w-3" />
-                            Ref (
-                            {(() => {
-                              const separated = separateReferences(
-                                asset.reference ?? null,
-                                includeInternalRefs
-                                  ? (asset.internal_reference ?? null)
-                                  : null
-                              );
-                              return (
-                                separated.imageReferences.length +
-                                separated.glbFiles.length
-                              );
-                            })()}
-                            )
-                          </Button>
-                        </div>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-xs px-2 py-1 h-6"
+                                onClick={() => {
+                                  setSelectedAssetForView(asset);
+                                  setShowViewRefDialog(true);
+                                }}
+                              >
+                                <FileText className="h-3 w-3" />
+                                <span className="ml-1">
+                                  {(() => {
+                                    const separated = separateReferences(
+                                      asset.reference ?? null,
+                                      includeInternalRefs
+                                        ? (asset.internal_reference ?? null)
+                                        : null
+                                    );
+                                    return (
+                                      separated.imageReferences.length +
+                                      separated.glbFiles.length
+                                    );
+                                  })()}
+                                </span>
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>View References</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
                       </TableCell>
                       {/* View */}
                       <TableCell className="text-left">

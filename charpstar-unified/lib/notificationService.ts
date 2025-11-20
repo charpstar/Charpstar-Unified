@@ -30,7 +30,8 @@ export interface NotificationData {
     | "client_asset_update"
     | "internal_reminder"
     | "reminder_due"
-    | "reminder_assigned";
+    | "reminder_assigned"
+    | "qa_deletion";
   title: string;
   message: string;
   metadata?: Record<string, any>;
@@ -934,30 +935,51 @@ class NotificationService {
 
   /**
    * Send notification to QA users when a modeler marks an asset as delivered
+   * Only sends notifications to QAs who are connected to the modeler via qa_allocations
    */
   async sendQAReviewNotification(
     assetId: string,
     assetName: string,
     modelerName: string,
-    client: string
+    client: string,
+    modelerId: string
   ): Promise<void> {
     try {
-      // Get all QA users
-      const { data: qaUsers, error: qaError } = await supabase
-        .from("profiles")
-        .select("id, email")
-        .eq("role", "qa");
+      // Get QAs allocated to this modeler via qa_allocations
+      const { data: qaAllocations, error: qaError } = await supabase
+        .from("qa_allocations")
+        .select("qa_id, profiles!qa_allocations_qa_id_fkey(id, email)")
+        .eq("modeler_id", modelerId);
 
       if (qaError) {
-        console.error("Error fetching QA users:", qaError);
+        console.error("Error fetching QA allocations:", qaError);
         throw qaError;
       }
 
-      if (!qaUsers || qaUsers.length === 0) {
+      if (!qaAllocations || qaAllocations.length === 0) {
+        // No QAs allocated to this modeler, so no notifications to send
         return;
       }
 
-      // Create notifications for all QA users
+      // Extract QA user IDs and emails from allocations
+      const qaUsers = qaAllocations
+        .map((allocation) => {
+          const profile = allocation.profiles as any;
+          if (profile && profile.id && profile.email) {
+            return {
+              id: profile.id,
+              email: profile.email,
+            };
+          }
+          return null;
+        })
+        .filter((user): user is { id: string; email: string } => user !== null);
+
+      if (qaUsers.length === 0) {
+        return;
+      }
+
+      // Create notifications for connected QA users only
       const notificationPromises = qaUsers.map(async (qaUser) => {
         const notification: Omit<NotificationData, "created_at"> = {
           recipient_id: qaUser.id,
@@ -1896,6 +1918,51 @@ class NotificationService {
       },
       read: false,
     });
+  }
+  async sendQADeletionNotification(params: {
+    recipientId: string;
+    recipientEmail?: string;
+    assetId: string;
+    assetName?: string;
+    deletedBy: string;
+    deletedByName?: string;
+    itemType: "annotation" | "comment";
+    itemPreview?: string;
+  }): Promise<void> {
+    const {
+      recipientId,
+      recipientEmail = "",
+      assetId,
+      assetName,
+      deletedBy,
+      deletedByName,
+      itemType,
+      itemPreview,
+    } = params;
+
+    const itemTypeText = itemType === "annotation" ? "annotation" : "comment";
+    const itemTypeCapitalized =
+      itemType === "annotation" ? "Annotation" : "Comment";
+
+    const notification: Omit<NotificationData, "created_at"> = {
+      recipient_id: recipientId,
+      recipient_email: recipientEmail,
+      type: "qa_deletion",
+      title: `${itemTypeCapitalized} Deleted`,
+      message: `${deletedByName || "A QA member"} deleted your ${itemTypeText}${assetName ? ` on "${assetName}"` : ""}${itemPreview ? `: "${itemPreview.slice(0, 80)}${itemPreview.length > 80 ? "..." : ""}"` : "."}`,
+      metadata: {
+        assetId,
+        assetName: assetName || "",
+        deletedBy,
+        deletedByName: deletedByName || "",
+        itemType,
+        itemPreview: itemPreview || "",
+        timestamp: new Date().toISOString(),
+      },
+      read: false,
+    };
+
+    await this.createNotification(notification);
   }
 }
 
