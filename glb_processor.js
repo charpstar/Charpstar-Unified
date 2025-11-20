@@ -15,14 +15,14 @@ const supabase = createClient(
 );
 
 // Fetch GLB files from Supabase
-async function fetchGLBFiles(clientName, isDryRun = false, processAll = false) {
+async function fetchGLBFiles(clientName, isDryRun = false, processAll = false, blankOnly = false) {
   console.log(`🔍 Fetching GLB files for client: ${clientName}`);
   
   try {
     // First, check what exists for this client (for debugging)
     const { data: allData, error: allError } = await supabase
       .from("assets")
-      .select("article_id, glb_link, product_name, client")
+      .select("article_id, glb_link, product_name, client, preview_images")
       .eq("client", clientName);
 
     if (allError) {
@@ -36,14 +36,20 @@ async function fetchGLBFiles(clientName, isDryRun = false, processAll = false) {
 
     }
 
-    // Build query - always process all files with GLB links
+    // Build query based on processAll flag
     let query = supabase
       .from("assets")
-      .select("article_id, glb_link, product_name, client")
+      .select("article_id, glb_link, product_name, client, preview_images")
       .eq("client", clientName)
       .not("glb_link", "is", null);
 
-    console.log(`🔍 Processing ALL files with GLB links`);
+    if (!processAll) {
+      // Only process new uploads
+      query = query.eq("new_upload", true);
+      console.log(`🔍 Filtering for new_upload=true only`);
+    } else {
+      console.log(`🔍 Processing ALL files with GLB links`);
+    }
 
     const { data, error } = await query;
 
@@ -52,8 +58,20 @@ async function fetchGLBFiles(clientName, isDryRun = false, processAll = false) {
       throw new Error(`Failed to fetch GLB files: ${error.message}`);
     }
 
-    console.log(`✅ Found ${data.length} GLB files to process`);
-    return data;
+    // Filter for blank preview_images if blankOnly flag is set
+    let filteredData = data;
+    if (blankOnly) {
+      filteredData = data.filter(row => {
+        const previewImages = row.preview_images;
+        return !previewImages || previewImages.length === 0 || (Array.isArray(previewImages) && previewImages.every(img => !img || img.trim() === ''));
+      });
+      console.log(`🔍 Filtering for blank preview_images only`);
+      console.log(`   - Before filter: ${data.length} records`);
+      console.log(`   - After filter: ${filteredData.length} records`);
+    }
+
+    console.log(`✅ Found ${filteredData.length} GLB files to process`);
+    return filteredData;
   } catch (err) {
     console.error(`❌ Error fetching GLB files:`, err);
     throw err;
@@ -80,10 +98,31 @@ async function updateProcessedGLB(articleId, previewImages) {
 }
 
 // Process a single GLB file
-async function processGLBFile(row, outputDir, clientName, isDryRun = false) {
+async function processGLBFile(row, outputDir, isDryRun = false, overwrite = false) {
   const { article_id, glb_link, product_name } = row;
   
   try {
+    // Check if files already exist
+    const skuDir = path.join(outputDir, article_id);
+    if (fs.existsSync(skuDir)) {
+      const files = fs.readdirSync(skuDir);
+      const imageFiles = files.filter(f => f.endsWith('.jpg') || f.endsWith('.png'));
+      
+      if (imageFiles.length > 0 && !overwrite) {
+        console.log(`⏭️  Skipping ${article_id}: Files already exist (use --overwrite to reprocess)`);
+        return {
+          status: "skipped",
+          sku: article_id,
+          glb_url: glb_link,
+          saved_count: 0,
+          saved_images: [],
+          notes: `Skipped: Files already exist (${imageFiles.length} files found)`
+        };
+      } else if (imageFiles.length > 0 && overwrite) {
+        console.log(`🔄 Overwriting existing files for ${article_id}`);
+      }
+    }
+    
     if (isDryRun) {
       console.log(`🔍 DRY RUN: Processing GLB ${article_id}: ${glb_link}`);
     } else {
@@ -91,13 +130,12 @@ async function processGLBFile(row, outputDir, clientName, isDryRun = false) {
     }
     
     // Create output directory for this SKU
-    const skuDir = path.join(outputDir, article_id);
     if (!fs.existsSync(skuDir)) {
       fs.mkdirSync(skuDir, { recursive: true });
     }
 
-    // Process the GLB file (8 screenshots) - pass clientName for BunnyCDN upload
-    const result = await glbProcessor8Views.processGLB(glb_link, article_id, skuDir, clientName, isDryRun);
+    // Process the GLB file (8 screenshots)
+    const result = await glbProcessor8Views.processGLB(glb_link, article_id, skuDir, null, isDryRun);
     
     console.log(`✅ ${article_id}: ${result.screenshots.length} images captured`);
     
@@ -131,14 +169,19 @@ async function main() {
   const clientName = args[0];
   const isDryRun = args.includes('--dry-run') || args.includes('--dry');
   const newOnly = args.includes('--new-only') || args.includes('--new');
+  const blankOnly = args.includes('--blank-only') || args.includes('--blank');
+  const overwrite = args.includes('--overwrite') || args.includes('--force');
   // By default, process all files with GLB links
   const processAll = !newOnly;
   
   if (!clientName) {
     console.error("❌ Please provide client name as argument");
-    console.log("Usage: node glb_processor.js <client_name> [--dry-run] [--new-only]");
-    console.log("  --dry-run: Generate screenshots but don't upload or update database");
-    console.log("  --new-only: Process only files with new_upload=true (default: process all files with GLB links)");
+    console.log("Usage: node glb_processor.js <client_name> [options]");
+    console.log("Options:");
+    console.log("  --dry-run, --dry: Generate screenshots but don't upload or update database");
+    console.log("  --new-only, --new: Process only files with new_upload=true (default: process all files with GLB links)");
+    console.log("  --blank-only, --blank: Process only files where preview_images is blank/null/empty");
+    console.log("  --overwrite, --force: Overwrite existing files (default: skip if files already exist)");
     process.exit(1);
   }
 
@@ -152,7 +195,7 @@ async function main() {
     }
     
     // Fetch GLB files
-    const rows = await fetchGLBFiles(clientName, isDryRun, processAll);
+    const rows = await fetchGLBFiles(clientName, isDryRun, processAll, blankOnly);
     
     if (rows.length === 0) {
       console.log("ℹ️ No GLB files to process");
@@ -162,6 +205,11 @@ async function main() {
     console.log(`📦 Processing ${rows.length} GLB files (8 views each)...`);
     if (isDryRun) {
       console.log(`🔍 DRY RUN MODE: Screenshots will be generated but NOT uploaded or saved to database`);
+    }
+    if (overwrite) {
+      console.log(`🔄 OVERWRITE MODE: Existing files will be overwritten`);
+    } else {
+      console.log(`⏭️  SKIP MODE: Files that already exist will be skipped (use --overwrite to force reprocessing)`);
     }
     
     const results = [];
@@ -176,7 +224,7 @@ async function main() {
       }
       
       try {
-        const result = await processGLBFile(row, outputDir, clientName, isDryRun);
+        const result = await processGLBFile(row, outputDir, isDryRun, overwrite);
         results.push(result);
         
         if (!isDryRun) {
@@ -189,7 +237,9 @@ async function main() {
           console.log(`🔍 DRY RUN: Skipping database update for ${row.article_id}`);
         }
         
-        if (isDryRun) {
+        if (result.status === 'skipped') {
+          console.log(`⏭️  Skipped ${row.article_id}`);
+        } else if (isDryRun) {
           console.log(`✅ DRY RUN completed ${row.article_id} - screenshots saved to: ${path.join(outputDir, row.article_id)}`);
         } else {
           console.log(`✅ Completed ${row.article_id}`);
@@ -218,12 +268,14 @@ async function main() {
       console.log(`📁 Screenshots saved to: ${outputDir}`);
       console.log(`📊 Results saved to: ${resultsFile}`);
       console.log(`✅ Successful: ${results.filter(r => r.status === 'completed').length}`);
+      console.log(`⏭️  Skipped: ${results.filter(r => r.status === 'skipped').length}`);
       console.log(`❌ Failed: ${results.filter(r => r.status === 'failed' || r.status === 'error').length}`);
       console.log(`\n💡 Note: No files were uploaded to storage and no database updates were made`);
     } else {
       console.log(`\n🎉 Processing completed!`);
       console.log(`📊 Results saved to: ${resultsFile}`);
       console.log(`✅ Successful: ${results.filter(r => r.status === 'completed').length}`);
+      console.log(`⏭️  Skipped: ${results.filter(r => r.status === 'skipped').length}`);
       console.log(`❌ Failed: ${results.filter(r => r.status === 'failed' || r.status === 'error').length}`);
     }
 

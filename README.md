@@ -7,7 +7,7 @@ This implementation captures **8 screenshots** of 3D GLB models from different c
 - ✅ Captures 8 different views of each 3D model
 - ✅ Uses Puppeteer for headless browser automation
 - ✅ Uses Google's model-viewer component for 3D rendering
-- ✅ Uploads images to BunnyCDN Storage
+- ✅ Uploads images to Supabase Storage
 - ✅ Updates `preview_images` column in Supabase database
 
 ## Camera Views
@@ -71,22 +71,9 @@ npm install
 Create a `.env` file:
 
 ```env
-# Supabase Configuration (for database queries)
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
-
-# BunnyCDN Configuration (for image uploads)
-BUNNY_STORAGE_ZONE=maincdn
-BUNNY_API_KEY=your-bunny-api-key
-BUNNY_CDN_HOSTNAME=maincdn.bunnycdn.com
 ```
-
-**BunnyCDN Setup:**
-
-1. Get your API key from BunnyCDN dashboard (Account → API Keys)
-2. Set `BUNNY_STORAGE_ZONE` to your storage zone name (e.g., "maincdn")
-3. Set `BUNNY_CDN_HOSTNAME` to your CDN hostname (default: `{storageZone}.bunnycdn.com`)
-4. Images will be uploaded to: `Platform/glb-images/{clientName}/{article_id}/`
 
 ## Usage
 
@@ -120,18 +107,31 @@ npm run dry-run -- <client_name>
 node glb_processor.js <client_name> --new-only
 ```
 
+### Process only files with blank preview_images:
+
+```bash
+node glb_processor.js <client_name> --blank-only
+```
+
+### Overwrite existing files:
+
+```bash
+node glb_processor.js <client_name> --overwrite
+```
+
 ### Command Line Options
 
 - `--dry-run` or `--dry`: Generate screenshots locally but skip uploads and database updates
 - `--new-only` or `--new`: Process only files with `new_upload=true` (default: process all files with GLB links)
+- `--blank-only` or `--blank`: Process only files where `preview_images` is blank/null/empty
+- `--overwrite` or `--force`: Overwrite existing files (default: skip if files already exist)
 
-**Note:** By default, the processor will process **all files with GLB links** for the specified client, regardless of the `new_upload` status.
+**Note:** By default, the processor will process **all files with GLB links** for the specified client, regardless of the `new_upload` status. Files that already exist locally will be skipped unless `--overwrite` is used.
 
 ## Output
 
 - **Local files**: Screenshots saved to `output/<article_id>/view_<N>_<view_name>.jpg`
-- **BunnyCDN Storage**: Images uploaded to `Platform/glb-images/<client_name>/<article_id>/` (skipped in dry-run mode)
-  - Public URL format: `https://{cdnHostname}/Platform/glb-images/{clientName}/{article_id}/{article_id}_view_{N}_{viewName}.jpg`
+- **Supabase Storage**: Images uploaded to `glb-images/<client_name>/<article_id>/` (skipped in dry-run mode)
 - **Database**: `preview_images` column updated with array of image URLs (skipped in dry-run mode)
 - **Results**: Processing results saved to `output/results.jsonl`
 
@@ -142,7 +142,7 @@ When using `--dry-run`, the processor will:
 - ✅ Generate all 8 screenshots for each GLB file
 - ✅ Save screenshots locally to `output/<article_id>/` directory
 - ✅ Display file paths in console
-- ❌ Skip uploading to BunnyCDN Storage
+- ❌ Skip uploading to Supabase Storage
 - ❌ Skip updating the database
 - ❌ Skip cleaning up local files (so you can view the screenshots)
 
