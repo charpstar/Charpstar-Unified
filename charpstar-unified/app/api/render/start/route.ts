@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
     // 1. The worker uses hardcoded "Client-Editor/{client}/Renders/" path structure
     // 2. Custom storage zones don't have Client-Editor folders
     // 3. Renders need consistent access keys (maincdn key)
-    let bunnyConfig = null;
+    const bunnyConfig = null;
     
     if (DEBUG) {
       console.log('[RENDER API] Renders always use maincdn (Client-Editor structure), not custom storage zones');
