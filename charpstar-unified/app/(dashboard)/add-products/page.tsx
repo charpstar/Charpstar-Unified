@@ -220,53 +220,130 @@ const checkArticleIdExists = async (
   articleId: string,
   clientName: string
 ): Promise<boolean> => {
-  if (!articleId?.trim() || !clientName) return false;
+  if (!articleId?.trim() || !clientName) {
+    console.log("[Duplicate Check] Skipping: empty articleId or clientName", {
+      articleId,
+      clientName,
+    });
+    return false;
+  }
 
   const trimmedId = articleId.trim();
+  const trimmedClientName = clientName.trim();
 
   try {
-    // First check if article_id exists as primary
-    const { data, error } = await supabase
-      .from("onboarding_assets")
-      .select("id, article_id, article_ids")
-      .eq("client", clientName)
-      .eq("article_id", trimmedId)
-      .limit(1);
+    console.log("[Duplicate Check] Checking for:", {
+      articleId: trimmedId,
+      client: trimmedClientName,
+    });
 
-    if (error) {
-      console.error("Error checking article ID:", error);
-      return false;
-    }
+    // Helper function to check a single table
+    const checkTable = async (tableName: "onboarding_assets" | "assets") => {
+      // First check if article_id exists as primary
+      const { data: primaryData, error: primaryError } = await supabase
+        .from(tableName)
+        .select("id, article_id, article_ids, client")
+        .eq("client", trimmedClientName)
+        .eq("article_id", trimmedId)
+        .limit(1);
 
-    if (data && data.length > 0) {
-      return true;
-    }
+      if (primaryError) {
+        console.error(
+          `[Duplicate Check] Error checking ${tableName} (primary):`,
+          primaryError
+        );
+        return false;
+      }
 
-    // If not found as primary, check if it exists in any article_ids array
-    const { data: allData, error: allError } = await supabase
-      .from("onboarding_assets")
-      .select("id, article_id, article_ids")
-      .eq("client", clientName);
+      if (primaryData && primaryData.length > 0) {
+        console.log(
+          `[Duplicate Check] ✅ DUPLICATE FOUND in ${tableName} as primary:`,
+          {
+            articleId: trimmedId,
+            client: trimmedClientName,
+            matchedClient: primaryData[0].client,
+            table: tableName,
+          }
+        );
+        return true;
+      }
 
-    if (allError) {
-      console.error("Error checking article IDs array:", allError);
-      return false;
-    }
+      // If not found as primary, check if it exists in any article_ids array
+      const { data: allData, error: allError } = await supabase
+        .from(tableName)
+        .select("id, article_id, article_ids, client")
+        .eq("client", trimmedClientName);
 
-    // Check if trimmedId is in any article_ids array
-    if (allData && allData.length > 0) {
-      for (const asset of allData) {
-        if (asset.article_ids && Array.isArray(asset.article_ids)) {
-          if (asset.article_ids.includes(trimmedId)) {
+      if (allError) {
+        console.error(
+          `[Duplicate Check] Error checking ${tableName} (array):`,
+          allError
+        );
+        return false;
+      }
+
+      // Check if trimmedId is in any article_ids array
+      if (allData && allData.length > 0) {
+        for (const asset of allData) {
+          let articleIds: string[] = [];
+
+          // Handle article_ids - could be string (JSON) or array
+          if (asset.article_ids) {
+            if (Array.isArray(asset.article_ids)) {
+              articleIds = asset.article_ids;
+            } else if (typeof asset.article_ids === "string") {
+              try {
+                const parsed = JSON.parse(asset.article_ids);
+                articleIds = Array.isArray(parsed)
+                  ? parsed
+                  : [asset.article_ids];
+              } catch {
+                articleIds = [asset.article_ids];
+              }
+            }
+          }
+
+          // Check if any ID in the array matches
+          const foundInArray = articleIds.some(
+            (id) => id && id.toString().trim() === trimmedId
+          );
+          if (foundInArray) {
+            console.log(
+              `[Duplicate Check] ✅ DUPLICATE FOUND in ${tableName} article_ids array:`,
+              {
+                articleId: trimmedId,
+                client: trimmedClientName,
+                matchedClient: asset.client,
+                primaryArticleId: asset.article_id,
+                table: tableName,
+              }
+            );
             return true;
           }
         }
       }
+
+      return false;
+    };
+
+    // Check both onboarding_assets and assets tables
+    const foundInOnboarding = await checkTable("onboarding_assets");
+    if (foundInOnboarding) {
+      return true;
     }
 
+    const foundInAssets = await checkTable("assets");
+    if (foundInAssets) {
+      return true;
+    }
+
+    console.log("[Duplicate Check] ✅ No duplicate found in either table:", {
+      articleId: trimmedId,
+      client: trimmedClientName,
+    });
     return false;
   } catch (error) {
-    console.error("Error checking article ID:", error);
+    console.error("[Duplicate Check] Exception checking article ID:", error);
     return false;
   }
 };
@@ -407,9 +484,11 @@ export default function AddProductsPage() {
     {
       row: number;
       message: string;
-      type: "duplicate_article_id" | "missing_fields";
+      type: "duplicate_article_id" | "missing_fields" | "existing_article_id";
     }[]
   >([]);
+  //eslint-disable-next-line
+  const [csvCheckingDuplicates, setCsvCheckingDuplicates] = useState(false);
   const [editingRow, setEditingRow] = useState<number | null>(null);
   const [editedCsvData, setEditedCsvData] = useState<string[][] | null>(null);
   //eslint-disable-next-line
@@ -1020,7 +1099,10 @@ export default function AddProductsPage() {
 
   // Debounced function to check article ID duplicates
   const checkArticleIdDuplicate = async (articleId: string, key: string) => {
-    if (!articleId?.trim() || !primaryClientName) {
+    const trimmedArticleId = articleId?.trim();
+    const trimmedClientName = primaryClientName?.trim();
+
+    if (!trimmedArticleId || !trimmedClientName) {
       setDuplicateWarnings((prev) => ({
         ...prev,
         [key]: { exists: false, checking: false },
@@ -1042,8 +1124,8 @@ export default function AddProductsPage() {
     // Debounce the check by 500ms
     duplicateCheckTimeoutRef.current[key] = setTimeout(async () => {
       const exists = await checkArticleIdExists(
-        articleId.trim(),
-        primaryClientName
+        trimmedArticleId,
+        trimmedClientName
       );
       setDuplicateWarnings((prev) => ({
         ...prev,
@@ -1858,6 +1940,11 @@ export default function AddProductsPage() {
       setCsvErrors(errors);
       setCsvWarnings(warnings);
       setCsvLoading(false);
+
+      // Validate against database after initial parsing
+      validateCsvData(rows).catch((error) => {
+        console.error("Error validating CSV against database:", error);
+      });
     };
     reader.readAsText(file);
   };
@@ -1890,7 +1977,11 @@ export default function AddProductsPage() {
     setEditingRow(rowIndex);
   };
 
-  const saveEdit = (rowIndex: number, columnIndex: number, value: string) => {
+  const saveEdit = async (
+    rowIndex: number,
+    columnIndex: number,
+    value: string
+  ) => {
     if (!editedCsvData) return;
 
     const newData = [...editedCsvData];
@@ -1901,7 +1992,7 @@ export default function AddProductsPage() {
     setCsvPreview(newData);
 
     // Re-validate after edit
-    validateCsvData(newData);
+    await validateCsvData(newData);
   };
 
   const cancelEdit = () => {
@@ -1912,12 +2003,12 @@ export default function AddProductsPage() {
     }
   };
 
-  const validateCsvData = (data: string[][]) => {
+  const validateCsvData = async (data: string[][]) => {
     const errors: { row: number; message: string }[] = [];
     const warnings: {
       row: number;
       message: string;
-      type: "duplicate_article_id" | "missing_fields";
+      type: "duplicate_article_id" | "missing_fields" | "existing_article_id";
     }[] = [];
 
     // Check for missing required fields
@@ -1932,7 +2023,7 @@ export default function AddProductsPage() {
       }
     }
 
-    // Check for duplicate article IDs
+    // Check for duplicate article IDs within CSV
     const articleIds = new Map<string, number[]>();
     for (let i = 1; i < data.length; i++) {
       const row = data[i];
@@ -1945,7 +2036,7 @@ export default function AddProductsPage() {
       }
     }
 
-    // Add warnings for duplicate article IDs
+    // Add warnings for duplicate article IDs within CSV
     for (const [articleId, rowNumbers] of articleIds.entries()) {
       if (rowNumbers.length > 1) {
         for (const rowNum of rowNumbers) {
@@ -1958,6 +2049,51 @@ export default function AddProductsPage() {
       }
     }
 
+    // Check database for existing article IDs
+    if (!primaryClientName) {
+      setCsvErrors(errors);
+      setCsvWarnings(warnings);
+      return;
+    }
+
+    setCsvCheckingDuplicates(true);
+    const clientName = primaryClientName.trim();
+    const uniqueArticleIds = Array.from(articleIds.keys());
+
+    // Check each unique article ID against database
+    for (const articleId of uniqueArticleIds) {
+      if (articleId.trim()) {
+        const exists = await checkArticleIdExists(articleId, clientName);
+        if (exists) {
+          // Add warning for all rows with this article ID
+          const rowNumbers = articleIds.get(articleId) || [];
+          for (const rowNum of rowNumbers) {
+            // Only add if not already a CSV-internal duplicate warning
+            const alreadyHasWarning = warnings.some(
+              (w) => w.row === rowNum && w.type === "duplicate_article_id"
+            );
+            if (!alreadyHasWarning) {
+              warnings.push({
+                row: rowNum,
+                message: `Existing Article ID: "${articleId}" already exists in database`,
+                type: "existing_article_id",
+              });
+            } else {
+              // Update existing warning to mention database too
+              const warningIndex = warnings.findIndex(
+                (w) => w.row === rowNum && w.type === "duplicate_article_id"
+              );
+              if (warningIndex >= 0) {
+                warnings[warningIndex].message =
+                  `Duplicate Article ID: "${articleId}" appears in ${rowNumbers.length} rows and already exists in database`;
+              }
+            }
+          }
+        }
+      }
+    }
+
+    setCsvCheckingDuplicates(false);
     setCsvErrors(errors);
     setCsvWarnings(warnings);
   };
@@ -3397,10 +3533,10 @@ export default function AddProductsPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => {
+                  onClick={async () => {
                     setEditedCsvData([...csvPreview!]);
                     setEditingRow(null);
-                    validateCsvData(csvPreview!);
+                    await validateCsvData(csvPreview!);
                   }}
                   className="cursor-pointer"
                   title="Reset all changes to original values"
