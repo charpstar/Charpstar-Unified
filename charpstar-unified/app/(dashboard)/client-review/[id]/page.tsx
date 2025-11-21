@@ -688,6 +688,103 @@ export default function ReviewPage() {
     }
   };
 
+  const handleRemoveClientFile = async (fileUrl: string) => {
+    if (!assetId) return;
+    try {
+      const updatedFiles = referenceFiles.filter((url) => url !== fileUrl);
+      const updatedReferences = [...referenceImages, ...updatedFiles];
+      const { error } = await supabase
+        .from("onboarding_assets")
+        .update({
+          reference: updatedReferences.length > 0 ? updatedReferences : null,
+        })
+        .eq("id", assetId);
+
+      if (error) {
+        console.error("Error updating reference files:", error);
+        toast.error("Failed to delete reference file");
+        return;
+      }
+
+      setReferenceFiles(updatedFiles);
+      toast.success("Reference file deleted successfully");
+    } catch (error) {
+      console.error("Error deleting reference file:", error);
+      toast.error("Failed to delete reference file");
+    }
+  };
+
+  const handleRemoveInternalImage = async (index: number) => {
+    if (!assetId) return;
+    try {
+      const updatedImages = internalReferenceImages.filter(
+        (_, i) => i !== index
+      );
+      const updatedReferences = [...updatedImages, ...internalReferenceFiles];
+      const { error } = await supabase
+        .from("onboarding_assets")
+        .update({
+          internal_reference:
+            updatedReferences.length > 0 ? updatedReferences : null,
+        })
+        .eq("id", assetId);
+
+      if (error) {
+        console.error("Error updating internal reference images:", error);
+        toast.error("Failed to delete internal reference image");
+        return;
+      }
+
+      setInternalReferenceImages(updatedImages);
+
+      if (updatedImages.length === 0) {
+        setSelectedInternalReferenceIndex(null);
+      } else if (selectedInternalReferenceIndex !== null) {
+        if (selectedInternalReferenceIndex === index) {
+          setSelectedInternalReferenceIndex(
+            Math.min(index, updatedImages.length - 1)
+          );
+        } else if (selectedInternalReferenceIndex > index) {
+          setSelectedInternalReferenceIndex(selectedInternalReferenceIndex - 1);
+        }
+      }
+
+      toast.success("Internal reference image deleted successfully");
+    } catch (error) {
+      console.error("Error deleting internal reference image:", error);
+      toast.error("Failed to delete internal reference image");
+    }
+  };
+
+  const handleRemoveInternalFile = async (fileUrl: string) => {
+    if (!assetId) return;
+    try {
+      const updatedFiles = internalReferenceFiles.filter(
+        (url) => url !== fileUrl
+      );
+      const updatedReferences = [...internalReferenceImages, ...updatedFiles];
+      const { error } = await supabase
+        .from("onboarding_assets")
+        .update({
+          internal_reference:
+            updatedReferences.length > 0 ? updatedReferences : null,
+        })
+        .eq("id", assetId);
+
+      if (error) {
+        console.error("Error updating internal reference files:", error);
+        toast.error("Failed to delete internal reference file");
+        return;
+      }
+
+      setInternalReferenceFiles(updatedFiles);
+      toast.success("Internal reference file deleted successfully");
+    } catch (error) {
+      console.error("Error deleting internal reference file:", error);
+      toast.error("Failed to delete internal reference file");
+    }
+  };
+
   const renderReferenceSection = ({
     title,
     description,
@@ -696,6 +793,7 @@ export default function ReviewPage() {
     selectedIndex,
     onSelectImage,
     onRemoveImage,
+    onRemoveFile,
     highlight,
   }: {
     title: string;
@@ -705,6 +803,7 @@ export default function ReviewPage() {
     selectedIndex: number | null;
     onSelectImage: (index: number) => void;
     onRemoveImage?: (index: number) => void;
+    onRemoveFile?: (fileUrl: string) => void;
     highlight?: boolean;
   }) => {
     if (images.length === 0 && files.length === 0) {
@@ -869,7 +968,7 @@ export default function ReviewPage() {
                         }}
                       />
                     </div>
-                    <div className="absolute -top-1 -right-1 w-5 h-5 sm:w-6 sm:h-6 bg-primary text-white text-xs font-medium rounded-full flex items-center justify-center shadow-sm border-2 border-background">
+                    <div className="absolute -top-1 -right-1 w-5 h-5 sm:w-6 sm:h-6 bg-primary text-black text-xs font-medium rounded-full flex items-center justify-center shadow-sm border-2 border-background">
                       {index + 1}
                     </div>
                     {onRemoveImage && (
@@ -880,9 +979,10 @@ export default function ReviewPage() {
                           e.stopPropagation();
                           onRemoveImage(index);
                         }}
-                        className="absolute -top-1 -left-1 h-4 w-4 sm:h-5 sm:w-5 p-0 text-black/60 hover:text-black/80 hover:bg-black/5 rounded-full"
+                        className="absolute -top-1 -left-1 h-5 w-5 sm:h-6 sm:w-6 p-0 bg-destructive/90 text-white hover:bg-destructive rounded-full shadow-md border border-white/50 z-10"
+                        title="Delete image"
                       >
-                        <X className="h-3 w-3" />
+                        <X className="h-3 w-3 sm:h-4 sm:w-4" />
                       </Button>
                     )}
                   </div>
@@ -944,6 +1044,19 @@ export default function ReviewPage() {
                     >
                       <Copy className="h-4 w-4" />
                     </Button>
+                    {onRemoveFile && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 cursor-pointer text-destructive hover:text-destructive hover:bg-destructive/10"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onRemoveFile(fileUrl);
+                        }}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
                 </div>
               ))}
@@ -1048,10 +1161,21 @@ export default function ReviewPage() {
   const annotationsForActiveRevision = useMemo(
     () =>
       annotations.filter((annotation) => {
-        if (activeRevision === latestRevision && annotation.is_old_annotation) {
-          return false;
+        const annotationRevision = getAnnotationRevision(annotation);
+
+        // When viewing the current revision: exclude old annotations
+        // When viewing a historical revision: show ALL annotations from that revision (old or not)
+        if (activeRevision === latestRevision) {
+          // Current revision: exclude old annotations
+          if (annotation.is_old_annotation) {
+            return false;
+          }
         }
-        return getAnnotationRevision(annotation) === activeRevision;
+        // Historical revision: include all annotations that match the revision (old or not)
+        // Old annotations are only excluded from current revision view
+
+        // Include if revision matches
+        return annotationRevision === activeRevision;
       }),
     [annotations, activeRevision, latestRevision]
   );
@@ -1200,8 +1324,21 @@ export default function ReviewPage() {
   };
 
   // Convert annotations to hotspots format
+  // Exclude old annotations from the 3D viewer when viewing current revision
+  // But include old annotations when viewing historical revisions so QA can check them
   const hotspots: Hotspot[] = filteredAnnotations
-    .filter((annotation: any) => !annotation.parent_id)
+    .filter((annotation: any) => {
+      // Always exclude parent annotations (replies)
+      if (annotation.parent_id) return false;
+
+      // When viewing current revision, exclude old annotations
+      // When viewing historical revision, include old annotations from that revision
+      if (activeRevision === latestRevision && annotation.is_old_annotation) {
+        return false;
+      }
+
+      return true;
+    })
     .map((annotation) => ({
       id: annotation.id,
       position: {
@@ -2384,9 +2521,14 @@ export default function ReviewPage() {
           status: newStatus,
         };
 
-        // Add revision count if provided
+        // Don't increment revision_count when sending for revision
+        // It will be incremented when modeler delivers
+        // Just preserve the current revision_count
         if (newStatus === "revisions" || newStatus === "client_revision") {
-          updateData.revision_count = revisionNumber;
+          // Use the current revision count, not the passed revisionNumber
+          if (revisionCount !== null && revisionCount !== undefined) {
+            updateData.revision_count = revisionCount;
+          }
         }
 
         const { error: updateError } = await supabase
@@ -2742,9 +2884,15 @@ export default function ReviewPage() {
           updated_at: new Date().toISOString(), // Set updated_at timestamp
         };
 
-        // Add revision count if provided
+        // Don't increment revision_count when sending for revision
+        // It will be incremented when modeler delivers
+        // Also, don't mark annotations as old here - they should only be marked as old when modeler delivers or uploads new GLB
         if (newStatus === "revisions" || newStatus === "client_revision") {
-          updateData.revision_count = revisionCount;
+          // Don't increment revision_count here - it will be incremented when modeler delivers
+          // Just preserve the current revision_count
+          if (revisionCount !== null && revisionCount !== undefined) {
+            updateData.revision_count = revisionCount;
+          }
         }
 
         const { error: updateError } = await supabase
@@ -2784,9 +2932,15 @@ export default function ReviewPage() {
           status: newStatus,
         };
 
-        // Add revision count if provided
+        // Don't increment revision_count when sending for revision
+        // It will be incremented when modeler delivers
+        // Also, don't mark annotations as old here - they should only be marked as old when modeler delivers or uploads new GLB
         if (newStatus === "revisions" || newStatus === "client_revision") {
-          updateData.revision_count = revisionCount;
+          // Don't increment revision_count here - it will be incremented when modeler delivers
+          // Just preserve the current revision_count
+          if (revisionCount !== null && revisionCount !== undefined) {
+            updateData.revision_count = revisionCount;
+          }
         }
 
         const { error: updateError } = await supabase
@@ -3175,15 +3329,26 @@ export default function ReviewPage() {
       }
 
       // Update local state
-      setAsset((prev) => (prev ? { ...prev, status: newStatus } : null));
       if (newStatus === "revisions" || newStatus === "client_revision") {
-        setRevisionCount((prev) => prev + 1);
+        // Don't increment revision_count here - it will be incremented when modeler delivers
+        // Just preserve the current revision_count
+        setRevisionCount(revisionCount);
+        setAsset((prev) =>
+          prev
+            ? { ...prev, status: newStatus, revision_count: revisionCount }
+            : null
+        );
 
         // Refresh annotations when status changes to revisions (annotations marked as old)
+        // This ensures the UI reflects the updated is_old_annotation status
         try {
           const response = await fetch(`/api/annotations?asset_id=${assetId}`);
           const data = await response.json();
           if (response.ok) {
+            console.log(
+              "🔄 Refreshed annotations after revision:",
+              data.annotations?.length || 0
+            );
             setAnnotations(data.annotations || []);
           }
         } catch (error) {
@@ -3455,23 +3620,25 @@ export default function ReviewPage() {
         }
       }
 
-      // Update the asset's revision_count in the database immediately
+      // Don't update revision_count here - it will be incremented when modeler delivers
+      // Just preserve the current revision_count
       const { error: assetUpdateError } = await supabase
         .from("onboarding_assets")
-        .update({ revision_count: nextRevisionNumber })
+        .update({ revision_count: revisionCount ?? 0 })
         .eq("id", assetId);
 
       if (assetUpdateError) {
         console.error("Error updating asset revision count:", assetUpdateError);
       }
 
-      // Update local state immediately
-      setRevisionCount(nextRevisionNumber);
+      // Don't increment revision_count in local state - it will be incremented when modeler delivers
+      // Just preserve the current revision_count
+      setRevisionCount(revisionCount ?? 0);
       setAsset((prev) =>
         prev
           ? {
               ...prev,
-              revision_count: nextRevisionNumber,
+              revision_count: revisionCount ?? 0,
               status:
                 user?.metadata?.role === "client"
                   ? "client_revision"
@@ -3574,23 +3741,25 @@ export default function ReviewPage() {
         }
       }
 
-      // Update the asset's revision_count in the database immediately
+      // Don't update revision_count here - it will be incremented when modeler delivers
+      // Just preserve the current revision_count
       const { error: assetUpdateError } = await supabase
         .from("onboarding_assets")
-        .update({ revision_count: nextRevisionNumber })
+        .update({ revision_count: revisionCount ?? 0 })
         .eq("id", assetId);
 
       if (assetUpdateError) {
         console.error("Error updating asset revision count:", assetUpdateError);
       }
 
-      // Update local state immediately
-      setRevisionCount(nextRevisionNumber);
+      // Don't increment revision_count in local state - it will be incremented when modeler delivers
+      // Just preserve the current revision_count
+      setRevisionCount(revisionCount ?? 0);
       setAsset((prev) =>
         prev
           ? {
               ...prev,
-              revision_count: nextRevisionNumber,
+              revision_count: revisionCount ?? 0,
               status:
                 user?.metadata?.role === "client"
                   ? "client_revision"
@@ -3665,23 +3834,25 @@ export default function ReviewPage() {
         }
       }
 
-      // Update the asset's revision_count in the database immediately
+      // Don't update revision_count here - it will be incremented when modeler delivers
+      // Just preserve the current revision_count
       const { error: assetUpdateError } = await supabase
         .from("onboarding_assets")
-        .update({ revision_count: nextRevisionNumber })
+        .update({ revision_count: revisionCount ?? 0 })
         .eq("id", assetId);
 
       if (assetUpdateError) {
         console.error("Error updating asset revision count:", assetUpdateError);
       }
 
-      // Update local state immediately
-      setRevisionCount(nextRevisionNumber);
+      // Don't increment revision_count in local state - it will be incremented when modeler delivers
+      // Just preserve the current revision_count
+      setRevisionCount(revisionCount ?? 0);
       setAsset((prev) =>
         prev
           ? {
               ...prev,
-              revision_count: nextRevisionNumber,
+              revision_count: revisionCount ?? 0,
               status:
                 user?.metadata?.role === "client"
                   ? "client_revision"
@@ -4871,14 +5042,12 @@ export default function ReviewPage() {
                           </PopoverContent>
                         </Popover>
                       )}
-                      {latestRevision > 0 && (
-                        <Badge
-                          variant="outline"
-                          className={`text-xs font-semibold ${getRevisionBadgeColors(latestRevision)}`}
-                        >
-                          R{latestRevision}
-                        </Badge>
-                      )}
+                      <Badge
+                        variant="outline"
+                        className={`text-xs font-semibold bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800 ${getRevisionBadgeColors(latestRevision)}`}
+                      >
+                        Revision: {latestRevision}
+                      </Badge>
                     </div>
                     {asset?.delivery_date && (
                       <span className="text-xs text-muted-foreground">
@@ -5623,7 +5792,14 @@ export default function ReviewPage() {
                   files: referenceFiles,
                   selectedIndex: selectedReferenceIndex,
                   onSelectImage: setSelectedReferenceIndex,
-                  onRemoveImage: handleRemoveClientImage,
+                  onRemoveImage:
+                    normalizedUserRole === "qa"
+                      ? handleRemoveClientImage
+                      : undefined,
+                  onRemoveFile:
+                    normalizedUserRole === "qa"
+                      ? handleRemoveClientFile
+                      : undefined,
                 })}
                 {!isClient &&
                   renderReferenceSection({
@@ -5636,6 +5812,14 @@ export default function ReviewPage() {
                     files: internalReferenceFiles,
                     selectedIndex: selectedInternalReferenceIndex,
                     onSelectImage: setSelectedInternalReferenceIndex,
+                    onRemoveImage:
+                      normalizedUserRole === "qa"
+                        ? handleRemoveInternalImage
+                        : undefined,
+                    onRemoveFile:
+                      normalizedUserRole === "qa"
+                        ? handleRemoveInternalFile
+                        : undefined,
                     highlight: true,
                   })}
                 {clientReferenceCount === 0 &&

@@ -950,19 +950,43 @@ export default function ModelerReviewPage() {
     return asset?.revision_count ?? 0;
   };
 
-  const annotationsForActiveRevision = useMemo(
-    () =>
-      annotations.filter((annotation: Annotation) => {
-        if (
-          activeRevision === (asset?.revision_count ?? 0) &&
-          annotation.is_old_annotation
-        ) {
-          return false;
-        }
-        return getAnnotationRevisionNumber(annotation) === activeRevision;
-      }),
-    [annotations, activeRevision, asset?.revision_count]
-  );
+  const annotationsForActiveRevision = useMemo(() => {
+    const currentRevision = asset?.revision_count ?? 0;
+    const filtered = annotations.filter((annotation: Annotation) => {
+      const annotationRevision = getAnnotationRevisionNumber(annotation);
+
+      // Always exclude old annotations when viewing the current revision
+      // Old annotations should only be visible when viewing their specific revision (not current)
+      if (annotation.is_old_annotation && activeRevision === currentRevision) {
+        return false;
+      }
+
+      // Exclude old annotations when viewing a revision higher than their revision
+      if (annotation.is_old_annotation && activeRevision > annotationRevision) {
+        return false;
+      }
+
+      // Include if revision matches
+      return annotationRevision === activeRevision;
+    });
+
+    // Debug logging
+    if (annotations.length > 0 && filtered.length !== annotations.length) {
+      console.log("🔍 Annotation filtering:", {
+        totalAnnotations: annotations.length,
+        filteredCount: filtered.length,
+        activeRevision,
+        currentRevision,
+        oldAnnotationsCount: annotations.filter((a) => a.is_old_annotation)
+          .length,
+        excludedCount: annotations.filter(
+          (a) => activeRevision === currentRevision && a.is_old_annotation
+        ).length,
+      });
+    }
+
+    return filtered;
+  }, [annotations, activeRevision, asset?.revision_count]);
   const commentsForActiveRevision = useMemo(
     () =>
       comments.filter(
@@ -1082,9 +1106,22 @@ export default function ModelerReviewPage() {
     activeRevision === (asset?.revision_count ?? 0);
   const feedbackLocked = !viewingCurrentRevision;
 
-  // Convert annotations to hotspots format (exclude old annotations from model viewer)
+  // Convert annotations to hotspots format
+  // Exclude old annotations from the 3D viewer when viewing current revision
+  // But include old annotations when viewing historical revisions so they can be checked
   const hotspots: Hotspot[] = filteredAnnotations
-    .filter((annotation: any) => !annotation.parent_id)
+    .filter((annotation: any) => {
+      // Always exclude parent annotations (replies)
+      if (annotation.parent_id) return false;
+
+      // When viewing current revision, exclude old annotations
+      // When viewing historical revision, include old annotations from that revision
+      if (viewingCurrentRevision && annotation.is_old_annotation) {
+        return false;
+      }
+
+      return true;
+    })
     .map((annotation) => ({
       id: annotation.id,
       position: {
@@ -1183,7 +1220,34 @@ export default function ModelerReviewPage() {
           }
         }
 
-        setAsset(data);
+        // Ensure revision_count is properly set from revision_history if it's missing or 0
+        let finalRevisionCount = data.revision_count ?? 0;
+
+        if (finalRevisionCount === 0 || data.revision_count === null) {
+          const { data: revisionHistory } = await supabase
+            .from("revision_history")
+            .select("revision_number")
+            .eq("asset_id", assetId)
+            .order("revision_number", { ascending: false })
+            .limit(1);
+
+          if (revisionHistory && revisionHistory.length > 0) {
+            finalRevisionCount = revisionHistory[0].revision_number;
+
+            // Update the asset's revision_count in the database if it was missing
+            if (data.revision_count === null || data.revision_count === 0) {
+              await supabase
+                .from("onboarding_assets")
+                .update({ revision_count: finalRevisionCount })
+                .eq("id", assetId);
+            }
+          }
+        }
+
+        setAsset({
+          ...data,
+          revision_count: finalRevisionCount,
+        });
 
         // Fetch client's viewer type
         try {
@@ -1248,6 +1312,77 @@ export default function ModelerReviewPage() {
     }
 
     fetchAsset();
+  }, [assetId]);
+
+  // Listen for asset status updates (when QA sends for revision from client-review)
+  useEffect(() => {
+    const handleAssetStatusUpdate = async (event: Event) => {
+      const customEvent = event as CustomEvent;
+      const { assetId: updatedAssetId } = customEvent.detail || {};
+
+      // Only refresh if this event is for the current asset
+      if (updatedAssetId === assetId) {
+        console.log("🔄 Asset status updated, refreshing asset data...");
+
+        try {
+          // Refresh asset data to get updated revision_count
+          const { data, error } = await supabase
+            .from("onboarding_assets")
+            .select("*")
+            .eq("id", assetId)
+            .single();
+
+          if (!error && data) {
+            // Ensure revision_count is properly set
+            let finalRevisionCount = data.revision_count ?? 0;
+
+            if (finalRevisionCount === 0 || data.revision_count === null) {
+              const { data: revisionHistory } = await supabase
+                .from("revision_history")
+                .select("revision_number")
+                .eq("asset_id", assetId)
+                .order("revision_number", { ascending: false })
+                .limit(1);
+
+              if (revisionHistory && revisionHistory.length > 0) {
+                finalRevisionCount = revisionHistory[0].revision_number;
+              }
+            }
+
+            setAsset({
+              ...data,
+              revision_count: finalRevisionCount,
+            });
+
+            // Refresh annotations to get any new ones
+            try {
+              const response = await fetch(
+                `/api/annotations?asset_id=${assetId}`
+              );
+              const data = await response.json();
+              if (response.ok) {
+                setAnnotations(data.annotations || []);
+              }
+            } catch (error) {
+              console.error("Error refreshing annotations:", error);
+            }
+
+            console.log("✅ Asset data refreshed:", {
+              assetId: data.id,
+              revision_count: finalRevisionCount,
+            });
+          }
+        } catch (error) {
+          console.error("Error refreshing asset after status update:", error);
+        }
+      }
+    };
+
+    window.addEventListener("assetStatusUpdated", handleAssetStatusUpdate);
+
+    return () => {
+      window.removeEventListener("assetStatusUpdated", handleAssetStatusUpdate);
+    };
   }, [assetId]);
 
   // Fetch annotations
@@ -2103,24 +2238,45 @@ export default function ModelerReviewPage() {
       }
 
       // Mark all existing annotations as "old" when uploading new GLB
+      // Set revision_number to the CURRENT revision so they belong to this revision
+      // They will be excluded when viewing future revisions, but visible when viewing this revision
+      const currentRevision = asset.revision_count ?? 0;
+      console.log("🔖 Marking annotations as old.", {
+        currentRevision,
+        assetId: asset.id,
+      });
+
+      // Update all annotations that aren't already marked as old
+      // Set revision_number to current revision so they're tagged to this revision
       const { error: markOldError } = await supabase
         .from("asset_annotations")
-        .update({ is_old_annotation: true })
-        .eq("asset_id", asset.id);
+        .update({
+          is_old_annotation: true,
+          revision_number: currentRevision,
+        })
+        .eq("asset_id", asset.id)
+        .is("is_old_annotation", false);
 
       if (markOldError) {
-        console.error("Error marking old annotations:", markOldError);
+        console.error("❌ Error marking old annotations:", markOldError);
       } else {
-        // Refresh annotations to reflect the updated is_old_annotation status
-        try {
-          const response = await fetch(`/api/annotations?asset_id=${asset.id}`);
-          const data = await response.json();
-          if (response.ok) {
-            setAnnotations(data.annotations || []);
-          }
-        } catch (error) {
-          console.error("Error refreshing annotations:", error);
+        console.log(
+          `✅ Marked annotations as old with revision_number=${currentRevision}`
+        );
+      }
+
+      // Refresh annotations to reflect the updated is_old_annotation status
+      try {
+        const response = await fetch(`/api/annotations?asset_id=${asset.id}`);
+        const data = await response.json();
+        if (response.ok) {
+          console.log(
+            `🔄 Refreshed ${data.annotations?.length || 0} annotations`
+          );
+          setAnnotations(data.annotations || []);
         }
+      } catch (error) {
+        console.error("Error refreshing annotations:", error);
       }
 
       // Note: Asset state is updated by the refetch above
@@ -2462,6 +2618,50 @@ export default function ModelerReviewPage() {
           const uniqueTimestamp = Date.now();
           const cleanUrl = (glbResult as any).value.url;
           const cacheBustUrl = `${cleanUrl}?upload=${uniqueTimestamp}`;
+
+          // Mark all existing annotations as "old" when uploading new GLB
+          // Set revision_number to the CURRENT revision so they belong to this revision
+          // They will be excluded when viewing future revisions, but visible when viewing this revision
+          const currentRevision = refreshedAsset.revision_count ?? 0;
+          console.log("🔖 Marking annotations as old.", {
+            currentRevision,
+            assetId: asset.id,
+          });
+
+          // Update all annotations that aren't already marked as old
+          // Set revision_number to current revision so they're tagged to this revision
+          const { error: markOldError } = await supabase
+            .from("asset_annotations")
+            .update({
+              is_old_annotation: true,
+              revision_number: currentRevision,
+            })
+            .eq("asset_id", asset.id)
+            .is("is_old_annotation", false);
+
+          if (markOldError) {
+            console.error("❌ Error marking old annotations:", markOldError);
+          } else {
+            console.log(
+              `✅ Marked annotations as old with revision_number=${currentRevision}`
+            );
+          }
+
+          // Refresh annotations to reflect the updated is_old_annotation status
+          try {
+            const response = await fetch(
+              `/api/annotations?asset_id=${asset.id}`
+            );
+            const data = await response.json();
+            if (response.ok) {
+              console.log(
+                `🔄 Refreshed ${data.annotations?.length || 0} annotations`
+              );
+              setAnnotations(data.annotations || []);
+            }
+          } catch (error) {
+            console.error("Error refreshing annotations:", error);
+          }
 
           // Update ref immediately with cache-busted URL
           currentGlbUrlRef.current = cacheBustUrl;
@@ -2837,6 +3037,41 @@ export default function ModelerReviewPage() {
           updated_at: new Date().toISOString(), // Set updated_at timestamp
         };
 
+        // Increment revision_count when modeler delivers after a revision request
+        // The revision count represents how many times the modeler has delivered after being asked to revise
+        if (newStatus === "delivered_by_artist") {
+          const previousStatus = asset.status;
+          // If the previous status was "revisions" or "client_revision", increment revision count
+          if (
+            previousStatus === "revisions" ||
+            previousStatus === "client_revision"
+          ) {
+            const currentRevisionCount = asset.revision_count ?? 0;
+            updateData.revision_count = currentRevisionCount + 1;
+            console.log("🔖 Incrementing revision count on delivery:", {
+              previousStatus,
+              oldRevisionCount: currentRevisionCount,
+              newRevisionCount: currentRevisionCount + 1,
+            });
+          } else {
+            // Otherwise, preserve the current revision count
+            if (
+              asset.revision_count !== null &&
+              asset.revision_count !== undefined
+            ) {
+              updateData.revision_count = asset.revision_count;
+            }
+          }
+        } else {
+          // For other status updates, preserve revision_count
+          if (
+            asset.revision_count !== null &&
+            asset.revision_count !== undefined
+          ) {
+            updateData.revision_count = asset.revision_count;
+          }
+        }
+
         const { error: updateError, data: updateDataResult } = await supabase
           .from("onboarding_assets")
           .update(updateData)
@@ -2880,6 +3115,45 @@ export default function ModelerReviewPage() {
       if (newStatus === "delivered_by_artist") {
         await updateModelerEndTime(asset.id);
 
+        // Mark all existing annotations as "old" when delivering product
+        // Set revision_number to the CURRENT revision so they belong to this revision
+        // They will be excluded when viewing future revisions, but visible when viewing this revision
+        const currentRevision = asset.revision_count ?? 0;
+        console.log("🔖 Marking annotations as old on delivery.", {
+          currentRevision,
+          assetId: asset.id,
+        });
+
+        // Update all annotations that aren't already marked as old
+        // Set revision_number to current revision so they're tagged to this revision
+        const { error: markOldError } = await supabase
+          .from("asset_annotations")
+          .update({
+            is_old_annotation: true,
+            revision_number: currentRevision,
+          })
+          .eq("asset_id", asset.id)
+          .is("is_old_annotation", false);
+
+        if (markOldError) {
+          console.error("❌ Failed to mark annotations as old:", markOldError);
+          // Don't throw - this shouldn't block delivery
+        } else {
+          console.log("✅ Successfully marked annotations as old on delivery");
+          // Refresh annotations to reflect the change
+          try {
+            const response = await fetch(
+              `/api/annotations?asset_id=${asset.id}`
+            );
+            const data = await response.json();
+            if (response.ok) {
+              setAnnotations(data.annotations || []);
+            }
+          } catch (error) {
+            console.error("Error refreshing annotations:", error);
+          }
+        }
+
         // Send notification to QA users about the delivered asset
         try {
           const modelerName =
@@ -2911,7 +3185,13 @@ export default function ModelerReviewPage() {
           .single();
 
         if (!refreshError && refreshedAsset) {
-          setAsset(refreshedAsset);
+          // Preserve revision_count from current asset if refreshed asset has null/0
+          const preservedRevisionCount =
+            refreshedAsset.revision_count ?? asset.revision_count ?? 0;
+          setAsset({
+            ...refreshedAsset,
+            revision_count: preservedRevisionCount,
+          });
         }
       } catch (refreshErr) {
         console.error(
@@ -3778,14 +4058,12 @@ export default function ModelerReviewPage() {
                       <Badge variant="outline" className="text-xs">
                         Viewer: {getViewerDisplayName(clientViewerType)}
                       </Badge>
-                      {asset?.revision_count > 0 && (
-                        <Badge
-                          variant="outline"
-                          className="text-xs font-semibold"
-                        >
-                          R{asset.revision_count}
-                        </Badge>
-                      )}
+                      <Badge
+                        variant="outline"
+                        className="text-xs font-semibold bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800"
+                      >
+                        Revision: {asset?.revision_count ?? 0}
+                      </Badge>
                       {asset?.delivery_date && (
                         <span className="text-xs text-muted-foreground">
                           Due:{" "}
