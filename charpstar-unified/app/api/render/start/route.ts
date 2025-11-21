@@ -16,6 +16,7 @@ interface StartBody {
   aspectRatio?: 'square' | 'rectangle'; // 'square' or 'rectangle' (16:9)
   format?: 'png' | 'jpg' | 'webp';
   shadows?: boolean; // Enable/disable shadows (default: true)
+  zoomLevel?: number; // -50 to 50, where 0 is default (affects camera distance)
   isModularUpload?: boolean; // Flag for pre-uploaded modular GLB
   tempGLBPath?: string; // Path to pre-uploaded GLB on BunnyCDN
   sourceGlbUrl?: string; // Direct URL to source GLB file
@@ -49,7 +50,7 @@ export async function POST(request: NextRequest) {
     }
     
     const body = await request.json() as StartBody;
-    const { modelFilename, modelName, variantName, views, background, resolution, aspectRatio, format, shadows, isModularUpload, tempGLBPath, sourceGlbUrl } = body || ({} as StartBody);
+    const { modelFilename, modelName, variantName, views, background, resolution, aspectRatio, format, shadows, zoomLevel, isModularUpload, tempGLBPath, sourceGlbUrl } = body || ({} as StartBody);
     if (!modelFilename || !modelName || !views || !Array.isArray(views) || views.length === 0 || !background || !resolution) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
@@ -69,71 +70,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Server not configured: missing RENDER_CALLBACK_TOKEN' }, { status: 500 });
     }
 
-    // Get Bunny configuration based on sourceGlbUrl
-    // IMPORTANT: Renders should go to the SAME storage zone as the source GLB
-    let bunnyConfig = null;
+    // IMPORTANT: Renders ALWAYS go to maincdn Client-Editor folder
+    // Even if the source GLB is in a custom storage zone, renders are centralized
+    // This is because:
+    // 1. The worker uses hardcoded "Client-Editor/{client}/Renders/" path structure
+    // 2. Custom storage zones don't have Client-Editor folders
+    // 3. Renders need consistent access keys (maincdn key)
+    const bunnyConfig = null;
     
-    if (sourceGlbUrl) {
-      try {
-        const urlObj = new URL(sourceGlbUrl);
-        const pullZoneUrl = urlObj.hostname; // e.g., wiltonbradley.b-cdn.net
-        const storageZone = pullZoneUrl.replace('.b-cdn.net', ''); // e.g., wiltonbradley
-        
-        if (DEBUG) {
-          console.log(`[RENDER API] Extracted storage zone from sourceGlbUrl: ${storageZone}`);
-        }
-        
-        // Find which client owns this storage zone
-        const { data: clientData } = await supabase
-          .from("clients")
-          .select("name, bunny_custom_structure, bunny_custom_url, bunny_custom_access_key")
-          .eq("bunny_custom_url", storageZone)
-          .eq("bunny_custom_structure", true)
-          .single();
-
-        if (clientData) {
-          bunnyConfig = {
-            storageZone: storageZone,
-            accessKey: clientData.bunny_custom_access_key || process.env.BUNNY_STORAGE_KEY,
-            pullZoneUrl: pullZoneUrl,
-          };
-          if (DEBUG) {
-            console.log(`[RENDER API] Found storage owner: ${clientData.name}, bunnyConfig:`, bunnyConfig);
-          }
-        } else {
-          console.warn(`[RENDER API] No client found owning storage zone: ${storageZone}, using defaults`);
-        }
-      } catch (e) {
-        console.warn('[RENDER] Failed to extract bunnyConfig from sourceGlbUrl:', e);
-      }
-    }
-    
-    // Fallback: If sourceGlbUrl not provided or lookup failed, use logged-in client's config
-    if (!bunnyConfig) {
-      try {
-        const { data: clientData } = await supabase
-          .from("clients")
-          .select("bunny_custom_structure, bunny_custom_url, bunny_custom_access_key")
-          .eq("name", client)
-          .single();
-
-        if (clientData?.bunny_custom_structure && clientData?.bunny_custom_url) {
-          bunnyConfig = {
-            storageZone: clientData.bunny_custom_url.replace(/^\/+|\/+$/g, ""),
-            accessKey: clientData.bunny_custom_access_key || process.env.BUNNY_STORAGE_KEY,
-            pullZoneUrl: process.env.BUNNY_STORAGE_PUBLIC_URL?.replace(/^https?:\/\//, ''),
-          };
-          if (DEBUG) {
-            console.log('[RENDER API] Using logged-in client bunnyConfig:', bunnyConfig);
-          }
-        } else {
-          if (DEBUG) {
-            console.log('[RENDER API] No custom bunnyConfig found, using defaults (@temp-remove compatibility)');
-          }
-        }
-      } catch (e) {
-        console.warn('[RENDER] Failed to fetch client Bunny config:', e);
-      }
+    if (DEBUG) {
+      console.log('[RENDER API] Renders always use maincdn (Client-Editor structure), not custom storage zones');
     }
 
     // Enqueue prep job and return jobId immediately (render will auto-start via combined-status)
@@ -148,6 +94,7 @@ export async function POST(request: NextRequest) {
       aspectRatio: aspectRatio || 'square',
       format: format || 'png',
       shadows: shadows !== undefined ? shadows : true, // Default to true if not provided
+      zoomLevel: zoomLevel !== undefined ? zoomLevel : 0, // Default to 0 (no zoom)
       isModularUpload: isModularUpload || false,
       tempGLBPath: tempGLBPath || null,
       bunnyConfig, // OPTIONAL: client-specific Bunny config (null for backward compatibility)

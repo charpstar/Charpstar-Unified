@@ -149,7 +149,21 @@ const RenderQueuePanel: React.FC<{ clientName: string }> = ({ clientName }) => {
               <div className="mt-1.5 text-[10px] text-gray-500">
                 {(() => {
                   const viewsArray = it.views || (it.view ? [it.view] : []);
-                  const viewNames = viewsArray.map(v => v.name).join(', ');
+                  // Abbreviate view names
+                  const viewMap: Record<string, string> = {
+                    'front': 'F',
+                    'back': 'B',
+                    'side': 'S',
+                    'top': 'T',
+                    'default': 'AR',
+                    'angledright': 'AR',
+                    'angledleft': 'AL',
+                    'angledtopright': 'ATR',
+                    'angledtopleft': 'ATL',
+                    'angledtoprightback': 'ATRB',
+                    'angledtopleftback': 'ATLB',
+                  };
+                  const viewNames = viewsArray.map(v => viewMap[v.name.toLowerCase()] || v.name).join(', ');
                   const bg = it.background === 'transparent' ? 'Transparent' : `#${it.background}`;
                   const fmt = it.format ? it.format.toUpperCase() : 'PNG';
                   return `${viewNames} • ${bg} • ${it.resolution}px • ${fmt}`;
@@ -199,6 +213,21 @@ const RenderQueuePanel: React.FC<{ clientName: string }> = ({ clientName }) => {
                 const viewsArray = it.views || (it.view ? [it.view] : []);
                 const showPlaceholders = isRendering && viewsArray.length > 0;
                 
+                // Abbreviate view names
+                const viewMap: Record<string, string> = {
+                  'front': 'F',
+                  'back': 'B',
+                  'side': 'S',
+                  'top': 'T',
+                  'default': 'AR',
+                  'angledright': 'AR',
+                  'angledleft': 'AL',
+                  'angledtopright': 'ATR',
+                  'angledtopleft': 'ATL',
+                  'angledtoprightback': 'ATRB',
+                  'angledtopleftback': 'ATLB',
+                };
+                
                 if (images.length > 0 || showPlaceholders) {
                   return (
                     <div className="mt-3 flex items-center gap-2 flex-wrap">
@@ -217,7 +246,7 @@ const RenderQueuePanel: React.FC<{ clientName: string }> = ({ clientName }) => {
                           </a>
                           {img.view && (
                             <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 px-1.5 py-0.5 bg-gray-900/90 text-white text-[9px] font-medium rounded whitespace-nowrap">
-                              {img.view}
+                              {viewMap[img.view.toLowerCase()] || img.view}
                             </div>
                           )}
                         </div>
@@ -228,7 +257,7 @@ const RenderQueuePanel: React.FC<{ clientName: string }> = ({ clientName }) => {
                             <Loader2 className="w-4 h-4 text-gray-400 animate-spin" />
                           </div>
                           <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 px-1.5 py-0.5 bg-gray-700/90 text-white text-[9px] font-medium rounded whitespace-nowrap">
-                            {view.name}
+                            {viewMap[view.name.toLowerCase()] || view.name}
                           </div>
                         </div>
                       ))}

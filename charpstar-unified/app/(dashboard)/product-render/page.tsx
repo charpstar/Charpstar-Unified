@@ -30,6 +30,7 @@ export default function RenderPage() {
   const [isDragging, setIsDragging] = useState(false);
   const [viewerBackgroundColor, setViewerBackgroundColor] =
     useState<string>("#F8F9FA");
+  const [viewerZoomLevel, setViewerZoomLevel] = useState<number>(0);
 
   const getAssetModelName = (asset: any) => {
     const file = (
@@ -200,6 +201,7 @@ export default function RenderPage() {
                   modelUrl={currentModelUrl}
                   cameraAngle={hoverOrbit || undefined}
                   backgroundColor={viewerBackgroundColor}
+                  zoomLevel={viewerZoomLevel}
                 />
               )}
 
@@ -240,6 +242,7 @@ export default function RenderPage() {
               selectedAssets={selectedAssets}
               onPreviewOrbitChange={(orbit) => setHoverOrbit(orbit)}
               onBackgroundColorChange={handleBackgroundColorChange}
+              onZoomLevelChange={(zoom) => setViewerZoomLevel(zoom)}
             />
           </div>
         </div>
