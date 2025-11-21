@@ -29,14 +29,18 @@ const RenderHistoryPanel: React.FC<{ clientName: string; modelName: string }>= (
   const formatViewName = (view?: string): string => {
     if (!view) return 'Render';
     const viewMap: Record<string, string> = {
-      'default': 'Ang Right',
-      'angledright': 'Ang Right',
-      'angledleft': 'Ang Left',
-      'front': 'Front',
-      'back': 'Back',
-      'side': 'Side',
-      'top': 'Top',
+      'default': 'AR',
+      'angledright': 'AR',
+      'angledleft': 'AL',
+      'front': 'F',
+      'back': 'B',
+      'side': 'S',
+      'top': 'T',
       'table': 'Table',
+      'angledtopright': 'ATR',
+      'angledtopleft': 'ATL',
+      'angledtoprightback': 'ATRB',
+      'angledtopleftback': 'ATLB',
     };
     return viewMap[view.toLowerCase()] || view;
   };

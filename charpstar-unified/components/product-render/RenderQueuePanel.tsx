@@ -149,7 +149,21 @@ const RenderQueuePanel: React.FC<{ clientName: string }> = ({ clientName }) => {
               <div className="mt-1.5 text-[10px] text-gray-500">
                 {(() => {
                   const viewsArray = it.views || (it.view ? [it.view] : []);
-                  const viewNames = viewsArray.map(v => v.name).join(', ');
+                  // Abbreviate view names
+                  const viewMap: Record<string, string> = {
+                    'front': 'F',
+                    'back': 'B',
+                    'side': 'S',
+                    'top': 'T',
+                    'default': 'AR',
+                    'angledright': 'AR',
+                    'angledleft': 'AL',
+                    'angledtopright': 'ATR',
+                    'angledtopleft': 'ATL',
+                    'angledtoprightback': 'ATRB',
+                    'angledtopleftback': 'ATLB',
+                  };
+                  const viewNames = viewsArray.map(v => viewMap[v.name.toLowerCase()] || v.name).join(', ');
                   const bg = it.background === 'transparent' ? 'Transparent' : `#${it.background}`;
                   const fmt = it.format ? it.format.toUpperCase() : 'PNG';
                   return `${viewNames} • ${bg} • ${it.resolution}px • ${fmt}`;

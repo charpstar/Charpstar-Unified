@@ -78,30 +78,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Server not configured: BUNNY_* missing' }, { status: 500 });
     }
 
-    // Check if client has custom BunnyCDN folder structure
-    let useCustomStructure = false;
-    let customStorageZone = storageZone;
-    let customAccessKey = storageKey;
-
-    const { data: clientData } = await supabase
-      .from("clients")
-      .select(
-        "bunny_custom_structure, bunny_custom_url, bunny_custom_access_key"
-      )
-      .eq("name", client)
-      .single();
-
-    if (clientData?.bunny_custom_structure && clientData?.bunny_custom_url) {
-      useCustomStructure = true;
-      customStorageZone = clientData.bunny_custom_url.replace(/^\/+|\/+$/g, "");
-      if (clientData?.bunny_custom_access_key) {
-        customAccessKey = clientData.bunny_custom_access_key;
-      }
-    }
-
-    // Use custom or default storage zone
-    const finalStorageZone = useCustomStructure ? customStorageZone : storageZone;
-    const finalAccessKey = customAccessKey;
+    // IMPORTANT: Renders ALWAYS go to maincdn storage zone (not custom client zones)
+    // This is because the worker.py script has a hardcoded path structure for renders
+    // So we should ALWAYS check maincdn for render history, regardless of client config
+    const finalStorageZone = storageZone; // Always use maincdn for renders
+    const finalAccessKey = storageKey; // Always use maincdn access key
 
     // PATH STRUCTURE: Client-Editor/<client>/Renders/<modelName>/<variant>/{view}_{resolution}_{background}_{timestamp}.{format}
     // Example: Client-Editor/Synsam/Renders/chair_model/default/back_1024_d9c6b3_20251110T180453.jpg

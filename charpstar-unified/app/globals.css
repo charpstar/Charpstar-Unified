@@ -868,6 +868,31 @@ model-viewer::part(default-ar-button):focus-visible {
     scrollbar-gutter: stable;
   }
 
+  /* Always visible horizontal scrollbar */
+  .scrollbar-always-visible {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(203 213 225) transparent;
+  }
+  
+  .scrollbar-always-visible::-webkit-scrollbar {
+    height: 8px;
+    width: 8px;
+  }
+  
+  .scrollbar-always-visible::-webkit-scrollbar-track {
+    background: rgb(241 245 249);
+    border-radius: 4px;
+  }
+  
+  .scrollbar-always-visible::-webkit-scrollbar-thumb {
+    background: rgb(203 213 225);
+    border-radius: 4px;
+  }
+  
+  .scrollbar-always-visible::-webkit-scrollbar-thumb:hover {
+    background: rgb(148 163 184);
+  }
+
   /* Status label utility classes */
   .status-in-production {
     background-color: rgb(219 234 254); /* light blue */

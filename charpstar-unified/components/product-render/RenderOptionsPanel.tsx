@@ -7,6 +7,7 @@ import RenderHistoryPanel from '@/components/product-render/RenderHistoryPanel';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/display/tooltip';
 import AlwaysOpenColorPicker from '@/components/product-render/AlwaysOpenColorPicker';
 import { useUser } from '@/contexts/useUser';
+import { toast } from 'sonner';
 
 interface RenderOptionsPanelProps {
   modelViewerRef: React.RefObject<any>;
@@ -42,12 +43,16 @@ const RenderOptionsPanel: React.FC<RenderOptionsPanelProps> = ({
   const clientName = rawClient && String(rawClient).trim().length > 0 ? String(rawClient) : 'Shared';
 
   const cameraPresets = useMemo(() => ([
-    { name: 'default', label: 'Angled Right (35°)', orbit: '35deg 90deg 100%' },
-    { name: 'angledleft', label: 'Angled Left (35°)', orbit: '-35deg 90deg 100%' },
     { name: 'front', label: 'Front', orbit: '0deg 88deg 100%' },
     { name: 'back', label: 'Back', orbit: '180deg 90deg 100%' },
     { name: 'side', label: 'Side', orbit: '90deg 91deg 100%' },
     { name: 'top', label: 'Top', orbit: '0deg -200deg 100%' },
+    { name: 'default', label: 'Angled Right', orbit: '35deg 90deg 100%' },
+    { name: 'angledleft', label: 'Angled Left', orbit: '-35deg 90deg 100%' },
+    { name: 'angledtopright', label: 'Angled Top Right', orbit: '35deg 60deg 100%' },
+    { name: 'angledtopleft', label: 'Angled Top Left', orbit: '-35deg 60deg 100%' },
+    { name: 'angledtoprightback', label: 'Angled Top Right Back', orbit: '145deg 60deg 100%' },
+    { name: 'angledtopleftback', label: 'Angled Top Left Back', orbit: '-145deg 60deg 100%' },
   ]), []);
 
   const quickColors = [
@@ -69,6 +74,7 @@ const RenderOptionsPanel: React.FC<RenderOptionsPanelProps> = ({
   const [outputFormat, setOutputFormat] = useState<OutputFormat>('png');
   const [recentColors, setRecentColors] = useState<string[]>([]);
   const [shadows, setShadows] = useState<boolean>(true);
+  const [zoomLevel, setZoomLevel] = useState<number>(0); // -50 to 50, default 0
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isBlocked, setIsBlocked] = useState(false);
@@ -104,6 +110,7 @@ const RenderOptionsPanel: React.FC<RenderOptionsPanelProps> = ({
       const savedBackgroundColor = localStorage.getItem('charpstar:renderSettings:backgroundColor');
       const savedFormat = localStorage.getItem('charpstar:renderSettings:format');
       const savedShadows = localStorage.getItem('charpstar:renderSettings:shadows');
+      const savedZoomLevel = localStorage.getItem('charpstar:renderSettings:zoomLevel');
       
       if (savedViews) setSelectedViews(JSON.parse(savedViews));
       if (savedResolution) setResolution(savedResolution);
@@ -112,6 +119,7 @@ const RenderOptionsPanel: React.FC<RenderOptionsPanelProps> = ({
       if (savedBackgroundColor) setBackgroundColor(savedBackgroundColor);
       if (savedFormat) setOutputFormat(savedFormat as OutputFormat);
       if (savedShadows !== null) setShadows(savedShadows === 'true');
+      if (savedZoomLevel !== null) setZoomLevel(Number(savedZoomLevel));
       
       // Load recent colors
       const savedRecentColors = localStorage.getItem('charpstar:renderSettings:recentColors');
@@ -194,6 +202,13 @@ const RenderOptionsPanel: React.FC<RenderOptionsPanelProps> = ({
     } catch {}
   }, [shadows]);
 
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      localStorage.setItem('charpstar:renderSettings:zoomLevel', String(zoomLevel));
+    } catch {}
+  }, [zoomLevel]);
+
   // Notify parent of background color changes for live preview
   React.useEffect(() => {
     if (onBackgroundColorChange) {
@@ -268,10 +283,21 @@ const RenderOptionsPanel: React.FC<RenderOptionsPanelProps> = ({
   }, [clientName, modelFilename]);
 
   const toggleView = (viewName: string) => {
+    // Check if we're trying to add a 6th view BEFORE calling setState
+    // This prevents duplicate toasts in React Strict Mode
+    if (!selectedViews.includes(viewName) && selectedViews.length >= 5) {
+      toast.warning('Maximum 5 camera angles allowed', {
+        description: 'You can select up to 5 angles per render job. Deselect an angle to choose a different one.',
+      });
+      return;
+    }
+    
     setSelectedViews(prev => {
       if (prev.includes(viewName)) {
+        // Allow deselection only if more than 1 view is selected
         return prev.length > 1 ? prev.filter(v => v !== viewName) : prev;
       }
+      // Add the view (we already checked the limit above)
       return [...prev, viewName];
     });
   };
@@ -329,6 +355,7 @@ const RenderOptionsPanel: React.FC<RenderOptionsPanelProps> = ({
         aspectRatio,
         format: outputFormat,
         shadows,
+        zoomLevel, // -50 to 50, where 0 is default
         sourceGlbUrl: sourceGlbUrl || null // Pass the actual GLB URL from props
       };
       
@@ -351,7 +378,9 @@ const RenderOptionsPanel: React.FC<RenderOptionsPanelProps> = ({
       }
     } catch (e) {
       console.error('Failed to start render:', e);
-      alert('Failed to start render: ' + (e instanceof Error ? e.message : String(e)));
+      toast.error('Failed to start render', {
+        description: e instanceof Error ? e.message : String(e),
+      });
     } finally {
       // keep disabled until renderFinished events clear pendingJobIds
       setIsSubmitting(false);
@@ -388,6 +417,7 @@ const RenderOptionsPanel: React.FC<RenderOptionsPanelProps> = ({
           aspectRatio,
           format: outputFormat,
           shadows,
+          zoomLevel, // -50 to 50, where 0 is default
           sourceGlbUrl: glbUrl
         };
         const res = await fetch('/api/render/start', {
@@ -405,7 +435,9 @@ const RenderOptionsPanel: React.FC<RenderOptionsPanelProps> = ({
       }
     } catch (e) {
       console.error('Failed to queue selected renders:', e);
-      alert('Failed to queue selected renders: ' + (e instanceof Error ? e.message : String(e)));
+      toast.error('Failed to queue selected renders', {
+        description: e instanceof Error ? e.message : String(e),
+      });
     } finally {
       // keep disabled until all pending jobs finish
       setIsRenderingSelected(false);
@@ -425,23 +457,23 @@ const RenderOptionsPanel: React.FC<RenderOptionsPanelProps> = ({
         </div>
         
         {/* Settings Content */}
-        <div className="flex-1 overflow-auto p-3 sm:p-4 lg:p-6">
-          <div className="space-y-4 lg:space-y-6">
-            {/* Settings Grid - Responsive: 2 cols on mobile, 3 on tablet, 5 on desktop */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3 sm:gap-4 lg:gap-5">
-              {/* Camera Angles */}
-              <div className="sm:col-span-1">
-                <label className="text-[10px] sm:text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2 sm:mb-3 block">
-                  Camera Angles (<span suppressHydrationWarning>{selectedViews.length}</span>)
+        <div className="flex-1 overflow-x-auto overflow-y-hidden p-3 sm:p-4 lg:p-6 scrollbar-always-visible">
+          <div className="min-w-max">
+            {/* Settings Row - Horizontal layout with flex */}
+            <div className="flex gap-3 sm:gap-4 lg:gap-5">
+              {/* Camera Angles - Two Column Layout */}
+              <div className="flex-shrink-0 w-56 sm:w-64">
+                <label className="text-[9px] sm:text-[10px] font-semibold text-gray-700 uppercase tracking-wide mb-2 block">
+                  Camera Angles (<span suppressHydrationWarning>{selectedViews.length}</span>/5 max)
                 </label>
-                <div className="space-y-1.5 sm:space-y-2">
+                <div className="grid grid-cols-2 gap-1.5">
                   {cameraPresets.map(preset => (
                     <button
                       key={preset.name}
                       onClick={() => toggleView(preset.name)}
                       onMouseEnter={() => handleCameraHover(preset.orbit)}
                       onMouseLeave={handleCameraHoverEnd}
-                      className={`w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm rounded font-medium text-left transition-colors ${
+                      className={`w-full px-2 py-1.5 text-[10px] sm:text-xs rounded font-medium text-left transition-colors ${
                         selectedViews.includes(preset.name)
                           ? 'bg-black text-white'
                           : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -454,11 +486,11 @@ const RenderOptionsPanel: React.FC<RenderOptionsPanelProps> = ({
               </div>
 
               {/* Resolution & Aspect Ratio Combined */}
-              <div className="sm:col-span-1">
-                <label className="text-[10px] sm:text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2 sm:mb-3 block">
+              <div className="flex-shrink-0 w-28 sm:w-32">
+                <label className="text-[9px] sm:text-[10px] font-semibold text-gray-700 uppercase tracking-wide mb-2 block">
                   Resolution
                 </label>
-                <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
+                <div className="grid grid-cols-2 gap-1.5">
                   {[
                     { value: '512', label: '512', sublabel: 'Square', ratio: 'square' },
                     { value: '512', label: '512', sublabel: 'Wide', ratio: 'rectangle' },
@@ -479,14 +511,14 @@ const RenderOptionsPanel: React.FC<RenderOptionsPanelProps> = ({
                                 setResolution(value);
                                 setAspectRatio(ratio as AspectRatio);
                               }}
-                              className={`px-1.5 sm:px-2 py-1.5 sm:py-2 text-[10px] sm:text-xs rounded font-medium transition-colors flex flex-col items-center justify-center ${
+                              className={`px-1.5 py-1.5 text-[9px] sm:text-[10px] rounded font-medium transition-colors flex flex-col items-center justify-center ${
                                 isSelected
                                   ? 'bg-black text-white'
                                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                               }`}
                             >
                               <span className="font-bold">{label}</span>
-                              <span className={`text-[8px] sm:text-[9px] ${isSelected ? 'text-gray-300' : 'text-gray-500'}`}>{sublabel}</span>
+                              <span className={`text-[7px] sm:text-[8px] ${isSelected ? 'text-gray-300' : 'text-gray-500'}`}>{sublabel}</span>
                             </button>
                           </TooltipTrigger>
                           <TooltipContent>
@@ -499,15 +531,46 @@ const RenderOptionsPanel: React.FC<RenderOptionsPanelProps> = ({
                 </div>
               </div>
 
+              {/* Zoom Level Slider - Moved to 3rd position */}
+              <div className="flex-shrink-0 w-36 sm:w-40">
+                <label className="text-[9px] sm:text-[10px] font-semibold text-gray-700 uppercase tracking-wide mb-2 block">
+                  Zoom ({zoomLevel > 0 ? '+' : ''}{zoomLevel}%)
+                </label>
+                <div className="space-y-2">
+                  <input
+                    type="range"
+                    min="-50"
+                    max="50"
+                    step="5"
+                    value={zoomLevel}
+                    onChange={(e) => setZoomLevel(Number(e.target.value))}
+                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-black"
+                  />
+                  <div className="flex justify-between text-[8px] sm:text-[9px] text-gray-500">
+                    <span>Closer</span>
+                    <span>Default</span>
+                    <span>Farther</span>
+                  </div>
+                  {zoomLevel !== 0 && (
+                    <button
+                      onClick={() => setZoomLevel(0)}
+                      className="w-full px-2 py-1 text-[9px] sm:text-[10px] rounded font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
+                    >
+                      Reset
+                    </button>
+                  )}
+                </div>
+              </div>
+
               {/* Format */}
-              <div className="sm:col-span-1">
-                <label className="text-[10px] sm:text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2 sm:mb-3 block">Format</label>
-                <div className="space-y-1.5 sm:space-y-2">
+              <div className="flex-shrink-0 w-20 sm:w-24">
+                <label className="text-[9px] sm:text-[10px] font-semibold text-gray-700 uppercase tracking-wide mb-2 block">Format</label>
+                <div className="space-y-1.5">
                   {(['png', 'jpg', 'webp'] as OutputFormat[]).map(fmt => (
                     <button
                       key={fmt}
                       onClick={() => setOutputFormat(fmt)}
-                      className={`w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm rounded font-medium transition-colors ${
+                      className={`w-full px-2 py-1.5 text-[10px] sm:text-xs rounded font-medium transition-colors ${
                         outputFormat === fmt
                           ? 'bg-black text-white'
                           : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -520,13 +583,13 @@ const RenderOptionsPanel: React.FC<RenderOptionsPanelProps> = ({
               </div>
 
               {/* Background Mode */}
-              <div className="sm:col-span-1">
-                <label className="text-[10px] sm:text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2 sm:mb-3 block">Background</label>
-                <div className="space-y-1.5 sm:space-y-2">
+              <div className="flex-shrink-0 w-28 sm:w-32">
+                <label className="text-[9px] sm:text-[10px] font-semibold text-gray-700 uppercase tracking-wide mb-2 block">Background</label>
+                <div className="space-y-1.5">
                   <button
                     onClick={() => canUseTransparent && setBackgroundMode('transparent')}
                     disabled={!canUseTransparent}
-                    className={`w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm rounded font-medium transition-colors ${
+                    className={`w-full px-2 py-1.5 text-[10px] sm:text-xs rounded font-medium transition-colors ${
                       backgroundMode === 'transparent'
                         ? 'bg-black text-white'
                         : canUseTransparent
@@ -538,7 +601,7 @@ const RenderOptionsPanel: React.FC<RenderOptionsPanelProps> = ({
                   </button>
                   <button
                     onClick={() => setBackgroundMode('color')}
-                    className={`w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm rounded font-medium transition-colors ${
+                    className={`w-full px-2 py-1.5 text-[10px] sm:text-xs rounded font-medium transition-colors ${
                       backgroundMode === 'color'
                         ? 'bg-black text-white'
                         : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -549,9 +612,9 @@ const RenderOptionsPanel: React.FC<RenderOptionsPanelProps> = ({
                 </div>
               </div>
 
-              {/* Color Picker with Quick Colors - Spans 2 cols on mobile for better visibility */}
-              <div className="col-span-2 sm:col-span-1">
-                <label className="text-[10px] sm:text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2 sm:mb-3 block">Background Color</label>
+              {/* Color Picker with Quick Colors */}
+              <div className="flex-shrink-0 w-44 sm:w-48">
+                <label className="text-[9px] sm:text-[10px] font-semibold text-gray-700 uppercase tracking-wide mb-2 block">Background Color</label>
                 <div>
                   <div className={`mb-2 sm:mb-3 ${isColorPickerDisabled ? 'opacity-40 pointer-events-none' : ''}`}>
                     <div className="[&_input]:text-black [&_input]:placeholder-gray-500 [&_input]:bg-white [&_input]:border-gray-300">
@@ -622,12 +685,12 @@ const RenderOptionsPanel: React.FC<RenderOptionsPanelProps> = ({
               </div>
 
               {/* Shadows Toggle */}
-              <div className="sm:col-span-1">
-                <label className="text-[10px] sm:text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2 sm:mb-3 block">Shadows</label>
-                <div className="space-y-1.5 sm:space-y-2">
+              <div className="flex-shrink-0 w-20 sm:w-24">
+                <label className="text-[9px] sm:text-[10px] font-semibold text-gray-700 uppercase tracking-wide mb-2 block">Shadows</label>
+                <div className="space-y-1.5">
                   <button
                     onClick={() => setShadows(true)}
-                    className={`w-full px-2 sm:px-3 py-1.5 sm:py-2 text-[10px] sm:text-xs rounded font-medium transition-colors ${
+                    className={`w-full px-2 py-1.5 text-[10px] sm:text-xs rounded font-medium transition-colors ${
                       shadows
                         ? 'bg-black text-white'
                         : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -637,7 +700,7 @@ const RenderOptionsPanel: React.FC<RenderOptionsPanelProps> = ({
                   </button>
                   <button
                     onClick={() => setShadows(false)}
-                    className={`w-full px-2 sm:px-3 py-1.5 sm:py-2 text-[10px] sm:text-xs rounded font-medium transition-colors ${
+                    className={`w-full px-2 py-1.5 text-[10px] sm:text-xs rounded font-medium transition-colors ${
                       !shadows
                         ? 'bg-black text-white'
                         : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
