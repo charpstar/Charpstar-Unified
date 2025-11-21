@@ -102,14 +102,18 @@ const CollapsibleRenderQueue: React.FC<{ clientName: string }> = ({
   const formatViewName = (view?: string): string => {
     if (!view) return "Render";
     const viewMap: Record<string, string> = {
-      default: "Ang Right",
-      angledright: "Ang Right",
-      angledleft: "Ang Left",
-      front: "Front",
-      back: "Back",
-      side: "Side",
-      top: "Top",
+      default: "AR",
+      angledright: "AR",
+      angledleft: "AL",
+      front: "F",
+      back: "B",
+      side: "S",
+      top: "T",
       table: "Table",
+      angledtopright: "ATR",
+      angledtopleft: "ATL",
+      angledtoprightback: "ATRB",
+      angledtopleftback: "ATLB",
     };
     return viewMap[view.toLowerCase()] || view;
   };
@@ -901,7 +905,7 @@ const CollapsibleRenderQueue: React.FC<{ clientName: string }> = ({
                                   <Loader2 className="w-3.5 h-3.5 text-gray-400 animate-spin" />
                                 </div>
                                 <div className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 px-0.5 py-0.5 bg-gray-700 text-white text-[8px] font-medium rounded whitespace-nowrap leading-none">
-                                  {view.name}
+                                  {formatViewName(view.name)}
                                 </div>
                               </div>
                             ))}
