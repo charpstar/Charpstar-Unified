@@ -409,7 +409,19 @@ async function processQAJob(
         role: "system",
         content: `You are a 3D model visual QA specialist. Compare the 3D model screenshots against the reference images to assess accuracy and quality.
 
-ANALYSIS APPROACH:
+CRITICAL FIRST STEP - PRODUCT TYPE VALIDATION:
+Before any other analysis, you MUST verify that the 3D model represents the SAME TYPE OF PRODUCT as shown in the reference images. 
+- Identify the product category/type from the reference images (e.g., glass, furniture, electronics, clothing, etc.)
+- Verify the 3D model matches this product type
+- If the product types are fundamentally different (e.g., reference shows a glass but model is a sofa, or reference shows furniture but model is electronics), you MUST:
+  * Set silhouette score to 0-20 (severe mismatch)
+  * Set proportion score to 0-20 (severe mismatch)
+  * Set colorMaterial score to 0-30 (severe mismatch)
+  * Set overall score accordingly (will be < 50, causing rejection)
+  * Set status to "Not Approved"
+  * Clearly state in the summary: "CRITICAL ERROR: Product type mismatch - reference shows [X] but model is [Y]"
+
+ANALYSIS APPROACH (only if product types match):
 1. **Intelligent View Matching**: Match each screenshot to the most relevant reference image(s) based on camera angle and view
 2. **Adaptive Comparison**: If reference images are limited (e.g., only front view), only compare the corresponding screenshot views
 3. **Comprehensive Analysis**: For each matched pair, analyze:
@@ -420,23 +432,28 @@ ANALYSIS APPROACH:
    - Branding elements (logos, text)
    - Overall visual fidelity
    
-IMPORTANT: Be very tolerant and lenient across all aspects. Account for lighting/exposure/white‑balance and shadow differences between renders and references. Be very tolerant of transparency, reflections, finish, and minor color shifts. Lens decals/branding (e.g., small logos on lenses) may vary—do not penalize unless clearly wrong or missing where critical. Focus primarily on shape and proportions; only penalize materials for major, obvious mismatches. Approve models that are generally correct, even with minor variations.
+TOLERANCE RULES (only applies when product types match):
+- Be tolerant of lighting/exposure/white‑balance and shadow differences between renders and references
+- Be tolerant of transparency, reflections, finish, and minor color shifts
+- Lens decals/branding (e.g., small logos on lenses) may vary—do not penalize unless clearly wrong or missing where critical
+- Focus primarily on shape and proportions; only penalize materials for major, obvious mismatches
+- Approve models that are generally correct, even with minor variations
 
 SUMMARY PHRASING:
 - If status is "Approved", phrase the summary as a list of constructive feedback points. Start with a positive statement as the first item in the list.
-- If status is "Not Approved", the summary should be a list of the critical issues.
+- If status is "Not Approved", the summary should be a list of the critical issues, starting with product type mismatch if applicable.
 
 SCORING SYSTEM:
-- Silhouette: How well the overall shape matches (0-100%)
-- Proportion: Accuracy of relative sizes and dimensions (0-100%)
-- Color/Material: Color accuracy, material appearance, textures (0-100%)
+- Silhouette: How well the overall shape matches (0-100%). Score 0-20 if product types don't match.
+- Proportion: Accuracy of relative sizes and dimensions (0-100%). Score 0-20 if product types don't match.
+- Color/Material: Color accuracy, material appearance, textures (0-100%). Score 0-30 if product types don't match.
 - Overall: Weighted average considering all factors (0-100%)
 
-APPROVAL CRITERIA - SIMPLIFIED AND LENIENT:
-- If overall score ≥ 50% AND no individual score < 40% → status = "Approved"
-- Only reject if overall score < 50% OR any individual score < 40% → status = "Not Approved"
-- Be generous - approve models that are generally correct even with minor issues
-- Only reject for major problems like completely wrong shapes, significantly incorrect proportions, or completely missing/incorrect materials
+APPROVAL CRITERIA - STRICT:
+- Product type MUST match between reference and model - this is non-negotiable
+- If overall score ≥ 70% AND silhouette ≥ 65% AND proportion ≥ 65% AND colorMaterial ≥ 60% → status = "Approved"
+- Reject if overall score < 70% OR silhouette < 65% OR proportion < 65% OR colorMaterial < 60% → status = "Not Approved"
+- Product type mismatches are ALWAYS rejected regardless of scores
 
 OUTPUT FORMAT:
 {
@@ -630,19 +647,47 @@ CRITICAL: Output ONLY valid JSON. Do not wrap in markdown code blocks. Do not in
         }
       }
 
-      // Stabilize scores to reduce jitter and be slightly more lenient on color
+      // Stabilize scores and check for product type mismatch
       try {
         const s: any = qaResults.similarityScores || {};
         const r = (n: any) =>
           Math.max(0, Math.min(100, Math.round(Number(n || 0))));
         const silhouette = r(s.silhouette);
         const proportion = r(s.proportion);
-        // Slight color leniency: small uplift and minimum floor
-        const colorMaterial = r(Math.max(Number(s.colorMaterial || 0) + 3, 51));
-        // Reduce color weight a bit versus shape
+        const colorMaterial = r(s.colorMaterial);
+        
+        // Check for product type mismatch (very low scores indicate fundamental mismatch)
+        const hasProductTypeMismatch = 
+          silhouette < 25 || 
+          proportion < 25 || 
+          (silhouette < 40 && proportion < 40);
+
+        // Calculate overall score
         const overall = Math.round(
           silhouette * 0.5 + proportion * 0.3 + colorMaterial * 0.2
         );
+
+        // If product type mismatch detected, force rejection
+        if (hasProductTypeMismatch) {
+          qaResults.status = "Not Approved";
+          if (!qaResults.summary || qaResults.summary.length === 0) {
+            qaResults.summary = ["CRITICAL ERROR: Product type mismatch detected - model does not match reference product type"];
+          } else if (!qaResults.summary[0].includes("Product type mismatch")) {
+            qaResults.summary.unshift("CRITICAL ERROR: Product type mismatch detected - model does not match reference product type");
+          }
+        } else {
+          // Apply strict approval criteria
+          const isApproved =
+            overall >= 70 &&
+            silhouette >= 65 &&
+            proportion >= 65 &&
+            colorMaterial >= 60;
+          
+          if (!isApproved) {
+            qaResults.status = "Not Approved";
+          }
+        }
+
         qaResults.similarityScores = {
           silhouette,
           proportion,
@@ -670,7 +715,20 @@ CRITICAL: Output ONLY valid JSON. Do not wrap in markdown code blocks. Do not in
       // AI Analysis for renders vs references comparison
       const systemPrompt = `You are a highly analytical and deterministic 3D model visual QA specialist. Your task is to compare render screenshots of a 3D model against reference images and output a precise, structured JSON report. The model has passed all blocking technical requirements.
 
-INTELLIGENT COMPARISON APPROACH:
+CRITICAL FIRST STEP - PRODUCT TYPE VALIDATION:
+Before any other analysis, you MUST verify that the 3D model represents the SAME TYPE OF PRODUCT as shown in the reference images. 
+- Identify the product category/type from the reference images (e.g., glass, furniture, electronics, clothing, etc.)
+- Verify the 3D model matches this product type
+- If the product types are fundamentally different (e.g., reference shows a glass but model is a sofa, or reference shows furniture but model is electronics), you MUST:
+  * Set silhouette score to 0-20 (severe mismatch)
+  * Set proportion score to 0-20 (severe mismatch)
+  * Set colorMaterial score to 0-30 (severe mismatch)
+  * Set overall score accordingly (will be < 70, causing rejection)
+  * Set status to "Not Approved"
+  * Clearly state in the summary: "CRITICAL ERROR: Product type mismatch - reference shows [X] but model is [Y]"
+  * Add this as a high-severity issue in the differences array
+
+INTELLIGENT COMPARISON APPROACH (only if product types match):
 1.  **Smart View Matching**: Match each render screenshot to the most relevant reference image(s) based on camera angle and perspective.
 2.  **Adaptive Analysis**: ONLY compare views showing the *SAME PERSPECTIVE and ANGLE* of the product. If a render angle has no match in the references, SKIP that render.
 3.  **Comprehensive Assessment**: Analyze geometry, proportions, colors, materials, textures, and branding elements for each matched pair.
@@ -678,16 +736,16 @@ INTELLIGENT COMPARISON APPROACH:
 CRITICAL RULES:
 * **NO DUPLICATE ISSUES**: Report each unique issue **ONLY ONCE**. Choose the clearest view to report it in.
 * **SPECIFICITY**: Each issue must state: what's in the 3D Model, what's in the reference, and the exact difference.
-* **HIGH TOLERANCE**: Be very tolerant and lenient. Accept minor differences in **transparency, reflections, metallic finishes, gloss levels, lighting, shadows, and color variations**. Only flag major issues like completely wrong shapes, significantly incorrect proportions, or completely missing/incorrect materials. Be very forgiving of minor variations - focus on approving models that are generally correct rather than finding small issues.
+* **TOLERANCE (only when product types match)**: Be tolerant of minor differences in **transparency, reflections, metallic finishes, gloss levels, lighting, shadows, and color variations**. Only flag major issues like completely wrong shapes, significantly incorrect proportions, or completely missing/incorrect materials. Be forgiving of minor variations - focus on approving models that are generally correct rather than finding small issues.
 
 **SUMMARY PHRASING**:
 *   If status is "Approved", phrase the summary as a list of constructive feedback points. Start with a positive statement as the first item in the list.
 *   If status is "Not Approved", the summary should be a list of the critical issues.
 
-SCORING - BE GENEROUS AND LENIENT:
-* **SILHOUETTE**: Compare overall shape, outline, and form. Be generous - only deduct for major shape errors. (0-100%)
-* **PROPORTION**: Compare relative sizes and dimensions of parts. Accept minor proportion differences. (0-100%)
-* **COLOR/MATERIAL**: Compare base colors and primary textures. Be very tolerant - only deduct for completely wrong colors or missing major materials. (0-100%)
+SCORING - STRICT AND ACCURATE:
+* **SILHOUETTE**: Compare overall shape, outline, and form. Score 0-20 if product types don't match. For matching types, be accurate - deduct appropriately for shape errors. (0-100%)
+* **PROPORTION**: Compare relative sizes and dimensions of parts. Score 0-20 if product types don't match. For matching types, accept minor proportion differences but be accurate. (0-100%)
+* **COLOR/MATERIAL**: Compare base colors and primary textures. Score 0-30 if product types don't match. For matching types, be tolerant of minor color variations but accurate for major mismatches. (0-100%)
 * **OVERALL**: Must be the weighted average of the other scores.
 
 **CRITICAL CALCULATION RULE:**
@@ -909,16 +967,27 @@ CRITICAL: Output **ONLY** valid JSON. Do not wrap in markdown code blocks. Do no
     // 3. CALCULATE DETERMINISTIC STATUS (Overwriting the model's suggested status)
     let finalStatus = "Not Approved";
 
-    // Simplified and more lenient approval criteria
-    // Approve if overall score is reasonable, with lower individual thresholds
-    const isApproved =
-      overall >= 50 &&
-      silhouette >= 45 &&
-      proportion >= 45 &&
-      colorMaterial >= 40;
+    // Strict approval criteria to prevent wrong product types from being approved
+    // Check for product type mismatch first (very low scores indicate mismatch)
+    const hasProductTypeMismatch = 
+      silhouette < 25 || 
+      proportion < 25 || 
+      (silhouette < 40 && proportion < 40);
 
-    if (isApproved) {
-      finalStatus = "Approved";
+    if (hasProductTypeMismatch) {
+      // Force rejection for product type mismatches
+      finalStatus = "Not Approved";
+    } else {
+      // Strict thresholds for approval - model must be genuinely similar
+      const isApproved =
+        overall >= 70 &&
+        silhouette >= 65 &&
+        proportion >= 65 &&
+        colorMaterial >= 60;
+
+      if (isApproved) {
+        finalStatus = "Approved";
+      }
     }
 
     qaResults.status = finalStatus;
