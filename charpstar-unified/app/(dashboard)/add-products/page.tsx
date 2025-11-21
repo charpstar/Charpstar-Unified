@@ -215,6 +215,62 @@ const clearStorage = () => {
   }
 };
 
+// Helper to check if article_id already exists for a client
+const checkArticleIdExists = async (
+  articleId: string,
+  clientName: string
+): Promise<boolean> => {
+  if (!articleId?.trim() || !clientName) return false;
+
+  const trimmedId = articleId.trim();
+
+  try {
+    // First check if article_id exists as primary
+    const { data, error } = await supabase
+      .from("onboarding_assets")
+      .select("id, article_id, article_ids")
+      .eq("client", clientName)
+      .eq("article_id", trimmedId)
+      .limit(1);
+
+    if (error) {
+      console.error("Error checking article ID:", error);
+      return false;
+    }
+
+    if (data && data.length > 0) {
+      return true;
+    }
+
+    // If not found as primary, check if it exists in any article_ids array
+    const { data: allData, error: allError } = await supabase
+      .from("onboarding_assets")
+      .select("id, article_id, article_ids")
+      .eq("client", clientName);
+
+    if (allError) {
+      console.error("Error checking article IDs array:", allError);
+      return false;
+    }
+
+    // Check if trimmedId is in any article_ids array
+    if (allData && allData.length > 0) {
+      for (const asset of allData) {
+        if (asset.article_ids && Array.isArray(asset.article_ids)) {
+          if (asset.article_ids.includes(trimmedId)) {
+            return true;
+          }
+        }
+      }
+    }
+
+    return false;
+  } catch (error) {
+    console.error("Error checking article ID:", error);
+    return false;
+  }
+};
+
 export default function AddProductsPage() {
   const user = useUser();
   const { startLoading, stopLoading } = useLoading();
@@ -412,10 +468,57 @@ export default function AddProductsPage() {
     number | null
   >(null);
   const [variationsCount, setVariationsCount] = useState<string>("1");
+  // State to track duplicate article ID warnings
+  const [duplicateWarnings, setDuplicateWarnings] = useState<
+    Record<string, { exists: boolean; checking: boolean }>
+  >({});
+  const duplicateCheckTimeoutRef = useRef<Record<string, NodeJS.Timeout>>({});
 
   useEffect(() => {
     setSelectedRowIds(new Set());
   }, [products.length]);
+
+  // Cleanup duplicate check timeouts on unmount
+  useEffect(() => {
+    return () => {
+      Object.values(duplicateCheckTimeoutRef.current).forEach((timeout) => {
+        if (timeout) clearTimeout(timeout);
+      });
+    };
+  }, []);
+
+  // Clean up duplicate warnings when products are removed
+  useEffect(() => {
+    // Remove warnings for products that no longer exist
+    const currentKeys = new Set<string>();
+    products.forEach((_, index) => {
+      currentKeys.add(`product-${index}`);
+      if (products[index].variations) {
+        products[index].variations?.forEach((_, vIndex) => {
+          currentKeys.add(`variation-${index}-${vIndex}`);
+        });
+      }
+    });
+
+    setDuplicateWarnings((prev) => {
+      const newWarnings: Record<
+        string,
+        { exists: boolean; checking: boolean }
+      > = {};
+      Object.keys(prev).forEach((key) => {
+        if (currentKeys.has(key)) {
+          newWarnings[key] = prev[key];
+        } else {
+          // Clear timeout for removed keys
+          if (duplicateCheckTimeoutRef.current[key]) {
+            clearTimeout(duplicateCheckTimeoutRef.current[key]);
+            delete duplicateCheckTimeoutRef.current[key];
+          }
+        }
+      });
+      return newWarnings;
+    });
+  }, [products]);
 
   // Show restore notification if data was loaded from cache
   useEffect(() => {
@@ -915,6 +1018,40 @@ export default function AddProductsPage() {
       .map((id) => id.trim())
       .filter(Boolean);
 
+  // Debounced function to check article ID duplicates
+  const checkArticleIdDuplicate = async (articleId: string, key: string) => {
+    if (!articleId?.trim() || !primaryClientName) {
+      setDuplicateWarnings((prev) => ({
+        ...prev,
+        [key]: { exists: false, checking: false },
+      }));
+      return;
+    }
+
+    // Clear existing timeout for this key
+    if (duplicateCheckTimeoutRef.current[key]) {
+      clearTimeout(duplicateCheckTimeoutRef.current[key]);
+    }
+
+    // Set checking state
+    setDuplicateWarnings((prev) => ({
+      ...prev,
+      [key]: { exists: false, checking: true },
+    }));
+
+    // Debounce the check by 500ms
+    duplicateCheckTimeoutRef.current[key] = setTimeout(async () => {
+      const exists = await checkArticleIdExists(
+        articleId.trim(),
+        primaryClientName
+      );
+      setDuplicateWarnings((prev) => ({
+        ...prev,
+        [key]: { exists, checking: false },
+      }));
+    }, 500);
+  };
+
   const updateProduct = (
     index: number,
     field: keyof ProductForm,
@@ -932,6 +1069,10 @@ export default function AddProductsPage() {
         current.additional_article_ids = normalized.filter(
           (id) => id !== value.trim()
         );
+
+        // Check for duplicate article ID
+        const key = `product-${index}`;
+        void checkArticleIdDuplicate(value, key);
       }
 
       updatedProducts[index] = current;
@@ -1122,6 +1263,10 @@ export default function AddProductsPage() {
         currentVariation.additional_article_ids = normalized.filter(
           (id) => id !== value.trim()
         );
+
+        // Check for duplicate article ID
+        const key = `variation-${parentIndex}-${variationIndex}`;
+        void checkArticleIdDuplicate(value, key);
       }
 
       variations[variationIndex] = currentVariation;
@@ -2320,9 +2465,18 @@ export default function AddProductsPage() {
                                       findIllegalFileCharacters(
                                         product.article_id
                                       );
-                                    const showArticleWarning =
+                                    const showIllegalWarning =
                                       illegalCharacters.length > 0 &&
                                       product.article_id.trim().length > 0;
+                                    const productKey = `product-${index}`;
+                                    const duplicateWarning =
+                                      duplicateWarnings[productKey];
+                                    const showDuplicateWarning =
+                                      duplicateWarning?.exists &&
+                                      product.article_id.trim().length > 0;
+                                    const showArticleWarning =
+                                      showIllegalWarning ||
+                                      showDuplicateWarning;
 
                                     return (
                                       <Tooltip open={showArticleWarning}>
@@ -2339,8 +2493,10 @@ export default function AddProductsPage() {
                                             placeholder="ART001"
                                             className={cn(
                                               "h-8 text-xs px-2 font-medium",
-                                              showArticleWarning &&
-                                                "border-amber-400 focus-visible:ring-amber-500 focus-visible:ring-offset-0"
+                                              showIllegalWarning &&
+                                                "border-amber-400 focus-visible:ring-amber-500 focus-visible:ring-offset-0",
+                                              showDuplicateWarning &&
+                                                "border-red-400 focus-visible:ring-red-500 focus-visible:ring-offset-0"
                                             )}
                                             aria-invalid={showArticleWarning}
                                           />
@@ -2350,18 +2506,43 @@ export default function AddProductsPage() {
                                           side="top"
                                           align="start"
                                           sideOffset={6}
+                                          className={
+                                            showDuplicateWarning
+                                              ? "bg-red-50 border-red-200 text-red-900 dark:bg-red-950 dark:border-red-800 dark:text-red-100"
+                                              : ""
+                                          }
                                         >
                                           <div className="flex flex-col gap-1">
-                                            <span>
-                                              Article ID contains characters
-                                              that cannot be used in file names.
-                                            </span>
-                                            <span className="font-semibold">
-                                              Replace{" "}
-                                              {illegalCharacters.join(" ")} with
-                                              &quot;-&quot; and your files will
-                                              still connect to this article ID.
-                                            </span>
+                                            {showDuplicateWarning && (
+                                              <>
+                                                <span className="font-semibold">
+                                                  ⚠️ This Article ID already
+                                                  exists!
+                                                </span>
+                                                <span>
+                                                  An asset with this Article ID
+                                                  has already been added. Please
+                                                  verify this is intentional
+                                                  before submitting.
+                                                </span>
+                                              </>
+                                            )}
+                                            {showIllegalWarning && (
+                                              <>
+                                                <span>
+                                                  Article ID contains characters
+                                                  that cannot be used in file
+                                                  names.
+                                                </span>
+                                                <span className="font-semibold">
+                                                  Replace{" "}
+                                                  {illegalCharacters.join(" ")}{" "}
+                                                  with &quot;-&quot; and your
+                                                  files will still connect to
+                                                  this article ID.
+                                                </span>
+                                              </>
+                                            )}
                                           </div>
                                         </TooltipContent>
                                       </Tooltip>
@@ -2560,9 +2741,18 @@ export default function AddProductsPage() {
                                       findIllegalFileCharacters(
                                         variation.article_id
                                       );
-                                    const showVariationWarning =
+                                    const showIllegalWarning =
                                       variationIllegalCharacters.length > 0 &&
                                       variation.article_id.trim().length > 0;
+                                    const variationKey = `variation-${index}-${vIndex}`;
+                                    const duplicateWarning =
+                                      duplicateWarnings[variationKey];
+                                    const showDuplicateWarning =
+                                      duplicateWarning?.exists &&
+                                      variation.article_id.trim().length > 0;
+                                    const showVariationWarning =
+                                      showIllegalWarning ||
+                                      showDuplicateWarning;
 
                                     return (
                                       <Tooltip open={showVariationWarning}>
@@ -2580,8 +2770,10 @@ export default function AddProductsPage() {
                                             placeholder="ART001-V1"
                                             className={cn(
                                               "h-7 text-xs bg-background px-2",
-                                              showVariationWarning &&
-                                                "border-amber-400 focus-visible:ring-amber-500 focus-visible:ring-offset-0"
+                                              showIllegalWarning &&
+                                                "border-amber-400 focus-visible:ring-amber-500 focus-visible:ring-offset-0",
+                                              showDuplicateWarning &&
+                                                "border-red-400 focus-visible:ring-red-500 focus-visible:ring-offset-0"
                                             )}
                                             aria-invalid={showVariationWarning}
                                           />
@@ -2591,21 +2783,45 @@ export default function AddProductsPage() {
                                           side="top"
                                           align="start"
                                           sideOffset={6}
+                                          className={
+                                            showDuplicateWarning
+                                              ? "bg-red-50 border-red-200 text-red-900 dark:bg-red-950 dark:border-red-800 dark:text-red-100"
+                                              : ""
+                                          }
                                         >
                                           <div className="flex flex-col gap-1">
-                                            <span>
-                                              Article ID contains characters
-                                              that cannot be used in file names.
-                                            </span>
-                                            <span className="font-semibold">
-                                              Replace{" "}
-                                              {variationIllegalCharacters.join(
-                                                " "
-                                              )}{" "}
-                                              with &quot;-&quot; and your files
-                                              will still connect to this article
-                                              ID.
-                                            </span>
+                                            {showDuplicateWarning && (
+                                              <>
+                                                <span className="font-semibold">
+                                                  ⚠️ This Article ID already
+                                                  exists!
+                                                </span>
+                                                <span>
+                                                  An asset with this Article ID
+                                                  has already been added. Please
+                                                  verify this is intentional
+                                                  before submitting.
+                                                </span>
+                                              </>
+                                            )}
+                                            {showIllegalWarning && (
+                                              <>
+                                                <span>
+                                                  Article ID contains characters
+                                                  that cannot be used in file
+                                                  names.
+                                                </span>
+                                                <span className="font-semibold">
+                                                  Replace{" "}
+                                                  {variationIllegalCharacters.join(
+                                                    " "
+                                                  )}{" "}
+                                                  with &quot;-&quot; and your
+                                                  files will still connect to
+                                                  this article ID.
+                                                </span>
+                                              </>
+                                            )}
                                           </div>
                                         </TooltipContent>
                                       </Tooltip>

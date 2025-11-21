@@ -58,7 +58,8 @@ const QAWorkflowModal: React.FC<QAWorkflowModalProps> = ({
   const [qaJobId, setQaJobId] = useState<string | null>(null);
   const [qaResults, setQaResults] = useState<any>(null);
   const [uploadingReferences, setUploadingReferences] = useState(false);
-  const [currentReferenceImages, setCurrentReferenceImages] = useState<string[]>(referenceImages);
+  const [currentReferenceImages, setCurrentReferenceImages] =
+    useState<string[]>(referenceImages);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const previousGlbUrlRef = React.useRef<string>(glbUrl);
 
@@ -99,7 +100,9 @@ const QAWorkflowModal: React.FC<QAWorkflowModalProps> = ({
           throw new Error(`${file.name} is not an image file`);
         }
 
-        console.log(`📤 Uploading reference image: ${file.name} (${file.type}, ${(file.size / 1024).toFixed(2)}KB)`);
+        console.log(
+          `📤 Uploading reference image: ${file.name} (${file.type}, ${(file.size / 1024).toFixed(2)}KB)`
+        );
 
         // Always use direct upload for reference images (handles both small and large files)
         // This automatically saves to the database via upload-large-file API
@@ -118,8 +121,12 @@ const QAWorkflowModal: React.FC<QAWorkflowModalProps> = ({
         }
 
         if (!result.cdnUrl || result.cdnUrl.trim().length === 0) {
-          console.error(`❌ Upload succeeded but no CDN URL returned for ${file.name}`);
-          throw new Error(`Upload succeeded but no URL returned for ${file.name}`);
+          console.error(
+            `❌ Upload succeeded but no CDN URL returned for ${file.name}`
+          );
+          throw new Error(
+            `Upload succeeded but no URL returned for ${file.name}`
+          );
         }
 
         console.log(`✅ Upload successful for ${file.name}: ${result.cdnUrl}`);
@@ -131,24 +138,33 @@ const QAWorkflowModal: React.FC<QAWorkflowModalProps> = ({
       const validUploadedUrls = uploadedUrls.filter(
         (url) => url && typeof url === "string" && url.trim().length > 0
       );
-      
+
       if (validUploadedUrls.length === 0) {
         throw new Error("All uploads failed or returned empty URLs");
       }
 
-      const newReferenceImages = [...currentReferenceImages, ...validUploadedUrls];
-      
+      const newReferenceImages = [
+        ...currentReferenceImages,
+        ...validUploadedUrls,
+      ];
+
       setCurrentReferenceImages(newReferenceImages);
-      
+
       // Notify parent component to update reference images
       if (onReferenceImagesUpdate) {
         onReferenceImagesUpdate(newReferenceImages);
       }
 
-      toast.success(`${uploadedUrls.length} reference image(s) uploaded successfully!`);
+      toast.success(
+        `${uploadedUrls.length} reference image(s) uploaded successfully!`
+      );
     } catch (error) {
       console.error("Error uploading reference images:", error);
-      toast.error(error instanceof Error ? error.message : "Failed to upload reference images");
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to upload reference images"
+      );
     } finally {
       setUploadingReferences(false);
     }
@@ -161,7 +177,9 @@ const QAWorkflowModal: React.FC<QAWorkflowModalProps> = ({
     }
 
     if (currentReferenceImages.length === 0) {
-      toast.error("Please upload at least one reference image before starting QA");
+      toast.error(
+        "Please upload at least one reference image before starting QA"
+      );
       return;
     }
 
@@ -189,7 +207,13 @@ const QAWorkflowModal: React.FC<QAWorkflowModalProps> = ({
       referenceImagesCount: currentReferenceImages.length,
     });
 
-    if (isOpen && autoStart && qaState === "idle" && glbUrl && currentReferenceImages.length > 0) {
+    if (
+      isOpen &&
+      autoStart &&
+      qaState === "idle" &&
+      glbUrl &&
+      currentReferenceImages.length > 0
+    ) {
       console.log("✅ QA Modal: All conditions met, starting QA...");
       // Small delay to ensure modal is fully rendered
       const timer = setTimeout(() => {
@@ -222,7 +246,9 @@ const QAWorkflowModal: React.FC<QAWorkflowModalProps> = ({
       );
 
       if (validReferences.length === 0) {
-        throw new Error("No valid reference images found. Please upload at least one reference image.");
+        throw new Error(
+          "No valid reference images found. Please upload at least one reference image."
+        );
       }
 
       console.log("📤 Sending QA job request:", {
@@ -353,7 +379,7 @@ const QAWorkflowModal: React.FC<QAWorkflowModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl w-full max-h-[85vh] overflow-hidden">
+      <DialogContent className="min-w-4xl w-full max-h-[85vh] overflow-hidden">
         <DialogHeader className="pb-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -400,7 +426,8 @@ const QAWorkflowModal: React.FC<QAWorkflowModalProps> = ({
                 <div className="flex items-center justify-between">
                   <h3 className="text-lg font-semibold">Reference Images</h3>
                   <span className="text-sm text-muted-foreground">
-                    {currentReferenceImages.length} image{currentReferenceImages.length !== 1 ? "s" : ""}
+                    {currentReferenceImages.length} image
+                    {currentReferenceImages.length !== 1 ? "s" : ""}
                   </span>
                 </div>
 
@@ -413,7 +440,8 @@ const QAWorkflowModal: React.FC<QAWorkflowModalProps> = ({
                           No Reference Images Found
                         </h4>
                         <p className="text-sm text-muted-foreground mb-4">
-                          Upload reference images to compare against your 3D model
+                          Upload reference images to compare against your 3D
+                          model
                         </p>
                       </div>
                       <input
@@ -508,7 +536,9 @@ const QAWorkflowModal: React.FC<QAWorkflowModalProps> = ({
                   onClick={startQA}
                   className="h-12 px-8 text-lg"
                   size="lg"
-                  disabled={currentReferenceImages.length === 0 || uploadingReferences}
+                  disabled={
+                    currentReferenceImages.length === 0 || uploadingReferences
+                  }
                 >
                   <Play className="h-5 w-5 mr-2" />
                   Start QA Analysis
@@ -516,8 +546,12 @@ const QAWorkflowModal: React.FC<QAWorkflowModalProps> = ({
 
                 <div className="flex items-center justify-center gap-6 text-sm text-muted-foreground">
                   <div className="flex items-center gap-2">
-                    <div className={`w-2 h-2 rounded-full ${currentReferenceImages.length > 0 ? "bg-gray-400" : "bg-red-500"}`}></div>
-                    <span>Reference Images: {currentReferenceImages.length}</span>
+                    <div
+                      className={`w-2 h-2 rounded-full ${currentReferenceImages.length > 0 ? "bg-gray-400" : "bg-red-500"}`}
+                    ></div>
+                    <span>
+                      Reference Images: {currentReferenceImages.length}
+                    </span>
                   </div>
                   <div className="flex items-center gap-2">
                     <div
@@ -620,7 +654,8 @@ const QAWorkflowModal: React.FC<QAWorkflowModalProps> = ({
         <div className="pt-4 border-t">
           <div className="flex items-center justify-between text-sm text-muted-foreground">
             <span>
-              Asset ID: {assetId} | Reference Images: {currentReferenceImages.length}
+              Asset ID: {assetId} | Reference Images:{" "}
+              {currentReferenceImages.length}
             </span>
           </div>
         </div>
