@@ -20,6 +20,7 @@ interface RenderOptionsPanelProps {
   selectedAssets?: any[]; // from asset library multiple selection
   onPreviewOrbitChange?: (orbit: string | null) => void;
   onBackgroundColorChange?: (color: string, isTransparent: boolean) => void;
+  onZoomLevelChange?: (zoomLevel: number) => void;
 }
 
 type BackgroundMode = 'transparent' | 'color';
@@ -34,7 +35,8 @@ const RenderOptionsPanel: React.FC<RenderOptionsPanelProps> = ({
   sourceGlbUrl,
   selectedAssets = [],
   onPreviewOrbitChange,
-  onBackgroundColorChange
+  onBackgroundColorChange,
+  onZoomLevelChange
 }) => {
   const user = useUser();
   const rawClient = Array.isArray(user?.metadata?.client) 
@@ -208,6 +210,13 @@ const RenderOptionsPanel: React.FC<RenderOptionsPanelProps> = ({
       localStorage.setItem('charpstar:renderSettings:zoomLevel', String(zoomLevel));
     } catch {}
   }, [zoomLevel]);
+
+  // Notify parent of zoom level changes for live preview
+  React.useEffect(() => {
+    if (onZoomLevelChange) {
+      onZoomLevelChange(zoomLevel);
+    }
+  }, [zoomLevel, onZoomLevelChange]);
 
   // Notify parent of background color changes for live preview
   React.useEffect(() => {

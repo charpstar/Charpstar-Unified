@@ -6,9 +6,10 @@ interface ModelViewerProps {
   modelUrl: string;
   cameraAngle?: string;
   backgroundColor?: string;
+  zoomLevel?: number; // -50 to 50, where 0 is default
 }
 
-export function ModelViewer({ modelUrl, cameraAngle, backgroundColor }: ModelViewerProps) {
+export function ModelViewer({ modelUrl, cameraAngle, backgroundColor, zoomLevel = 0 }: ModelViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const modelViewerRef = useRef<any>(null);
 
@@ -32,13 +33,14 @@ export function ModelViewer({ modelUrl, cameraAngle, backgroundColor }: ModelVie
     // Clear any existing model-viewer elements
     containerRef.current.innerHTML = "";
 
-    // Create a new model-viewer element with auto settings for field-of-view
+    // Create a new model-viewer element with all interactions disabled
     const modelViewer = document.createElement("model-viewer");
     modelViewer.setAttribute("src", modelUrl);
     modelViewer.setAttribute("alt", "Generated 3D model");
-    // Auto-rotate disabled - model stays still for better preview
-    modelViewer.setAttribute("camera-controls", "");
-    // Remove any custom camera orbit or field-of-view settings to use defaults
+    // Disable all interactions - camera is controlled purely by hovering angle buttons
+    modelViewer.setAttribute("interaction-prompt", "none");
+    modelViewer.setAttribute("disable-zoom", "");
+    // No camera-controls - user cannot interact with the model
     // Add specific visual settings
     modelViewer.setAttribute(
       "environment-image",
@@ -50,6 +52,7 @@ export function ModelViewer({ modelUrl, cameraAngle, backgroundColor }: ModelVie
     modelViewer.setAttribute("shadow-softness", "1");
     modelViewer.style.width = "100%";
     modelViewer.style.height = "100%";
+    modelViewer.style.cursor = "default"; // Remove pointer cursor
 
     // Set initial camera angle if provided
     if (cameraAngle) {
@@ -98,6 +101,35 @@ export function ModelViewer({ modelUrl, cameraAngle, backgroundColor }: ModelVie
       }
     }
   }, [cameraAngle]);
+
+  // Update field-of-view based on zoom level to approximate render view
+  useEffect(() => {
+    if (modelViewerRef.current) {
+      // Convert zoomLevel (-50 to +50) to field-of-view
+      // zoomLevel = -50 (zoom in): smaller FOV (tighter view, like 10deg)
+      // zoomLevel = 0 (default): standard FOV (20deg)
+      // zoomLevel = +50 (zoom out): larger FOV (wider view, like 35deg)
+      // Formula: FOV = 20 - (zoomLevel * 0.2) for zoom in/out
+      // But we want zoom in to reduce FOV and zoom out to increase FOV
+      // So: FOV = 20 + (zoomLevel * 0.3)
+      // zoomLevel = -50: FOV = 20 - 15 = 5deg (very tight)
+      // zoomLevel = 0: FOV = 20deg (default)
+      // zoomLevel = +50: FOV = 20 + 15 = 35deg (wide)
+      const baseFOV = 20;
+      const fov = Math.max(5, Math.min(45, baseFOV + (zoomLevel * 0.3)));
+      
+      try {
+        if (modelViewerRef.current.fieldOfView !== undefined) {
+          modelViewerRef.current.fieldOfView = `${fov}deg`;
+        } else {
+          modelViewerRef.current.setAttribute("field-of-view", `${fov}deg`);
+        }
+        //eslint-disable-next-line @typescript-eslint/no-unused-vars
+      } catch (error) {
+        modelViewerRef.current.setAttribute("field-of-view", `${fov}deg`);
+      }
+    }
+  }, [zoomLevel]);
 
   if (!modelUrl) {
     return (
